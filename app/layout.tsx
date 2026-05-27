@@ -8,10 +8,29 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'LushNote',
   description: 'Clinical note builder for psychiatrists',
+  applicationName: 'LushNote',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    title: 'LushNote',
+    statusBarStyle: 'default',
+  },
+  metadataBase: new URL('https://lushnote.com.au'),
+  openGraph: {
+    title: 'LushNote',
+    description: 'Clinical note builder for psychiatrists',
+    url: 'https://lushnote.com.au',
+    siteName: 'LushNote',
+    type: 'website',
+  },
 }
 
 export const viewport: Viewport = {
   themeColor: '#10b981',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
