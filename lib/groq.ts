@@ -1,1 +1,52 @@
-// Layer 3 — Groq API client
+const BASE_URL = 'https://api.groq.com/openai/v1'
+const GENERATION_MODEL = 'llama-3.3-70b-versatile'
+const TRANSCRIPTION_MODEL = 'whisper-large-v3-turbo'
+
+export async function generateNoteGroq(
+  prompt: string,
+  systemPrompt: string,
+  apiKey: string
+): Promise<string> {
+  const res = await fetch(`${BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: GENERATION_MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt },
+      ],
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { error?: { message?: string } }
+    throw new Error(`${res.status}: ${err?.error?.message ?? res.statusText}`)
+  }
+  const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
+  return data.choices?.[0]?.message?.content ?? ''
+}
+
+export async function transcribeAudioGroq(audioBlob: FormData, apiKey: string): Promise<string> {
+  audioBlob.set('model', TRANSCRIPTION_MODEL)
+  audioBlob.set('response_format', 'text')
+  const res = await fetch(`${BASE_URL}/audio/transcriptions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: audioBlob,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({})) as { error?: { message?: string } }
+    throw new Error(`${res.status}: ${err?.error?.message ?? res.statusText}`)
+  }
+  return res.text()
+}
+
+export function isRateLimited(error: unknown): boolean {
+  if (error instanceof Error) {
+    return error.message.includes('429')
+  }
+  return false
+}

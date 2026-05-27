@@ -19,6 +19,7 @@ interface User {
   transcriptPrivacy?: TranscriptPrivacy
   recordingDefaults?: RecordingDefaults
   personalisation?: Personalisation
+  geminiUsage?: GeminiUsage
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
 }
