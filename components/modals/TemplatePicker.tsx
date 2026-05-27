@@ -37,7 +37,23 @@ export default function TemplatePicker({ open, onSelect, onCancel }: TemplatePic
     if (!open || loaded.current) return
     loaded.current = true
     import('@/data/templates-prompts.json')
-      .then(mod => setBuiltins((mod.default as Template[]) ?? []))
+      .then(mod => {
+        const raw = mod.default as unknown
+        if (Array.isArray(raw)) {
+          setBuiltins(raw as Template[])
+        } else if (raw && typeof raw === 'object') {
+          setBuiltins(
+            Object.entries(raw as Record<string, string>).map(([k, v]) => ({
+              id: Number(k),
+              title: v.split('\n')[0].replace(/^\[[^\]]+\]\s*/, '').slice(0, 80),
+              category: 'General',
+              tplType: 'session' as const,
+              description: '',
+              prompt: v,
+            }))
+          )
+        }
+      })
       .catch(() => setBuiltins([]))
   }, [open])
 

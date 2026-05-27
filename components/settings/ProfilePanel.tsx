@@ -1,0 +1,253 @@
+'use client'
+
+import { useState } from 'react'
+import { reauthenticateWithPopup, GoogleAuthProvider, deleteUser } from 'firebase/auth'
+import { collection, getDocs, writeBatch, doc, setDoc } from 'firebase/firestore'
+import { auth, db } from '@/lib/firebase'
+import { deleteProfile } from '@/lib/firestore/profiles'
+import Input from '@/components/ui/Input'
+import Button from '@/components/ui/Button'
+import { useAuth } from '@/hooks/useAuth'
+import type { User } from '@/types'
+
+interface ProfilePanelProps {
+  profile: User
+  uid: string
+  onSave: (data: Partial<User>) => Promise<void>
+  onToast: (msg: string) => void
+}
+
+const DELETE_REASONS = [
+  'Security Concerns',
+  'Privacy Concerns',
+  'App Crashed / Bugs',
+  'Difficult to Use',
+  'Templates Not Working',
+  'Unsatisfied with AI Output',
+  'Missing Features',
+  'Too Complex',
+  'Switching to Another Tool',
+  'No Longer Need the App',
+  'Other',
+]
+
+export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfilePanelProps) {
+  const { user } = useAuth()
+  const [displayName, setDisplayName] = useState(profile.displayName ?? '')
+  const [credentials, setCredentials] = useState(profile.credentials ?? '')
+  const [emailPretext, setEmailPretext] = useState(profile.emailPretext ?? '')
+  const [saving, setSaving] = useState(false)
+
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [selectedReasons, setSelectedReasons] = useState<string[]>([])
+  const [deleteMessage, setDeleteMessage] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await onSave({ displayName: displayName.trim(), credentials: credentials.trim(), emailPretext })
+      onToast('Profile saved')
+    } catch {
+      onToast('Failed to save profile')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function toggleReason(r: string) {
+    setSelectedReasons(prev =>
+      prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]
+    )
+  }
+
+  async function handleDeleteAccount() {
+    if (!user) return
+    setDeleteError(null)
+    setDeleting(true)
+    try {
+      // Step 1: reauthenticate
+      await reauthenticateWithPopup(user, new GoogleAuthProvider())
+
+      // Step 2: save feedback
+      const feedbackRef = doc(db, 'deletion_feedback', uid)
+      await setDoc(feedbackRef, {
+        userId: uid,
+        email: user.email ?? '',
+        reasons: selectedReasons,
+        message: deleteMessage,
+        deletedAt: new Date().toISOString(),
+      })
+
+      // Step 3: batch delete all progress notes for this user
+      const notesSnap = await getDocs(collection(db, 'progress_notes'))
+      const userNotes = notesSnap.docs.filter(d => d.data().userId === uid)
+      const NOTE_CHUNK = 400
+      for (let i = 0; i < userNotes.length; i += NOTE_CHUNK) {
+        const batch = writeBatch(db)
+        userNotes.slice(i, i + NOTE_CHUNK).forEach(d => batch.delete(d.ref))
+        await batch.commit()
+      }
+
+      // Step 4: batch delete patient profiles subcollection
+      const profilesSnap = await getDocs(collection(db, 'users', uid, 'patientProfiles'))
+      if (profilesSnap.docs.length > 0) {
+        const batch = writeBatch(db)
+        profilesSnap.docs.forEach(d => batch.delete(d.ref))
+        await batch.commit()
+      }
+
+      // Step 5: delete user document
+      await deleteProfile(uid)
+
+      // Step 6: delete Firebase Auth account
+      await deleteUser(user)
+
+      // Step 7: clear sessionStorage
+      sessionStorage.removeItem('groq_api_key')
+      sessionStorage.removeItem('gemini_api_key')
+
+      // Step 8: navigate to account-deleted page
+      window.location.href = '/account-deleted'
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Deletion failed'
+      setDeleteError(msg.includes('popup-closed') ? 'Re-authentication cancelled.' : 'Something went wrong. Please try again.')
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <div className="max-w-lg space-y-6">
+      {/* Signed in as */}
+      <div className="flex items-center gap-2 px-3 py-2 rounded-[var(--r)] bg-[var(--bg)] border border-[var(--border)]">
+        <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden>
+          <path fill="#4285F4" d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/>
+          <path fill="#34A853" d="M6.3 14.7l7 5.1C15.1 16.1 19.2 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2c-7.6 0-14.2 4.2-17.7 10.7z"/>
+          <path fill="#FBBC05" d="M24 46c5.8 0 10.7-1.9 14.3-5.2l-6.6-5.4C29.9 37 27.1 38 24 38c-6.1 0-11.2-4.1-13.1-9.7l-7 5.4C7.7 41.8 15.3 46 24 46z"/>
+          <path fill="#EA4335" d="M44.5 20H24v8.5h11.8c-1 3.1-3.3 5.6-6.4 7.1l6.6 5.4C41.6 37.3 45 31.1 45 24c0-1.3-.2-2.7-.5-4z"/>
+        </svg>
+        <span className="text-sm text-[var(--text2)]">Signed in as</span>
+        <span className="text-sm font-medium text-[var(--text)] truncate">{user?.email}</span>
+      </div>
+
+      {/* Editable fields */}
+      <Input
+        label="Display name"
+        value={displayName}
+        onChange={e => setDisplayName(e.target.value)}
+        placeholder="e.g. Dr Jane Smith"
+      />
+      <Input
+        label="Credentials"
+        value={credentials}
+        onChange={e => setCredentials(e.target.value)}
+        placeholder="e.g. FRANZCP, MBChB"
+      />
+
+      <div>
+        <label className="block text-sm font-medium text-[var(--text)] mb-1">
+          Email opening line
+        </label>
+        <textarea
+          value={emailPretext}
+          onChange={e => setEmailPretext(e.target.value)}
+          rows={4}
+          placeholder="Dear colleague, please find below a summary of the patient discussed…"
+          className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white
+                     px-3 py-2.5 text-sm text-[var(--text)] placeholder:text-[var(--text3)]
+                     outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
+                     transition-colors resize-none"
+        />
+      </div>
+
+      <Button variant="primary" onClick={handleSave} loading={saving}>
+        Save profile
+      </Button>
+
+      {/* Delete account section */}
+      <div className="border border-[var(--danger)]/30 rounded-[var(--r-lg)] p-4 mt-8">
+        <p className="text-sm font-semibold text-[var(--danger)] mb-1">Delete account</p>
+        <p className="text-xs text-[var(--text2)] mb-3">
+          Permanently deletes all your notes, patients, and account data.
+          This cannot be undone.
+        </p>
+        <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
+          Delete my account
+        </Button>
+      </div>
+
+      {/* Delete account modal */}
+      {deleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => !deleting && setDeleteOpen(false)}
+          />
+          <div className="relative w-full max-w-md bg-white rounded-2xl p-5 space-y-4"
+               style={{ boxShadow: 'var(--shadow-lg)' }}>
+            <h2 className="text-base font-semibold text-[var(--text)]">
+              Before you go — what went wrong?
+            </h2>
+            <p className="text-sm text-[var(--text2)]">
+              Select all that apply. Your feedback helps improve LushNote.
+            </p>
+
+            <div className="flex flex-wrap gap-2">
+              {DELETE_REASONS.map(r => (
+                <button
+                  key={r}
+                  onClick={() => toggleReason(r)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors
+                    ${selectedReasons.includes(r)
+                      ? 'bg-[var(--danger)] text-white border-[var(--danger)]'
+                      : 'bg-white text-[var(--text2)] border-[var(--border)] hover:border-[var(--danger)]/50'}`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              value={deleteMessage}
+              onChange={e => setDeleteMessage(e.target.value)}
+              rows={3}
+              placeholder="Anything else you'd like us to know? (optional)"
+              className="w-full rounded-[var(--r)] border border-[var(--border)] bg-[var(--bg)]
+                         px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--text3)]
+                         outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
+                         transition-colors resize-none"
+            />
+
+            {deleteError && (
+              <p className="text-xs text-[var(--danger)]">{deleteError}</p>
+            )}
+
+            <p className="text-xs text-[var(--text3)]">
+              You'll be asked to re-authenticate with Google before deletion proceeds.
+            </p>
+
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => setDeleteOpen(false)}
+                className="flex-1"
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleDeleteAccount}
+                loading={deleting}
+                className="flex-1"
+              >
+                Confirm delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
