@@ -2,16 +2,30 @@ import { NextRequest, NextResponse } from 'next/server'
 import { transcribeAudio, checkQuota } from '@/lib/gemini'
 import { transcribeAudioGroq } from '@/lib/groq'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles'
+import { rateLimit } from '@/lib/rateLimit'
 
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData()
-    const audio = form.get('audio') as File | null
-    const mimeType = form.get('mimeType') as string | null
-    const uid = form.get('uid') as string | null
+    const audio = form.get('audio')
+    const mimeType = form.get('mimeType')
+    const uid = form.get('uid')
 
-    if (!audio || !mimeType || !uid) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    if (!uid || typeof uid !== 'string' || uid.length === 0 || uid.length > 128) {
+      return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
+    }
+
+    if (!(audio instanceof File)) {
+      return NextResponse.json({ error: 'Invalid audio field' }, { status: 400 })
+    }
+
+    if (typeof mimeType !== 'string' || !mimeType.startsWith('audio/')) {
+      return NextResponse.json({ error: 'Invalid mimeType' }, { status: 400 })
+    }
+
+    const limit = rateLimit(`${uid}:transcribe`, 30, 60 * 60 * 1000)
+    if (!limit.allowed) {
+      return NextResponse.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 })
     }
 
     const profile = await getProfile(uid)
@@ -41,8 +55,8 @@ export async function POST(req: NextRequest) {
     const text = await transcribeAudioGroq(formData, groqKey)
     return NextResponse.json({ text, provider: 'groq' })
 
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Transcription failed'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch {
+    console.error('Transcription error')
+    return NextResponse.json({ error: 'Transcription failed' }, { status: 500 })
   }
 }

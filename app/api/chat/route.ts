@@ -2,17 +2,35 @@ import { NextRequest, NextResponse } from 'next/server'
 import { chatResponse, checkQuota } from '@/lib/gemini'
 import { generateNoteGroq } from '@/lib/groq'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles'
+import { rateLimit } from '@/lib/rateLimit'
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, systemPrompt, uid } = await req.json() as {
+    const body = await req.json() as {
       messages: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }>
       systemPrompt: string
       uid: string
     }
 
-    if (!messages || !uid) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    const { messages, systemPrompt, uid } = body
+
+    if (!uid || typeof uid !== 'string' || uid.length === 0 || uid.length > 128) {
+      return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
+    }
+
+    if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
+      return NextResponse.json({ error: 'Invalid messages array' }, { status: 400 })
+    }
+
+    for (const msg of messages) {
+      if ((msg.role !== 'user' && msg.role !== 'model') || !Array.isArray(msg.parts)) {
+        return NextResponse.json({ error: 'Invalid message format' }, { status: 400 })
+      }
+    }
+
+    const limit = rateLimit(`${uid}:chat`, 60, 60 * 60 * 1000)
+    if (!limit.allowed) {
+      return NextResponse.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 })
     }
 
     const profile = await getProfile(uid)
@@ -35,7 +53,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No API key available for chat' }, { status: 401 })
     }
 
-    // Convert Gemini message format to Groq/OpenAI format
     const groqMessages = messages.map(m => ({
       role: m.role === 'model' ? 'assistant' as const : 'user' as const,
       content: m.parts[0].text,
@@ -45,8 +62,8 @@ export async function POST(req: NextRequest) {
     const reply = await generateNoteGroq(prompt, systemPrompt, groqKey)
     return NextResponse.json({ reply, provider: 'groq' })
 
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Chat failed'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch {
+    console.error('Chat error')
+    return NextResponse.json({ error: 'Chat failed' }, { status: 500 })
   }
 }

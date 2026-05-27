@@ -2,18 +2,38 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateNote, checkQuota } from '@/lib/gemini'
 import { generateNoteGroq } from '@/lib/groq'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles'
+import { rateLimit } from '@/lib/rateLimit'
 
 export async function POST(req: NextRequest) {
   try {
-    const { transcript, templatePrompt, systemPrompt, uid } = await req.json() as {
+    const body = await req.json() as {
       transcript: string
       templatePrompt: string
       systemPrompt: string
       uid: string
     }
 
-    if (!transcript || !uid) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    const { transcript, templatePrompt, systemPrompt, uid } = body
+
+    if (!uid || typeof uid !== 'string' || uid.length === 0 || uid.length > 128) {
+      return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
+    }
+
+    if (!transcript || typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 100000) {
+      return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })
+    }
+
+    if (!templatePrompt || typeof templatePrompt !== 'string' || templatePrompt.length === 0 || templatePrompt.length > 50000) {
+      return NextResponse.json({ error: 'Invalid templatePrompt' }, { status: 400 })
+    }
+
+    if (typeof systemPrompt !== 'string' || systemPrompt.length > 10000) {
+      return NextResponse.json({ error: 'Invalid systemPrompt' }, { status: 400 })
+    }
+
+    const limit = rateLimit(`${uid}:generate`, 40, 60 * 60 * 1000)
+    if (!limit.allowed) {
+      return NextResponse.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 })
     }
 
     const profile = await getProfile(uid)
@@ -40,8 +60,8 @@ export async function POST(req: NextRequest) {
     const content = await generateNoteGroq(prompt, systemPrompt, groqKey)
     return NextResponse.json({ content, provider: 'groq' })
 
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Generation failed'
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch {
+    console.error('Generation error')
+    return NextResponse.json({ error: 'Generation failed' }, { status: 500 })
   }
 }
