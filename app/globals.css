@@ -1,0 +1,4 @@
+/* Layer 5 — Tailwind base + brand CSS variables */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
