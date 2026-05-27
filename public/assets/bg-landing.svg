@@ -1,20 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
-  <defs>
-    <radialGradient id="lg1" cx="20%" cy="10%" r="55%">
-      <stop offset="0%" stop-color="#5ad6a7" stop-opacity="0.22"/>
-      <stop offset="100%" stop-color="#5ad6a7" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="lg2" cx="80%" cy="85%" r="50%">
-      <stop offset="0%" stop-color="#2563eb" stop-opacity="0.14"/>
-      <stop offset="100%" stop-color="#2563eb" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="lg3" cx="85%" cy="15%" r="38%">
-      <stop offset="0%" stop-color="#10b981" stop-opacity="0.10"/>
-      <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
+<svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect width="1440" height="900" fill="#f8fafc"/>
-  <ellipse cx="288" cy="90" rx="520" ry="520" fill="url(#lg1)"/>
-  <ellipse cx="1152" cy="765" rx="450" ry="450" fill="url(#lg2)"/>
-  <ellipse cx="1224" cy="135" rx="310" ry="310" fill="url(#lg3)"/>
+  <radialGradient id="a" cx="50%" cy="30%" r="60%">
+    <stop offset="0%" stop-color="#5ad6a7" stop-opacity="0.22"/>
+    <stop offset="100%" stop-color="#5ad6a7" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="b" cx="80%" cy="70%" r="40%">
+    <stop offset="0%" stop-color="#2563eb" stop-opacity="0.14"/>
+    <stop offset="100%" stop-color="#2563eb" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="c" cx="15%" cy="80%" r="30%">
+    <stop offset="0%" stop-color="#10b981" stop-opacity="0.10"/>
+    <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+  </radialGradient>
+  <rect width="1440" height="900" fill="url(#a)"/>
+  <rect width="1440" height="900" fill="url(#b)"/>
+  <rect width="1440" height="900" fill="url(#c)"/>
 </svg>

@@ -15,13 +15,7 @@ const variantClasses: Record<NonNullable<BadgeProps['variant']>, string> = {
 
 export default function Badge({ variant = 'gray', children }: BadgeProps) {
   return (
-    <span
-      className={`
-        inline-flex items-center rounded-full
-        px-2 py-0.5 text-xs font-semibold
-        ${variantClasses[variant]}
-      `}
-    >
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${variantClasses[variant]}`}>
       {children}
     </span>
   )

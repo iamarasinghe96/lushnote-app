@@ -6,15 +6,7 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   hint?: string
 }
 
-export default function Textarea({
-  label,
-  error,
-  hint,
-  className = '',
-  id,
-  rows = 4,
-  ...rest
-}: TextareaProps) {
+export default function Textarea({ label, error, hint, className = '', id, rows = 4, ...rest }: TextareaProps) {
   const inputId = id ?? (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined)
   return (
     <div className="w-full">

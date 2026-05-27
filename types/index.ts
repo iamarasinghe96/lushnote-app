@@ -113,6 +113,7 @@ type NoteCreationMode =
   | 'dictation'     // solo narration recording
   | 'conversation'  // in-person or telehealth recording
   | 'document'      // paste or upload .txt
+  | 'upload'        // upload audio file (hidden in UI, code preserved)
 
 interface GenerationRequest {
   mode: NoteCreationMode

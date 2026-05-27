@@ -11,36 +11,22 @@ interface ModalProps {
   children: ReactNode
 }
 
-const maxWidthClasses = {
-  sm: 'max-w-sm',
-  md: 'max-w-md',
-  lg: 'max-w-lg',
-}
+const maxWidthClasses = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg' }
 
-export default function Modal({
-  open,
-  onClose,
-  title,
-  maxWidth = 'md',
-  children,
-}: ModalProps) {
+export default function Modal({ open, onClose, title, maxWidth = 'md', children }: ModalProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => setMounted(true), [])
 
-  // Scroll lock
   useEffect(() => {
     if (!open) return
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = '' }
   }, [open])
 
-  // Escape key
   useEffect(() => {
     if (!open) return
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [open, onClose])
@@ -60,13 +46,9 @@ export default function Modal({
           backdrop-blur-md bg-white/90
           rounded-t-[20px] sm:rounded-[20px]
           border border-white/45
-          animate-modal-enter
-          overflow-hidden
+          animate-modal-enter overflow-hidden
         `}
-        style={{
-          boxShadow: 'var(--shadow-lg)',
-          willChange: 'transform, opacity',
-        }}
+        style={{ boxShadow: 'var(--shadow-lg)', willChange: 'transform, opacity' }}
         onMouseDown={e => e.stopPropagation()}
       >
         {title && (

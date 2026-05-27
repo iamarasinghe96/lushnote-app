@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react'
 
 interface CardProps {
-  className?: string
   children: ReactNode
+  className?: string
 }
 
-export default function Card({ className = '', children }: CardProps) {
+export default function Card({ children, className = '' }: CardProps) {
   return (
     <div
       className={`bg-white border border-[var(--border)] rounded-[var(--r-lg)] p-5 ${className}`}

@@ -2,128 +2,93 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useRef } from 'react'
 
-const tabs = [
-  { label: 'Generate', href: '/generate', icon: GenerateIcon },
-  { label: 'Edit',     href: '/edit',     icon: EditIcon     },
-  { label: 'Export',   href: '/export',   icon: ExportIcon   },
-  { label: 'History',  href: '/history',  icon: HistoryIcon  },
-  { label: 'Patients', href: '/patients', icon: PatientsIcon },
-]
+const TABS = [
+  {
+    href: '/generate',
+    label: 'Generate',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+        <line x1="9" y1="13" x2="15" y2="13"/>
+        <line x1="9" y1="17" x2="13" y2="17"/>
+      </svg>
+    ),
+  },
+  {
+    href: '/edit',
+    label: 'Edit',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+    ),
+  },
+  {
+    href: '/export',
+    label: 'Export',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+        <polyline points="16,6 12,2 8,6"/>
+        <line x1="12" y1="2" x2="12" y2="15"/>
+      </svg>
+    ),
+  },
+  {
+    href: '/history',
+    label: 'History',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12,6 12,12 16,14"/>
+      </svg>
+    ),
+  },
+  {
+    href: '/patients',
+    label: 'Patients',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    ),
+  },
+] as const
 
 export default function TabBar() {
   const pathname = usePathname()
-  const linkRefs = useRef<(HTMLAnchorElement | null)[]>([])
-
-  const activeIdx = tabs.findIndex(t => pathname.startsWith(t.href))
-
-  useEffect(() => {
-    if (activeIdx >= 0) {
-      linkRefs.current[activeIdx]?.scrollIntoView({ inline: 'center', behavior: 'smooth' })
-    }
-  }, [activeIdx])
 
   return (
     <nav
-      className="relative z-30 shrink-0 backdrop-blur-lg bg-white/85 border-t border-white/50
-                 scrollbar-none overflow-x-auto pb-safe"
+      className="shrink-0 flex items-stretch border-t border-white/50
+                 backdrop-blur-lg bg-white/85 scrollbar-none overflow-x-auto pb-safe"
       style={{
-        boxShadow: '0 -2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
-        WebkitOverflowScrolling: 'touch' as never,
+        boxShadow: '0 -1px 0 rgba(15,23,42,.05)',
+        minHeight: 56,
       }}
-      aria-label="Main navigation"
     >
-      <div className="flex min-w-max mx-auto" style={{ height: 56 }}>
-        {tabs.map((tab, i) => {
-          const active = i === activeIdx
-          const Icon = tab.icon
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              ref={el => { linkRefs.current[i] = el }}
-              className={`flex flex-col items-center justify-center gap-0.5 px-4 min-w-[64px] flex-1
-                          transition-opacity duration-150 select-none
-                          ${active ? 'text-[var(--blue)]' : 'text-[var(--text3)]'}`}
-              aria-current={active ? 'page' : undefined}
-            >
-              <Icon active={active} />
-              <span
-                className="text-[10px] leading-none"
-                style={{ fontWeight: active ? 600 : 400 }}
-              >
-                {tab.label}
-              </span>
-            </Link>
-          )
-        })}
-      </div>
+      {TABS.map(({ href, label, icon }) => {
+        const active = pathname === href || pathname.startsWith(href + '/')
+        return (
+          <Link
+            key={href}
+            href={href}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-w-[60px]
+              text-[10px] font-medium transition-colors
+              ${active ? 'text-[var(--blue)]' : 'text-[var(--text3)] hover:text-[var(--text2)]'}`}
+            style={{ fontWeight: active ? 600 : 500 }}
+          >
+            {icon}
+            <span>{label}</span>
+          </Link>
+        )
+      })}
     </nav>
-  )
-}
-
-/* ── Icons ──────────────────────────────────────────────── */
-
-function iconProps(active: boolean) {
-  return {
-    width: 20,
-    height: 20,
-    viewBox: '0 0 20 20',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: active ? 2 : 1.75,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    'aria-hidden': true as const,
-  }
-}
-
-function GenerateIcon({ active }: { active: boolean }) {
-  return (
-    <svg {...iconProps(active)}>
-      <path d="M11 2H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7l-5-5z"/>
-      <polyline points="11 2 11 7 16 7"/>
-      <line x1="7" y1="10" x2="13" y2="10"/>
-      <line x1="7" y1="13" x2="11" y2="13"/>
-    </svg>
-  )
-}
-
-function EditIcon({ active }: { active: boolean }) {
-  return (
-    <svg {...iconProps(active)}>
-      <path d="M13 2.5 17.5 7 7.5 17H3v-4.5L13 2.5z"/>
-      <line x1="11.5" y1="4" x2="16" y2="8.5"/>
-    </svg>
-  )
-}
-
-function ExportIcon({ active }: { active: boolean }) {
-  return (
-    <svg {...iconProps(active)}>
-      <path d="M10 2v10M7 5l3-3 3 3"/>
-      <path d="M5 9v7a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V9"/>
-    </svg>
-  )
-}
-
-function HistoryIcon({ active }: { active: boolean }) {
-  return (
-    <svg {...iconProps(active)}>
-      <circle cx="10" cy="10" r="8"/>
-      <polyline points="10 6 10 10 13 12"/>
-    </svg>
-  )
-}
-
-function PatientsIcon({ active }: { active: boolean }) {
-  return (
-    <svg {...iconProps(active)}>
-      <circle cx="8" cy="7" r="3"/>
-      <path d="M2 18a6 6 0 0 1 12 0"/>
-      <circle cx="15" cy="7" r="2.5"/>
-      <path d="M12.5 18a4.5 4.5 0 0 1 5 0"/>
-    </svg>
   )
 }

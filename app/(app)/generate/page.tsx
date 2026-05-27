@@ -1,9 +1,353 @@
 'use client'
 
-export default function GeneratePage() {
+import { useState, type ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
+import { useNoteStore } from '@/hooks/useNoteStore'
+import { getPersonalisationPrefix } from '@/lib/personalisation'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
+import Textarea from '@/components/ui/Textarea'
+import RecordModal from '@/components/modals/RecordModal'
+import DictateModal from '@/components/modals/DictateModal'
+import TranscriptConfirm from '@/components/modals/TranscriptConfirm'
+import TemplatePicker from '@/components/modals/TemplatePicker'
+import type { AnyTemplate, NoteCreationMode, Note } from '@/types'
+
+type GenPhase =
+  | 'idle'
+  | 'paste-input'
+  | 'document-input'
+  | 'upload-input'
+  | 'recording'
+  | 'dictating'
+  | 'transcribing'
+  | 'transcript-confirm'
+  | 'template-picking'
+  | 'generating'
+
+interface ModeCardProps {
+  icon: ReactNode
+  title: string
+  description: string
+  onClick: () => void
+}
+
+function ModeCard({ icon, title, description, onClick }: ModeCardProps) {
   return (
-    <div className="flex items-center justify-center h-full text-[var(--text3)]">
-      <p className="text-sm">Generate tab — Layer 6</p>
+    <button
+      onClick={onClick}
+      className="w-full text-left rounded-[var(--r-lg)] bg-white border border-[var(--border)]
+                 p-4 flex items-start gap-3 hover:border-[var(--blue)] hover:shadow-md
+                 active:scale-[0.99] transition-all"
+      style={{ boxShadow: 'var(--shadow-sm)' }}
+    >
+      <span className="mt-0.5 text-[var(--blue)] shrink-0">{icon}</span>
+      <div>
+        <p className="font-semibold text-sm text-[var(--text)]">{title}</p>
+        <p className="text-xs text-[var(--text2)] mt-0.5">{description}</p>
+      </div>
+    </button>
+  )
+}
+
+const PasteIcon = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <rect x="9" y="2" width="6" height="4" rx="1"/>
+    <path d="M5 4h-1a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1"/>
+    <line x1="9" y1="12" x2="15" y2="12"/>
+    <line x1="9" y1="16" x2="15" y2="16"/>
+  </svg>
+)
+const RecordIcon = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+  </svg>
+)
+const DictateIcon = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    <line x1="12" y1="19" x2="12" y2="22"/>
+  </svg>
+)
+const DocumentIcon = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14,2 14,8 20,8"/>
+    <line x1="9" y1="13" x2="15" y2="13"/>
+    <line x1="9" y1="17" x2="15" y2="17"/>
+  </svg>
+)
+const UploadIcon = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <polyline points="16,16 12,12 8,16"/>
+    <line x1="12" y1="12" x2="12" y2="21"/>
+    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+  </svg>
+)
+
+function parseGeneratedContent(content: string): Partial<Note> {
+  const sectionMap: Record<string, keyof Note> = {
+    'presentation':             'presentation',
+    'history':                  'history',
+    'medications':              'medications',
+    'mental status':            'mse',
+    'mse':                      'mse',
+    'mental status examination':'mse',
+    'session content':          'content',
+    'content':                  'content',
+    'scales':                   'scales',
+    'risk':                     'risk',
+    'referrals':                'referrals',
+    'summary':                  'summary',
+    'next steps':               'nextsteps',
+    'nextsteps':                'nextsteps',
+    'diagnosis':                'diagnosis',
+  }
+
+  const fields: Partial<Note> = {}
+  const sectionRegex = /#{1,3}\s+([^\n]+)\n([\s\S]*?)(?=#{1,3}\s+|$)/g
+  let match = sectionRegex.exec(content)
+  let parsed = false
+
+  while (match !== null) {
+    const header = match[1].trim().toLowerCase()
+    const body = match[2].trim()
+    const fieldKey = sectionMap[header]
+    if (fieldKey) {
+      ;(fields as Record<string, string>)[fieldKey] = body
+      parsed = true
+    }
+    match = sectionRegex.exec(content)
+  }
+
+  if (!parsed) {
+    fields.content = content.trim()
+  }
+
+  return fields
+}
+
+export default function GeneratePage() {
+  const router = useRouter()
+  const { user, profile } = useAuth()
+  const store = useNoteStore()
+
+  const [phase, setPhase] = useState<GenPhase>('idle')
+  const [inputText, setInputText] = useState('')
+  const [transcript, setTranscript] = useState('')
+  const [creationMode, setCreationMode] = useState<NoteCreationMode>('paste')
+  const [error, setError] = useState<string | null>(null)
+
+  function startMode(mode: NoteCreationMode) {
+    setCreationMode(mode)
+    setError(null)
+    setInputText('')
+    if (mode === 'paste') setPhase('paste-input')
+    else if (mode === 'document') setPhase('document-input')
+    else if (mode === 'conversation') setPhase('recording')
+    else if (mode === 'dictation') setPhase('dictating')
+    else if (mode === 'upload') setPhase('upload-input')
+  }
+
+  function handleCancel() {
+    setPhase('idle')
+    setInputText('')
+    setTranscript('')
+    setError(null)
+  }
+
+  function handleTextConfirm() {
+    if (!inputText.trim()) return
+    setTranscript(inputText.trim())
+    setPhase('transcript-confirm')
+  }
+
+  async function handleAudioReady(blob: Blob, mimeType: string, duration: number) {
+    store.setLastRecordingDuration(duration)
+    setPhase('transcribing')
+    try {
+      const formData = new FormData()
+      formData.append('audio', blob, 'audio.webm')
+      formData.append('mimeType', mimeType)
+      formData.append('uid', user!.uid)
+
+      const headers: Record<string, string> = {}
+      const groqKey = sessionStorage.getItem('groq_api_key')
+      if (groqKey) headers['x-groq-key'] = groqKey
+
+      const res = await fetch('/api/transcribe', { method: 'POST', headers, body: formData })
+      if (!res.ok) {
+        const data = await res.json() as { error?: string }
+        throw new Error(data.error ?? 'Transcription failed')
+      }
+      const data = await res.json() as { text: string }
+      setTranscript(data.text)
+      setPhase('transcript-confirm')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Transcription failed')
+      setPhase('idle')
+    }
+  }
+
+  function handleTranscriptConfirm(editedTranscript: string) {
+    setTranscript(editedTranscript)
+    store.setLastTranscript(editedTranscript)
+    store.setLastTranscriptMode(creationMode)
+    setPhase('template-picking')
+  }
+
+  async function handleTemplateSelect(template: AnyTemplate) {
+    setPhase('generating')
+    store.setLastChosenTemplate(template)
+    try {
+      const noteLength = profile?.personalisation?.noteLength ?? 'balanced'
+      const systemPrompt = profile ? getPersonalisationPrefix(profile, noteLength) : ''
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const groqKey = sessionStorage.getItem('groq_api_key')
+      if (groqKey) headers['x-groq-key'] = groqKey
+
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          transcript,
+          templatePrompt: template.prompt,
+          systemPrompt,
+          uid: user!.uid,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json() as { error?: string }
+        throw new Error(data.error ?? 'Generation failed')
+      }
+      const data = await res.json() as { content: string }
+      const noteFields = parseGeneratedContent(data.content)
+      store.setCurrentNote({
+        ...noteFields,
+        transcript,
+        transcriptMode: creationMode,
+      })
+      store.setCurrentNoteId(null)
+      setPhase('idle')
+      router.push('/edit')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Generation failed')
+      setPhase('idle')
+    }
+  }
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="max-w-lg mx-auto px-4 py-6 space-y-3">
+        <div className="mb-2">
+          <h1 className="text-lg font-semibold text-[var(--text)]">New note</h1>
+          <p className="text-sm text-[var(--text2)]">Choose how to create your clinical note</p>
+        </div>
+
+        {error && (
+          <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-[var(--danger)]">
+            {error}
+            <button onClick={() => setError(null)} className="ml-2 underline">Dismiss</button>
+          </div>
+        )}
+
+        <ModeCard icon={PasteIcon} title="Paste Transcript" description="Paste session transcript text" onClick={() => startMode('paste')} />
+        <ModeCard icon={RecordIcon} title="Record Session" description="In-person or telehealth recording" onClick={() => startMode('conversation')} />
+        <ModeCard icon={DictateIcon} title="Dictate Note" description="Narrate the note yourself" onClick={() => startMode('dictation')} />
+        <ModeCard icon={DocumentIcon} title="Create Document" description="Paste or upload a text document" onClick={() => startMode('document')} />
+
+        {/* Upload Recording — hidden in UI, code preserved */}
+        <div style={{ display: 'none' }}>
+          <ModeCard icon={UploadIcon} title="Upload Recording" description="Upload an audio file" onClick={() => startMode('upload')} />
+        </div>
+      </div>
+
+      {/* Paste transcript modal */}
+      <Modal open={phase === 'paste-input'} onClose={handleCancel} title="Paste Transcript" maxWidth="lg">
+        <div className="px-5 pb-5 space-y-4">
+          <Textarea
+            value={inputText}
+            onChange={e => setInputText(e.target.value)}
+            rows={10}
+            placeholder="Paste your session transcript here…"
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={handleCancel} className="flex-1">Cancel</Button>
+            <Button variant="primary" onClick={handleTextConfirm} disabled={!inputText.trim()} className="flex-1">Continue</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Document input modal */}
+      <Modal open={phase === 'document-input'} onClose={handleCancel} title="Create Document" maxWidth="lg">
+        <div className="px-5 pb-5 space-y-4">
+          <Textarea
+            value={inputText}
+            onChange={e => setInputText(e.target.value)}
+            rows={10}
+            placeholder="Paste document text here…"
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={handleCancel} className="flex-1">Cancel</Button>
+            <Button variant="primary" onClick={handleTextConfirm} disabled={!inputText.trim()} className="flex-1">Continue</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Transcribing overlay */}
+      {phase === 'transcribing' && (
+        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-3">
+          <svg width="32" height="32" viewBox="0 0 24 24" className="animate-spin text-[var(--blue)]" aria-hidden>
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round"/>
+          </svg>
+          <p className="text-sm font-medium text-[var(--text2)]">Transcribing audio…</p>
+        </div>
+      )}
+
+      {/* Generating overlay */}
+      {phase === 'generating' && (
+        <div className="fixed inset-0 bg-white/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-3">
+          <svg width="32" height="32" viewBox="0 0 24 24" className="animate-spin text-[#10b981]" aria-hidden>
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round"/>
+          </svg>
+          <p className="text-sm font-medium text-[var(--text2)]">Generating note…</p>
+        </div>
+      )}
+
+      <RecordModal
+        open={phase === 'recording'}
+        onClose={handleCancel}
+        onAudioReady={handleAudioReady}
+        recordingDefaults={profile?.recordingDefaults}
+      />
+      <DictateModal
+        open={phase === 'dictating'}
+        onClose={handleCancel}
+        onAudioReady={handleAudioReady}
+        recordingDefaults={profile?.recordingDefaults}
+      />
+      <TranscriptConfirm
+        open={phase === 'transcript-confirm'}
+        transcript={transcript}
+        mode={creationMode}
+        recordingDuration={store.lastRecordingDuration > 0 ? store.lastRecordingDuration : undefined}
+        onConfirm={handleTranscriptConfirm}
+        onCancel={handleCancel}
+      />
+      <TemplatePicker
+        open={phase === 'template-picking'}
+        onSelect={handleTemplateSelect}
+        onCancel={() => setPhase('transcript-confirm')}
+      />
     </div>
   )
 }
