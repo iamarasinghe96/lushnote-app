@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Button from '@/components/ui/Button'
-import type { User, AnyTemplate, CustomTemplate } from '@/types'
+import type { User, Template, CustomTemplate, AnyTemplate } from '@/types'
 
 interface TemplatesPanelProps {
   profile: User
@@ -10,28 +10,17 @@ interface TemplatesPanelProps {
   onToast: (msg: string) => void
 }
 
-interface BuiltinEntry {
-  id: number
-  title: string
-  prompt: string
-}
-
-function titleFromPrompt(prompt: string): string {
-  const first = prompt.split('\n')[0].trim()
-  // Remove [section] prefix if present
-  const match = first.match(/^\[[^\]]+\]\s*(.+)$/)
-  if (match) return match[1].slice(0, 80)
-  return first.slice(0, 80)
+const TPL_TYPE_LABELS: Record<string, string> = {
+  session: 'Session', document: 'Document', both: 'Both',
 }
 
 export default function TemplatesPanel({ profile, onSave, onToast }: TemplatesPanelProps) {
-  const [builtins, setBuiltins] = useState<BuiltinEntry[]>([])
+  const [builtins, setBuiltins] = useState<Template[]>([])
   const [search, setSearch] = useState('')
   const [favIds, setFavIds] = useState<(string | number)[]>(profile.favoriteTemplateIds ?? [])
   const [savingFav, setSavingFav] = useState<string | number | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  // New custom template form
   const [formTitle, setFormTitle] = useState('')
   const [formCategory, setFormCategory] = useState('')
   const [formDescription, setFormDescription] = useState('')
@@ -41,53 +30,37 @@ export default function TemplatesPanel({ profile, onSave, onToast }: TemplatesPa
   const [showAddForm, setShowAddForm] = useState(false)
 
   useEffect(() => {
-    import('@/data/templates-prompts.json')
-      .then(mod => {
-        const raw = mod.default as unknown
-        if (Array.isArray(raw)) {
-          setBuiltins(
-            (raw as AnyTemplate[]).map(t => ({
-              id: Number(t.id),
-              title: t.title,
-              prompt: t.prompt,
-            }))
-          )
-        } else if (raw && typeof raw === 'object') {
-          const entries = Object.entries(raw as Record<string, string>).map(([k, v]) => ({
-            id: Number(k),
-            title: titleFromPrompt(v),
-            prompt: v,
-          }))
-          setBuiltins(entries)
-        }
-      })
+    import('@/data/clinical-templates.json')
+      .then(mod => setBuiltins(mod.default as Template[]))
       .catch(() => setBuiltins([]))
   }, [])
 
   const custom: CustomTemplate[] = profile.customTemplates ?? []
 
-  type ListItem = { kind: 'builtin'; entry: BuiltinEntry } | { kind: 'custom'; tpl: CustomTemplate }
+  type ListItem = { kind: 'builtin'; tpl: Template } | { kind: 'custom'; tpl: CustomTemplate }
 
   const allItems: ListItem[] = [
-    ...builtins.map(e => ({ kind: 'builtin' as const, entry: e })),
+    ...builtins.map(t => ({ kind: 'builtin' as const, tpl: t })),
     ...custom.map(t => ({ kind: 'custom' as const, tpl: t })),
   ]
 
   const q = search.trim().toLowerCase()
   const filtered = q
     ? allItems.filter(item => {
-        const title = item.kind === 'builtin' ? item.entry.title : item.tpl.title
-        const cat = item.kind === 'custom' ? item.tpl.category : ''
-        const desc = item.kind === 'custom' ? item.tpl.description : ''
-        return title.toLowerCase().includes(q) || cat.toLowerCase().includes(q) || desc.toLowerCase().includes(q)
+        const { tpl } = item
+        return (
+          tpl.title.toLowerCase().includes(q) ||
+          tpl.category.toLowerCase().includes(q) ||
+          tpl.description.toLowerCase().includes(q)
+        )
       })
     : allItems
 
   const sorted = q
     ? filtered
     : [
-        ...filtered.filter(i => favIds.includes(i.kind === 'builtin' ? i.entry.id : i.tpl.id)),
-        ...filtered.filter(i => !favIds.includes(i.kind === 'builtin' ? i.entry.id : i.tpl.id)),
+        ...filtered.filter(i => favIds.includes(i.tpl.id)),
+        ...filtered.filter(i => !favIds.includes(i.tpl.id)),
       ]
 
   async function toggleFav(id: string | number) {
@@ -147,8 +120,9 @@ export default function TemplatesPanel({ profile, onSave, onToast }: TemplatesPa
   }
 
   const CATEGORY_SUGGESTIONS = [
+    'Progress Notes', 'Assessments', 'Therapy Notes', 'Risk & Safety',
     'Assessment', 'Follow-up', 'Discharge', 'Consultation', 'Group Therapy',
-    'Medication Review', 'Crisis', 'Psychotherapy', 'Documentation',
+    'Medication Review', 'Crisis', 'Documentation',
   ]
 
   return (
@@ -168,26 +142,31 @@ export default function TemplatesPanel({ profile, onSave, onToast }: TemplatesPa
              style={{ boxShadow: 'var(--shadow-sm)' }}>
           <p className="text-sm font-semibold text-[var(--text)]">New custom template</p>
 
-          <div>
-            <label className="block text-sm font-medium text-[var(--text)] mb-1">Title *</label>
-            <input
-              value={formTitle}
-              onChange={e => { setFormTitle(e.target.value); setFormErrors(er => ({ ...er, title: '' })) }}
-              placeholder="e.g. PTSD Assessment"
-              className={`w-full rounded-[var(--r)] border bg-white px-3 py-2.5 text-sm text-[var(--text)]
-                          placeholder:text-[var(--text3)] outline-none transition-colors
-                          focus:ring-2 focus:ring-blue-500/10
-                          ${formErrors.title ? 'border-[var(--danger)] focus:border-[var(--danger)]' : 'border-[var(--border)] focus:border-[var(--blue)]'}`}
-            />
-            {formErrors.title && <p className="mt-1 text-xs text-[var(--danger)]">{formErrors.title}</p>}
-          </div>
+          {[
+            { key: 'title', label: 'Title *', val: formTitle, set: setFormTitle, placeholder: 'e.g. PTSD Assessment' },
+            { key: 'description', label: 'Short description *', val: formDescription, set: setFormDescription, placeholder: 'e.g. Structured PTSD assessment with trauma history' },
+          ].map(({ key, label, val, set, placeholder }) => (
+            <div key={key}>
+              <label className="block text-sm font-medium text-[var(--text)] mb-1">{label}</label>
+              <input
+                value={val}
+                onChange={e => { set(e.target.value); setFormErrors(er => ({ ...er, [key]: '' })) }}
+                placeholder={placeholder}
+                className={`w-full rounded-[var(--r)] border bg-white px-3 py-2.5 text-sm text-[var(--text)]
+                            placeholder:text-[var(--text3)] outline-none transition-colors
+                            focus:ring-2 focus:ring-blue-500/10
+                            ${formErrors[key] ? 'border-[var(--danger)] focus:border-[var(--danger)]' : 'border-[var(--border)] focus:border-[var(--blue)]'}`}
+              />
+              {formErrors[key] && <p className="mt-1 text-xs text-[var(--danger)]">{formErrors[key]}</p>}
+            </div>
+          ))}
 
           <div>
             <label className="block text-sm font-medium text-[var(--text)] mb-1">Category *</label>
             <input
               value={formCategory}
               onChange={e => { setFormCategory(e.target.value); setFormErrors(er => ({ ...er, category: '' })) }}
-              placeholder="e.g. Assessment"
+              placeholder="e.g. Therapy Notes"
               list="category-suggestions"
               className={`w-full rounded-[var(--r)] border bg-white px-3 py-2.5 text-sm text-[var(--text)]
                           placeholder:text-[var(--text3)] outline-none transition-colors
@@ -198,20 +177,6 @@ export default function TemplatesPanel({ profile, onSave, onToast }: TemplatesPa
               {CATEGORY_SUGGESTIONS.map(c => <option key={c} value={c} />)}
             </datalist>
             {formErrors.category && <p className="mt-1 text-xs text-[var(--danger)]">{formErrors.category}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-[var(--text)] mb-1">Short description *</label>
-            <input
-              value={formDescription}
-              onChange={e => { setFormDescription(e.target.value); setFormErrors(er => ({ ...er, description: '' })) }}
-              placeholder="e.g. Structured PTSD assessment with trauma history"
-              className={`w-full rounded-[var(--r)] border bg-white px-3 py-2.5 text-sm text-[var(--text)]
-                          placeholder:text-[var(--text3)] outline-none transition-colors
-                          focus:ring-2 focus:ring-blue-500/10
-                          ${formErrors.description ? 'border-[var(--danger)] focus:border-[var(--danger)]' : 'border-[var(--border)] focus:border-[var(--blue)]'}`}
-            />
-            {formErrors.description && <p className="mt-1 text-xs text-[var(--danger)]">{formErrors.description}</p>}
           </div>
 
           <div>
@@ -253,31 +218,44 @@ export default function TemplatesPanel({ profile, onSave, onToast }: TemplatesPa
           {q ? 'No templates match your search.' : 'No templates loaded.'}
         </p>
       ) : (
-        <ul className="space-y-1">
+        <ul className="space-y-0.5">
           {sorted.map(item => {
-            const id = item.kind === 'builtin' ? item.entry.id : item.tpl.id
-            const title = item.kind === 'builtin' ? item.entry.title : item.tpl.title
+            const { tpl } = item
+            const id = tpl.id
             const isFav = favIds.includes(id)
             const isCustom = item.kind === 'custom'
+            const tplType = 'tplType' in tpl ? (tpl as AnyTemplate & { tplType?: string }).tplType : undefined
 
             return (
               <li key={String(id)}>
-                <div className="flex items-center gap-2 px-3 py-2 rounded-[var(--r)] hover:bg-[var(--bg)] group">
+                <div className="flex items-center gap-2 px-2 py-2 rounded-[var(--r)] hover:bg-[var(--bg)] group">
                   <button
                     onClick={() => toggleFav(id)}
                     disabled={savingFav === id}
                     className="shrink-0 text-[var(--text3)] hover:text-amber-400 transition-colors disabled:opacity-40"
                     aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
                   >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill={isFav ? '#f59e0b' : 'none'} stroke={isFav ? '#f59e0b' : 'currentColor'} strokeWidth="2" aria-hidden>
+                    <svg width="15" height="15" viewBox="0 0 24 24"
+                         fill={isFav ? '#f59e0b' : 'none'}
+                         stroke={isFav ? '#f59e0b' : 'currentColor'}
+                         strokeWidth="2" aria-hidden>
                       <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
                     </svg>
                   </button>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-[var(--text)] truncate">{title}</p>
-                    {isCustom && (
-                      <p className="text-xs text-[var(--text3)]">{(item as { kind: 'custom'; tpl: CustomTemplate }).tpl.category}</p>
-                    )}
+                    <p className="text-sm text-[var(--text)] truncate">{tpl.title}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                      <p className="text-xs text-[var(--text3)] truncate">{tpl.category}</p>
+                      {tplType && (
+                        <>
+                          <span className="text-xs text-[var(--text3)]">·</span>
+                          <span className="text-xs text-[var(--text3)]">{TPL_TYPE_LABELS[tplType] ?? tplType}</span>
+                        </>
+                      )}
+                      {tpl.description && (
+                        <p className="text-xs text-[var(--text2)] truncate w-full">{tpl.description}</p>
+                      )}
+                    </div>
                   </div>
                   {isCustom && (
                     <>
@@ -285,9 +263,9 @@ export default function TemplatesPanel({ profile, onSave, onToast }: TemplatesPa
                         Custom
                       </span>
                       <button
-                        onClick={() => deleteCustom((item as { kind: 'custom'; tpl: CustomTemplate }).tpl.id)}
-                        disabled={deletingId === (item as { kind: 'custom'; tpl: CustomTemplate }).tpl.id}
-                        className="w-6 h-6 rounded flex items-center justify-center
+                        onClick={() => deleteCustom((item.tpl as CustomTemplate).id)}
+                        disabled={deletingId === (item.tpl as CustomTemplate).id}
+                        className="w-6 h-6 rounded flex items-center justify-center shrink-0
                                    text-[var(--text3)] hover:text-[var(--danger)] opacity-0 group-hover:opacity-100
                                    transition-all disabled:opacity-40"
                         aria-label="Delete custom template"
