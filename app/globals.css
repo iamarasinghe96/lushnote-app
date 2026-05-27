@@ -25,3 +25,21 @@
 
 * { box-sizing: border-box; }
 body { -webkit-font-smoothing: antialiased; }
+
+/* iOS safe-area bottom padding — used by tab bar */
+.pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 8px);
+}
+
+/* Hide scrollbar on scroll containers */
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* Reduced motion — disables ALL transitions and animations */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
