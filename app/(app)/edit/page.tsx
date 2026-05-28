@@ -4,13 +4,15 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { saveNote, updateNote } from '@/lib/firestore/notes'
+import { saveNote, updateNote, listNotes } from '@/lib/firestore/notes'
 import { buildPreviewHTML } from '@/lib/utils'
+import { getPersonalisationPrefix } from '@/lib/personalisation'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
-import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
-import type { Note, NoteInput } from '@/types'
+import TemplatePicker from '@/components/modals/TemplatePicker'
+import ReassignModal from '@/components/modals/ReassignModal'
+import type { Note, NoteInput, AnyTemplate } from '@/types'
 
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60)
@@ -18,12 +20,35 @@ function formatDuration(secs: number): string {
   return `${m}m ${s}s`
 }
 
-const MODE_LABEL: Record<string, string> = {
-  paste:        'Pasted transcript',
-  conversation: 'Session recording',
-  dictation:    'Dictated note',
-  document:     'Document',
-  upload:       'Uploaded recording',
+function parseGeneratedContent(content: string): Partial<Note> {
+  const sectionMap: Record<string, keyof Note> = {
+    'presentation':              'presentation',
+    'history':                   'history',
+    'medications':               'medications',
+    'mental status':             'mse',
+    'mse':                       'mse',
+    'mental status examination': 'mse',
+    'session content':           'content',
+    'content':                   'content',
+    'scales':                    'scales',
+    'risk':                      'risk',
+    'referrals':                 'referrals',
+    'summary':                   'summary',
+    'next steps':                'nextsteps',
+    'nextsteps':                 'nextsteps',
+    'diagnosis':                 'diagnosis',
+  }
+  const out: Partial<Note> = {}
+  const rx = /#{1,3}\s+([^\n]+)\n([\s\S]*?)(?=#{1,3}\s+|$)/g
+  let m = rx.exec(content)
+  let parsed = false
+  while (m !== null) {
+    const key = sectionMap[m[1].trim().toLowerCase()]
+    if (key) { (out as Record<string, string>)[key] = m[2].trim(); parsed = true }
+    m = rx.exec(content)
+  }
+  if (!parsed) out.content = content.trim()
+  return out
 }
 
 export default function EditPage() {
@@ -33,10 +58,14 @@ export default function EditPage() {
 
   const [fields, setFields] = useState<Partial<Note>>(store.currentNote)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
-  const [showTranscript, setShowTranscript] = useState(false)
   const [regError, setRegError] = useState<string | null>(null)
   const [previewHtml, setPreviewHtml] = useState(() => buildPreviewHTML(store.currentNote))
   const [showMobilePreview, setShowMobilePreview] = useState(false)
+  const [transcriptExpanded, setTranscriptExpanded] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [changeTemplateOpen, setChangeTemplateOpen] = useState(false)
+  const [reassignOpen, setReassignOpen] = useState(false)
+  const [allNotes, setAllNotes] = useState<Note[]>([])
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
 
@@ -57,7 +86,11 @@ export default function EditPage() {
     return () => clearTimeout(timer)
   }, [fields])
 
-  // Keep a stable ref to the latest store so scheduleSave doesn't stale-close it
+  useEffect(() => {
+    if (!user) return
+    listNotes(user.uid).then(setAllNotes).catch(() => {})
+  }, [user?.uid])
+
   const storeRef = useRef(store)
   storeRef.current = store
 
@@ -113,21 +146,147 @@ export default function EditPage() {
 
   function validateRegNumber() {
     const activeWp = profile?.workplaces?.find(w => w.id === profile.activeWorkplaceId)
-    if (!activeWp?.regPattern || !fields.reg_number) {
-      setRegError(null)
-      return
-    }
+    if (!activeWp?.regPattern || !fields.reg_number) { setRegError(null); return }
     const pattern = new RegExp(activeWp.regPattern)
     setRegError(pattern.test(fields.reg_number) ? null : 'Registration number format does not match')
   }
 
   function handleNewNote() {
+    if (saveStatus === 'saving') {
+      if (!window.confirm('Discard unsaved changes and start a new note?')) return
+    }
     store.resetNote()
     router.push('/generate')
   }
 
+  function handleChangeTemplate() {
+    setChangeTemplateOpen(true)
+  }
+
+  function handleTemplateChange(newTemplate: AnyTemplate) {
+    setChangeTemplateOpen(false)
+    if (!window.confirm(`Regenerate note with "${newTemplate.title}"?`)) return
+    runGeneration(store.lastTranscript ?? '', newTemplate)
+  }
+
+  async function runGeneration(transcript: string, template: AnyTemplate) {
+    setIsGenerating(true)
+    store.setLastChosenTemplate(template)
+    try {
+      const noteLength = profile?.personalisation?.noteLength ?? 'balanced'
+      const systemPrompt = profile ? getPersonalisationPrefix(profile, noteLength) : ''
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const groqKey = sessionStorage.getItem('groq_api_key')
+      if (groqKey) headers['x-groq-key'] = groqKey
+
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ transcript, templatePrompt: template.prompt, systemPrompt, uid: user!.uid }),
+      })
+      if (!res.ok) {
+        const data = await res.json() as { error?: string }
+        throw new Error(data.error ?? 'Generation failed')
+      }
+      const data = await res.json() as { content: string }
+      const noteFields = parseGeneratedContent(data.content)
+      const next = { ...fields, ...noteFields }
+      setFields(next)
+      store.setCurrentNote(next)
+      scheduleSave(next)
+    } catch {
+      // generation error — isGenerating clears in finally
+    } finally {
+      if (mountedRef.current) setIsGenerating(false)
+    }
+  }
+
+  function handleReassign(patient: string, regNumber: string) {
+    setReassignOpen(false)
+    const next = { ...fields, patient, reg_number: regNumber }
+    setFields(next)
+    store.setCurrentNote(next)
+    scheduleSave(next)
+  }
+
+  // Derived session stats
+  const sessionStats = store.lastTranscript && store.lastRecordingDuration > 0
+    ? (() => {
+        const wordCount = store.lastTranscript.trim().split(/\s+/).filter(Boolean).length
+        const durationSeconds = store.lastRecordingDuration
+        const wpm = durationSeconds > 0 ? Math.round(wordCount / (durationSeconds / 60)) : 0
+        return { durationSeconds, wordCount, wpm }
+      })()
+    : null
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
+
+      {/* Current note bar */}
+      {store.currentNoteId && (
+        <div
+          className={`flex items-center justify-between px-4 py-2 text-white text-sm shrink-0
+            bg-gradient-to-r from-[#0e9f6e] to-[#059669]
+            ${isGenerating ? 'animate-pulse' : ''}`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            {isGenerating ? (
+              <div className="h-4 w-32 bg-white/30 rounded animate-pulse" />
+            ) : (
+              <span className="font-medium truncate">
+                {fields.patient || 'No patient'} · {fields.date || '—'}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={handleChangeTemplate}
+              className="text-white/80 hover:text-white text-xs px-2 py-1 rounded hover:bg-white/10"
+            >
+              Change Template
+            </button>
+            {store.lastTranscript && (
+              <button
+                onClick={() => router.push('/transcript')}
+                className="text-white/80 hover:text-white text-xs px-2 py-1 rounded hover:bg-white/10"
+              >
+                Transcript
+              </button>
+            )}
+            <button
+              onClick={() => setReassignOpen(true)}
+              className="text-white/80 hover:text-white text-xs px-2 py-1 rounded hover:bg-white/10"
+            >
+              Reassign
+            </button>
+            <button
+              onClick={handleNewNote}
+              className="text-white/80 hover:text-white text-xs px-2 py-1 rounded hover:bg-white/10 border border-white/30"
+            >
+              + New Note
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Session stats card */}
+      {sessionStats && !isGenerating && (
+        <div className="mx-4 mt-3 p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--r)] flex items-center gap-6 shrink-0">
+          <div className="text-center">
+            <div className="text-lg font-bold text-[var(--text)]">{formatDuration(sessionStats.durationSeconds)}</div>
+            <div className="text-xs text-[var(--text3)]">Duration</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-[var(--text)]">{sessionStats.wordCount}</div>
+            <div className="text-xs text-[var(--text3)]">Words</div>
+          </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-[var(--text)]">{sessionStats.wpm}</div>
+            <div className="text-xs text-[var(--text3)]">WPM</div>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-[55%_45%]">
 
         {/* LEFT: form */}
@@ -144,27 +303,11 @@ export default function EditPage() {
                 {saveStatus === 'saved' && (
                   <span className="text-xs text-[var(--green)]">Saved</span>
                 )}
-                <Button variant="ghost" size="sm" onClick={handleNewNote}>New note</Button>
+                {!store.currentNoteId && (
+                  <Button variant="ghost" size="sm" onClick={handleNewNote}>New note</Button>
+                )}
               </div>
             </div>
-
-            {/* Session stats */}
-            {store.lastTranscript && store.lastRecordingDuration > 0 && (
-              <div className="rounded-[var(--r)] border border-[var(--border)] bg-white p-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-[var(--text2)]">
-                    Recording: {formatDuration(store.lastRecordingDuration)}
-                  </span>
-                  <span className="text-xs text-[var(--text3)]">·</span>
-                  <span className="text-xs text-[var(--text2)]">
-                    {store.lastTranscript.split(/\s+/).filter(Boolean).length} words
-                  </span>
-                  <Badge variant="blue">
-                    {MODE_LABEL[store.lastTranscriptMode] ?? store.lastTranscriptMode}
-                  </Badge>
-                </div>
-              </div>
-            )}
 
             {/* Fields */}
             <div className="grid grid-cols-2 gap-3">
@@ -277,22 +420,22 @@ export default function EditPage() {
               onChange={e => setField('nextsteps', e.target.value)}
             />
 
-            {/* Raw transcript */}
+            {/* Raw transcript collapsible */}
             {store.lastTranscript && (
-              <div>
+              <div className="mt-6 border border-[var(--border)] rounded-[var(--r)] overflow-hidden">
                 <button
-                  onClick={() => setShowTranscript(v => !v)}
-                  className="text-sm text-[var(--blue)] hover:underline"
+                  onClick={() => setTranscriptExpanded(v => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-[var(--bg)] text-sm font-medium text-[var(--text2)] hover:bg-[var(--border)]"
                 >
-                  {showTranscript ? 'Hide transcript' : 'Show transcript'}
+                  <span>Raw Transcript · {store.lastTranscript.trim().split(/\s+/).length} words</span>
+                  <span>{transcriptExpanded ? '▲' : '▼'}</span>
                 </button>
-                {showTranscript && (
-                  <pre className="mt-2 rounded-[var(--r)] bg-[var(--bg)] border border-[var(--border)]
-                                  p-3 text-xs text-[var(--text2)] font-mono whitespace-pre-wrap break-words
-                                  max-h-80 overflow-y-auto">
-                    {store.lastTranscript}
-                  </pre>
-                )}
+                <div className={`relative px-4 py-3 text-sm text-[var(--text2)] leading-relaxed ${!transcriptExpanded ? 'max-h-24 overflow-hidden' : ''}`}>
+                  <p className="whitespace-pre-wrap">{store.lastTranscript}</p>
+                  {!transcriptExpanded && (
+                    <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent" />
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -319,11 +462,23 @@ export default function EditPage() {
       {/* Mobile preview toggle */}
       <button
         onClick={() => setShowMobilePreview(v => !v)}
-        className="md:hidden fixed bottom-20 right-4 z-40 bg-white border border-[var(--border)] shadow-lg rounded-full px-4 py-2 text-xs font-medium text-[var(--text2)] active:scale-95 transition-transform"
+        className="md:hidden fixed bottom-20 right-4 z-40 bg-white border border-[var(--border)] rounded-full px-4 py-2 text-xs font-medium text-[var(--text2)] active:scale-95 transition-transform"
         style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
       >
         {showMobilePreview ? 'Hide Preview' : 'Preview'}
       </button>
+
+      <TemplatePicker
+        open={changeTemplateOpen}
+        onSelect={handleTemplateChange}
+        onCancel={() => setChangeTemplateOpen(false)}
+      />
+      <ReassignModal
+        open={reassignOpen}
+        allNotes={allNotes}
+        onConfirm={handleReassign}
+        onClose={() => setReassignOpen(false)}
+      />
     </div>
   )
 }
