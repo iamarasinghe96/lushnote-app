@@ -11,8 +11,9 @@ import Button from '@/components/ui/Button'
 import Textarea from '@/components/ui/Textarea'
 import RecordModal from '@/components/modals/RecordModal'
 import DictateModal from '@/components/modals/DictateModal'
-import TranscriptConfirm from '@/components/modals/TranscriptConfirm'
+import TranscriptConfirmModal from '@/components/modals/TranscriptConfirmModal'
 import TemplatePicker from '@/components/modals/TemplatePicker'
+import { listNotes } from '@/lib/firestore/notes'
 import type { AnyTemplate, NoteCreationMode, Note } from '@/types'
 
 const GEMINI_RPD = 20
@@ -25,9 +26,22 @@ type GenPhase =
   | 'recording'
   | 'dictating'
   | 'transcribing'
-  | 'transcript-confirm'
   | 'template-picking'
   | 'generating'
+
+function validateTranscript(text: string): { valid: boolean; error?: string } {
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length
+  if (wordCount < 80)
+    return { valid: false, error: `Transcript too short (${wordCount} words). Minimum 80 words required.` }
+  const keywords = [
+    'patient', 'symptom', 'diagnosis', 'treatment', 'medication', 'therapy',
+    'appointment', 'session', 'presenting', 'mood', 'affect', 'behaviour',
+    'behavior', 'cognition', 'anxiety', 'depression',
+  ]
+  if (!keywords.some(k => text.toLowerCase().includes(k)))
+    return { valid: false, error: 'Transcript does not appear to contain clinical content.' }
+  return { valid: true }
+}
 
 interface ModeCardProps {
   icon: ReactNode
@@ -142,16 +156,24 @@ export default function GeneratePage() {
 
   const [phase, setPhase] = useState<GenPhase>('idle')
   const [inputText, setInputText] = useState('')
-  const [transcript, setTranscript] = useState('')
+  const [pendingTranscript, setPendingTranscript] = useState('')
   const [creationMode, setCreationMode] = useState<NoteCreationMode>('paste')
   const [error, setError] = useState<string | null>(null)
   const [showBanner, setShowBanner] = useState(false)
+  const [transcriptConfirmOpen, setTranscriptConfirmOpen] = useState(false)
+  const [prefillPatient, setPrefillPatient] = useState<{ patient: string; reg_number: string } | null>(null)
+  const [allNotes, setAllNotes] = useState<Note[]>([])
 
   useEffect(() => {
     if (localStorage.getItem('_ln_rec_interrupted')) {
       setShowBanner(true)
     }
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+    listNotes(user.uid).then(setAllNotes).catch(() => {})
+  }, [user?.uid])
 
   // Quota calculation
   const today = new Date().toISOString().slice(0, 10)
@@ -175,14 +197,24 @@ export default function GeneratePage() {
   function handleCancel() {
     setPhase('idle')
     setInputText('')
-    setTranscript('')
+    setPendingTranscript('')
     setError(null)
+    setTranscriptConfirmOpen(false)
+    setPrefillPatient(null)
   }
 
   function handleTextConfirm() {
     if (!inputText.trim()) return
-    setTranscript(inputText.trim())
-    setPhase('transcript-confirm')
+    const text = inputText.trim()
+    setInputText('')
+    setPhase('idle')
+    const validation = validateTranscript(text)
+    if (!validation.valid) {
+      setError(validation.error!)
+      return
+    }
+    setPendingTranscript(text)
+    setTranscriptConfirmOpen(true)
   }
 
   async function handleAudioReady(blob: Blob, mimeType: string, duration: number) {
@@ -204,17 +236,25 @@ export default function GeneratePage() {
         throw new Error(data.error ?? 'Transcription failed')
       }
       const data = await res.json() as { text: string }
-      setTranscript(data.text)
-      setPhase('transcript-confirm')
+      const validation = validateTranscript(data.text)
+      if (!validation.valid) {
+        setError(validation.error!)
+        setPhase('idle')
+        return
+      }
+      setPendingTranscript(data.text)
+      setTranscriptConfirmOpen(true)
+      setPhase('idle')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Transcription failed')
       setPhase('idle')
     }
   }
 
-  function handleTranscriptConfirm(editedTranscript: string) {
-    setTranscript(editedTranscript)
-    store.setLastTranscript(editedTranscript)
+  function handleTranscriptConfirmPatient(patient: string, regNumber: string) {
+    setTranscriptConfirmOpen(false)
+    setPrefillPatient({ patient, reg_number: regNumber })
+    store.setLastTranscript(pendingTranscript)
     store.setLastTranscriptMode(creationMode)
     setPhase('template-picking')
   }
@@ -233,7 +273,7 @@ export default function GeneratePage() {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          transcript,
+          transcript: pendingTranscript,
           templatePrompt: template.prompt,
           systemPrompt,
           uid: user!.uid,
@@ -247,7 +287,9 @@ export default function GeneratePage() {
       const noteFields = parseGeneratedContent(data.content)
       store.setCurrentNote({
         ...noteFields,
-        transcript,
+        patient: prefillPatient?.patient ?? '',
+        reg_number: prefillPatient?.reg_number ?? '',
+        transcript: pendingTranscript,
         transcriptMode: creationMode,
       })
       store.setCurrentNoteId(null)
@@ -417,18 +459,17 @@ export default function GeneratePage() {
         onAudioReady={handleAudioReady}
         recordingDefaults={profile?.recordingDefaults}
       />
-      <TranscriptConfirm
-        open={phase === 'transcript-confirm'}
-        transcript={transcript}
-        mode={creationMode}
-        recordingDuration={store.lastRecordingDuration > 0 ? store.lastRecordingDuration : undefined}
-        onConfirm={handleTranscriptConfirm}
-        onCancel={handleCancel}
+      <TranscriptConfirmModal
+        open={transcriptConfirmOpen}
+        transcript={pendingTranscript}
+        allNotes={allNotes}
+        onConfirm={handleTranscriptConfirmPatient}
+        onClose={() => { setTranscriptConfirmOpen(false); setPendingTranscript('') }}
       />
       <TemplatePicker
         open={phase === 'template-picking'}
         onSelect={handleTemplateSelect}
-        onCancel={() => setPhase('transcript-confirm')}
+        onCancel={() => { setPhase('idle'); setTranscriptConfirmOpen(true) }}
       />
     </div>
   )
