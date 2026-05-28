@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote } from '@/lib/firestore/notes'
+import { buildPreviewHTML } from '@/lib/utils'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
 import Badge from '@/components/ui/Badge'
@@ -34,6 +35,8 @@ export default function EditPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [showTranscript, setShowTranscript] = useState(false)
   const [regError, setRegError] = useState<string | null>(null)
+  const [previewHtml, setPreviewHtml] = useState(() => buildPreviewHTML(store.currentNote))
+  const [showMobilePreview, setShowMobilePreview] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
 
@@ -44,8 +47,15 @@ export default function EditPage() {
   // Sync from store on first mount / after generation
   useEffect(() => {
     setFields(store.currentNote)
+    setPreviewHtml(buildPreviewHTML(store.currentNote))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Debounced preview update
+  useEffect(() => {
+    const timer = setTimeout(() => setPreviewHtml(buildPreviewHTML(fields)), 200)
+    return () => clearTimeout(timer)
+  }, [fields])
 
   // Keep a stable ref to the latest store so scheduleSave doesn't stale-close it
   const storeRef = useRef(store)
@@ -117,173 +127,203 @@ export default function EditPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-lg mx-auto px-4 py-6 pb-10">
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-[55%_45%]">
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h1 className="text-lg font-semibold text-[var(--text)]">Edit note</h1>
-          <div className="flex items-center gap-3">
-            {saveStatus === 'saving' && (
-              <span className="text-xs text-[var(--text3)]">Saving…</span>
-            )}
-            {saveStatus === 'saved' && (
-              <span className="text-xs text-[var(--green)]">Saved</span>
-            )}
-            <Button variant="ghost" size="sm" onClick={handleNewNote}>New note</Button>
-          </div>
-        </div>
+        {/* LEFT: form */}
+        <div className="overflow-y-auto p-4">
+          <div className="max-w-lg mx-auto space-y-4 pb-10">
 
-        {/* Session stats */}
-        {store.lastTranscript && store.lastRecordingDuration > 0 && (
-          <div className="mb-5 rounded-[var(--r)] border border-[var(--border)] bg-white p-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-[var(--text2)]">
-                Recording: {formatDuration(store.lastRecordingDuration)}
-              </span>
-              <span className="text-xs text-[var(--text3)]">·</span>
-              <span className="text-xs text-[var(--text2)]">
-                {store.lastTranscript.split(/\s+/).filter(Boolean).length} words
-              </span>
-              <Badge variant="blue">
-                {MODE_LABEL[store.lastTranscriptMode] ?? store.lastTranscriptMode}
-              </Badge>
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <h1 className="text-lg font-semibold text-[var(--text)]">Edit note</h1>
+              <div className="flex items-center gap-3">
+                {saveStatus === 'saving' && (
+                  <span className="text-xs text-[var(--text3)]">Saving…</span>
+                )}
+                {saveStatus === 'saved' && (
+                  <span className="text-xs text-[var(--green)]">Saved</span>
+                )}
+                <Button variant="ghost" size="sm" onClick={handleNewNote}>New note</Button>
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* Fields */}
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Patient name"
-              value={fields.patient ?? ''}
-              onChange={e => setField('patient', e.target.value)}
-            />
-            <Input
-              label="Registration number"
-              value={fields.reg_number ?? ''}
-              onChange={e => setField('reg_number', e.target.value)}
-              onBlur={validateRegNumber}
-              error={regError ?? undefined}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Date"
-              value={fields.date ?? ''}
-              onChange={e => setField('date', e.target.value)}
-            />
-            <Input
-              label="Time"
-              value={fields.time ?? ''}
-              onChange={e => setField('time', e.target.value)}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Clinician"
-              value={fields.clinician ?? ''}
-              onChange={e => setField('clinician', e.target.value)}
-            />
-            <Input
-              label="Session number"
-              value={fields.session_number ?? ''}
-              onChange={e => setField('session_number', e.target.value)}
-            />
-          </div>
-          <Input
-            label="Attendance"
-            value={fields.attendance ?? ''}
-            onChange={e => setField('attendance', e.target.value)}
-          />
-          <Textarea
-            label="Diagnosis"
-            rows={3}
-            value={fields.diagnosis ?? ''}
-            onChange={e => setField('diagnosis', e.target.value)}
-          />
-          <Textarea
-            label="Presentation"
-            rows={5}
-            value={fields.presentation ?? ''}
-            onChange={e => setField('presentation', e.target.value)}
-          />
-          <Textarea
-            label="History"
-            rows={5}
-            value={fields.history ?? ''}
-            onChange={e => setField('history', e.target.value)}
-          />
-          <Textarea
-            label="Medications"
-            rows={3}
-            value={fields.medications ?? ''}
-            onChange={e => setField('medications', e.target.value)}
-          />
-          <Textarea
-            label="Mental Status Examination"
-            rows={5}
-            value={fields.mse ?? ''}
-            onChange={e => setField('mse', e.target.value)}
-          />
-          <Textarea
-            label="Session Content"
-            rows={8}
-            value={fields.content ?? ''}
-            onChange={e => setField('content', e.target.value)}
-          />
-          <Textarea
-            label="Scales"
-            rows={3}
-            value={fields.scales ?? ''}
-            onChange={e => setField('scales', e.target.value)}
-          />
-          <Textarea
-            label="Risk"
-            rows={4}
-            value={fields.risk ?? ''}
-            onChange={e => setField('risk', e.target.value)}
-          />
-          <Textarea
-            label="Referrals"
-            rows={3}
-            value={fields.referrals ?? ''}
-            onChange={e => setField('referrals', e.target.value)}
-          />
-          <Textarea
-            label="Summary"
-            rows={5}
-            value={fields.summary ?? ''}
-            onChange={e => setField('summary', e.target.value)}
-          />
-          <Textarea
-            label="Next Steps"
-            rows={3}
-            value={fields.nextsteps ?? ''}
-            onChange={e => setField('nextsteps', e.target.value)}
-          />
-        </div>
+            {/* Session stats */}
+            {store.lastTranscript && store.lastRecordingDuration > 0 && (
+              <div className="rounded-[var(--r)] border border-[var(--border)] bg-white p-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-[var(--text2)]">
+                    Recording: {formatDuration(store.lastRecordingDuration)}
+                  </span>
+                  <span className="text-xs text-[var(--text3)]">·</span>
+                  <span className="text-xs text-[var(--text2)]">
+                    {store.lastTranscript.split(/\s+/).filter(Boolean).length} words
+                  </span>
+                  <Badge variant="blue">
+                    {MODE_LABEL[store.lastTranscriptMode] ?? store.lastTranscriptMode}
+                  </Badge>
+                </div>
+              </div>
+            )}
 
-        {/* Raw transcript */}
-        {store.lastTranscript && (
-          <div className="mt-6">
-            <button
-              onClick={() => setShowTranscript(v => !v)}
-              className="text-sm text-[var(--blue)] hover:underline"
-            >
-              {showTranscript ? 'Hide transcript' : 'Show transcript'}
-            </button>
-            {showTranscript && (
-              <pre className="mt-2 rounded-[var(--r)] bg-[var(--bg)] border border-[var(--border)]
-                              p-3 text-xs text-[var(--text2)] font-mono whitespace-pre-wrap break-words
-                              max-h-80 overflow-y-auto">
-                {store.lastTranscript}
-              </pre>
+            {/* Fields */}
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Patient name"
+                value={fields.patient ?? ''}
+                onChange={e => setField('patient', e.target.value)}
+              />
+              <Input
+                label="Registration number"
+                value={fields.reg_number ?? ''}
+                onChange={e => setField('reg_number', e.target.value)}
+                onBlur={validateRegNumber}
+                error={regError ?? undefined}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Date"
+                value={fields.date ?? ''}
+                onChange={e => setField('date', e.target.value)}
+              />
+              <Input
+                label="Time"
+                value={fields.time ?? ''}
+                onChange={e => setField('time', e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Clinician"
+                value={fields.clinician ?? ''}
+                onChange={e => setField('clinician', e.target.value)}
+              />
+              <Input
+                label="Session number"
+                value={fields.session_number ?? ''}
+                onChange={e => setField('session_number', e.target.value)}
+              />
+            </div>
+            <Input
+              label="Attendance"
+              value={fields.attendance ?? ''}
+              onChange={e => setField('attendance', e.target.value)}
+            />
+            <Textarea
+              label="Diagnosis"
+              rows={3}
+              value={fields.diagnosis ?? ''}
+              onChange={e => setField('diagnosis', e.target.value)}
+            />
+            <Textarea
+              label="Presentation"
+              rows={5}
+              value={fields.presentation ?? ''}
+              onChange={e => setField('presentation', e.target.value)}
+            />
+            <Textarea
+              label="History"
+              rows={5}
+              value={fields.history ?? ''}
+              onChange={e => setField('history', e.target.value)}
+            />
+            <Textarea
+              label="Medications"
+              rows={3}
+              value={fields.medications ?? ''}
+              onChange={e => setField('medications', e.target.value)}
+            />
+            <Textarea
+              label="Mental Status Examination"
+              rows={5}
+              value={fields.mse ?? ''}
+              onChange={e => setField('mse', e.target.value)}
+            />
+            <Textarea
+              label="Session Content"
+              rows={8}
+              value={fields.content ?? ''}
+              onChange={e => setField('content', e.target.value)}
+            />
+            <Textarea
+              label="Scales"
+              rows={3}
+              value={fields.scales ?? ''}
+              onChange={e => setField('scales', e.target.value)}
+            />
+            <Textarea
+              label="Risk"
+              rows={4}
+              value={fields.risk ?? ''}
+              onChange={e => setField('risk', e.target.value)}
+            />
+            <Textarea
+              label="Referrals"
+              rows={3}
+              value={fields.referrals ?? ''}
+              onChange={e => setField('referrals', e.target.value)}
+            />
+            <Textarea
+              label="Summary"
+              rows={5}
+              value={fields.summary ?? ''}
+              onChange={e => setField('summary', e.target.value)}
+            />
+            <Textarea
+              label="Next Steps"
+              rows={3}
+              value={fields.nextsteps ?? ''}
+              onChange={e => setField('nextsteps', e.target.value)}
+            />
+
+            {/* Raw transcript */}
+            {store.lastTranscript && (
+              <div>
+                <button
+                  onClick={() => setShowTranscript(v => !v)}
+                  className="text-sm text-[var(--blue)] hover:underline"
+                >
+                  {showTranscript ? 'Hide transcript' : 'Show transcript'}
+                </button>
+                {showTranscript && (
+                  <pre className="mt-2 rounded-[var(--r)] bg-[var(--bg)] border border-[var(--border)]
+                                  p-3 text-xs text-[var(--text2)] font-mono whitespace-pre-wrap break-words
+                                  max-h-80 overflow-y-auto">
+                    {store.lastTranscript}
+                  </pre>
+                )}
+              </div>
             )}
           </div>
-        )}
+        </div>
+
+        {/* RIGHT: live preview — hidden on mobile unless toggled */}
+        <div
+          className={`${showMobilePreview ? 'flex' : 'hidden'} md:flex flex-col border-l border-[var(--border)]`}
+          style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
+        >
+          <div
+            className="sticky top-0 border-b border-[var(--border)] px-4 py-2"
+            style={{ background: 'rgba(255,255,255,0.80)', backdropFilter: 'blur(12px)' }}
+          >
+            <span className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wide">Preview</span>
+          </div>
+          <div
+            className="flex-1 overflow-y-auto p-4 preview-pane"
+            dangerouslySetInnerHTML={{ __html: previewHtml }}
+          />
+        </div>
       </div>
+
+      {/* Mobile preview toggle */}
+      <button
+        onClick={() => setShowMobilePreview(v => !v)}
+        className="md:hidden fixed bottom-20 right-4 z-40 bg-white border border-[var(--border)] shadow-lg rounded-full px-4 py-2 text-xs font-medium text-[var(--text2)] active:scale-95 transition-transform"
+        style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
+      >
+        {showMobilePreview ? 'Hide Preview' : 'Preview'}
+      </button>
     </div>
   )
 }

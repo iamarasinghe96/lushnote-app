@@ -1,4 +1,4 @@
-import { WP_THEMES } from '@/types'
+import { WP_THEMES, type Note } from '@/types'
 
 export function getInitials(displayName: string): string {
   if (!displayName) return 'LN'
@@ -71,5 +71,63 @@ export function escapeHtml(s: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
+    .replace(/'/g, '&#39;')
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  patient: 'Patient', reg_number: 'Reg Number', date: 'Date', time: 'Time',
+  clinician: 'Clinician', session_number: 'Session Number', attendance: 'Attendance',
+  diagnosis: 'Diagnosis', presentation: 'Presentation', history: 'History',
+  medications: 'Medications', mse: 'Mental State Examination', content: 'Session Content',
+  scales: 'Rating Scales', risk: 'Risk Assessment', referrals: 'Referrals & Correspondence',
+  summary: 'Summary', nextsteps: 'Next Steps',
+}
+
+const PREVIEW_FIELD_ORDER = [
+  'patient', 'reg_number', 'date', 'time', 'clinician', 'session_number', 'attendance',
+  'diagnosis', 'presentation', 'history', 'medications', 'mse', 'content', 'scales',
+  'risk', 'referrals', 'summary', 'nextsteps',
+]
+
+function formatContent(text: string): string {
+  const lines = escapeHtml(text).split('\n')
+  let html = '', inOl = false, inUl = false
+  lines.forEach(line => {
+    if (/^\d+\.\s/.test(line)) {
+      if (!inOl) { html += '<ol>'; inOl = true }
+      if (inUl) { html += '</ul>'; inUl = false }
+      html += `<li>${line.replace(/^\d+\.\s/, '')}</li>`
+    } else if (/^[-•]\s/.test(line)) {
+      if (!inUl) { html += '<ul>'; inUl = true }
+      if (inOl) { html += '</ol>'; inOl = false }
+      html += `<li>${line.replace(/^[-•]\s/, '')}</li>`
+    } else {
+      if (inOl) { html += '</ol>'; inOl = false }
+      if (inUl) { html += '</ul>'; inUl = false }
+      if (line.trim()) html += `<p>${line}</p>`
+    }
+  })
+  if (inOl) html += '</ol>'
+  if (inUl) html += '</ul>'
+  return html
+}
+
+export function buildPreviewHTML(f: Partial<Note>): string {
+  const sections = PREVIEW_FIELD_ORDER
+    .filter(key => (f as Record<string, string>)[key]?.trim())
+    .map(key =>
+      `<div class="preview-section"><h3>${FIELD_LABELS[key]}</h3><div class="preview-content">${formatContent((f as Record<string, string>)[key])}</div></div>`
+    )
+    .join('')
+
+  if (!sections) return '<div class="preview-empty"><p>Your note preview will appear here as you fill in the fields.</p></div>'
+
+  return `<div class="preview-note">
+    <div class="preview-header">
+      <h2>${escapeHtml(f.patient || 'Patient Name')}</h2>
+      <div class="preview-meta">${[f.date, f.time, f.clinician].filter(Boolean).map(v => escapeHtml(v!)).join(' · ')}</div>
+      ${f.reg_number ? `<div class="preview-reg">ID: ${escapeHtml(f.reg_number)}</div>` : ''}
+    </div>
+    ${sections}
+  </div>`
 }
