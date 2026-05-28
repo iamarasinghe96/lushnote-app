@@ -163,6 +163,7 @@ export default function GeneratePage() {
   const [transcriptConfirmOpen, setTranscriptConfirmOpen] = useState(false)
   const [prefillPatient, setPrefillPatient] = useState<{ patient: string; reg_number: string } | null>(null)
   const [allNotes, setAllNotes] = useState<Note[]>([])
+  const [generationStatus, setGenerationStatus] = useState<string | null>(null)
 
   useEffect(() => {
     if (localStorage.getItem('_ln_rec_interrupted')) {
@@ -262,6 +263,15 @@ export default function GeneratePage() {
   async function handleTemplateSelect(template: AnyTemplate) {
     setPhase('generating')
     store.setLastChosenTemplate(template)
+
+    const statusSequence = ['Transcribing...', 'Analysing...', 'Generating...', 'Formatting...']
+    let statusIdx = 0
+    setGenerationStatus(statusSequence[0])
+    const statusTimer = setInterval(() => {
+      statusIdx = (statusIdx + 1) % statusSequence.length
+      setGenerationStatus(statusSequence[statusIdx])
+    }, 600)
+
     try {
       const noteLength = profile?.personalisation?.noteLength ?? 'balanced'
       const systemPrompt = profile ? getPersonalisationPrefix(profile, noteLength) : ''
@@ -284,6 +294,8 @@ export default function GeneratePage() {
         throw new Error(data.error ?? 'Generation failed')
       }
       const data = await res.json() as { content: string }
+      clearInterval(statusTimer)
+      setGenerationStatus(null)
       const noteFields = parseGeneratedContent(data.content)
       store.setCurrentNote({
         ...noteFields,
@@ -293,9 +305,12 @@ export default function GeneratePage() {
         transcriptMode: creationMode,
       })
       store.setCurrentNoteId(null)
+      store.setPendingAnimation(true)
       setPhase('idle')
       router.push('/edit')
     } catch (err) {
+      clearInterval(statusTimer)
+      setGenerationStatus(null)
       setError(err instanceof Error ? err.message : 'Generation failed')
       setPhase('idle')
     }
@@ -443,7 +458,7 @@ export default function GeneratePage() {
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25"/>
             <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round"/>
           </svg>
-          <p className="text-sm font-medium text-[var(--text2)]">Generating note…</p>
+          <p className="text-sm font-medium text-[var(--text2)]">{generationStatus ?? 'Generating note…'}</p>
         </div>
       )}
 

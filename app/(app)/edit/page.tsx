@@ -16,6 +16,11 @@ import TemplatePicker from '@/components/modals/TemplatePicker'
 import ReassignModal from '@/components/modals/ReassignModal'
 import type { Note, NoteInput, AnyTemplate, Workplace } from '@/types'
 
+const FIELD_ORDER = [
+  'patient', 'date', 'diagnosis', 'presentation', 'history', 'medications', 'mse',
+  'content', 'scales', 'risk', 'referrals', 'summary', 'nextsteps',
+] as const
+
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60)
   const s = secs % 60
@@ -75,12 +80,21 @@ export default function EditPage() {
   const { user, profile } = useAuth()
   const store = useNoteStore()
 
-  const [fields, setFields] = useState<Partial<Note>>(store.currentNote)
+  const [fields, setFields] = useState<Partial<Note>>(() => {
+    if (store.pendingAnimation) {
+      const base = { ...store.currentNote }
+      for (const key of FIELD_ORDER) delete (base as Record<string, unknown>)[key]
+      return base
+    }
+    return store.currentNote
+  })
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [previewHtml, setPreviewHtml] = useState(() => buildPreviewHTML(store.currentNote))
   const [showMobilePreview, setShowMobilePreview] = useState(false)
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [generationStatus, setGenerationStatus] = useState<string | null>(null)
   const [changeTemplateOpen, setChangeTemplateOpen] = useState(false)
   const [reassignOpen, setReassignOpen] = useState(false)
   const [allNotes, setAllNotes] = useState<Note[]>([])
@@ -88,12 +102,25 @@ export default function EditPage() {
   const [visitCount, setVisitCount] = useState<number | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
+  const autoSaveEnabledRef = useRef(true)
+  const latestFieldsRef = useRef<Partial<Note>>(store.currentNote)
 
   useEffect(() => { return () => { mountedRef.current = false } }, [])
 
   useEffect(() => {
-    setFields(store.currentNote)
-    setPreviewHtml(buildPreviewHTML(store.currentNote))
+    if (store.pendingAnimation) {
+      store.setPendingAnimation(false)
+      const toAnimate: Partial<Note> = {}
+      for (const key of FIELD_ORDER) {
+        const v = (store.currentNote as Record<string, string>)[key]
+        if (v) (toAnimate as Record<string, string>)[key] = v
+      }
+      animateFields(toAnimate)
+    } else {
+      latestFieldsRef.current = store.currentNote
+      setFields(store.currentNote)
+      setPreviewHtml(buildPreviewHTML(store.currentNote))
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -111,6 +138,7 @@ export default function EditPage() {
   storeRef.current = store
 
   const scheduleSave = useCallback((data: Partial<Note>) => {
+    if (!autoSaveEnabledRef.current) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(async () => {
       if (!user || !mountedRef.current) return
@@ -155,6 +183,7 @@ export default function EditPage() {
 
   function setField<K extends keyof Note>(key: K, value: string) {
     const next = { ...fields, [key]: value }
+    latestFieldsRef.current = next
     setFields(next)
     store.setCurrentNote(next)
     scheduleSave(next)
@@ -214,6 +243,67 @@ export default function EditPage() {
     [fields.reg_number, activeWorkplace]
   )
 
+  function typewriterField(key: string, value: string): Promise<void> {
+    return new Promise(resolve => {
+      let i = 0
+      setFields(prev => {
+        const next = { ...prev, [key]: '' }
+        latestFieldsRef.current = next
+        return next
+      })
+      const interval = setInterval(() => {
+        i++
+        const slice = value.slice(0, i)
+        setFields(prev => {
+          const next = { ...prev, [key]: slice }
+          latestFieldsRef.current = next
+          return next
+        })
+        if (i >= value.length) {
+          clearInterval(interval)
+          resolve()
+        }
+      }, 15)
+    })
+  }
+
+  function triggerAutoSave() {
+    const data = latestFieldsRef.current
+    store.setCurrentNote(data)
+    scheduleSave(data)
+  }
+
+  async function animateFields(noteFields: Partial<Note>) {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    autoSaveEnabledRef.current = false
+    setIsAnimating(true)
+
+    if (reduced) {
+      setFields(prev => {
+        const next = { ...prev, ...noteFields }
+        latestFieldsRef.current = next
+        return next
+      })
+      setIsAnimating(false)
+      autoSaveEnabledRef.current = true
+      triggerAutoSave()
+      return
+    }
+
+    for (const key of FIELD_ORDER) {
+      if (!mountedRef.current) break
+      const value = (noteFields as Record<string, string>)[key]
+      if (!value || typeof value !== 'string') continue
+      await typewriterField(key, value)
+    }
+
+    if (mountedRef.current) {
+      setIsAnimating(false)
+      autoSaveEnabledRef.current = true
+      triggerAutoSave()
+    }
+  }
+
   // Auto-numbering in list fields
   function handleListKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>, fieldKey: keyof Note) {
     if (e.key !== 'Enter') return
@@ -252,6 +342,15 @@ export default function EditPage() {
   async function runGeneration(transcript: string, template: AnyTemplate) {
     setIsGenerating(true)
     store.setLastChosenTemplate(template)
+
+    const statusSequence = ['Transcribing...', 'Analysing...', 'Generating...', 'Formatting...']
+    let statusIdx = 0
+    setGenerationStatus(statusSequence[0])
+    const statusTimer = setInterval(() => {
+      statusIdx = (statusIdx + 1) % statusSequence.length
+      setGenerationStatus(statusSequence[statusIdx])
+    }, 600)
+
     try {
       const noteLength = profile?.personalisation?.noteLength ?? 'balanced'
       const systemPrompt = profile ? getPersonalisationPrefix(profile, noteLength) : ''
@@ -268,14 +367,15 @@ export default function EditPage() {
         throw new Error(data.error ?? 'Generation failed')
       }
       const data = await res.json() as { content: string }
+      clearInterval(statusTimer)
+      setGenerationStatus(null)
+      if (!mountedRef.current) return
+      setIsGenerating(false)
       const noteFields = parseGeneratedContent(data.content)
-      const next = { ...fields, ...noteFields }
-      setFields(next)
-      store.setCurrentNote(next)
-      scheduleSave(next)
+      await animateFields(noteFields)
     } catch {
-      // silent — isGenerating clears in finally
-    } finally {
+      clearInterval(statusTimer)
+      setGenerationStatus(null)
       if (mountedRef.current) setIsGenerating(false)
     }
   }
@@ -301,15 +401,17 @@ export default function EditPage() {
     <div className="h-full flex flex-col overflow-hidden">
 
       {/* Current note bar */}
-      {store.currentNoteId && (
+      {(store.currentNoteId || isAnimating || isGenerating) && (
         <div
           className={`flex items-center justify-between px-4 py-2 text-white text-sm shrink-0
             bg-gradient-to-r from-[#0e9f6e] to-[#059669]
             ${isGenerating ? 'animate-pulse' : ''}`}
         >
           <div className="flex items-center gap-2 min-w-0">
-            {isGenerating ? (
-              <div className="h-4 w-32 bg-white/30 rounded animate-pulse" />
+            {isAnimating ? (
+              <div className="h-4 w-48 rounded bg-white/30 animate-[shimmer_1.5s_infinite]" />
+            ) : isGenerating ? (
+              <span className="font-medium truncate">{generationStatus ?? 'Generating…'}</span>
             ) : (
               <span className="font-medium truncate">
                 {fields.patient || 'No patient'} · {fields.date || '—'}

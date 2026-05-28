@@ -10,12 +10,14 @@ interface NoteStore {
   lastTranscriptMode: NoteCreationMode
   lastChosenTemplate: AnyTemplate | null
   lastRecordingDuration: number
+  pendingAnimation: boolean
   setCurrentNote: (note: Partial<Note>) => void
   setCurrentNoteId: (id: string | null) => void
   setLastTranscript: (t: string | null) => void
   setLastTranscriptMode: (m: NoteCreationMode) => void
   setLastChosenTemplate: (t: AnyTemplate | null) => void
   setLastRecordingDuration: (s: number) => void
+  setPendingAnimation: (v: boolean) => void
   resetNote: () => void
 }
 
@@ -28,6 +30,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   const [lastTranscriptMode, setLastTranscriptMode] = useState<NoteCreationMode>('paste')
   const [lastChosenTemplate, setLastChosenTemplate] = useState<AnyTemplate | null>(null)
   const [lastRecordingDuration, setLastRecordingDuration] = useState(0)
+  const [pendingAnimation, setPendingAnimation] = useState(false)
 
   function resetNote() {
     setCurrentNoteId(null)
@@ -36,6 +39,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
     setLastTranscriptMode('paste')
     setLastChosenTemplate(null)
     setLastRecordingDuration(0)
+    setPendingAnimation(false)
   }
 
   return (
@@ -46,12 +50,14 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       lastTranscriptMode,
       lastChosenTemplate,
       lastRecordingDuration,
+      pendingAnimation,
       setCurrentNote,
       setCurrentNoteId,
       setLastTranscript,
       setLastTranscriptMode,
       setLastChosenTemplate,
       setLastRecordingDuration,
+      setPendingAnimation,
       resetNote,
     }}>
       {children}

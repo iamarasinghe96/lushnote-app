@@ -49,6 +49,12 @@ body { -webkit-font-smoothing: antialiased; }
 .preview-empty { display: flex; align-items: center; justify-content: center; min-height: 200px; }
 .preview-empty p { font-size: 13px; color: var(--text3); text-align: center; }
 
+@keyframes shimmer {
+  0% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.4; }
+}
+
 /* Reduced motion — disables ALL transitions and animations */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
