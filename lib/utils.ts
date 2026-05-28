@@ -112,6 +112,42 @@ function formatContent(text: string): string {
   return html
 }
 
+const NOTE_TEXT_LABELS: Record<string, string> = {
+  patient: 'PATIENT', reg_number: 'REG NUMBER', date: 'DATE', time: 'TIME',
+  clinician: 'CLINICIAN', session_number: 'SESSION NUMBER', attendance: 'ATTENDANCE',
+  diagnosis: 'DIAGNOSIS', presentation: 'PRESENTATION', history: 'HISTORY',
+  medications: 'MEDICATIONS', mse: 'MENTAL STATE EXAMINATION', content: 'SESSION CONTENT',
+  scales: 'RATING SCALES', risk: 'RISK ASSESSMENT', referrals: 'REFERRALS & CORRESPONDENCE',
+  summary: 'SUMMARY', nextsteps: 'NEXT STEPS',
+}
+
+const NOTE_TEXT_ORDER = [
+  'patient', 'reg_number', 'date', 'time', 'clinician', 'session_number', 'attendance',
+  'diagnosis', 'presentation', 'history', 'medications', 'mse', 'content', 'scales',
+  'risk', 'referrals', 'summary', 'nextsteps',
+]
+
+export function buildNoteText(f: Partial<Note>): string {
+  return NOTE_TEXT_ORDER
+    .map(key => {
+      const val = (f as Record<string, string>)[key]
+      if (!val || !val.trim()) return ''
+      return `${NOTE_TEXT_LABELS[key]}\n${val.trim()}`
+    })
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+export function buildCoverLetterEmail(
+  f: Partial<Note>,
+  profile: { displayName?: string; credentials?: string; emailPretext?: string }
+): string {
+  const pretext = profile.emailPretext || 'I reviewed this patient today and wanted to share the following progress note.'
+  const body = buildNoteText(f)
+  const sign = [profile.displayName, profile.credentials].filter(Boolean).join('\n')
+  return `${pretext}\n\n${body}\n\nRegards,\n${sign}`
+}
+
 export function buildPreviewHTML(f: Partial<Note>): string {
   const sections = PREVIEW_FIELD_ORDER
     .filter(key => (f as Record<string, string>)[key]?.trim())

@@ -61,6 +61,7 @@ export default function TabBar() {
 
   return (
     <nav
+      data-tab-bar
       className="shrink-0 flex items-stretch border-t border-white/50
                  backdrop-blur-lg bg-white/85 scrollbar-none overflow-x-auto pb-safe"
       style={{

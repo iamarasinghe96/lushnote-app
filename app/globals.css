@@ -64,3 +64,10 @@ body { -webkit-font-smoothing: antialiased; }
   }
   .quota-bar * { transition: none !important; }
 }
+
+@media print {
+  .no-print { display: none !important; }
+  nav, header, [data-tab-bar], [data-header] { display: none !important; }
+  body { background: white; }
+  .preview-pane { max-width: 100%; }
+}

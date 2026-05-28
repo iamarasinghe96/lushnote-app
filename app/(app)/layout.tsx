@@ -60,6 +60,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* ── Header ── */}
         <header
+          data-header
           className="relative z-30 flex items-center justify-between px-4 shrink-0
                      backdrop-blur-lg bg-white/85 border-b border-white/50"
           style={{
