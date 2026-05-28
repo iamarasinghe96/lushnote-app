@@ -6,13 +6,8 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { NoteStoreProvider } from '@/hooks/useNoteStore'
 import TabBar from '@/components/tabs/TabBar'
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return (parts[0][0] ?? '').toUpperCase()
-  return ((parts[0][0] ?? '') + (parts[parts.length - 1][0] ?? '')).toUpperCase()
-}
+import { getInitials, applyWorkspaceTheme } from '@/lib/utils'
+import { WP_THEMES } from '@/types'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, signOut } = useAuth()
@@ -40,6 +35,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { setMenuOpen(false) }, [pathname])
 
+  useEffect(() => {
+    if (!profile) return
+    const wp = profile.workplaces?.find(w => w.id === profile.activeWorkplaceId)
+    applyWorkspaceTheme(wp?.themeIndex ?? 0)
+  }, [profile])
+
   async function handleSignOut() {
     await signOut()
     router.replace('/')
@@ -48,7 +49,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (loading) return <LoadingScreen />
   if (!user || !profile?.onboardingComplete) return null
 
-  const initials = getInitials(profile.displayName || user.email || '?')
+  const activeWorkplace = profile?.workplaces?.find(w => w.id === profile.activeWorkplaceId)
+  const themeIndex = activeWorkplace?.themeIndex ?? 0
+  const avatarBg = WP_THEMES[themeIndex]?.primary ?? '#2563eb'
+  const initials = getInitials(profile?.displayName || '')
 
   return (
     <NoteStoreProvider>
@@ -63,17 +67,39 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
           }}
         >
-          <Link href="/generate" className="flex items-center gap-2 select-none">
-            <img src="/icon.svg" alt="" width={28} height={28} aria-hidden />
-            <span className="font-semibold text-[var(--text)] text-[15px]">LushNote</span>
-          </Link>
+          {/* Left: logo + name/workplace (desktop only) */}
+          <div className="flex items-center">
+            <Link href="/generate" className="flex items-center gap-2 select-none">
+              <img src="/icon.svg" alt="" width={28} height={28} aria-hidden />
+              <span className="font-semibold text-[var(--text)] text-[15px]">LushNote</span>
+            </Link>
+            {profile && (
+              <div className="hidden sm:flex flex-col items-start ml-3">
+                <span className="text-sm font-semibold text-[var(--text)] leading-tight">
+                  {profile.displayName}
+                  {profile.credentials && (
+                    <span className="text-xs text-[var(--text2)] font-normal ml-1.5">
+                      {profile.credentials}
+                    </span>
+                  )}
+                </span>
+                {activeWorkplace && (
+                  <span className="text-xs text-[var(--text3)] bg-white/60 border border-white/40 backdrop-blur-sm rounded-full px-2 py-0.5 mt-0.5">
+                    {activeWorkplace.name}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
 
+          {/* Right: avatar + dropdown */}
           <div ref={menuRef} className="relative">
             <button
+              style={{ backgroundColor: avatarBg }}
+              className="w-8 h-8 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0
+                         motion-safe:transition-transform motion-safe:active:scale-95"
               onClick={() => setMenuOpen(o => !o)}
               aria-label="User menu"
-              className="w-8 h-8 rounded-full bg-[#10b981] flex items-center justify-center
-                         text-white text-xs font-bold active:scale-95 transition-transform"
             >
               {initials}
             </button>

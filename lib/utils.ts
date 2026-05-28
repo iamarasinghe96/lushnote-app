@@ -1,3 +1,20 @@
+import { WP_THEMES } from '@/types'
+
+export function getInitials(displayName: string): string {
+  if (!displayName) return 'LN'
+  const cleaned = displayName.replace(/^(doctor|dr\.?)\s+/i, '').trim()
+  const parts = cleaned.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return cleaned.slice(0, 2).toUpperCase()
+}
+
+export function applyWorkspaceTheme(themeIndex: number) {
+  const theme = WP_THEMES[themeIndex] || WP_THEMES[0]
+  document.documentElement.style.setProperty('--blue', theme.primary)
+  document.documentElement.style.setProperty('--blue-dk', theme.dk)
+  document.documentElement.style.setProperty('--blue-lt', theme.lt)
+}
+
 export function detectIdPattern(example: string): {
   regex: string
   template: string
