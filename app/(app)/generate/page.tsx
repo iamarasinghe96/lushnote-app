@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
+import { openSettings } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import Textarea from '@/components/ui/Textarea'
@@ -13,6 +14,8 @@ import DictateModal from '@/components/modals/DictateModal'
 import TranscriptConfirm from '@/components/modals/TranscriptConfirm'
 import TemplatePicker from '@/components/modals/TemplatePicker'
 import type { AnyTemplate, NoteCreationMode, Note } from '@/types'
+
+const GEMINI_RPD = 20
 
 type GenPhase =
   | 'idle'
@@ -142,6 +145,21 @@ export default function GeneratePage() {
   const [transcript, setTranscript] = useState('')
   const [creationMode, setCreationMode] = useState<NoteCreationMode>('paste')
   const [error, setError] = useState<string | null>(null)
+  const [showBanner, setShowBanner] = useState(false)
+
+  useEffect(() => {
+    if (localStorage.getItem('_ln_rec_interrupted')) {
+      setShowBanner(true)
+    }
+  }, [])
+
+  // Quota calculation
+  const today = new Date().toISOString().slice(0, 10)
+  const usageEntry = profile?.geminiUsage?.['gemini-2.5-flash']
+  const usedToday = usageEntry?.date === today ? (usageEntry?.count ?? 0) : 0
+
+  // Groq key availability
+  const hasGroqKey = typeof window !== 'undefined' && Boolean(sessionStorage.getItem('groq_api_key'))
 
   function startMode(mode: NoteCreationMode) {
     setCreationMode(mode)
@@ -242,7 +260,32 @@ export default function GeneratePage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div
+      className="h-full overflow-y-auto"
+      style={{
+        backgroundImage: "url('/assets/bg.svg')",
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'bottom right',
+        backgroundSize: '280px',
+      }}
+    >
+      {/* Interrupted session banner */}
+      {showBanner && (
+        <div className="mx-4 mt-3 bg-amber-50 border border-amber-200 rounded-[var(--r)] p-3 flex items-start gap-2">
+          <span className="text-amber-500 mt-0.5 shrink-0">⚠</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-800">Previous recording interrupted</p>
+            <p className="text-xs text-amber-600 mt-0.5">Your last recording session may not have been fully captured.</p>
+          </div>
+          <button
+            onClick={() => { localStorage.removeItem('_ln_rec_interrupted'); setShowBanner(false) }}
+            className="text-xs text-amber-500 hover:text-amber-700 font-medium shrink-0"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <div className="max-w-lg mx-auto px-4 py-6 space-y-3">
         <div className="mb-2">
           <h1 className="text-lg font-semibold text-[var(--text)]">New note</h1>
@@ -259,12 +302,51 @@ export default function GeneratePage() {
         <ModeCard icon={PasteIcon} title="Paste Transcript" description="Paste session transcript text" onClick={() => startMode('paste')} />
         <ModeCard icon={RecordIcon} title="Record Session" description="In-person or telehealth recording" onClick={() => startMode('conversation')} />
         <ModeCard icon={DictateIcon} title="Dictate Note" description="Narrate the note yourself" onClick={() => startMode('dictation')} />
+
+        {!hasGroqKey && (
+          <p className="text-xs text-[var(--text3)] text-center mt-2 px-4">
+            Add a{' '}
+            <button
+              onClick={() => openSettings('api-keys')}
+              className="text-[var(--blue)] underline"
+            >
+              Groq API key
+            </button>
+            {' '}to enable voice recording modes.
+          </p>
+        )}
+
         <ModeCard icon={DocumentIcon} title="Create Document" description="Paste or upload a text document" onClick={() => startMode('document')} />
 
         {/* Upload Recording — hidden in UI, code preserved */}
         <div style={{ display: 'none' }}>
           <ModeCard icon={UploadIcon} title="Upload Recording" description="Upload an audio file" onClick={() => startMode('upload')} />
         </div>
+      </div>
+
+      {/* API Quota bar */}
+      <div className="mx-4 mt-3 max-w-lg quota-bar pb-4">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs text-[var(--text3)]">Gemini usage today</span>
+          <span className={`text-xs font-semibold ${usedToday >= GEMINI_RPD ? 'text-orange-500' : 'text-[var(--text2)]'}`}>
+            {usedToday} / {GEMINI_RPD}
+          </span>
+        </div>
+        <div className="h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-300 ${usedToday >= GEMINI_RPD ? 'bg-orange-400' : 'bg-[var(--blue)]'}`}
+            style={{ width: `${Math.min((usedToday / GEMINI_RPD) * 100, 100)}%` }}
+          />
+        </div>
+        {usedToday >= GEMINI_RPD && (
+          <p className="text-xs text-orange-500 mt-1">Daily limit reached. Using Groq fallback.</p>
+        )}
+        {typeof window !== 'undefined' && sessionStorage.getItem('groq_api_key') && (
+          <span className="inline-flex items-center gap-1 mt-2 text-xs bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            Groq fallback active
+          </span>
+        )}
       </div>
 
       {/* Paste transcript modal */}

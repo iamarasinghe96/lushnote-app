@@ -15,6 +15,10 @@ export function applyWorkspaceTheme(themeIndex: number) {
   document.documentElement.style.setProperty('--blue-lt', theme.lt)
 }
 
+export function openSettings(tab: string): void {
+  window.location.href = '/settings?tab=' + tab
+}
+
 export function detectIdPattern(example: string): {
   regex: string
   template: string
