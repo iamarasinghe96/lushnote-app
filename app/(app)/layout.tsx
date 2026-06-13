@@ -62,30 +62,34 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* ── Header ── */}
         <header
           data-header
-          className="relative z-30 flex items-center justify-between px-4 shrink-0
-                     backdrop-blur-lg bg-white/85 border-b border-white/50"
+          className="relative z-30 flex items-center justify-between px-4 shrink-0"
           style={{
             height: 52,
-            boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+            background: 'linear-gradient(to right, #1d4ed8, #2563eb)',
+            boxShadow: '0 2px 8px rgba(15,23,42,.12)',
           }}
         >
-          {/* Left: logo + name/workplace (desktop only) */}
-          <div className="flex items-center">
-            <Link href="/generate" className="flex items-center gap-2 select-none">
-              <img src="/icon.svg" alt="" width={28} height={28} aria-hidden />
-              <span className="font-semibold text-[var(--text)] text-[15px]">LushNote</span>
-            </Link>
+          {/* Left: LN circle + name/subtitle */}
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-[#5ad6a7] flex items-center justify-center shrink-0">
+              <span className="text-white text-xs font-bold select-none">LN</span>
+            </div>
             {profile && (
-              <div className="hidden sm:flex flex-col items-start ml-3 min-w-0">
-                <span className="text-sm font-semibold text-[var(--text)] leading-tight truncate max-w-xs">
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-bold text-white leading-tight truncate max-w-[200px] sm:max-w-xs">
                   {profile.displayName}
                 </span>
-                <span className="text-xs text-[var(--text2)] leading-tight truncate max-w-xs">
+                <span className="text-xs text-white/70 leading-tight truncate max-w-[200px] sm:max-w-xs">
                   {[profile.credentials, activeWorkplace?.name].filter(Boolean).join(' · ')}
                 </span>
               </div>
             )}
           </div>
+
+          {/* Centre: LushNote wordmark */}
+          <span className="absolute left-1/2 -translate-x-1/2 text-white font-semibold text-base tracking-wide pointer-events-none select-none">
+            LushNote
+          </span>
 
           {/* Right: avatar + dropdown */}
           <div ref={menuRef} className="relative">
