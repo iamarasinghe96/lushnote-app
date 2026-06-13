@@ -75,20 +75,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <span className="font-semibold text-[var(--text)] text-[15px]">LushNote</span>
             </Link>
             {profile && (
-              <div className="hidden sm:flex flex-col items-start ml-3">
-                <span className="text-sm font-semibold text-[var(--text)] leading-tight">
+              <div className="hidden sm:flex flex-col items-start ml-3 min-w-0">
+                <span className="text-sm font-semibold text-[var(--text)] leading-tight truncate max-w-xs">
                   {profile.displayName}
-                  {profile.credentials && (
-                    <span className="text-xs text-[var(--text2)] font-normal ml-1.5">
-                      {profile.credentials}
-                    </span>
-                  )}
                 </span>
-                {activeWorkplace && (
-                  <span className="text-xs text-[var(--text3)] bg-white/60 border border-white/40 backdrop-blur-sm rounded-full px-2 py-0.5 mt-0.5">
-                    {activeWorkplace.name}
-                  </span>
-                )}
+                <span className="text-xs text-[var(--text2)] leading-tight truncate max-w-xs">
+                  {[profile.credentials, activeWorkplace?.name].filter(Boolean).join(' · ')}
+                </span>
               </div>
             )}
           </div>
