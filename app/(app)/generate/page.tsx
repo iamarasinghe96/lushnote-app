@@ -181,8 +181,12 @@ export default function GeneratePage() {
   const usageEntry = profile?.geminiUsage?.['gemini-2.5-flash']
   const usedToday = usageEntry?.date === today ? (usageEntry?.count ?? 0) : 0
 
-  // Groq key availability
+  // Groq key availability + session token tracking
   const hasGroqKey = typeof window !== 'undefined' && Boolean(sessionStorage.getItem('groq_api_key'))
+  const [groqTokensUsed, setGroqTokensUsed] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0
+    return parseInt(localStorage.getItem('ln_groq_tokens_session') || '0', 10)
+  })
 
   function startMode(mode: NoteCreationMode) {
     setCreationMode(mode)
@@ -293,9 +297,15 @@ export default function GeneratePage() {
         const data = await res.json() as { error?: string }
         throw new Error(data.error ?? 'Generation failed')
       }
-      const data = await res.json() as { content: string }
+      const data = await res.json() as { content: string; groqTokensUsed?: number }
       clearInterval(statusTimer)
       setGenerationStatus(null)
+      if (data.groqTokensUsed) {
+        const current = parseInt(localStorage.getItem('ln_groq_tokens_session') || '0', 10)
+        const updated = current + data.groqTokensUsed
+        localStorage.setItem('ln_groq_tokens_session', String(updated))
+        setGroqTokensUsed(updated)
+      }
       const noteFields = parseGeneratedContent(data.content)
       store.setCurrentNote({
         ...noteFields,
@@ -398,11 +408,13 @@ export default function GeneratePage() {
         {usedToday >= GEMINI_RPD && (
           <p className="text-xs text-orange-500 mt-1">Daily limit reached. Using Groq fallback.</p>
         )}
-        {typeof window !== 'undefined' && sessionStorage.getItem('groq_api_key') && (
-          <span className="inline-flex items-center gap-1 mt-2 text-xs bg-green-50 text-green-700 border border-green-200 rounded-full px-2 py-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-            Groq fallback active
-          </span>
+        {hasGroqKey && (
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-xs text-[var(--text3)]">Groq usage (session)</span>
+            <span className="text-xs text-[var(--text2)] font-medium">
+              {groqTokensUsed.toLocaleString()} tokens
+            </span>
+          </div>
         )}
       </div>
 

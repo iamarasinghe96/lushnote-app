@@ -66,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signOut() {
     sessionStorage.removeItem('groq_api_key')
     sessionStorage.removeItem('gemini_api_key')
+    localStorage.removeItem('ln_groq_tokens_session')
     await firebaseSignOut(auth)
   }
 

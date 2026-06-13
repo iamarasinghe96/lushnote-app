@@ -109,12 +109,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
           </div>
 
-          {/* Centre: LushNote wordmark */}
-          <span className="absolute left-1/2 -translate-x-1/2 text-white font-semibold text-base tracking-wide pointer-events-none select-none">
-            LushNote
-          </span>
-
-          {/* Right: avatar + dropdown */}
+          {/* Right: LushNote wordmark + avatar */}
+          <div className="flex items-center gap-3">
+          <span className="text-white font-semibold text-sm hidden sm:block select-none">LushNote</span>
           <div ref={menuRef} className="relative">
             <button
               style={{ backgroundColor: avatarBg }}
@@ -152,6 +149,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
             )}
+          </div>
           </div>
         </header>
 

@@ -67,7 +67,7 @@ Keep responses concise and practical.`
       if (!groqKey) {
         return NextResponse.json({ error: 'No API key available' }, { status: 401 })
       }
-      const answer = await generateNoteGroq(question, systemPrompt, groqKey)
+      const { content: answer } = await generateNoteGroq(question, systemPrompt, groqKey)
       return NextResponse.json({ answer, provider: 'groq' })
     }
 
@@ -107,7 +107,7 @@ Keep responses concise and practical.`
       if (!groqKey) {
         return NextResponse.json({ error: 'No API key available' }, { status: 401 })
       }
-      const answer = await generateNoteGroq(question, systemPrompt, groqKey)
+      const { content: answer } = await generateNoteGroq(question, systemPrompt, groqKey)
       return NextResponse.json({ answer, provider: 'groq' })
     }
 
@@ -163,7 +163,7 @@ Keep responses concise and practical.`
     }))
 
     const prompt = groqMessages.map(m => m.content).join('\n')
-    const reply = await generateNoteGroq(prompt, systemPrompt, groqKey)
+    const { content: reply } = await generateNoteGroq(prompt, systemPrompt, groqKey)
     return NextResponse.json({ reply, provider: 'groq' })
 
   } catch {

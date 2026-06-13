@@ -88,10 +88,17 @@ export default function Page() {
           backgroundPosition: 'center',
         }}
       >
+        <div
+          className="absolute inset-0 pointer-events-none"
+          aria-hidden="true"
+          style={{
+            background: 'radial-gradient(ellipse 60% 40% at 50% 60%, rgba(16,185,129,0.08) 0%, transparent 70%)',
+          }}
+        />
         <div className="max-w-2xl mx-auto space-y-6">
           <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold
                            bg-[var(--blue-lt)] text-[var(--blue)]">
-            RACGP · FRANZCP · RANZCP
+            Built to save one more life
           </span>
 
           <h1 className="text-4xl sm:text-5xl font-bold text-[var(--text)] leading-tight">

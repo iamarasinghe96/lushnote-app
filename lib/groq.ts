@@ -6,7 +6,7 @@ export async function generateNoteGroq(
   prompt: string,
   systemPrompt: string,
   apiKey: string
-): Promise<string> {
+): Promise<{ content: string; totalTokens: number }> {
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -25,8 +25,14 @@ export async function generateNoteGroq(
     const err = await res.json().catch(() => ({})) as { error?: { message?: string } }
     throw new Error(`${res.status}: ${err?.error?.message ?? res.statusText}`)
   }
-  const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
-  return data.choices?.[0]?.message?.content ?? ''
+  const data = await res.json() as {
+    choices?: Array<{ message?: { content?: string } }>
+    usage?: { total_tokens?: number }
+  }
+  return {
+    content: data.choices?.[0]?.message?.content ?? '',
+    totalTokens: data.usage?.total_tokens ?? 0,
+  }
 }
 
 export async function transcribeAudioGroq(audioBlob: FormData, apiKey: string): Promise<string> {

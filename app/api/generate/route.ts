@@ -58,8 +58,8 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      const content = await generateNoteGroq(prompt, systemPrompt, groqKey)
-      return NextResponse.json({ content, provider: 'groq' })
+      const { content, totalTokens } = await generateNoteGroq(prompt, systemPrompt, groqKey)
+      return NextResponse.json({ content, provider: 'groq', groqTokensUsed: totalTokens })
     } catch (err) {
       if (err instanceof Error && err.message.startsWith('429:')) {
         const waitSeconds = parseGroqWaitSeconds(err.message)
