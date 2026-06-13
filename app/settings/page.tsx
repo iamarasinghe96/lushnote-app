@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { updateProfile } from '@/lib/firestore/profiles'
+import { applyWorkspaceTheme } from '@/lib/utils'
 import ProfilePanel from '@/components/settings/ProfilePanel'
 import WorkplacesPanel from '@/components/settings/WorkplacesPanel'
 import TemplatesPanel from '@/components/settings/TemplatesPanel'
@@ -14,7 +15,7 @@ import PersonalisationPanel from '@/components/settings/PersonalisationPanel'
 import SubscriptionPanel from '@/components/settings/SubscriptionPanel'
 import type { User, Workplace } from '@/types'
 
-type TabKey = 'profile' | 'workplaces' | 'templates' | 'transcripts' | 'apikeys' | 'personalisation' | 'subscription'
+type TabKey = 'profile' | 'workplaces' | 'templates' | 'transcripts' | 'api-keys' | 'personalisation' | 'subscription'
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   {
@@ -63,7 +64,7 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    key: 'apikeys',
+    key: 'api-keys',
     label: 'API Keys',
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -131,6 +132,12 @@ function SettingsContent() {
     if (!loading && !user) router.replace('/')
   }, [loading, user, router])
 
+  useEffect(() => {
+    if (!profile) return
+    const activeWp = profile.workplaces?.find(w => w.id === profile.activeWorkplaceId)
+    applyWorkspaceTheme(activeWp?.themeIndex ?? 0)
+  }, [profile])
+
   if (loading) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
@@ -189,7 +196,7 @@ function SettingsContent() {
             onToast={showToast}
           />
         )
-      case 'apikeys':
+      case 'api-keys':
         return (
           <ApiKeysPanel
             profile={profile!}

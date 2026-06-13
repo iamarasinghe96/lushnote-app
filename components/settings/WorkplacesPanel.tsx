@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import { detectIdPattern } from '@/lib/utils'
+import { detectIdPattern, applyWorkspaceTheme } from '@/lib/utils'
 import { WP_THEMES } from '@/types'
 import type { User, Workplace, WorkplaceType } from '@/types'
 
@@ -138,10 +138,13 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
   }
 
   async function handleSetActive(id: string) {
+    const workplace = workplaces.find(w => w.id === id)
+    if (!workplace) return
+    applyWorkspaceTheme(workplace.themeIndex ?? 0)
     setSaving(true)
     try {
       await onSave(workplaces, id)
-      onToast('Active workplace updated')
+      onToast(`Switched to ${workplace.name}`)
     } catch {
       onToast('Failed to update active workplace')
     } finally {
