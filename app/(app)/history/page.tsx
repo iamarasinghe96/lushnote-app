@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { listNotes } from '@/lib/firestore/notes'
 import { getPatientProfiles } from '@/lib/firestore/patients'
+import { GenderAvatar } from '@/components/ui/GenderAvatar'
 import type { Note, PatientProfile } from '@/types'
 
 function getAvatarColor(name: string): string {
@@ -47,7 +48,7 @@ function PatientRowSkeleton() {
 function buildPatientList(
   notes: Note[],
   profiles: Record<string, PatientProfile>
-): Array<{ name: string; count: number; lastVisit: string }> {
+): Array<{ name: string; count: number; lastVisit: string; gender?: PatientProfile['gender'] }> {
   const map = new Map<string, { count: number; lastVisit: string; normKey: string }>()
 
   // Seed from profiles so patients with no notes still appear
@@ -82,11 +83,18 @@ function buildPatientList(
     if (!noteNameByNorm[norm]) noteNameByNorm[norm] = name
   }
 
+  // Build gender lookup from profiles
+  const genderByNorm: Record<string, PatientProfile['gender']> = {}
+  for (const p of Object.values(profiles)) {
+    genderByNorm[p.displayName.trim().toLowerCase()] = p.gender
+  }
+
   return Array.from(map.entries())
     .map(([norm, { count, lastVisit }]) => ({
       name: profilesByNorm[norm] ?? noteNameByNorm[norm] ?? norm,
       count,
       lastVisit,
+      gender: genderByNorm[norm],
     }))
     .sort((a, b) => a.name.localeCompare(b.name))
 }
@@ -217,12 +225,8 @@ export default function HistoryPage() {
                   className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors
                     ${active ? 'bg-[var(--blue-lt)]' : 'hover:bg-[var(--bg)]'}`}
                 >
-                  <div
-                    className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center
-                               text-white text-[10px] font-bold"
-                    style={{ backgroundColor: getAvatarColor(p.name) }}
-                  >
-                    {getInitials(p.name)}
+                  <div className="shrink-0">
+                    <GenderAvatar gender={p.gender} size={28} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className={`text-sm font-medium truncate ${active ? 'text-[var(--blue)]' : 'text-[var(--text)]'}`}>
