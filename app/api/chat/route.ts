@@ -26,6 +26,51 @@ export async function POST(req: NextRequest) {
     const body = await req.json() as Record<string, unknown>
     const { type } = body
 
+    // ── AI Assistant (FAB chat) ─────────────────────────────────────────────────
+    if (type === 'assistant') {
+      const { question, kb, uid } = body as {
+        question: string
+        kb?: string
+        uid?: string
+      }
+
+      if (!question || typeof question !== 'string' || question.length > 2000) {
+        return NextResponse.json({ error: 'Invalid question' }, { status: 400 })
+      }
+
+      const systemPrompt = `You are the LushNote AI assistant. Help users understand and use LushNote.
+Use the following knowledge base to answer questions accurately:
+
+${kb ?? ''}
+
+If the user asks about a specific patient or clinical scenario and there is no patient context provided,
+explain that you can search their notes if they share more details.
+Keep responses concise and practical.`
+
+      const messages: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }> = [
+        { role: 'user', parts: [{ text: question }] },
+      ]
+
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const answer = await chatResponse(messages, systemPrompt)
+          if (uid && typeof uid === 'string') {
+            await updateGeminiUsage(uid, 'chat').catch(() => {})
+          }
+          return NextResponse.json({ answer, provider: 'gemini' })
+        } catch {
+          // fall through to Groq
+        }
+      }
+
+      const groqKey = req.headers.get('x-groq-key')
+      if (!groqKey) {
+        return NextResponse.json({ error: 'No API key available' }, { status: 401 })
+      }
+      const answer = await generateNoteGroq(question, systemPrompt, groqKey)
+      return NextResponse.json({ answer, provider: 'groq' })
+    }
+
     // ── Transcript Q&A ──────────────────────────────────────────────────────────
     if (type === 'transcript-qa') {
       const { question, transcript, uid } = body as {

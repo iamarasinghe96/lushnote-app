@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { NoteStoreProvider } from '@/hooks/useNoteStore'
 import TabBar from '@/components/tabs/TabBar'
+import { FAB } from '@/components/FAB'
 import { getInitials, applyWorkspaceTheme } from '@/lib/utils'
 import { WP_THEMES } from '@/types'
 
@@ -136,6 +137,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* ── Tab bar ── */}
         <TabBar />
+
+        {/* ── FAB ── */}
+        <FAB />
 
       </div>
     </NoteStoreProvider>
