@@ -89,6 +89,10 @@ export default function EditPage() {
     return store.currentNote
   })
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveFlashFields, setSaveFlashFields] = useState<Set<string>>(new Set())
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isSavingRef = useRef(false)
   const [previewHtml, setPreviewHtml] = useState(() => buildPreviewHTML(store.currentNote))
   const [showMobilePreview, setShowMobilePreview] = useState(false)
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
@@ -186,7 +190,6 @@ export default function EditPage() {
     latestFieldsRef.current = next
     setFields(next)
     store.setCurrentNote(next)
-    scheduleSave(next)
   }
 
   // Patient autocomplete index — preserves original name casing
@@ -230,9 +233,10 @@ export default function EditPage() {
       next.session_number = String((parseInt(lastNote.session_number || '0', 10) + 1))
       next.attendance = lastNote.attendance || next.attendance
     }
+    latestFieldsRef.current = next
     setFields(next)
     store.setCurrentNote(next)
-    scheduleSave(next)
+    doAutoSave('patient')
     setPatientDropdownOpen(false)
   }
 
@@ -267,10 +271,72 @@ export default function EditPage() {
     })
   }
 
+  async function doAutoSave(flashField?: string) {
+    if (isSavingRef.current) return
+    const data = latestFieldsRef.current
+    if (!data.patient) return
+    isSavingRef.current = true
+    setIsSaving(true)
+    try {
+      const s = storeRef.current
+      const noteData: NoteInput = {
+        userId: user!.uid,
+        patient:        data.patient        ?? '',
+        reg_number:     data.reg_number     ?? '',
+        date:           data.date           ?? '',
+        time:           data.time           ?? '',
+        clinician:      data.clinician      ?? profile?.displayName ?? '',
+        session_number: data.session_number ?? '',
+        attendance:     data.attendance     ?? '',
+        diagnosis:      data.diagnosis      ?? '',
+        presentation:   data.presentation   ?? '',
+        history:        data.history        ?? '',
+        medications:    data.medications    ?? '',
+        mse:            data.mse            ?? '',
+        content:        data.content        ?? '',
+        scales:         data.scales         ?? '',
+        risk:           data.risk           ?? '',
+        referrals:      data.referrals      ?? '',
+        summary:        data.summary        ?? '',
+        nextsteps:      data.nextsteps      ?? '',
+        transcript:     s.lastTranscript    ?? undefined,
+        transcriptMode: s.lastTranscriptMode,
+      }
+      if (s.currentNoteId) {
+        await updateNote(s.currentNoteId, noteData)
+      } else {
+        const id = await saveNote(noteData)
+        s.setCurrentNoteId(id)
+      }
+      if (flashField && mountedRef.current) {
+        setSaveFlashFields(prev => new Set(Array.from(prev).concat(flashField)))
+        setTimeout(() => {
+          setSaveFlashFields(prev => {
+            const next = new Set(prev)
+            next.delete(flashField)
+            return next
+          })
+        }, 600)
+      }
+    } catch {
+      // silent fail — auto-save errors are non-blocking
+    } finally {
+      isSavingRef.current = false
+      if (mountedRef.current) setIsSaving(false)
+    }
+  }
+
+  function handleFieldBlur(fieldName: string) {
+    if (!autoSaveEnabledRef.current) return
+    if (!latestFieldsRef.current.patient) return
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+    autoSaveTimerRef.current = setTimeout(() => { doAutoSave(fieldName) }, 800)
+  }
+
   function triggerAutoSave() {
     const data = latestFieldsRef.current
     store.setCurrentNote(data)
-    scheduleSave(data)
+    doAutoSave(undefined)
   }
 
   async function animateFields(noteFields: Partial<Note>) {
@@ -383,9 +449,10 @@ export default function EditPage() {
   function handleReassign(patient: string, regNumber: string) {
     setReassignOpen(false)
     const next = { ...fields, patient, reg_number: regNumber }
+    latestFieldsRef.current = next
     setFields(next)
     store.setCurrentNote(next)
-    scheduleSave(next)
+    doAutoSave('patient')
   }
 
   const sessionStats = store.lastTranscript && store.lastRecordingDuration > 0
@@ -413,9 +480,14 @@ export default function EditPage() {
             ) : isGenerating ? (
               <span className="font-medium truncate">{generationStatus ?? 'Generating…'}</span>
             ) : (
-              <span className="font-medium truncate">
-                {fields.patient || 'No patient'} · {fields.date || '—'}
-              </span>
+              <>
+                <span className="font-medium truncate">
+                  {fields.patient || 'No patient'} · {fields.date || '—'}
+                </span>
+                {isSaving && (
+                  <span className="text-xs text-white/60 ml-2 shrink-0">Saving...</span>
+                )}
+              </>
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
@@ -482,8 +554,9 @@ export default function EditPage() {
                   value={fields.patient ?? ''}
                   onChange={e => handlePatientInput(e.target.value)}
                   onFocus={() => setPatientDropdownOpen(true)}
-                  onBlur={() => setTimeout(() => setPatientDropdownOpen(false), 200)}
+                  onBlur={() => { setTimeout(() => setPatientDropdownOpen(false), 200); handleFieldBlur('patient') }}
                   autoComplete="off"
+                  className={saveFlashFields.has('patient') ? 'save-flash' : ''}
                 />
                 {visitCount !== null && (
                   <span className="text-xs text-[var(--text3)] mt-1 inline-block">
@@ -512,10 +585,12 @@ export default function EditPage() {
                 label="Registration Number"
                 value={fields.reg_number ?? ''}
                 onChange={e => setField('reg_number', e.target.value)}
-                className={
+                onBlur={() => handleFieldBlur('reg_number')}
+                className={[
+                  saveFlashFields.has('reg_number') ? 'save-flash' : '',
                   regStatus === 'valid' ? 'border-green-400' :
-                  regStatus === 'invalid' ? 'border-red-400' : ''
-                }
+                  regStatus === 'invalid' ? 'border-red-400' : '',
+                ].filter(Boolean).join(' ')}
                 hint={regStatus === 'invalid' ? `Expected format: ${activeWorkplace?.regTemplate ?? ''}` : undefined}
               />
             </div>
@@ -525,12 +600,12 @@ export default function EditPage() {
               <DatePicker
                 label="Date"
                 value={fields.date ?? ''}
-                onChange={v => setField('date', v)}
+                onChange={v => { setField('date', v); handleFieldBlur('date') }}
               />
               <TimePicker
                 label="Time"
                 value={fields.time ?? ''}
-                onChange={v => setField('time', v)}
+                onChange={v => { setField('time', v); handleFieldBlur('time') }}
               />
             </div>
 
@@ -540,11 +615,15 @@ export default function EditPage() {
                 label="Clinician"
                 value={fields.clinician ?? ''}
                 onChange={e => setField('clinician', e.target.value)}
+                onBlur={() => handleFieldBlur('clinician')}
+                className={saveFlashFields.has('clinician') ? 'save-flash' : ''}
               />
               <Input
                 label="Session number"
                 value={fields.session_number ?? ''}
                 onChange={e => setField('session_number', e.target.value)}
+                onBlur={() => handleFieldBlur('session_number')}
+                className={saveFlashFields.has('session_number') ? 'save-flash' : ''}
               />
             </div>
 
@@ -552,77 +631,101 @@ export default function EditPage() {
               label="Attendance"
               value={fields.attendance ?? ''}
               onChange={e => setField('attendance', e.target.value)}
+              onBlur={() => handleFieldBlur('attendance')}
+              className={saveFlashFields.has('attendance') ? 'save-flash' : ''}
             />
             <Textarea
               label="Diagnosis"
               rows={3}
               value={fields.diagnosis ?? ''}
               onChange={e => setField('diagnosis', e.target.value)}
+              onBlur={() => handleFieldBlur('diagnosis')}
+              className={saveFlashFields.has('diagnosis') ? 'save-flash' : ''}
             />
             <Textarea
               label="Presentation"
               rows={5}
               value={fields.presentation ?? ''}
               onChange={e => setField('presentation', e.target.value)}
+              onBlur={() => handleFieldBlur('presentation')}
+              className={saveFlashFields.has('presentation') ? 'save-flash' : ''}
             />
             <Textarea
               label="History"
               rows={5}
               value={fields.history ?? ''}
               onChange={e => setField('history', e.target.value)}
+              onBlur={() => handleFieldBlur('history')}
+              className={saveFlashFields.has('history') ? 'save-flash' : ''}
             />
             <Textarea
               label="Medications"
               rows={3}
               value={fields.medications ?? ''}
               onChange={e => setField('medications', e.target.value)}
+              onBlur={() => handleFieldBlur('medications')}
+              className={saveFlashFields.has('medications') ? 'save-flash' : ''}
             />
             <Textarea
               label="Mental Status Examination"
               rows={5}
               value={fields.mse ?? ''}
               onChange={e => setField('mse', e.target.value)}
+              onBlur={() => handleFieldBlur('mse')}
+              className={saveFlashFields.has('mse') ? 'save-flash' : ''}
             />
             <Textarea
               label="Session Content"
               rows={8}
               value={fields.content ?? ''}
               onChange={e => setField('content', e.target.value)}
+              onBlur={() => handleFieldBlur('content')}
               onKeyDown={e => handleListKeyDown(e, 'content')}
+              className={saveFlashFields.has('content') ? 'save-flash' : ''}
             />
             <Textarea
               label="Scales"
               rows={3}
               value={fields.scales ?? ''}
               onChange={e => setField('scales', e.target.value)}
+              onBlur={() => handleFieldBlur('scales')}
               onKeyDown={e => handleListKeyDown(e, 'scales')}
+              className={saveFlashFields.has('scales') ? 'save-flash' : ''}
             />
             <Textarea
               label="Risk"
               rows={4}
               value={fields.risk ?? ''}
               onChange={e => setField('risk', e.target.value)}
+              onBlur={() => handleFieldBlur('risk')}
               onKeyDown={e => handleListKeyDown(e, 'risk')}
+              className={saveFlashFields.has('risk') ? 'save-flash' : ''}
             />
             <Textarea
               label="Referrals"
               rows={3}
               value={fields.referrals ?? ''}
               onChange={e => setField('referrals', e.target.value)}
+              onBlur={() => handleFieldBlur('referrals')}
               onKeyDown={e => handleListKeyDown(e, 'referrals')}
+              className={saveFlashFields.has('referrals') ? 'save-flash' : ''}
             />
             <Textarea
               label="Summary"
               rows={5}
               value={fields.summary ?? ''}
               onChange={e => setField('summary', e.target.value)}
+              onBlur={() => handleFieldBlur('summary')}
+              className={saveFlashFields.has('summary') ? 'save-flash' : ''}
             />
             <Textarea
               label="Next Steps"
               rows={3}
               value={fields.nextsteps ?? ''}
               onChange={e => setField('nextsteps', e.target.value)}
+              onBlur={() => handleFieldBlur('nextsteps')}
               onKeyDown={e => handleListKeyDown(e, 'nextsteps')}
+              className={saveFlashFields.has('nextsteps') ? 'save-flash' : ''}
             />
 
             {/* Raw transcript collapsible */}
