@@ -47,34 +47,35 @@ export default function PersonalisationPanel({ profile, onSave, onToast }: Perso
   const [saving, setSaving] = useState(false)
 
   // A2HS state
-  const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null)
-  const [isInstalled, setIsInstalled] = useState(false)
-  const [showIosSheet, setShowIosSheet] = useState(false)
+  const [installState, setInstallState] = useState<'ios' | 'android' | 'installed' | 'unsupported'>('unsupported')
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const [iosSheetOpen, setIosSheetOpen] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true)
-    }
-    function onPrompt(e: Event) {
+    const ua = navigator.userAgent
+    const isIos = /iPhone|iPad|iPod/.test(ua)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+
+    if (isStandalone) { setInstallState('installed'); return }
+    if (isIos) { setInstallState('ios'); return }
+
+    const handler = (e: Event) => {
       e.preventDefault()
-      setDeferredPrompt(e)
+      setDeferredPrompt(e as BeforeInstallPromptEvent)
+      setInstallState('android')
     }
-    window.addEventListener('beforeinstallprompt', onPrompt)
-    return () => window.removeEventListener('beforeinstallprompt', onPrompt)
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  function isIos() {
-    if (typeof navigator === 'undefined') return false
-    return /iphone|ipad|ipod/i.test(navigator.userAgent)
-  }
-
-  function handleA2HS() {
-    if (isInstalled) return
-    if (deferredPrompt) {
-      (deferredPrompt as BeforeInstallPromptEvent).prompt()
-    } else if (isIos()) {
-      setShowIosSheet(true)
+  async function handleInstall() {
+    if (installState === 'ios') {
+      setIosSheetOpen(true)
+    } else if (installState === 'android' && deferredPrompt) {
+      deferredPrompt.prompt()
+      const { outcome } = await deferredPrompt.userChoice
+      if (outcome === 'accepted') setInstallState('installed')
     }
   }
 
@@ -234,41 +235,73 @@ export default function PersonalisationPanel({ profile, onSave, onToast }: Perso
         </p>
       </section>
 
-      {/* Add to Home Screen */}
-      <section className="rounded-[var(--r-lg)] border border-[var(--border)] bg-white p-4"
-               style={{ boxShadow: 'var(--shadow-sm)' }}>
-        <h3 className="text-sm font-semibold text-[var(--text)] mb-1">Add to Home Screen</h3>
-        <p className="text-xs text-[var(--text2)] mb-3">
-          Install LushNote as an app for faster access.
-        </p>
-        {isInstalled ? (
-          <p className="text-xs text-[var(--text3)]">LushNote is already installed.</p>
-        ) : (
-          <Button variant="secondary" size="sm" onClick={handleA2HS}>
-            Add to Home Screen
-          </Button>
-        )}
-      </section>
-
       <Button variant="primary" onClick={handleSave} loading={saving}>
         Save personalisation
       </Button>
 
-      {/* iOS Add to Home Screen sheet */}
-      {showIosSheet && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowIosSheet(false)} />
-          <div className="relative w-full max-w-sm bg-white rounded-2xl p-5 space-y-3"
-               style={{ boxShadow: 'var(--shadow-lg)' }}>
-            <h3 className="text-base font-semibold text-[var(--text)]">Add LushNote to Home Screen</h3>
-            <ol className="text-sm text-[var(--text2)] space-y-2 list-decimal list-inside">
-              <li>Tap the <strong>Share</strong> button at the bottom of Safari</li>
-              <li>Scroll down and tap <strong>Add to Home Screen</strong></li>
-              <li>Tap <strong>Add</strong> to confirm</li>
+      {/* Add to Home Screen */}
+      <div className="mt-6 pt-6 border-t border-[var(--border)]">
+        <h3 className="text-sm font-semibold text-[var(--text)] mb-1">Add to Home Screen</h3>
+        <p className="text-xs text-[var(--text3)] mb-3">
+          Install LushNote on your device for a faster, app-like experience.
+        </p>
+        {installState === 'installed' ? (
+          <div className="flex items-center gap-2 text-sm text-green-600">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span>LushNote is already installed</span>
+          </div>
+        ) : installState === 'unsupported' ? (
+          <p className="text-xs text-[var(--text3)]">Open LushNote in Safari (iOS) or Chrome (Android) to install.</p>
+        ) : (
+          <button
+            onClick={handleInstall}
+            className="bg-[var(--blue)] text-white text-sm font-medium px-4 py-2 rounded-[var(--r)]
+                       motion-safe:transition-transform motion-safe:active:scale-[0.97]"
+          >
+            Add to Home Screen
+          </button>
+        )}
+      </div>
+
+      {/* iOS step sheet */}
+      {iosSheetOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end">
+          <div className="bg-white w-full rounded-t-[20px] p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-[var(--text)]">Add to Home Screen</h3>
+              <button
+                onClick={() => setIosSheetOpen(false)}
+                className="text-[var(--text3)] w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--bg)]"
+                aria-label="Close"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <ol className="space-y-4 text-sm text-[var(--text2)]">
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-[var(--blue)] text-white text-xs flex items-center justify-center shrink-0 mt-0.5">1</span>
+                <span>Tap the <strong>Share</strong> button at the bottom of your browser (box with arrow pointing up)</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-[var(--blue)] text-white text-xs flex items-center justify-center shrink-0 mt-0.5">2</span>
+                <span>Scroll down and tap <strong>&ldquo;Add to Home Screen&rdquo;</strong></span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-[var(--blue)] text-white text-xs flex items-center justify-center shrink-0 mt-0.5">3</span>
+                <span>Tap <strong>&ldquo;Add&rdquo;</strong> in the top right corner</span>
+              </li>
             </ol>
-            <Button variant="primary" onClick={() => setShowIosSheet(false)} className="w-full">
-              Got it
-            </Button>
+            <button
+              onClick={() => setIosSheetOpen(false)}
+              className="w-full mt-6 bg-[var(--blue)] text-white font-medium py-3 rounded-[var(--r-lg)] text-sm
+                         motion-safe:transition-transform motion-safe:active:scale-[0.97]"
+            >
+              Done
+            </button>
           </div>
         </div>
       )}
@@ -276,7 +309,7 @@ export default function PersonalisationPanel({ profile, onSave, onToast }: Perso
   )
 }
 
-// Extend Window for beforeinstallprompt
 interface BeforeInstallPromptEvent extends Event {
   prompt(): void
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }

@@ -21,8 +21,14 @@ function ExternalLink({ href, children }: { href: string; children: React.ReactN
   )
 }
 
+const GEMINI_RPD = 20
+
 export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProps) {
   const router = useRouter()
+
+  const geminiUsage = profile?.geminiUsage?.['gemini-2.5-flash']
+  const today = new Date().toISOString().slice(0, 10)
+  const usedToday = geminiUsage?.date === today ? (geminiUsage?.count || 0) : 0
 
   const [geminiKey, setGeminiKey] = useState(profile.geminiApiKey ?? '')
   const [geminiSaving, setGeminiSaving] = useState(false)
@@ -116,6 +122,26 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
           >
             {geminiSaved ? 'Saved ✓' : 'Save key'}
           </Button>
+        </div>
+
+        <div className="mt-3 p-3 bg-[var(--bg)] rounded-[var(--r)] border border-[var(--border)]">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-medium text-[var(--text2)]">Daily usage</span>
+            <span className={`text-xs font-bold ${usedToday >= GEMINI_RPD ? 'text-orange-500' : 'text-[var(--text)]'}`}>
+              {usedToday} / {GEMINI_RPD} requests
+            </span>
+          </div>
+          <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full ${usedToday >= GEMINI_RPD ? 'bg-orange-400' : 'bg-[var(--blue)]'}`}
+              style={{ width: `${Math.min((usedToday / GEMINI_RPD) * 100, 100)}%` }}
+            />
+          </div>
+          {usedToday >= GEMINI_RPD ? (
+            <p className="text-xs text-orange-500 mt-1.5">Daily limit reached. Add a Groq key to continue generating notes.</p>
+          ) : (
+            <p className="text-xs text-[var(--text3)] mt-1.5">Resets daily. Get a Groq key to extend your daily limit.</p>
+          )}
         </div>
       </section>
 
