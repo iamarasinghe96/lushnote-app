@@ -4,15 +4,74 @@ import { generateNoteGroq } from '@/lib/groq'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles'
 import { rateLimit } from '@/lib/rateLimit'
 
+const TRANSCRIPT_QA_SYSTEM_PROMPT = `You are a clinical documentation assistant. The user is a psychiatrist reviewing a session transcript.
+Answer questions using ONLY information explicitly present in the transcript below.
+Do not infer, assume, or fabricate any clinical information.
+If the answer is not clearly stated, say so honestly.
+If making a reasonable inference (not directly stated), mark it clearly as inferred.
+
+Respond ONLY in this exact JSON format with no other text:
+{
+  "found": true or false,
+  "inferred": true or false,
+  "answer": "Your answer here",
+  "quote": "Exact words from transcript supporting this, or empty string"
+}
+
+TRANSCRIPT:
+{transcript}`
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as {
+    const body = await req.json() as Record<string, unknown>
+    const { type } = body
+
+    // ── Transcript Q&A ──────────────────────────────────────────────────────────
+    if (type === 'transcript-qa') {
+      const { question, transcript, uid } = body as {
+        question: string
+        transcript: string
+        uid?: string
+      }
+
+      if (!question || typeof question !== 'string' || question.length > 2000) {
+        return NextResponse.json({ error: 'Invalid question' }, { status: 400 })
+      }
+      if (!transcript || typeof transcript !== 'string' || transcript.length > 50000) {
+        return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })
+      }
+
+      const systemPrompt = TRANSCRIPT_QA_SYSTEM_PROMPT.replace('{transcript}', transcript)
+      const messages: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }> = [
+        { role: 'user', parts: [{ text: question }] },
+      ]
+
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const answer = await chatResponse(messages, systemPrompt)
+          if (uid && typeof uid === 'string') {
+            await updateGeminiUsage(uid, 'chat').catch(() => {})
+          }
+          return NextResponse.json({ answer, provider: 'gemini' })
+        } catch {
+          // fall through to Groq
+        }
+      }
+
+      const groqKey = req.headers.get('x-groq-key')
+      if (!groqKey) {
+        return NextResponse.json({ error: 'No API key available' }, { status: 401 })
+      }
+      const answer = await generateNoteGroq(question, systemPrompt, groqKey)
+      return NextResponse.json({ answer, provider: 'groq' })
+    }
+
+    // ── Standard chat ───────────────────────────────────────────────────────────
+    const { messages, systemPrompt, uid } = body as {
       messages: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }>
       systemPrompt: string
       uid: string
     }
-
-    const { messages, systemPrompt, uid } = body
 
     if (!uid || typeof uid !== 'string' || uid.length === 0 || uid.length > 128) {
       return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
