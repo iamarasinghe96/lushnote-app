@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { NoteStoreProvider } from '@/hooks/useNoteStore'
 import TabBar from '@/components/tabs/TabBar'
 import { FAB } from '@/components/FAB'
+import { RateLimitBanner } from '@/components/ui/RateLimitBanner'
 import { getInitials, applyWorkspaceTheme } from '@/lib/utils'
 import { WP_THEMES } from '@/types'
 
@@ -16,6 +17,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [rateLimitWait, setRateLimitWait] = useState<number | null>(null)
+  const [pendingRetry, setPendingRetry] = useState<(() => void) | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
     if (loading) return
@@ -35,6 +39,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [menuOpen])
 
   useEffect(() => { setMenuOpen(false) }, [pathname])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  useEffect(() => {
+    function handler(e: Event) {
+      const { waitSeconds } = (e as CustomEvent<{ waitSeconds: number }>).detail
+      if (waitSeconds > 120) {
+        setToast('Daily Groq limit reached. Resets at midnight UTC.')
+      } else {
+        setRateLimitWait(waitSeconds)
+      }
+    }
+    window.addEventListener('groq-rate-limit', handler)
+    return () => window.removeEventListener('groq-rate-limit', handler)
+  }, [])
 
   useEffect(() => {
     if (!profile) return
@@ -132,6 +155,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
+        {/* ── Rate limit banner ── */}
+        {rateLimitWait !== null && (
+          <RateLimitBanner
+            waitSeconds={rateLimitWait}
+            onDismiss={() => setRateLimitWait(null)}
+            onRetry={() => { setRateLimitWait(null); pendingRetry?.() }}
+          />
+        )}
+
         {/* ── Content ── */}
         <main className="flex-1 overflow-hidden relative">
           <div key={pathname} className="animate-fade-in h-full" style={{ willChange: 'opacity' }}>
@@ -144,6 +176,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* ── FAB ── */}
         <FAB />
+
+        {/* ── Toast ── */}
+        {toast && (
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[var(--text)] text-white text-xs rounded-full px-4 py-2 pointer-events-none select-none"
+            style={{ boxShadow: '0 2px 8px rgba(15,23,42,.12)' }}>
+            {toast}
+          </div>
+        )}
 
       </div>
     </NoteStoreProvider>

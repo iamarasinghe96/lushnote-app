@@ -50,3 +50,12 @@ export function isRateLimited(error: unknown): boolean {
   }
   return false
 }
+
+export function parseGroqWaitSeconds(errorMessage: string): number {
+  const match = errorMessage.match(/try again in (?:(\d+)h\s*)?(?:(\d+)m\s*)?(\d+\.?\d*)s/i)
+  if (!match) return 60
+  const hours = parseInt(match[1] || '0', 10)
+  const minutes = parseInt(match[2] || '0', 10)
+  const seconds = parseFloat(match[3] || '0')
+  return hours * 3600 + minutes * 60 + Math.ceil(seconds)
+}

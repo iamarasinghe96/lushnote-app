@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateNote, checkQuota } from '@/lib/gemini'
-import { generateNoteGroq } from '@/lib/groq'
+import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles'
 import { rateLimit } from '@/lib/rateLimit'
 
@@ -57,8 +57,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No API key available for generation' }, { status: 401 })
     }
 
-    const content = await generateNoteGroq(prompt, systemPrompt, groqKey)
-    return NextResponse.json({ content, provider: 'groq' })
+    try {
+      const content = await generateNoteGroq(prompt, systemPrompt, groqKey)
+      return NextResponse.json({ content, provider: 'groq' })
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('429:')) {
+        const waitSeconds = parseGroqWaitSeconds(err.message)
+        return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
+      }
+      throw err
+    }
 
   } catch {
     console.error('Generation error')

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { transcribeAudio, checkQuota } from '@/lib/gemini'
-import { transcribeAudioGroq } from '@/lib/groq'
+import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles'
 import { rateLimit } from '@/lib/rateLimit'
 
@@ -52,8 +52,16 @@ export async function POST(req: NextRequest) {
 
     const formData = new FormData()
     formData.append('file', audio, 'audio.webm')
-    const text = await transcribeAudioGroq(formData, groqKey)
-    return NextResponse.json({ text, provider: 'groq' })
+    try {
+      const text = await transcribeAudioGroq(formData, groqKey)
+      return NextResponse.json({ text, provider: 'groq' })
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('429:')) {
+        const waitSeconds = parseGroqWaitSeconds(err.message)
+        return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
+      }
+      throw err
+    }
 
   } catch {
     console.error('Transcription error')
