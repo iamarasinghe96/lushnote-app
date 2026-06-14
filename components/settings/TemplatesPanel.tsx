@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
+import Textarea from '@/components/ui/Textarea'
 import type { User, Template, CustomTemplate, AnyTemplate } from '@/types'
 
 interface TemplatesPanelProps {
@@ -14,20 +16,80 @@ const TPL_TYPE_LABELS: Record<string, string> = {
   session: 'Session', document: 'Document', both: 'Both',
 }
 
+const TEMPLATE_SECTIONS = [
+  { id: 'diagnosis',     label: 'Diagnosis' },
+  { id: 'presentation',  label: 'Presentation' },
+  { id: 'history',       label: 'History' },
+  { id: 'medications',   label: 'Medications' },
+  { id: 'mse',           label: 'Mental State Examination' },
+  { id: 'content',       label: 'Session Content' },
+  { id: 'scales',        label: 'Rating Scales' },
+  { id: 'risk',          label: 'Risk Assessment' },
+  { id: 'referrals',     label: 'Referrals & Correspondence' },
+  { id: 'summary',       label: 'Summary' },
+  { id: 'nextsteps',     label: 'Next Steps' },
+]
+
+const ALL_SECTION_IDS = TEMPLATE_SECTIONS.map(s => s.id)
+
+interface CustomTemplateForm {
+  title: string
+  category: string
+  specialty: string
+  tplType: 'session' | 'document' | 'both'
+  description: string
+  sections: string[]
+  noteLength: 'brief' | 'balanced' | 'detailed'
+  additionalInstructions: string
+}
+
+function defaultForm(): CustomTemplateForm {
+  return {
+    title: '',
+    category: '',
+    specialty: 'Psychiatry',
+    tplType: 'session',
+    description: '',
+    sections: [...ALL_SECTION_IDS],
+    noteLength: 'balanced',
+    additionalInstructions: '',
+  }
+}
+
+function assemblePrompt(form: CustomTemplateForm): string {
+  const sectionList = TEMPLATE_SECTIONS
+    .filter(s => form.sections.includes(s.id))
+    .map(s => s.label)
+    .join(', ')
+
+  const lengthInstruction = {
+    brief:    'Keep it concise — dot points only, most important information.',
+    balanced: 'Use full sentences with appropriate clinical detail.',
+    detailed: 'Be comprehensive — use direct quotes where relevant, expand on clinical reasoning.',
+  }[form.noteLength]
+
+  const typeLabel = form.tplType === 'session' ? 'session note'
+    : form.tplType === 'document' ? 'clinical document'
+    : 'clinical note'
+
+  return [
+    `Generate a ${typeLabel} for a ${form.specialty} clinician.`,
+    `\nInclude the following sections: ${sectionList}.`,
+    `\n${lengthInstruction}`,
+    form.additionalInstructions ? `\nAdditional instructions: ${form.additionalInstructions}` : '',
+  ].join('').trim()
+}
+
 export default function TemplatesPanel({ profile, onSave, onToast }: TemplatesPanelProps) {
   const [builtins, setBuiltins] = useState<Template[]>([])
   const [search, setSearch] = useState('')
   const [favIds, setFavIds] = useState<(string | number)[]>(profile.favoriteTemplateIds ?? [])
   const [savingFav, setSavingFav] = useState<string | number | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-
-  const [formTitle, setFormTitle] = useState('')
-  const [formCategory, setFormCategory] = useState('')
-  const [formDescription, setFormDescription] = useState('')
-  const [formPrompt, setFormPrompt] = useState('')
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
-  const [addingSaving, setAddingSaving] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
+  const [form, setForm] = useState<CustomTemplateForm>(defaultForm())
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     import('@/data/clinical-templates.json')
@@ -63,6 +125,8 @@ export default function TemplatesPanel({ profile, onSave, onToast }: TemplatesPa
         ...filtered.filter(i => !favIds.includes(i.tpl.id)),
       ]
 
+  const assembledPromptPreview = useMemo(() => assemblePrompt(form), [form])
+
   async function toggleFav(id: string | number) {
     const next = favIds.includes(id) ? favIds.filter(x => x !== id) : [...favIds, id]
     setSavingFav(id)
@@ -89,41 +153,41 @@ export default function TemplatesPanel({ profile, onSave, onToast }: TemplatesPa
     }
   }
 
-  async function handleAddTemplate() {
-    const errors: Record<string, string> = {}
-    if (!formTitle.trim()) errors.title = 'Title is required'
-    if (!formCategory.trim()) errors.category = 'Category is required'
-    if (!formDescription.trim()) errors.description = 'Description is required'
-    if (!formPrompt.trim()) errors.prompt = 'Prompt instructions are required'
-    if (Object.keys(errors).length) { setFormErrors(errors); return }
+  async function handleSaveCustomTemplate() {
+    if (!form.title.trim()) { setError('Title is required.'); return }
+    if (!form.description.trim()) { setError('Description is required.'); return }
+    if (form.sections.length === 0) { setError('Select at least one section.'); return }
 
-    setAddingSaving(true)
+    setSaving(true)
+    setError(null)
     try {
-      const newTpl: CustomTemplate = {
-        id: `custom_${Date.now()}`,
-        title: formTitle.trim(),
-        category: formCategory.trim(),
-        description: formDescription.trim(),
-        prompt: formPrompt.trim(),
+      const newTemplate: CustomTemplate = {
+        id: 'custom_' + Date.now(),
+        title: form.title.trim(),
+        category: form.category.trim() || 'Custom',
+        description: form.description.trim(),
+        prompt: assemblePrompt(form),
         custom: true,
       }
-      await onSave({ customTemplates: [...custom, newTpl] })
-      setFormTitle(''); setFormCategory(''); setFormDescription(''); setFormPrompt('')
-      setFormErrors({})
+      await onSave({ customTemplates: [...(profile.customTemplates || []), newTemplate] })
+      setForm(defaultForm())
       setShowAddForm(false)
-      onToast('Custom template added')
+      onToast('Custom template saved.')
     } catch {
-      onToast('Failed to add template')
+      onToast('Failed to save template')
     } finally {
-      setAddingSaving(false)
+      setSaving(false)
     }
   }
 
-  const CATEGORY_SUGGESTIONS = [
-    'Progress Notes', 'Assessments', 'Therapy Notes', 'Risk & Safety',
-    'Assessment', 'Follow-up', 'Discharge', 'Consultation', 'Group Therapy',
-    'Medication Review', 'Crisis', 'Documentation',
-  ]
+  function toggleSection(id: string, checked: boolean) {
+    setForm(f => ({
+      ...f,
+      sections: checked
+        ? [...f.sections, id]
+        : f.sections.filter(x => x !== id),
+    }))
+  }
 
   return (
     <div className="max-w-lg space-y-4">
@@ -131,71 +195,176 @@ export default function TemplatesPanel({ profile, onSave, onToast }: TemplatesPa
         <p className="text-sm text-[var(--text2)]">
           {builtins.length} built-in · {custom.length} custom
         </p>
-        <Button variant="secondary" size="sm" onClick={() => setShowAddForm(s => !s)}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => { setShowAddForm(s => !s); setError(null) }}
+        >
           {showAddForm ? 'Cancel' : '+ Custom template'}
         </Button>
       </div>
 
-      {/* Add custom template form */}
+      {/* Custom template form */}
       {showAddForm && (
-        <div className="rounded-[var(--r-lg)] border border-[var(--blue)]/30 bg-white p-4 space-y-3"
+        <div className="border border-[var(--border)] rounded-[var(--r-lg)] p-4 mt-2"
              style={{ boxShadow: 'var(--shadow-sm)' }}>
-          <p className="text-sm font-semibold text-[var(--text)]">New custom template</p>
+          <h3 className="text-sm font-semibold text-[var(--text)] mb-4">Create Custom Template</h3>
 
-          {[
-            { key: 'title', label: 'Title *', val: formTitle, set: setFormTitle, placeholder: 'e.g. PTSD Assessment' },
-            { key: 'description', label: 'Short description *', val: formDescription, set: setFormDescription, placeholder: 'e.g. Structured PTSD assessment with trauma history' },
-          ].map(({ key, label, val, set, placeholder }) => (
-            <div key={key}>
-              <label className="block text-sm font-medium text-[var(--text)] mb-1">{label}</label>
-              <input
-                value={val}
-                onChange={e => { set(e.target.value); setFormErrors(er => ({ ...er, [key]: '' })) }}
-                placeholder={placeholder}
-                className={`w-full rounded-[var(--r)] border bg-white px-3 py-2.5 text-sm text-[var(--text)]
-                            placeholder:text-[var(--text3)] outline-none transition-colors
-                            focus:ring-2 focus:ring-blue-500/10
-                            ${formErrors[key] ? 'border-[var(--danger)] focus:border-[var(--danger)]' : 'border-[var(--border)] focus:border-[var(--blue)]'}`}
-              />
-              {formErrors[key] && <p className="mt-1 text-xs text-[var(--danger)]">{formErrors[key]}</p>}
-            </div>
-          ))}
+          {/* Title */}
+          <Input
+            label="Template name"
+            value={form.title}
+            onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            placeholder="e.g. CBT Session Note"
+          />
 
-          <div>
-            <label className="block text-sm font-medium text-[var(--text)] mb-1">Category *</label>
+          {/* Category */}
+          <div className="mt-3">
+            <label className="block text-xs font-medium text-[var(--text2)] mb-1">Category</label>
             <input
-              value={formCategory}
-              onChange={e => { setFormCategory(e.target.value); setFormErrors(er => ({ ...er, category: '' })) }}
-              placeholder="e.g. Therapy Notes"
               list="category-suggestions"
-              className={`w-full rounded-[var(--r)] border bg-white px-3 py-2.5 text-sm text-[var(--text)]
-                          placeholder:text-[var(--text3)] outline-none transition-colors
-                          focus:ring-2 focus:ring-blue-500/10
-                          ${formErrors.category ? 'border-[var(--danger)] focus:border-[var(--danger)]' : 'border-[var(--border)] focus:border-[var(--blue)]'}`}
+              value={form.category}
+              onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+              placeholder="e.g. Progress Notes"
+              className="mt-0.5 w-full text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2
+                         bg-white text-[var(--text)] placeholder:text-[var(--text3)]
+                         outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
             />
             <datalist id="category-suggestions">
-              {CATEGORY_SUGGESTIONS.map(c => <option key={c} value={c} />)}
+              <option value="Progress Notes" />
+              <option value="Assessments" />
+              <option value="Therapy Notes" />
+              <option value="Risk & Safety" />
+              <option value="Letters & Reports" />
             </datalist>
-            {formErrors.category && <p className="mt-1 text-xs text-[var(--danger)]">{formErrors.category}</p>}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-[var(--text)] mb-1">AI prompt instructions *</label>
-            <textarea
-              value={formPrompt}
-              onChange={e => { setFormPrompt(e.target.value); setFormErrors(er => ({ ...er, prompt: '' })) }}
-              rows={6}
-              placeholder="Describe exactly what the AI should write for this note type…"
-              className={`w-full rounded-[var(--r)] border bg-white px-3 py-2.5 text-sm text-[var(--text)]
-                          placeholder:text-[var(--text3)] outline-none transition-colors resize-none
-                          focus:ring-2 focus:ring-blue-500/10
-                          ${formErrors.prompt ? 'border-[var(--danger)] focus:border-[var(--danger)]' : 'border-[var(--border)] focus:border-[var(--blue)]'}`}
+          {/* Specialty */}
+          <div className="mt-3">
+            <label className="block text-xs font-medium text-[var(--text2)] mb-1">Specialty</label>
+            <select
+              value={form.specialty}
+              onChange={e => setForm(f => ({ ...f, specialty: e.target.value }))}
+              className="mt-0.5 w-full text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2
+                         bg-white text-[var(--text)]
+                         outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
+            >
+              <option value="Psychiatry">Psychiatry</option>
+              <option value="Psychology">Psychology</option>
+              <option value="General Practice">General Practice</option>
+              <option value="Paediatrics">Paediatrics</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          {/* Note type */}
+          <div className="mt-3">
+            <label className="block text-xs font-medium text-[var(--text2)] mb-1">Note type</label>
+            <select
+              value={form.tplType}
+              onChange={e => setForm(f => ({ ...f, tplType: e.target.value as CustomTemplateForm['tplType'] }))}
+              className="mt-0.5 w-full text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2
+                         bg-white text-[var(--text)]
+                         outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
+            >
+              <option value="session">Session note</option>
+              <option value="document">Document / letter</option>
+              <option value="both">Both</option>
+            </select>
+          </div>
+
+          {/* Description */}
+          <div className="mt-3">
+            <Input
+              label="Short description"
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="One sentence describing this template"
             />
-            {formErrors.prompt && <p className="mt-1 text-xs text-[var(--danger)]">{formErrors.prompt}</p>}
           </div>
 
-          <Button variant="primary" onClick={handleAddTemplate} loading={addingSaving} size="sm">
-            Add template
+          {/* Sections */}
+          <div className="mt-4">
+            <label className="block text-xs font-medium text-[var(--text2)] mb-2">Sections to include</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {TEMPLATE_SECTIONS.map(s => (
+                <label
+                  key={s.id}
+                  className="flex items-center gap-2 text-sm text-[var(--text)] cursor-pointer select-none"
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.sections.includes(s.id)}
+                    onChange={e => toggleSection(s.id, e.target.checked)}
+                    className="accent-[var(--blue)]"
+                  />
+                  {s.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Note length */}
+          <div className="mt-4">
+            <label className="block text-xs font-medium text-[var(--text2)] mb-2">Note length</label>
+            <div className="flex gap-2">
+              {(['brief', 'balanced', 'detailed'] as const).map(l => (
+                <label
+                  key={l}
+                  className={`flex-1 border rounded-[var(--r)] p-2 text-center text-xs cursor-pointer select-none transition-colors
+                    ${form.noteLength === l
+                      ? 'border-[var(--blue)] bg-[var(--blue-lt)] text-[var(--blue)] font-medium'
+                      : 'border-[var(--border)] text-[var(--text2)] hover:bg-[var(--bg)]'}`}
+                >
+                  <input
+                    type="radio"
+                    name="noteLength"
+                    value={l}
+                    checked={form.noteLength === l}
+                    onChange={() => setForm(f => ({ ...f, noteLength: l }))}
+                    className="sr-only"
+                  />
+                  {l.charAt(0).toUpperCase() + l.slice(1)}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Additional instructions */}
+          <div className="mt-3">
+            <Textarea
+              label="Additional instructions (optional)"
+              rows={3}
+              value={form.additionalInstructions}
+              onChange={e => setForm(f => ({ ...f, additionalInstructions: e.target.value }))}
+              placeholder="Any specific requirements for this template..."
+            />
+          </div>
+
+          {/* Assembled prompt preview */}
+          <div className="mt-4">
+            <label className="block text-xs font-semibold text-[var(--text2)] uppercase tracking-wide mb-1">
+              Assembled AI Prompt (read-only)
+            </label>
+            <div className="bg-[var(--bg)] border border-[var(--border)] rounded-[var(--r)] p-3
+                            text-xs text-[var(--text2)] whitespace-pre-wrap font-mono leading-relaxed
+                            max-h-40 overflow-y-auto">
+              {assembledPromptPreview}
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && <p className="text-xs text-[var(--danger)] mt-2">{error}</p>}
+
+          {/* Save */}
+          <Button
+            variant="primary"
+            onClick={handleSaveCustomTemplate}
+            loading={saving}
+            className="mt-4 w-full"
+            size="sm"
+          >
+            Save Template
           </Button>
         </div>
       )}
