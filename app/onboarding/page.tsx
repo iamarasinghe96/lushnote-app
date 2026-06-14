@@ -403,22 +403,24 @@ function Step3({
           <button
             key={i}
             onClick={() => onSelectPreset(i as 0 | 1 | 2)}
-            className={`w-full rounded-xl border p-3 text-left text-sm transition ${
+            className={`w-full rounded-xl border-2 p-3 text-left text-sm transition ${
               selectedPreset === i
                 ? 'border-[#10b981] bg-[#f0fdf4] text-[#0f172a]'
                 : 'border-[#e2e8f0] text-[#475569]'
             }`}
+            style={selectedPreset === i ? { boxShadow: '0 0 0 3px rgba(16,185,129,0.15)' } : undefined}
           >
             {text}
           </button>
         ))}
         <button
           onClick={() => onSelectPreset(3)}
-          className={`w-full rounded-xl border p-3 text-left text-sm font-medium transition ${
+          className={`w-full rounded-xl border-2 p-3 text-left text-sm font-medium transition ${
             selectedPreset === 3
               ? 'border-[#10b981] bg-[#f0fdf4] text-[#10b981]'
               : 'border-[#e2e8f0] text-[#475569]'
           }`}
+          style={selectedPreset === 3 ? { boxShadow: '0 0 0 3px rgba(16,185,129,0.15)' } : undefined}
         >
           Custom
         </button>
