@@ -470,7 +470,7 @@ export default function GeneratePage() {
           <button
             onClick={handleSkipToLetter}
             className="w-full text-xs text-[var(--blue)] font-medium hover:underline text-center motion-safe:transition-opacity">
-            Skip — write a letter instead →
+            Skip - write a letter instead →
           </button>
         </div>
       </Modal>

@@ -9,9 +9,9 @@ const LUSHNOTE_KB = `LushNote is a clinical note builder for psychiatrists.
 Features: 116 clinical note templates, voice recording and transcription, AI note generation, patient management, PDF/clipboard/email export, custom templates.
 API: Users bring their own Gemini API key (free from aistudio.google.com) and optionally Groq key.
 Gemini limit: 20 notes/day free tier. Groq key extends this significantly.
-Security: Notes stored in Firebase Firestore, encrypted at rest. Audio is never stored — transcribed then immediately discarded.
+Security: Notes stored in Firebase Firestore, encrypted at rest. Audio is never stored - transcribed then immediately discarded.
 Privacy: Transcript redaction available in Settings > Transcripts.
-Add to home screen: iOS — tap Share button then "Add to Home Screen". Android — tap the install prompt banner.
+Add to home screen: iOS - tap Share button then "Add to Home Screen". Android - tap the install prompt banner.
 Common issues: Generation fails → check API key in Settings > API Keys. Recording won't start → check microphone permissions in browser settings.
 Templates: 116 built-in templates across Progress Notes, Assessments, Therapy Notes, Risk & Safety.
 Export: PDF (formatted A4), clipboard copy, email via mailto with professional cover letter.

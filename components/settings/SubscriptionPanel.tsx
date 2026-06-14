@@ -25,9 +25,9 @@ export default function SubscriptionPanel({ profile: _profile }: SubscriptionPan
   }
 
   function shareEmail() {
-    const subject = encodeURIComponent('You should try LushNote — AI clinical notes')
+    const subject = encodeURIComponent('You should try LushNote - AI clinical notes')
     const body = encodeURIComponent(
-      `Hi,\n\nI've been using LushNote to generate clinical notes and it's been a real time-saver.\n\nYou can sign up for free at ${APP_URL}\n\nNo credit card needed — bring your own API key.\n\nBest`
+      `Hi,\n\nI've been using LushNote to generate clinical notes and it's been a real time-saver.\n\nYou can sign up for free at ${APP_URL}\n\nNo credit card needed - bring your own API key.\n\nBest`
     )
     window.open(`mailto:?subject=${subject}&body=${body}`)
   }
@@ -58,11 +58,11 @@ export default function SubscriptionPanel({ profile: _profile }: SubscriptionPan
           The whole point is to make a doctor&apos;s day easier so they can spend more time with patients.
         </p>
         <p className="text-sm text-[var(--text2)] mb-3">
-          We won&apos;t introduce a subscription unless we genuinely need to — to cover our own running
+          We won&apos;t introduce a subscription unless we genuinely need to - to cover our own running
           costs, nothing more. And if that day comes, it&apos;ll be a small, fair fee, never a cash grab.
         </p>
         <p className="text-sm text-[var(--text2)]">
-          If you&apos;re rural or going through a tough financial period, just reach out — we&apos;ll make sure
+          If you&apos;re rural or going through a tough financial period, just reach out - we&apos;ll make sure
           cost is never the reason you can&apos;t use it.
         </p>
       </div>
@@ -92,7 +92,7 @@ export default function SubscriptionPanel({ profile: _profile }: SubscriptionPan
       <section>
         <h3 className="text-sm font-semibold text-[var(--text)] mb-2">Send feedback</h3>
         <p className="text-xs text-[var(--text2)] mb-3">
-          Feature requests, bug reports, or anything else — your feedback shapes LushNote.
+          Feature requests, bug reports, or anything else - your feedback shapes LushNote.
         </p>
         <textarea
           value={feedbackText}

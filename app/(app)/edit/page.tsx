@@ -761,7 +761,7 @@ export default function EditPage() {
             ) : (
               <>
                 <span className="font-medium truncate">
-                  {fields.patient || 'No patient'} · {fields.date || '—'}
+                  {fields.patient || 'No patient'} · {fields.date || '-'}
                 </span>
                 {isSaving && (
                   <span className="text-xs text-white/60 ml-2 shrink-0">Saving...</span>

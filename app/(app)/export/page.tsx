@@ -39,7 +39,7 @@ export default function ExportPage() {
       await navigator.clipboard.writeText(noteText)
       showToast('Copied to clipboard')
     } catch {
-      showToast('Copy failed — please copy manually')
+      showToast('Copy failed - please copy manually')
     }
     setMenuOpen(false)
   }
@@ -57,7 +57,7 @@ export default function ExportPage() {
   function handleEmail() {
     const body = encodeURIComponent(buildCoverLetterEmail(currentNote, profile || {}))
     const subject = encodeURIComponent(
-      `Progress Note — ${currentNote.patient || ''} — ${currentNote.date || ''}`
+      `Progress Note - ${currentNote.patient || ''} - ${currentNote.date || ''}`
     )
     window.location.href = `mailto:?subject=${subject}&body=${body}`
     setMenuOpen(false)

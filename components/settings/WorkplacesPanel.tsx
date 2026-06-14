@@ -220,7 +220,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
             {patternPreview && (
               <p className="mt-1 text-xs text-[var(--text3)]">
                 Pattern: <span className="font-mono text-[var(--blue)]">{patternPreview.template}</span>
-                {' '}— {patternPreview.description}
+                {' '}- {patternPreview.description}
               </p>
             )}
           </div>
