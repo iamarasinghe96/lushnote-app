@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote, listNotes } from '@/lib/firestore/notes'
-import { buildPreviewHTML } from '@/lib/utils'
+import { buildPreviewHTML, buildLetterPreviewHTML, formatDateForLetter, calculateAgeFromDOB } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
@@ -14,7 +14,7 @@ import DatePicker from '@/components/ui/DatePicker'
 import TimePicker from '@/components/ui/TimePicker'
 import TemplatePicker from '@/components/modals/TemplatePicker'
 import ReassignModal from '@/components/modals/ReassignModal'
-import type { Note, NoteInput, AnyTemplate, Workplace } from '@/types'
+import type { Note, NoteInput, AnyTemplate, Workplace, LetterType } from '@/types'
 
 const FIELD_ORDER = [
   'patient', 'date', 'diagnosis', 'presentation', 'history', 'medications', 'mse',
@@ -109,6 +109,16 @@ export default function EditPage() {
   const autoSaveEnabledRef = useRef(true)
   const latestFieldsRef = useRef<Partial<Note>>(store.currentNote)
 
+  // Letter mode state — declared before effects that reference these
+  const letterType = store.letterType as LetterType | null
+  const isLetterMode = letterType !== null
+  const letterCommonFields = store.letterCommonFields
+  const referralFields = store.referralFields
+  const recordsFields = store.recordsFields
+  const freetextFields = store.freetextFields
+  const [isGeneratingLetter, setIsGeneratingLetter] = useState(false)
+  const [letterToast, setLetterToast] = useState<string | null>(null)
+
   useEffect(() => { return () => { mountedRef.current = false } }, [])
 
   useEffect(() => {
@@ -129,9 +139,36 @@ export default function EditPage() {
   }, [])
 
   useEffect(() => {
+    if (isLetterMode) return
     const timer = setTimeout(() => setPreviewHtml(buildPreviewHTML(fields)), 200)
     return () => clearTimeout(timer)
-  }, [fields])
+  }, [fields, isLetterMode])
+
+  useEffect(() => {
+    if (!isLetterMode) return
+    const timer = setTimeout(() => {
+      const html = buildLetterPreviewHTML({
+        letterType: letterType!,
+        common: letterCommonFields,
+        referral: referralFields,
+        records: recordsFields,
+        freetext: freetextFields,
+        letterheadHeaderUrl: null,
+        letterheadFooterUrl: null,
+        signatureUrl: profile?.signatureUrl ?? null,
+        clinicianName: profile?.displayName,
+        credentials: profile?.credentials,
+      })
+      setPreviewHtml(html)
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile])
+
+  useEffect(() => {
+    if (!letterToast) return
+    const t = setTimeout(() => setLetterToast(null), 3500)
+    return () => clearTimeout(t)
+  }, [letterToast])
 
   useEffect(() => {
     if (!user) return
@@ -272,6 +309,7 @@ export default function EditPage() {
   }
 
   async function doAutoSave(flashField?: string) {
+    if (storeRef.current.letterType !== null) return
     if (isSavingRef.current) return
     const data = latestFieldsRef.current
     if (!data.patient) return
@@ -327,6 +365,7 @@ export default function EditPage() {
   }
 
   function handleFieldBlur(fieldName: string) {
+    if (isLetterMode) return
     if (!autoSaveEnabledRef.current) return
     if (!latestFieldsRef.current.patient) return
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
@@ -446,6 +485,203 @@ export default function EditPage() {
     }
   }
 
+  async function loadImageAsDataURL(url: string): Promise<{ dataUrl: string; w: number; h: number }> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.naturalWidth
+        canvas.height = img.naturalHeight
+        canvas.getContext('2d')!.drawImage(img, 0, 0)
+        resolve({ dataUrl: canvas.toDataURL('image/png'), w: img.naturalWidth, h: img.naturalHeight })
+      }
+      img.onerror = reject
+      img.src = url
+    })
+  }
+
+  async function handleLetterPDF() {
+    const { jsPDF } = await import('jspdf')
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const PW = 210, PH = 297, ML = 20, MR = 20, CW = PW - ML - MR
+    const LH = 5.5, PS = 3.5
+    let y = 20
+
+    const footerH = 10
+    const maxY = PH - footerH - 5
+
+    const write = (text: string, bold = false, size = 11) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal')
+      doc.setFontSize(size)
+      doc.splitTextToSize(text, CW).forEach((line: string) => {
+        if (y + LH > maxY) { doc.addPage(); y = 20 }
+        doc.text(line, ML, y)
+        y += LH
+      })
+    }
+    const nl = (n = 1) => { y += PS * n }
+
+    write(letterCommonFields.letterDate || '')
+    nl()
+    write('To:')
+    write(letterCommonFields.recipientName || '[Recipient Name]')
+    if (letterCommonFields.recipientAddress) write(letterCommonFields.recipientAddress)
+    nl()
+
+    if (letterType !== 'freetext') {
+      write(`Re: ${letterCommonFields.patientName || '[Patient Name]'}`, true)
+      if (letterCommonFields.dob) write(`DOB: ${letterCommonFields.dob}`, true)
+    } else {
+      write(`Subject: ${letterCommonFields.patientName || '[Subject]'}`, true)
+    }
+    nl()
+
+    if (letterType === 'referral') {
+      write(`To Dr. ${referralFields.doctorName || '[Doctor Name]'},`)
+      nl(0.5)
+      write(`I am writing to refer to you ${letterCommonFields.patientName || '[Patient Name]'}, who was admitted to the ${referralFields.admissionUnit || '[Unit]'} from the ${formatDateForLetter(referralFields.admissionDateStart)} to the ${formatDateForLetter(referralFields.admissionDateEnd)}.`)
+      nl(0.5)
+      const age = calculateAgeFromDOB(letterCommonFields.dob)
+      const agePart = age !== null ? `${age} year old ` : ''
+      const firstName = (letterCommonFields.patientName || '').split(' ')[0] || 'Patient'
+      const title = referralFields.gender === 'male' ? 'Mr.' : referralFields.gender === 'female' ? 'Ms.' : ''
+      write(`Thank you for seeing ${title} ${letterCommonFields.patientName || '[Patient Name]'}. ${firstName} is a ${agePart}${referralFields.gender || '[gender]'} who presented with ${referralFields.presentingComplaint || '[presenting complaint]'}.`)
+      if (referralFields.secondParagraph) { nl(0.5); write(referralFields.secondParagraph) }
+      nl(0.5)
+      write(`${referralFields.referralReason || '[reason for referral]'}${referralFields.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`)
+      if (referralFields.showPastMedicalHistory && referralFields.pastMedicalHistory) {
+        nl(0.5); write('Past Medical History:', true); write(referralFields.pastMedicalHistory)
+      }
+      if (referralFields.showMedicationList && referralFields.medicationList) {
+        nl(0.5); write('Medication List:', true); write(referralFields.medicationList)
+      }
+      nl(0.5)
+      write('Please do not hesitate to contact me if there are any queries regarding this referral.')
+    } else if (letterType === 'records') {
+      write('To whom it may concern,')
+      nl(0.5)
+      write(`I am writing to request any correspondence or documentation from their previous visits at ${recordsFields.recordsLocation || '[Location]'}.`)
+      if (recordsFields.secondParagraphRecords) { nl(0.5); write(recordsFields.secondParagraphRecords) }
+    } else if (letterType === 'freetext') {
+      write(freetextFields.freeTextContent || '')
+    }
+
+    nl(2)
+    write('Kind regards,')
+    nl(0.5)
+
+    if (profile?.signatureUrl) {
+      try {
+        const { dataUrl } = await loadImageAsDataURL(profile.signatureUrl)
+        if (y + 18 > maxY) { doc.addPage(); y = 20 }
+        doc.addImage(dataUrl, 'PNG', ML, y, 40, 14)
+        y += 16
+      } catch { nl(2) }
+    }
+
+    if (profile?.displayName) write(profile.displayName)
+    if (profile?.credentials) write(profile.credentials, false, 10)
+
+    const pname = (letterCommonFields.patientName || 'letter').replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-')
+    const typeLabel = letterType === 'referral' ? 'Referral' : letterType === 'records' ? 'RecordsRequest' : 'Letter'
+    doc.save(`${typeLabel}_${pname}_${(letterCommonFields.letterDate || '').replace(/\//g, '-')}.pdf`)
+  }
+
+  function handleLetterEmail() {
+    const subject = letterType === 'referral'
+      ? `Referral: ${letterCommonFields.patientName || ''} - DOB: ${letterCommonFields.dob || ''}`
+      : letterType === 'records'
+      ? `Medical Records Request: ${letterCommonFields.patientName || ''}`
+      : `Letter: ${letterCommonFields.patientName || ''}`
+
+    const lines: string[] = []
+    lines.push(letterCommonFields.letterDate || '')
+    lines.push('')
+    lines.push('To: ' + (letterCommonFields.recipientName || '[Recipient Name]'))
+    if (letterCommonFields.recipientAddress) lines.push(letterCommonFields.recipientAddress)
+    lines.push('')
+    if (letterType !== 'freetext') {
+      lines.push('Re: ' + (letterCommonFields.patientName || '[Patient Name]'))
+      if (letterCommonFields.dob) lines.push('DOB: ' + letterCommonFields.dob)
+    } else {
+      lines.push('Subject: ' + (letterCommonFields.patientName || '[Subject]'))
+    }
+    lines.push('')
+    if (letterType === 'referral') {
+      lines.push(`To Dr. ${referralFields.doctorName || '[Doctor Name]'},`)
+      lines.push('')
+      lines.push(`I am writing to refer to you ${letterCommonFields.patientName || '[Patient Name]'}, who was admitted to the ${referralFields.admissionUnit || '[Unit]'} from the ${formatDateForLetter(referralFields.admissionDateStart)} to the ${formatDateForLetter(referralFields.admissionDateEnd)}.`)
+      lines.push('')
+      const age = calculateAgeFromDOB(letterCommonFields.dob)
+      const agePart = age !== null ? `${age} year old ` : ''
+      const firstName = (letterCommonFields.patientName || '').split(' ')[0] || 'Patient'
+      const title = referralFields.gender === 'male' ? 'Mr.' : referralFields.gender === 'female' ? 'Ms.' : ''
+      lines.push(`Thank you for seeing ${title} ${letterCommonFields.patientName || '[Patient Name]'}. ${firstName} is a ${agePart}${referralFields.gender || '[gender]'} who presented with ${referralFields.presentingComplaint || '[presenting complaint]'}.`)
+      if (referralFields.secondParagraph) { lines.push(''); lines.push(referralFields.secondParagraph) }
+      lines.push('')
+      lines.push(`${referralFields.referralReason || '[reason for referral]'}${referralFields.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`)
+      if (referralFields.showPastMedicalHistory && referralFields.pastMedicalHistory) {
+        lines.push(''); lines.push('Past Medical History:'); lines.push(referralFields.pastMedicalHistory)
+      }
+      if (referralFields.showMedicationList && referralFields.medicationList) {
+        lines.push(''); lines.push('Medication List:'); lines.push(referralFields.medicationList)
+      }
+      lines.push(''); lines.push('Please do not hesitate to contact me if there are any queries regarding this referral.')
+    } else if (letterType === 'records') {
+      lines.push('To whom it may concern,')
+      lines.push('')
+      lines.push(`I am writing to request any correspondence or documentation from their previous visits at ${recordsFields.recordsLocation || '[Location]'}.`)
+      if (recordsFields.secondParagraphRecords) { lines.push(''); lines.push(recordsFields.secondParagraphRecords) }
+    } else if (letterType === 'freetext') {
+      lines.push(freetextFields.freeTextContent || '')
+    }
+    lines.push(''); lines.push('Kind regards,')
+    if (profile?.displayName) lines.push(profile.displayName)
+    if (profile?.credentials) lines.push(profile.credentials)
+
+    const body = encodeURIComponent(lines.join('\n'))
+    const sub = encodeURIComponent(subject)
+    const ua = navigator.userAgent
+    const isIOS = /iPhone|iPad/i.test(ua)
+    const isAndroid = /Android/i.test(ua)
+    const outlookUrl = isIOS
+      ? `ms-outlook://compose?subject=${sub}&body=${body}`
+      : isAndroid
+      ? `ms-outlook://emails/new?subject=${sub}&body=${body}`
+      : `https://outlook.office.com/mail/deeplink/compose?subject=${sub}&body=${body}`
+    if (isIOS || isAndroid) window.location.href = outlookUrl
+    else window.open(outlookUrl, '_blank')
+  }
+
+  async function handleGenerateFromTranscript() {
+    if (!store.lastTranscript || !letterType) return
+    setIsGeneratingLetter(true)
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const groqKey = sessionStorage.getItem('groq_api_key')
+      if (groqKey) headers['x-groq-key'] = groqKey
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ mode: 'letter', letterType, transcript: store.lastTranscript }),
+      })
+      const data = await res.json() as { letterFields?: Record<string, string>; error?: string }
+      if (data.letterFields) {
+        if (letterType === 'referral') store.setReferralFields(data.letterFields as Parameters<typeof store.setReferralFields>[0])
+        else if (letterType === 'records') store.setRecordsFields(data.letterFields as Parameters<typeof store.setRecordsFields>[0])
+        else if (letterType === 'freetext') store.setFreetextFields(data.letterFields as Parameters<typeof store.setFreetextFields>[0])
+        setLetterToast('Fields populated from transcript')
+      } else {
+        setLetterToast(data.error || 'Generation failed. Fill fields manually.')
+      }
+    } catch {
+      setLetterToast('Generation failed. Fill fields manually.')
+    } finally {
+      setIsGeneratingLetter(false)
+    }
+  }
+
   function handleReassign(patient: string, regNumber: string) {
     setReassignOpen(false)
     const next = { ...fields, patient, reg_number: regNumber }
@@ -464,11 +700,54 @@ export default function EditPage() {
       })()
     : null
 
+  const ADMISSION_UNITS = [
+    'Emergency Department', 'Surgical Unit', 'Medical Unit',
+    'Psychiatric Unit', 'ICU', 'Oncology Unit', 'Outpatient Clinic',
+  ]
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
 
+      {/* Letter toast */}
+      {letterToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-[var(--r)] bg-[var(--text)] text-white text-xs font-medium shadow-lg">
+          {letterToast}
+        </div>
+      )}
+
+      {/* Letter mode bar */}
+      {isLetterMode && (
+        <div className="flex items-center justify-between px-4 py-2 bg-[var(--blue)] text-white text-sm shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { store.resetLetterMode(); router.push('/generate') }}
+              className="text-white/70 hover:text-white text-xs flex items-center gap-1 motion-safe:active:scale-95 motion-safe:transition-transform">
+              ← Back
+            </button>
+            <span className="text-white/40">|</span>
+            <span className="font-medium text-sm">
+              {letterType === 'referral' ? 'Referral Letter'
+                : letterType === 'records' ? 'Medical Records Request'
+                : 'Free Text Letter'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleLetterPDF}
+              className="text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-[var(--r)] motion-safe:active:scale-95 motion-safe:transition-transform">
+              Download PDF
+            </button>
+            <button
+              onClick={handleLetterEmail}
+              className="text-xs bg-[#10b981] text-white font-semibold px-3 py-1.5 rounded-[var(--r)] motion-safe:active:scale-95 motion-safe:transition-transform">
+              Email via Outlook
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Current note bar */}
-      {(store.currentNoteId || isAnimating || isGenerating) && (
+      {!isLetterMode && (store.currentNoteId || isAnimating || isGenerating) && (
         <div
           className={`flex items-center justify-between px-4 py-2 text-white text-sm shrink-0
             bg-gradient-to-r from-[#0e9f6e] to-[#059669]
@@ -510,7 +789,7 @@ export default function EditPage() {
       )}
 
       {/* Session stats card */}
-      {sessionStats && !isGenerating && (
+      {!isLetterMode && sessionStats && !isGenerating && (
         <div className="mx-4 mt-3 p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--r)] flex items-center gap-6 shrink-0">
           <div className="text-center">
             <div className="text-lg font-bold text-[var(--text)]">{formatDuration(sessionStats.durationSeconds)}</div>
@@ -532,6 +811,217 @@ export default function EditPage() {
         {/* LEFT: form */}
         <div className="overflow-y-auto p-4">
           <div className="max-w-lg mx-auto space-y-4 pb-10">
+
+            {/* Letter mode fields */}
+            {isLetterMode && (
+              <div className="space-y-4">
+                {/* Common fields */}
+                <div className="p-3 rounded-[var(--r-lg)]"
+                  style={{
+                    background: 'rgba(255,255,255,0.75)',
+                    backdropFilter: 'blur(12px)',
+                    boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                  }}>
+                  <div className="text-xs font-medium text-[var(--text3)] mb-3">{letterCommonFields.letterDate}</div>
+                  <Input
+                    label={letterType === 'freetext' ? 'Subject' : 'Patient name'}
+                    value={letterCommonFields.patientName}
+                    onChange={e => store.setLetterCommonFields({ patientName: e.target.value })}
+                  />
+                  {letterType !== 'freetext' && (
+                    <Input
+                      label="Date of birth (DD/MM/YYYY)"
+                      className="mt-3"
+                      value={letterCommonFields.dob}
+                      onChange={e => store.setLetterCommonFields({ dob: e.target.value })}
+                      placeholder="DD/MM/YYYY"
+                    />
+                  )}
+                  <Input
+                    label="To (recipient name or organisation)"
+                    className="mt-3"
+                    value={letterCommonFields.recipientName}
+                    onChange={e => store.setLetterCommonFields({ recipientName: e.target.value })}
+                  />
+                  <Textarea
+                    label="Recipient address (optional)"
+                    rows={2}
+                    className="mt-3"
+                    value={letterCommonFields.recipientAddress}
+                    onChange={e => store.setLetterCommonFields({ recipientAddress: e.target.value })}
+                  />
+                </div>
+
+                {/* Referral fields */}
+                {letterType === 'referral' && (
+                  <div className="p-3 rounded-[var(--r-lg)] space-y-3"
+                    style={{
+                      background: 'rgba(255,255,255,0.75)',
+                      backdropFilter: 'blur(12px)',
+                      boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                    }}>
+                    <div>
+                      <label className="block text-xs font-medium text-[var(--text)] mb-1">Admission unit</label>
+                      <input
+                        list="admission-units"
+                        value={referralFields.admissionUnit}
+                        onChange={e => store.setReferralFields({ admissionUnit: e.target.value })}
+                        placeholder="e.g. Psychiatric Unit"
+                        className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--text)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10"
+                      />
+                      <datalist id="admission-units">
+                        {ADMISSION_UNITS.map(u => <option key={u} value={u} />)}
+                      </datalist>
+                    </div>
+                    <Input
+                      label="Referring doctor name"
+                      value={referralFields.doctorName}
+                      onChange={e => store.setReferralFields({ doctorName: e.target.value })}
+                    />
+                    <div>
+                      <label className="block text-xs font-medium text-[var(--text)] mb-1">Gender</label>
+                      <select
+                        value={referralFields.gender}
+                        onChange={e => store.setReferralFields({ gender: e.target.value as 'male' | 'female' | '' })}
+                        className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--text)] outline-none focus:border-[var(--blue)]">
+                        <option value="">Select gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="">Other / Not specified</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        label="Admission date start (DD/MM/YYYY)"
+                        value={referralFields.admissionDateStart}
+                        onChange={e => store.setReferralFields({ admissionDateStart: e.target.value })}
+                        placeholder="DD/MM/YYYY"
+                      />
+                      <Input
+                        label="Admission date end (DD/MM/YYYY)"
+                        value={referralFields.admissionDateEnd}
+                        onChange={e => store.setReferralFields({ admissionDateEnd: e.target.value })}
+                        placeholder="DD/MM/YYYY"
+                      />
+                    </div>
+                    <Textarea
+                      label="Presenting complaint"
+                      rows={2}
+                      value={referralFields.presentingComplaint}
+                      onChange={e => store.setReferralFields({ presentingComplaint: e.target.value })}
+                    />
+                    <Textarea
+                      label="Second paragraph (optional)"
+                      rows={3}
+                      value={referralFields.secondParagraph}
+                      onChange={e => store.setReferralFields({ secondParagraph: e.target.value })}
+                    />
+                    <Textarea
+                      label="Reason for referral"
+                      rows={2}
+                      value={referralFields.referralReason}
+                      onChange={e => store.setReferralFields({ referralReason: e.target.value })}
+                    />
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={referralFields.dischargeSummaryAttached}
+                        onChange={e => store.setReferralFields({ dischargeSummaryAttached: e.target.checked })}
+                        className="accent-[var(--blue)]"
+                      />
+                      Discharge summary attached
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={referralFields.showPastMedicalHistory}
+                        onChange={e => store.setReferralFields({ showPastMedicalHistory: e.target.checked })}
+                        className="accent-[var(--blue)]"
+                      />
+                      Include past medical history
+                    </label>
+                    {referralFields.showPastMedicalHistory && (
+                      <Textarea
+                        label="Past Medical History"
+                        rows={3}
+                        value={referralFields.pastMedicalHistory}
+                        onChange={e => store.setReferralFields({ pastMedicalHistory: e.target.value })}
+                      />
+                    )}
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={referralFields.showMedicationList}
+                        onChange={e => store.setReferralFields({ showMedicationList: e.target.checked })}
+                        className="accent-[var(--blue)]"
+                      />
+                      Include medication list
+                    </label>
+                    {referralFields.showMedicationList && (
+                      <Textarea
+                        label="Medication List"
+                        rows={3}
+                        value={referralFields.medicationList}
+                        onChange={e => store.setReferralFields({ medicationList: e.target.value })}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Records fields */}
+                {letterType === 'records' && (
+                  <div className="p-3 rounded-[var(--r-lg)] space-y-3"
+                    style={{
+                      background: 'rgba(255,255,255,0.75)',
+                      backdropFilter: 'blur(12px)',
+                      boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                    }}>
+                    <Input
+                      label="Previous provider / location"
+                      value={recordsFields.recordsLocation}
+                      onChange={e => store.setRecordsFields({ recordsLocation: e.target.value })}
+                    />
+                    <Textarea
+                      label="Additional paragraph (optional)"
+                      rows={3}
+                      value={recordsFields.secondParagraphRecords}
+                      onChange={e => store.setRecordsFields({ secondParagraphRecords: e.target.value })}
+                    />
+                  </div>
+                )}
+
+                {/* Freetext fields */}
+                {letterType === 'freetext' && (
+                  <div className="p-3 rounded-[var(--r-lg)]"
+                    style={{
+                      background: 'rgba(255,255,255,0.75)',
+                      backdropFilter: 'blur(12px)',
+                      boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                    }}>
+                    <Textarea
+                      label="Letter body"
+                      rows={12}
+                      value={freetextFields.freeTextContent}
+                      onChange={e => store.setFreetextFields({ freeTextContent: e.target.value })}
+                      placeholder="Write your letter content here…"
+                    />
+                  </div>
+                )}
+
+                {/* AI generate from transcript */}
+                {store.lastTranscript && (
+                  <button
+                    onClick={handleGenerateFromTranscript}
+                    disabled={isGeneratingLetter}
+                    className="w-full text-xs bg-[var(--blue)] text-white rounded-[var(--r)] py-2.5 font-medium disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform">
+                    {isGeneratingLetter ? 'Generating…' : '✦ Generate from transcript'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Clinical note fields — hidden in letter mode */}
+            {!isLetterMode && <>
 
             {/* Header */}
             <div className="flex items-center justify-between">
@@ -746,6 +1236,8 @@ export default function EditPage() {
                 </div>
               </div>
             )}
+
+            </> /* end !isLetterMode */}
           </div>
         </div>
 

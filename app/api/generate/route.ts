@@ -7,14 +7,95 @@ import { rateLimit } from '@/lib/rateLimit'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
-      transcript: string
-      templatePrompt: string
-      systemPrompt: string
-      uid: string
+      uid?: string
+      transcript?: string
+      templatePrompt?: string
+      systemPrompt?: string
+      mode?: string
+      letterType?: string
     }
 
-    const { transcript, templatePrompt, systemPrompt, uid } = body
+    const { uid, transcript, templatePrompt, systemPrompt, mode, letterType } = body
 
+    // Letter AI generation — separate path, no uid/quota tracking
+    if (mode === 'letter' && letterType && transcript) {
+      if (typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 100000) {
+        return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })
+      }
+
+      const letterPrompts: Record<string, string> = {
+        referral: `You are a medical assistant. Extract structured information from this clinical dictation to populate a referral letter.
+Return ONLY valid JSON matching this schema (empty string for anything not mentioned):
+{
+  "doctorName": "",
+  "admissionUnit": "",
+  "presentingComplaint": "",
+  "secondParagraph": "",
+  "referralReason": ""
+}
+Do not fabricate clinical information.
+Dictation: ${transcript}`,
+
+        records: `Extract information from this dictation for a medical records request letter.
+Return ONLY valid JSON:
+{
+  "recordsLocation": "",
+  "secondParagraphRecords": ""
+}
+Dictation: ${transcript}`,
+
+        freetext: `You are a medical professional's writing assistant.
+Based on this dictation, write a professional medical letter body in plain text.
+Do NOT include salutation, subject line, closing, or signature — only the main paragraphs.
+Use the exact words and intent from the dictation.
+Return ONLY the letter body as plain text.
+Dictation: ${transcript}`,
+      }
+
+      const letterPrompt = letterPrompts[letterType]
+      if (!letterPrompt) return NextResponse.json({ error: 'Unknown letterType' }, { status: 400 })
+
+      const groqKey = req.headers.get('x-groq-key')
+
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const content = await generateNote(letterPrompt, '')
+          if (letterType === 'freetext') {
+            return NextResponse.json({ letterFields: { freeTextContent: content.trim() } })
+          }
+          const jsonMatch = content.match(/\{[\s\S]*\}/)
+          if (jsonMatch) {
+            const letterFields = JSON.parse(jsonMatch[0]) as Record<string, unknown>
+            return NextResponse.json({ letterFields })
+          }
+        } catch { /* fall through to Groq */ }
+      }
+
+      if (!groqKey) {
+        return NextResponse.json({ error: 'No API key available for generation' }, { status: 401 })
+      }
+
+      try {
+        const { content } = await generateNoteGroq(letterPrompt, '', groqKey)
+        if (letterType === 'freetext') {
+          return NextResponse.json({ letterFields: { freeTextContent: content.trim() } })
+        }
+        const jsonMatch = content.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          const letterFields = JSON.parse(jsonMatch[0]) as Record<string, unknown>
+          return NextResponse.json({ letterFields })
+        }
+        return NextResponse.json({ error: 'Could not parse AI response' }, { status: 500 })
+      } catch (err) {
+        if (err instanceof Error && err.message.startsWith('429:')) {
+          const waitSeconds = parseGroqWaitSeconds(err.message)
+          return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
+        }
+        throw err
+      }
+    }
+
+    // Standard note generation
     if (!uid || typeof uid !== 'string' || uid.length === 0 || uid.length > 128) {
       return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
     }
@@ -43,7 +124,7 @@ export async function POST(req: NextRequest) {
       const quota = profile?.geminiUsage ?? {}
       if (checkQuota(quota, 'generate')) {
         try {
-          const content = await generateNote(prompt, systemPrompt)
+          const content = await generateNote(prompt, systemPrompt!)
           await updateGeminiUsage(uid, 'generate')
           return NextResponse.json({ content, provider: 'gemini' })
         } catch {
@@ -58,7 +139,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      const { content, totalTokens } = await generateNoteGroq(prompt, systemPrompt, groqKey)
+      const { content, totalTokens } = await generateNoteGroq(prompt, systemPrompt!, groqKey)
       return NextResponse.json({ content, provider: 'groq', groqTokensUsed: totalTokens })
     } catch (err) {
       if (err instanceof Error && err.message.startsWith('429:')) {

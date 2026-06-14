@@ -8,10 +8,12 @@ import {
   query, where, writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { deleteProfile } from '@/lib/firestore/profiles'
+import { deleteProfile, updateProfile } from '@/lib/firestore/profiles'
+import { uploadSignatureSVG } from '@/lib/storage'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
+import SignatureUploader from '@/components/ui/SignatureUploader'
 import { useAuth } from '@/hooks/useAuth'
 import type { User } from '@/types'
 
@@ -43,6 +45,8 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
   const [credentials, setCredentials] = useState(profile.credentials ?? '')
   const [emailPretext, setEmailPretext] = useState(profile.emailPretext ?? '')
   const [saving, setSaving] = useState(false)
+  const [sigSaving, setSigSaving] = useState(false)
+  const [localSignatureUrl, setLocalSignatureUrl] = useState<string | null>(profile.signatureUrl ?? null)
 
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [selectedReasons, setSelectedReasons] = useState<string[]>([])
@@ -58,6 +62,20 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
       onToast('Failed to save profile')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleSignatureSave(svgDataUrl: string) {
+    setSigSaving(true)
+    try {
+      const url = await uploadSignatureSVG(uid, svgDataUrl)
+      await updateProfile(uid, { signatureUrl: url })
+      setLocalSignatureUrl(url)
+      onToast('Signature saved')
+    } catch {
+      onToast('Failed to save signature')
+    } finally {
+      setSigSaving(false)
     }
   }
 
@@ -179,6 +197,21 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
       <Button variant="primary" onClick={handleSave} loading={saving}>
         Save profile
       </Button>
+
+      {/* Signature section */}
+      <div>
+        <label className="block text-sm font-medium text-[var(--text)] mb-1">
+          Signature
+        </label>
+        <p className="text-xs text-[var(--text2)] mb-3">
+          Upload a photo of your handwritten signature. The ink lines will be traced and saved as a vector image for use in letters.
+        </p>
+        <SignatureUploader
+          existingUrl={localSignatureUrl}
+          onSave={handleSignatureSave}
+          saving={sigSaving}
+        />
+      </div>
 
       {/* Delete account danger card */}
       <div className="border border-[var(--danger)]/30 rounded-[var(--r-lg)] p-4 mt-8">

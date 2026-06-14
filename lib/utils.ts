@@ -1,4 +1,4 @@
-import { WP_THEMES, type Note } from '@/types'
+import { WP_THEMES, type Note, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields } from '@/types'
 
 export function getInitials(displayName: string): string {
   if (!displayName) return 'LN'
@@ -166,4 +166,147 @@ export function buildPreviewHTML(f: Partial<Note>): string {
     </div>
     ${sections}
   </div>`
+}
+
+export function formatDateForLetter(dateStr: string): string {
+  if (!dateStr || dateStr.length < 8) return '[Date]'
+  const parts = dateStr.split('/')
+  if (parts.length !== 3) return dateStr
+  const months = [
+    'January','February','March','April','May','June',
+    'July','August','September','October','November','December',
+  ]
+  const day = parseInt(parts[0], 10)
+  const month = months[parseInt(parts[1], 10) - 1] || '[Month]'
+  const suffix = (d: number) => {
+    if (d > 3 && d < 21) return 'th'
+    switch (d % 10) {
+      case 1: return 'st'
+      case 2: return 'nd'
+      case 3: return 'rd'
+      default: return 'th'
+    }
+  }
+  return `${day}${suffix(day)} of ${month} ${parts[2]}`
+}
+
+export function calculateAgeFromDOB(dob: string): number | null {
+  if (!dob || dob.length !== 10) return null
+  const parts = dob.split('/')
+  if (parts.length !== 3) return null
+  const d = new Date(
+    parseInt(parts[2], 10),
+    parseInt(parts[1], 10) - 1,
+    parseInt(parts[0], 10)
+  )
+  if (isNaN(d.getTime())) return null
+  const today = new Date()
+  let age = today.getFullYear() - d.getFullYear()
+  if (
+    today.getMonth() < d.getMonth() ||
+    (today.getMonth() === d.getMonth() && today.getDate() < d.getDate())
+  ) age--
+  return age
+}
+
+export function buildLetterPreviewHTML(params: {
+  letterType: LetterType
+  common: LetterCommonFields
+  referral?: ReferralFields
+  records?: RecordsFields
+  freetext?: FreetextFields
+  letterheadHeaderUrl?: string | null
+  letterheadFooterUrl?: string | null
+  signatureUrl?: string | null
+  clinicianName?: string
+  credentials?: string
+}): string {
+  const {
+    letterType, common, referral, records, freetext,
+    letterheadHeaderUrl, letterheadFooterUrl,
+    signatureUrl, clinicianName, credentials,
+  } = params
+
+  const headerHtml = letterheadHeaderUrl
+    ? `<img src="${escapeHtml(letterheadHeaderUrl)}" style="width:100%;display:block;" alt="Header" />`
+    : `<div style="padding:14px 24px;border-bottom:2px solid #0072BB;display:flex;justify-content:space-between;align-items:center;">
+         <strong style="font-size:15px;color:#1e293b;">${escapeHtml(clinicianName || 'LushNote')}</strong>
+         ${credentials ? `<span style="font-size:11px;color:#64748b;">${escapeHtml(credentials)}</span>` : ''}
+       </div>`
+
+  const footerHtml = letterheadFooterUrl
+    ? `<img src="${escapeHtml(letterheadFooterUrl)}" style="width:100%;display:block;margin-top:auto;" alt="Footer" />`
+    : `<div style="padding:8px 24px;border-top:1px solid #e2e8f0;font-size:10px;color:#64748b;text-align:center;margin-top:auto;">
+         ${escapeHtml(clinicianName || '')}${credentials ? ', ' + escapeHtml(credentials) : ''}
+       </div>`
+
+  const signatureHtml = signatureUrl
+    ? `<img src="${escapeHtml(signatureUrl)}" style="height:50px;object-fit:contain;display:block;margin-bottom:4px;" alt="Signature" />`
+    : ''
+
+  const recipientBlock = `
+    <p style="margin:0 0 4px;">${escapeHtml(common.letterDate || '')}</p><br>
+    <p style="margin:0 0 2px;"><strong>To:</strong></p>
+    <p style="margin:0 0 2px;">${escapeHtml(common.recipientName || '[Recipient Name]')}</p>
+    ${common.recipientAddress
+      ? `<p style="margin:0 0 16px;white-space:pre-line;">${escapeHtml(common.recipientAddress)}</p>`
+      : '<br>'}
+  `
+
+  const reBlock = letterType !== 'freetext'
+    ? `<p style="font-weight:700;margin:0 0 4px;">Re: ${escapeHtml(common.patientName || '[Patient Name]')}</p>
+       ${common.dob ? `<p style="font-weight:700;margin:0 0 16px;">DOB: ${escapeHtml(common.dob)}</p>` : '<br>'}`
+    : `<p style="font-weight:700;margin:0 0 16px;">Subject: ${escapeHtml(common.patientName || '[Subject]')}</p>`
+
+  let bodyHtml = ''
+
+  if (letterType === 'referral' && referral) {
+    const title = referral.gender === 'male' ? 'Mr.' : referral.gender === 'female' ? 'Ms.' : ''
+    const firstName = (common.patientName || '').split(' ')[0] || 'Patient'
+    const age = calculateAgeFromDOB(common.dob)
+    const agePart = age !== null ? `${age} year old ` : ''
+    bodyHtml = `
+      <p>To Dr. ${escapeHtml(referral.doctorName || '[Doctor Name]')},</p>
+      <p>I am writing to refer to you ${escapeHtml(common.patientName || '[Patient Name]')}, who was admitted to the ${escapeHtml(referral.admissionUnit || '[Unit]')} from the ${formatDateForLetter(referral.admissionDateStart)} to the ${formatDateForLetter(referral.admissionDateEnd)}.</p>
+      <p>Thank you for seeing ${title} ${escapeHtml(common.patientName || '[Patient Name]')}. ${escapeHtml(firstName)} is a ${agePart}${escapeHtml(referral.gender || '[gender]')} who presented with ${escapeHtml(referral.presentingComplaint || '[presenting complaint]')}.</p>
+      ${referral.secondParagraph ? `<p>${escapeHtml(referral.secondParagraph)}</p>` : ''}
+      <p>${escapeHtml(referral.referralReason || '[reason for referral]')}${referral.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}</p>
+      ${referral.showPastMedicalHistory && referral.pastMedicalHistory
+        ? `<p><strong><u>Past Medical History:</u></strong></p><p style="white-space:pre-line;">${escapeHtml(referral.pastMedicalHistory)}</p>`
+        : ''}
+      ${referral.showMedicationList && referral.medicationList
+        ? `<p><strong><u>Medication List:</u></strong></p><p style="white-space:pre-line;">${escapeHtml(referral.medicationList)}</p>`
+        : ''}
+      <p>Please do not hesitate to contact me if there are any queries regarding this referral.</p>
+    `
+  } else if (letterType === 'records' && records) {
+    bodyHtml = `
+      <p>To whom it may concern,</p>
+      <p>I am writing to request any correspondence or documentation from their previous visits at ${escapeHtml(records.recordsLocation || '[Location]')}. It would be greatly appreciated if any correspondence, treatments, and recent investigations could be provided to assist with their ongoing management.</p>
+      ${records.secondParagraphRecords ? `<p>${escapeHtml(records.secondParagraphRecords)}</p>` : ''}
+    `
+  } else if (letterType === 'freetext' && freetext) {
+    bodyHtml = freetext.freeTextContent
+      ? freetext.freeTextContent.split('\n')
+          .map(l => l.trim() ? `<p>${escapeHtml(l)}</p>` : '<br>').join('')
+      : '<p style="color:#94a3b8;">[Letter content will appear here]</p>'
+  }
+
+  return `
+    <div style="font-family:Arial,sans-serif;font-size:11pt;color:#000;background:#fff;min-height:297mm;display:flex;flex-direction:column;max-width:210mm;">
+      ${headerHtml}
+      <div style="padding:15px 20mm;flex:1;">
+        ${recipientBlock}
+        ${reBlock}
+        ${bodyHtml}
+        <div style="margin-top:32px;">
+          <p style="margin:0 0 8px;">Kind regards,</p>
+          ${signatureHtml}
+          <p style="margin:0;">${escapeHtml(clinicianName || '')}</p>
+          ${credentials ? `<p style="margin:0;font-size:10pt;color:#475569;">${escapeHtml(credentials)}</p>` : ''}
+        </div>
+      </div>
+      ${footerHtml}
+    </div>
+  `
 }

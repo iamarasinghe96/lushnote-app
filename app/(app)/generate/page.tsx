@@ -13,8 +13,9 @@ import RecordModal from '@/components/modals/RecordModal'
 import DictateModal from '@/components/modals/DictateModal'
 import TranscriptConfirmModal from '@/components/modals/TranscriptConfirmModal'
 import TemplatePicker from '@/components/modals/TemplatePicker'
+import LetterPickerModal from '@/components/modals/LetterPickerModal'
 import { listNotes } from '@/lib/firestore/notes'
-import type { AnyTemplate, NoteCreationMode, Note } from '@/types'
+import type { AnyTemplate, NoteCreationMode, Note, LetterType } from '@/types'
 
 const GEMINI_RPD = 20
 
@@ -164,6 +165,7 @@ export default function GeneratePage() {
   const [prefillPatient, setPrefillPatient] = useState<{ patient: string; reg_number: string } | null>(null)
   const [allNotes, setAllNotes] = useState<Note[]>([])
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
+  const [letterPickerOpen, setLetterPickerOpen] = useState(false)
 
   useEffect(() => {
     if (localStorage.getItem('_ln_rec_interrupted')) {
@@ -187,6 +189,23 @@ export default function GeneratePage() {
     if (typeof window === 'undefined') return 0
     return parseInt(localStorage.getItem('ln_groq_tokens_session') || '0', 10)
   })
+
+  function handleSkipToLetter() {
+    setPhase('idle')
+    setInputText('')
+    setLetterPickerOpen(true)
+  }
+
+  function handleLetterTypeSelected(type: LetterType) {
+    setLetterPickerOpen(false)
+    const today = new Date()
+    const dd = String(today.getDate()).padStart(2, '0')
+    const mm = String(today.getMonth() + 1).padStart(2, '0')
+    const yyyy = today.getFullYear()
+    store.setLetterType(type)
+    store.setLetterCommonFields({ letterDate: `${dd}/${mm}/${yyyy}` })
+    router.push('/edit')
+  }
 
   function startMode(mode: NoteCreationMode) {
     setCreationMode(mode)
@@ -449,6 +468,16 @@ export default function GeneratePage() {
             <Button variant="ghost" onClick={handleCancel} className="flex-1">Cancel</Button>
             <Button variant="primary" onClick={handleTextConfirm} disabled={!inputText.trim()} className="flex-1">Continue</Button>
           </div>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-[var(--border)]" />
+            <span className="text-xs text-[var(--text3)]">or</span>
+            <div className="flex-1 h-px bg-[var(--border)]" />
+          </div>
+          <button
+            onClick={handleSkipToLetter}
+            className="w-full text-xs text-[var(--blue)] font-medium hover:underline text-center motion-safe:transition-opacity">
+            Skip — write a letter instead →
+          </button>
         </div>
       </Modal>
 
@@ -497,6 +526,11 @@ export default function GeneratePage() {
         open={phase === 'template-picking'}
         onSelect={handleTemplateSelect}
         onCancel={() => { setPhase('idle'); setTranscriptConfirmOpen(true) }}
+      />
+      <LetterPickerModal
+        open={letterPickerOpen}
+        onSelect={handleLetterTypeSelected}
+        onClose={() => setLetterPickerOpen(false)}
       />
     </div>
   )
