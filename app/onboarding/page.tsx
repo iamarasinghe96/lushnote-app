@@ -449,11 +449,30 @@ function Step4({
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-[#0f172a]">Gemini API key</h2>
       <p className="text-sm text-[#475569]">
-        LushNote uses Google Gemini to generate notes. You can add your key now or later in
-        Settings.
+        LushNote uses Google Gemini to generate notes. It&apos;s free - you just need a Google account.
       </p>
+
+      {/* Step-by-step instructions */}
+      <div className="rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-4 space-y-2">
+        <p className="text-xs font-semibold text-[#0f172a] mb-3">How to get your free API key:</p>
+        {[
+          <>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-[#2563eb] underline font-medium">aistudio.google.com</a> and sign in with your Google account</>,
+          <>Click <span className="font-semibold text-[#0f172a]">&quot;Create API key&quot;</span> in the top right corner</>,
+          <>Create a new project - name it <span className="font-semibold text-[#0f172a]">LushNote</span> (or anything you like)</>,
+          <>Select that project and click <span className="font-semibold text-[#0f172a]">Create</span></>,
+          <>Copy the key that appears and paste it below</>,
+        ].map((step, i) => (
+          <div key={i} className="flex items-start gap-2.5">
+            <span className="mt-0.5 w-4 h-4 rounded-full bg-[#10b981] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+              {i + 1}
+            </span>
+            <p className="text-xs text-[#475569] leading-relaxed">{step}</p>
+          </div>
+        ))}
+      </div>
+
       <div>
-        <label className="block text-sm font-medium text-[#0f172a] mb-1">API key</label>
+        <label className="block text-sm font-medium text-[#0f172a] mb-1">Paste your API key</label>
         <input
           type="password"
           value={geminiApiKey}
@@ -462,14 +481,7 @@ function Step4({
           className="w-full rounded-xl border border-[#e2e8f0] px-3 py-2.5 text-sm text-[#0f172a] outline-none focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981] font-mono"
         />
       </div>
-      <a
-        href="https://aistudio.google.com/app/apikey"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-block text-xs text-[#2563eb] underline"
-      >
-        Get a free key at Google AI Studio
-      </a>
+
       <button
         onClick={onSkip}
         className="block w-full text-center text-sm text-[#94a3b8] mt-1"
