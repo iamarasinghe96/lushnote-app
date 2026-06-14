@@ -8,10 +8,12 @@ import {
   query, where, writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { deleteProfile } from '@/lib/firestore/profiles'
+import { deleteProfile, updateProfile } from '@/lib/firestore/profiles'
+import { uploadSignature } from '@/lib/storage'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
+import SignaturePad from '@/components/ui/SignaturePad'
 import { useAuth } from '@/hooks/useAuth'
 import type { User } from '@/types'
 
@@ -43,6 +45,10 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
   const [credentials, setCredentials] = useState(profile.credentials ?? '')
   const [emailPretext, setEmailPretext] = useState(profile.emailPretext ?? '')
   const [saving, setSaving] = useState(false)
+
+  const [showSignaturePad, setShowSignaturePad] = useState(false)
+  const [sigLoading, setSigLoading] = useState(false)
+  const [localSignatureUrl, setLocalSignatureUrl] = useState<string | undefined>(profile?.signatureUrl)
 
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [selectedReasons, setSelectedReasons] = useState<string[]>([])
@@ -179,6 +185,58 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
       <Button variant="primary" onClick={handleSave} loading={saving}>
         Save profile
       </Button>
+
+      {/* Signature */}
+      <div className="mt-6 pt-6 border-t border-[var(--border)]">
+        <h3 className="text-sm font-semibold text-[var(--text)] mb-1">Signature</h3>
+        <p className="text-xs text-[var(--text3)] mb-3">
+          Draw your signature. It will appear on generated letters and referrals.
+        </p>
+
+        {localSignatureUrl && !showSignaturePad ? (
+          <div className="mb-3">
+            <div
+              className="border border-[var(--border)] rounded-[var(--r)] bg-white p-3 inline-block"
+              style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
+            >
+              <img
+                src={localSignatureUrl}
+                alt="Your signature"
+                className="h-14 object-contain max-w-xs"
+              />
+            </div>
+            <div className="mt-2">
+              <button
+                onClick={() => setShowSignaturePad(true)}
+                className="text-xs text-[var(--blue)] underline"
+              >
+                Update signature
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {(!localSignatureUrl || showSignaturePad) && (
+          <SignaturePad
+            existingUrl={localSignatureUrl}
+            onSave={async (dataUrl) => {
+              setSigLoading(true)
+              try {
+                const url = await uploadSignature(user!.uid, dataUrl)
+                await updateProfile(user!.uid, { signatureUrl: url })
+                setLocalSignatureUrl(url)
+                setShowSignaturePad(false)
+                onToast('Signature saved.')
+              } catch {
+                onToast('Failed to save signature. Please try again.')
+              } finally {
+                setSigLoading(false)
+              }
+            }}
+          />
+        )}
+        {sigLoading && <p className="text-xs text-[var(--text3)] mt-2">Saving...</p>}
+      </div>
 
       {/* Delete account danger card */}
       <div className="border border-[var(--danger)]/30 rounded-[var(--r-lg)] p-4 mt-8">

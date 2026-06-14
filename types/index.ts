@@ -20,6 +20,7 @@ interface User {
   recordingDefaults?: RecordingDefaults
   personalisation?: Personalisation
   geminiUsage?: GeminiUsage
+  signatureUrl?: string
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
 }
