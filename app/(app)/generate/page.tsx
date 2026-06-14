@@ -229,6 +229,21 @@ export default function GeneratePage() {
 
 
 
+  async function handlePasteClick() {
+    setCreationMode('paste')
+    setError(null)
+    try {
+      const text = (await navigator.clipboard.readText()).trim()
+      if (!text) { startMode('paste'); return }
+      const validation = validateTranscript(text)
+      if (!validation.valid) { setError(validation.error!); return }
+      setPendingTranscript(text)
+      setTranscriptConfirmOpen(true)
+    } catch {
+      startMode('paste')
+    }
+  }
+
   function handleTextConfirm() {
     if (!inputText.trim()) return
     const text = inputText.trim()
@@ -381,7 +396,7 @@ export default function GeneratePage() {
           </div>
         )}
 
-        <ModeCard icon={PasteIcon} title="Paste Transcript" description="Paste session transcript text" onClick={() => startMode('paste')} />
+        <ModeCard icon={PasteIcon} title="Paste Transcript" description="Paste session transcript text" onClick={handlePasteClick} />
         <ModeCard icon={RecordIcon} title="Record Session" description="In-person or telehealth recording" onClick={() => startMode('conversation')} />
         <ModeCard icon={DictateIcon} title="Dictate Note" description="Narrate the note yourself" onClick={() => startMode('dictation')} />
 
