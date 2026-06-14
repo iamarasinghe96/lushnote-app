@@ -1,23 +1,34 @@
 <svg width="1440" height="900" viewBox="0 0 1440 900" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
+    <!-- main teal bloom top-centre -->
     <radialGradient id="a" cx="50%" cy="30%" r="60%">
       <stop offset="0%" stop-color="#5ad6a7" stop-opacity="0.38"/>
       <stop offset="100%" stop-color="#5ad6a7" stop-opacity="0"/>
     </radialGradient>
+    <!-- blue bloom bottom-right -->
     <radialGradient id="b" cx="82%" cy="72%" r="42%">
       <stop offset="0%" stop-color="#2563eb" stop-opacity="0.22"/>
       <stop offset="100%" stop-color="#2563eb" stop-opacity="0"/>
     </radialGradient>
+    <!-- green bloom bottom-left -->
     <radialGradient id="c" cx="12%" cy="78%" r="32%">
       <stop offset="0%" stop-color="#10b981" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+    </radialGradient>
+    <!-- soft teal accent top-right -->
+    <radialGradient id="d" cx="90%" cy="15%" r="28%">
+      <stop offset="0%" stop-color="#5ad6a7" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#5ad6a7" stop-opacity="0"/>
+    </radialGradient>
+    <!-- soft blue accent centre -->
+    <radialGradient id="e" cx="50%" cy="55%" r="38%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.06"/>
       <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
     </radialGradient>
   </defs>
   <rect width="1440" height="900" fill="url(#a)"/>
   <rect width="1440" height="900" fill="url(#b)"/>
   <rect width="1440" height="900" fill="url(#c)"/>
-  <!-- decorative circles -->
-  <circle cx="1280" cy="120" r="180" fill="#5ad6a7" fill-opacity="0.07"/>
-  <circle cx="160"  cy="750" r="140" fill="#2563eb" fill-opacity="0.07"/>
-  <circle cx="720"  cy="480" r="320" fill="#10b981" fill-opacity="0.04"/>
+  <rect width="1440" height="900" fill="url(#d)"/>
+  <rect width="1440" height="900" fill="url(#e)"/>
 </svg>

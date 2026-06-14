@@ -88,6 +88,7 @@ export default function Page() {
           backgroundPosition: 'center',
         }}
       >
+        {/* Radial glow */}
         <div
           className="absolute inset-0 pointer-events-none"
           aria-hidden="true"
@@ -95,6 +96,21 @@ export default function Page() {
             background: 'radial-gradient(ellipse 60% 40% at 50% 60%, rgba(16,185,129,0.08) 0%, transparent 70%)',
           }}
         />
+        {/* Edge fades — dissolve SVG into page background on all sides */}
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          {/* bottom */}
+          <div className="absolute bottom-0 left-0 right-0 h-48"
+            style={{ background: 'linear-gradient(to bottom, transparent, #f8fafc)' }} />
+          {/* left */}
+          <div className="absolute top-0 bottom-0 left-0 w-32"
+            style={{ background: 'linear-gradient(to right, #f8fafc, transparent)' }} />
+          {/* right */}
+          <div className="absolute top-0 bottom-0 right-0 w-32"
+            style={{ background: 'linear-gradient(to left, #f8fafc, transparent)' }} />
+          {/* top (under nav) */}
+          <div className="absolute top-0 left-0 right-0 h-20"
+            style={{ background: 'linear-gradient(to top, transparent, #f8fafc)' }} />
+        </div>
         <div className="max-w-2xl mx-auto space-y-6">
           <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold
                            bg-[var(--blue-lt)] text-[var(--blue)]">
@@ -137,7 +153,7 @@ export default function Page() {
       </section>
 
       {/* ── How it works ── */}
-      <section id="how-it-works" className="py-20 px-4 bg-white">
+      <section id="how-it-works" className="py-20 px-4 bg-[#f8fafc]">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold text-center text-[var(--text)] mb-12">
             How it works
@@ -183,7 +199,7 @@ export default function Page() {
       </section>
 
       {/* ── Five modes ── */}
-      <section className="py-20 px-4 bg-white">
+      <section className="py-20 px-4 bg-[#f8fafc]">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold text-center text-[var(--text)] mb-12">
             Five ways to create a note
@@ -192,7 +208,12 @@ export default function Page() {
             {MODES.map(m => (
               <div
                 key={m.title}
-                className="rounded-[var(--r-lg)] border border-[var(--border)] bg-white p-4"
+                className="rounded-[var(--r-lg)] border border-[var(--border)] p-4"
+                style={{
+                  background: 'rgba(255,255,255,0.75)',
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                }}
               >
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-7 h-7 rounded-lg bg-[var(--blue-lt)] flex items-center justify-center shrink-0">
@@ -231,7 +252,7 @@ export default function Page() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-[var(--border)] bg-white py-6 px-4">
+      <footer className="border-t border-[var(--border)] bg-[#f8fafc] py-6 px-4">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-[var(--text3)]">
             © 2025 LushNote. Built to save one more life.
