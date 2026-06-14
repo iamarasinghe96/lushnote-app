@@ -14,9 +14,13 @@ export interface LetterheadDoc {
 export async function getLetterhead(workplaceName: string): Promise<LetterheadDoc | null> {
   if (!workplaceName) return null
   const key = toOrganizationKey(workplaceName)
-  const snap = await getDoc(doc(db, 'letterheads', key))
-  if (!snap.exists()) return null
-  return snap.data() as LetterheadDoc
+  try {
+    const snap = await getDoc(doc(db, 'letterheads', key))
+    if (!snap.exists()) return null
+    return snap.data() as LetterheadDoc
+  } catch {
+    return null
+  }
 }
 
 export async function submitLetterheadRequest(params: {

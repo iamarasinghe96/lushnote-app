@@ -20,8 +20,11 @@ export async function createProfile(uid: string, data: Partial<User>): Promise<v
 
 export async function updateProfile(uid: string, data: Partial<User>): Promise<void> {
   const ref = doc(db, 'users', uid)
+  // JSON round-trip strips undefined from nested structures (workplaces array etc.)
+  // Firestore rejects undefined values in updateDoc
+  const serialized = JSON.parse(JSON.stringify(data))
   await updateDoc(ref, {
-    ...data,
+    ...serialized,
     updatedAt: serverTimestamp(),
   })
 }
