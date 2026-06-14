@@ -1,10 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import Textarea from '@/components/ui/Textarea'
 import { detectIdPattern, applyWorkspaceTheme } from '@/lib/utils'
 import { WP_THEMES } from '@/types'
+import { getLetterhead, submitLetterheadRequest, type LetterheadDoc } from '@/lib/firestore/letterheads'
+import { useAuth } from '@/hooks/useAuth'
 import type { User, Workplace, WorkplaceType } from '@/types'
 
 interface WorkplacesPanelProps {
@@ -49,6 +52,7 @@ function wpToForm(wp: Workplace): EditForm {
 }
 
 export default function WorkplacesPanel({ profile, onSave, onToast }: WorkplacesPanelProps) {
+  const { user } = useAuth()
   const workplaces = profile.workplaces ?? []
   const activeId = profile.activeWorkplaceId ?? workplaces[0]?.id ?? ''
 
@@ -58,8 +62,24 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  // Letterhead state — undefined = not yet loaded, null = not found, object = found
+  const [letterheads, setLetterheads] = useState<Record<string, LetterheadDoc | null | undefined>>({})
+  const [requestingFor, setRequestingFor] = useState<string | null>(null)
+  const [requestNote, setRequestNote] = useState('')
+  const [requestSent, setRequestSent] = useState<Set<string>>(new Set())
+  const [requestLoading, setRequestLoading] = useState(false)
+
   const isFree = profile.tier === 'free'
   const canAdd = !isFree || workplaces.length < 1
+
+  useEffect(() => {
+    if (!profile?.workplaces) return
+    profile.workplaces.forEach(async (wp) => {
+      const lh = await getLetterhead(wp.name)
+      setLetterheads(prev => ({ ...prev, [wp.name]: lh }))
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function startEdit(wp: Workplace) {
     setAddingNew(false)
@@ -260,6 +280,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
         const isActive = wp.id === activeId
         const isEditing = editingId === wp.id
         const theme = WP_THEMES[wp.themeIndex] ?? WP_THEMES[0]
+        const lh = letterheads[wp.name]  // undefined = loading, null = not found, object = found
 
         return (
           <div
@@ -321,6 +342,115 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
             </div>
 
             {isEditing && <InlineForm onSave={saveEdit} />}
+
+            {/* Letterhead status — only when not editing */}
+            {!isEditing && (
+              <div className="mt-3 pt-3 border-t border-[var(--border)]">
+                <p className="text-xs font-medium text-[var(--text2)] mb-1">Letterhead</p>
+                {lh === undefined ? (
+                  <p className="text-xs text-[var(--text3)]">Checking...</p>
+                ) : lh ? (
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      {lh.headerUrl ? (
+                        <div className="border border-[var(--border)] rounded overflow-hidden bg-white">
+                          <img src={lh.headerUrl} alt="Header preview" className="h-8 w-24 object-contain" />
+                        </div>
+                      ) : (
+                        <span className="text-xs text-[var(--text3)]">No header</span>
+                      )}
+                      {lh.footerUrl ? (
+                        <div className="border border-[var(--border)] rounded overflow-hidden bg-white">
+                          <img src={lh.footerUrl} alt="Footer preview" className="h-8 w-24 object-contain" />
+                        </div>
+                      ) : (
+                        <span className="text-xs text-[var(--text3)]">No footer</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => { setRequestingFor(wp.name); setRequestNote('') }}
+                      className="text-xs text-[var(--blue)] underline ml-auto"
+                    >
+                      Request update
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-xs text-[var(--text3)] mb-2">
+                      No letterhead configured for <strong>{wp.name}</strong>.
+                    </p>
+                    {requestSent.has(wp.name) ? (
+                      <p className="text-xs text-green-600 font-medium">
+                        ✓ Request sent. We will update the letterhead and notify you.
+                      </p>
+                    ) : (
+                      <button
+                        onClick={() => { setRequestingFor(wp.name); setRequestNote('') }}
+                        className="text-xs bg-[var(--blue-lt)] text-[var(--blue)] border border-[var(--blue)]/30
+                                   rounded-[var(--r)] px-3 py-1.5 font-medium"
+                      >
+                        Request letterhead setup →
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Inline request form */}
+                {requestingFor === wp.name && (
+                  <div className="mt-3 p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--r)] space-y-3">
+                    <p className="text-xs font-medium text-[var(--text)]">
+                      Request letterhead for <strong>{wp.name}</strong>
+                    </p>
+                    <p className="text-xs text-[var(--text3)]">
+                      The admin will upload your hospital&apos;s official header and footer images.
+                      You can attach a note with your request.
+                    </p>
+                    <Textarea
+                      label="Message (optional)"
+                      rows={3}
+                      placeholder="e.g. Please use the AWH letterhead — fax and phone numbers are on the intranet portal."
+                      value={requestNote}
+                      onChange={e => setRequestNote(e.target.value)}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setRequestingFor(null)}
+                        className="text-xs px-3 py-1.5 border border-[var(--border)] rounded-[var(--r)] text-[var(--text2)]"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        disabled={requestLoading}
+                        onClick={async () => {
+                          setRequestLoading(true)
+                          try {
+                            await submitLetterheadRequest({
+                              uid: user!.uid,
+                              email: user!.email || '',
+                              displayName: profile?.displayName || '',
+                              workplaceName: wp.name,
+                              note: requestNote,
+                            })
+                            setRequestSent(prev => new Set(Array.from(prev).concat(wp.name)))
+                            setRequestingFor(null)
+                            onToast("Request sent. We'll notify you when your letterhead is ready.")
+                          } catch {
+                            onToast('Failed to send request. Please try again.')
+                          } finally {
+                            setRequestLoading(false)
+                          }
+                        }}
+                        className="text-xs bg-[var(--blue)] text-white px-3 py-1.5 rounded-[var(--r)]
+                                   font-medium disabled:opacity-50
+                                   motion-safe:active:scale-95 motion-safe:transition-transform"
+                      >
+                        {requestLoading ? 'Sending...' : 'Send request'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )
       })}

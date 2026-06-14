@@ -19,6 +19,10 @@ export function openSettings(tab: string): void {
   window.location.href = '/settings?tab=' + tab
 }
 
+export function toOrganizationKey(workplaceName: string): string {
+  return workplaceName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')
+}
+
 export function detectIdPattern(example: string): {
   regex: string
   template: string

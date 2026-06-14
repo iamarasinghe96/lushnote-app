@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import type { Note, NoteCreationMode, AnyTemplate } from '@/types'
+import type { LetterheadDoc } from '@/lib/firestore/letterheads'
 
 interface NoteStore {
   currentNoteId: string | null
@@ -11,6 +12,7 @@ interface NoteStore {
   lastChosenTemplate: AnyTemplate | null
   lastRecordingDuration: number
   pendingAnimation: boolean
+  activeLetterhead: LetterheadDoc | null
   setCurrentNote: (note: Partial<Note>) => void
   setCurrentNoteId: (id: string | null) => void
   setLastTranscript: (t: string | null) => void
@@ -18,6 +20,7 @@ interface NoteStore {
   setLastChosenTemplate: (t: AnyTemplate | null) => void
   setLastRecordingDuration: (s: number) => void
   setPendingAnimation: (v: boolean) => void
+  setActiveLetterhead: (lh: LetterheadDoc | null) => void
   resetNote: () => void
 }
 
@@ -31,6 +34,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   const [lastChosenTemplate, setLastChosenTemplate] = useState<AnyTemplate | null>(null)
   const [lastRecordingDuration, setLastRecordingDuration] = useState(0)
   const [pendingAnimation, setPendingAnimation] = useState(false)
+  const [activeLetterhead, setActiveLetterhead] = useState<LetterheadDoc | null>(null)
 
   function resetNote() {
     setCurrentNoteId(null)
@@ -51,6 +55,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       lastChosenTemplate,
       lastRecordingDuration,
       pendingAnimation,
+      activeLetterhead,
       setCurrentNote,
       setCurrentNoteId,
       setLastTranscript,
@@ -58,6 +63,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       setLastChosenTemplate,
       setLastRecordingDuration,
       setPendingAnimation,
+      setActiveLetterhead,
       resetNote,
     }}>
       {children}
