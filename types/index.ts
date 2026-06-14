@@ -16,13 +16,48 @@ interface User {
   customTemplates: CustomTemplate[]
   groqApiKey?: string
   geminiApiKey?: string
+  signatureUrl?: string
   transcriptPrivacy?: TranscriptPrivacy
   recordingDefaults?: RecordingDefaults
   personalisation?: Personalisation
   geminiUsage?: GeminiUsage
-  signatureUrl?: string
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
+}
+
+type LetterType = 'referral' | 'records' | 'freetext'
+
+interface LetterCommonFields {
+  recipientName: string
+  recipientAddress: string
+  patientName: string
+  dob: string
+  letterDate: string
+}
+
+interface ReferralFields {
+  doctorName: string
+  admissionUnit: string
+  gender: 'male' | 'female' | ''
+  admissionDateStart: string
+  admissionDateEnd: string
+  presentingComplaint: string
+  secondParagraph: string
+  referralReason: string
+  dischargeSummaryAttached: boolean
+  showPastMedicalHistory: boolean
+  pastMedicalHistory: string
+  showMedicationList: boolean
+  medicationList: string
+}
+
+interface RecordsFields {
+  recordsLocation: string
+  secondParagraphRecords: string
+}
+
+interface FreetextFields {
+  freeTextContent: string
 }
 
 interface Workplace {
@@ -214,41 +249,6 @@ type FirestoreTimestamp = {
   seconds: number
   nanoseconds: number
   toDate(): Date
-}
-
-type LetterType = 'referral' | 'records' | 'freetext'
-
-interface LetterCommonFields {
-  recipientName: string
-  recipientAddress: string
-  patientName: string
-  dob: string
-  letterDate: string
-}
-
-interface ReferralFields {
-  doctorName: string
-  admissionUnit: string
-  gender: 'male' | 'female' | ''
-  admissionDateStart: string
-  admissionDateEnd: string
-  presentingComplaint: string
-  secondParagraph: string
-  referralReason: string
-  dischargeSummaryAttached: boolean
-  showPastMedicalHistory: boolean
-  pastMedicalHistory: string
-  showMedicationList: boolean
-  medicationList: string
-}
-
-interface RecordsFields {
-  recordsLocation: string
-  secondParagraphRecords: string
-}
-
-interface FreetextFields {
-  freeTextContent: string
 }
 
 export type {

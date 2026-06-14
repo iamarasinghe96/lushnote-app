@@ -124,7 +124,7 @@ Dictation: ${transcript}`,
       const quota = profile?.geminiUsage ?? {}
       if (checkQuota(quota, 'generate')) {
         try {
-          const content = await generateNote(prompt, systemPrompt)
+          const content = await generateNote(prompt, systemPrompt!)
           await updateGeminiUsage(uid, 'generate')
           return NextResponse.json({ content, provider: 'gemini' })
         } catch {
@@ -139,7 +139,7 @@ Dictation: ${transcript}`,
     }
 
     try {
-      const { content, totalTokens } = await generateNoteGroq(prompt, systemPrompt, groqKey)
+      const { content, totalTokens } = await generateNoteGroq(prompt, systemPrompt!, groqKey)
       return NextResponse.json({ content, provider: 'groq', groqTokensUsed: totalTokens })
     } catch (err) {
       if (err instanceof Error && err.message.startsWith('429:')) {

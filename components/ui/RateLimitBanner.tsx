@@ -23,7 +23,7 @@ export function RateLimitBanner({ waitSeconds, onDismiss, onRetry }: RateLimitBa
     <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 shrink-0">
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs font-medium text-amber-800">
-          Groq rate limit — retrying in {remaining}s
+          Groq rate limit - retrying in {remaining}s
         </span>
         <button
           onClick={onDismiss}

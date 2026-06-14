@@ -9,11 +9,11 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { deleteProfile, updateProfile } from '@/lib/firestore/profiles'
-import { uploadSignature } from '@/lib/storage'
+import { uploadSignatureSVG } from '@/lib/storage'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
-import SignaturePad from '@/components/ui/SignaturePad'
+import SignatureUploader from '@/components/ui/SignatureUploader'
 import { useAuth } from '@/hooks/useAuth'
 import type { User } from '@/types'
 
@@ -45,10 +45,8 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
   const [credentials, setCredentials] = useState(profile.credentials ?? '')
   const [emailPretext, setEmailPretext] = useState(profile.emailPretext ?? '')
   const [saving, setSaving] = useState(false)
-
-  const [showSignaturePad, setShowSignaturePad] = useState(false)
-  const [sigLoading, setSigLoading] = useState(false)
-  const [localSignatureUrl, setLocalSignatureUrl] = useState<string | undefined>(profile?.signatureUrl)
+  const [sigSaving, setSigSaving] = useState(false)
+  const [localSignatureUrl, setLocalSignatureUrl] = useState<string | null>(profile.signatureUrl ?? null)
 
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [selectedReasons, setSelectedReasons] = useState<string[]>([])
@@ -67,6 +65,20 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
     }
   }
 
+  async function handleSignatureSave(svgDataUrl: string) {
+    setSigSaving(true)
+    try {
+      const url = await uploadSignatureSVG(uid, svgDataUrl)
+      await updateProfile(uid, { signatureUrl: url })
+      setLocalSignatureUrl(url)
+      onToast('Signature saved')
+    } catch {
+      onToast('Failed to save signature')
+    } finally {
+      setSigSaving(false)
+    }
+  }
+
   function toggleReason(r: string) {
     setSelectedReasons(prev =>
       prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]
@@ -77,7 +89,7 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
     if (!user) return
     setDeleting(true)
 
-    // Step 1 — Re-authenticate via Google popup (NOT redirect)
+    // Step 1 - Re-authenticate via Google popup (NOT redirect)
     try {
       await reauthenticateWithPopup(user, new GoogleAuthProvider())
     } catch (err) {
@@ -91,7 +103,7 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
       return
     }
 
-    // Step 2 — Save deletion feedback
+    // Step 2 - Save deletion feedback
     try {
       await setDoc(doc(db, 'deletion_feedback', uid), {
         userId: uid,
@@ -102,7 +114,7 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
       })
     } catch (_) { /* non-fatal */ }
 
-    // Step 3 — Batch delete progress_notes
+    // Step 3 - Batch delete progress_notes
     try {
       const snap = await getDocs(query(collection(db, 'progress_notes'), where('userId', '==', uid)))
       const chunks: (typeof snap.docs[number])[][] = []
@@ -117,7 +129,7 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
       }
     } catch (_) {}
 
-    // Step 4 — Delete patientProfiles subcollection
+    // Step 4 - Delete patientProfiles subcollection
     try {
       const snap = await getDocs(collection(db, 'users', uid, 'patientProfiles'))
       const batch = writeBatch(db)
@@ -125,17 +137,17 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
       await batch.commit()
     } catch (_) {}
 
-    // Step 5 — Delete user document
+    // Step 5 - Delete user document
     try { await deleteProfile(uid) } catch (_) {}
 
-    // Step 6 — Delete Firebase Auth account
+    // Step 6 - Delete Firebase Auth account
     try { await deleteUser(user) } catch (_) {}
 
-    // Step 7 — Clear session storage
+    // Step 7 - Clear session storage
     sessionStorage.removeItem('groq_api_key')
     sessionStorage.removeItem('gemini_api_key')
 
-    // Step 8 — Navigate to confirmation page
+    // Step 8 - Navigate to confirmation page
     router.push('/account-deleted')
   }
 
@@ -186,56 +198,19 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
         Save profile
       </Button>
 
-      {/* Signature */}
-      <div className="mt-6 pt-6 border-t border-[var(--border)]">
-        <h3 className="text-sm font-semibold text-[var(--text)] mb-1">Signature</h3>
-        <p className="text-xs text-[var(--text3)] mb-3">
-          Draw your signature. It will appear on generated letters and referrals.
+      {/* Signature section */}
+      <div>
+        <label className="block text-sm font-medium text-[var(--text)] mb-1">
+          Signature
+        </label>
+        <p className="text-xs text-[var(--text2)] mb-3">
+          Upload a photo of your handwritten signature. The ink lines will be traced and saved as a vector image for use in letters.
         </p>
-
-        {localSignatureUrl && !showSignaturePad ? (
-          <div className="mb-3">
-            <div
-              className="border border-[var(--border)] rounded-[var(--r)] bg-white p-3 inline-block"
-              style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
-            >
-              <img
-                src={localSignatureUrl}
-                alt="Your signature"
-                className="h-14 object-contain max-w-xs"
-              />
-            </div>
-            <div className="mt-2">
-              <button
-                onClick={() => setShowSignaturePad(true)}
-                className="text-xs text-[var(--blue)] underline"
-              >
-                Update signature
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {(!localSignatureUrl || showSignaturePad) && (
-          <SignaturePad
-            existingUrl={localSignatureUrl}
-            onSave={async (dataUrl) => {
-              setSigLoading(true)
-              try {
-                const url = await uploadSignature(user!.uid, dataUrl)
-                await updateProfile(user!.uid, { signatureUrl: url })
-                setLocalSignatureUrl(url)
-                setShowSignaturePad(false)
-                onToast('Signature saved.')
-              } catch {
-                onToast('Failed to save signature. Please try again.')
-              } finally {
-                setSigLoading(false)
-              }
-            }}
-          />
-        )}
-        {sigLoading && <p className="text-xs text-[var(--text3)] mt-2">Saving...</p>}
+        <SignatureUploader
+          existingUrl={localSignatureUrl}
+          onSave={handleSignatureSave}
+          saving={sigSaving}
+        />
       </div>
 
       {/* Delete account danger card */}

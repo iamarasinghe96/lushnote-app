@@ -54,7 +54,7 @@ export default function TranscriptPage() {
       const parsed = typeof data.answer === 'string' ? JSON.parse(data.answer) : data.answer
       setMessages(prev => [...prev, {
         role: 'ai',
-        content: parsed.answer + (parsed.inferred ? '\n\n_(inferred — not directly stated)_' : ''),
+        content: parsed.answer + (parsed.inferred ? '\n\n_(inferred - not directly stated)_' : ''),
         quote: parsed.quote || undefined,
       }])
       if (parsed.quote) {

@@ -190,6 +190,23 @@ export default function GeneratePage() {
     return parseInt(localStorage.getItem('ln_groq_tokens_session') || '0', 10)
   })
 
+  function handleSkipToLetter() {
+    setPhase('idle')
+    setInputText('')
+    setLetterPickerOpen(true)
+  }
+
+  function handleLetterTypeSelected(type: LetterType) {
+    setLetterPickerOpen(false)
+    const today = new Date()
+    const dd = String(today.getDate()).padStart(2, '0')
+    const mm = String(today.getMonth() + 1).padStart(2, '0')
+    const yyyy = today.getFullYear()
+    store.setLetterType(type)
+    store.setLetterCommonFields({ letterDate: `${dd}/${mm}/${yyyy}` })
+    router.push('/edit')
+  }
+
   function startMode(mode: NoteCreationMode) {
     setCreationMode(mode)
     setError(null)
@@ -210,23 +227,7 @@ export default function GeneratePage() {
     setPrefillPatient(null)
   }
 
-  function handleSkipToLetter() {
-    setPhase('idle')
-    setInputText('')
-    setLetterPickerOpen(true)
-  }
 
-  function handleLetterTypeSelected(type: LetterType) {
-    setLetterPickerOpen(false)
-    store.setLetterType(type)
-    const today = new Date()
-    const dateStr =
-      String(today.getDate()).padStart(2, '0') + '/' +
-      String(today.getMonth() + 1).padStart(2, '0') + '/' +
-      today.getFullYear()
-    store.setLetterCommonFields({ letterDate: dateStr })
-    router.push('/edit')
-  }
 
   function handleTextConfirm() {
     if (!inputText.trim()) return
@@ -349,12 +350,6 @@ export default function GeneratePage() {
   return (
     <div
       className="h-full overflow-y-auto"
-      style={{
-        backgroundImage: "url('/assets/bg.svg')",
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'bottom right',
-        backgroundSize: '280px',
-      }}
     >
       {/* Interrupted session banner */}
       {showBanner && (
@@ -484,6 +479,16 @@ export default function GeneratePage() {
             <Button variant="ghost" onClick={handleCancel} className="flex-1">Cancel</Button>
             <Button variant="primary" onClick={handleTextConfirm} disabled={!inputText.trim()} className="flex-1">Continue</Button>
           </div>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-[var(--border)]" />
+            <span className="text-xs text-[var(--text3)]">or</span>
+            <div className="flex-1 h-px bg-[var(--border)]" />
+          </div>
+          <button
+            onClick={handleSkipToLetter}
+            className="w-full text-xs text-[var(--blue)] font-medium hover:underline text-center motion-safe:transition-opacity">
+            Skip - write a letter instead →
+          </button>
         </div>
       </Modal>
 

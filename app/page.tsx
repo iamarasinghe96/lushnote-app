@@ -107,7 +107,7 @@ export default function Page() {
 
           <p className="text-lg text-[var(--text2)] leading-relaxed">
             AI-powered note generation for psychiatrists.<br className="hidden sm:block" />
-            Record, transcribe, structure — in one workflow.
+            Record, transcribe, structure - in one workflow.
           </p>
 
           {error && (
@@ -264,7 +264,7 @@ const HOW_IT_WORKS = [
   },
   {
     title: 'Generate',
-    description: 'Choose a template — AI structures a complete clinical note.',
+    description: 'Choose a template - AI structures a complete clinical note.',
   },
   {
     title: 'Export',
