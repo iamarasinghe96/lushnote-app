@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
-import { buildPreviewHTML } from '@/lib/utils'
+import { buildPreviewHTML, buildLetterPreviewHTML, formatDateForLetter, calculateAgeFromDOB } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
@@ -75,6 +75,17 @@ interface PatientEntry {
   lastDate: string
 }
 
+const GLASS_CARD = {
+  background: 'rgba(255,255,255,0.75)',
+  backdropFilter: 'blur(12px)',
+  boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+} as const
+
+const ADMISSION_UNITS = [
+  'Emergency Department','Surgical Unit','Medical Unit',
+  'Psychiatric Unit','ICU','Oncology Unit','Outpatient Clinic',
+]
+
 export default function EditPage() {
   return (
     <Suspense>
@@ -118,6 +129,18 @@ function EditContent() {
   const autoSaveEnabledRef = useRef(true)
   const latestFieldsRef = useRef<Partial<Note>>(store.currentNote)
 
+  // Letter mode state
+  const isLetterMode = store.letterType !== null
+  const letterType = store.letterType
+  const letterCommonFields = store.letterCommonFields
+  const referralFields = store.referralFields
+  const recordsFields = store.recordsFields
+  const freetextFields = store.freetextFields
+  const activeLetterhead = store.activeLetterhead
+
+  const [isGeneratingLetter, setIsGeneratingLetter] = useState(false)
+  const [letterToast, setLetterToast] = useState<string | null>(null)
+
   useEffect(() => { return () => { mountedRef.current = false } }, [])
 
   useEffect(() => {
@@ -137,15 +160,44 @@ function EditContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Note preview — only in clinical mode
   useEffect(() => {
+    if (isLetterMode) return
     const timer = setTimeout(() => setPreviewHtml(buildPreviewHTML(fields)), 200)
     return () => clearTimeout(timer)
-  }, [fields])
+  }, [fields, isLetterMode])
+
+  // Letter preview — only in letter mode
+  useEffect(() => {
+    if (!isLetterMode) return
+    const timer = setTimeout(() => {
+      const html = buildLetterPreviewHTML({
+        letterType: letterType!,
+        common: letterCommonFields,
+        referral: referralFields,
+        records: recordsFields,
+        freetext: freetextFields,
+        letterheadHeaderUrl: activeLetterhead?.headerUrl,
+        letterheadFooterUrl: activeLetterhead?.footerUrl,
+        signatureUrl: profile?.signatureUrl,
+        clinicianName: profile?.displayName,
+        credentials: profile?.credentials,
+      })
+      setPreviewHtml(html)
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, activeLetterhead, profile])
 
   useEffect(() => {
     if (!user) return
     listNotes(user.uid).then(setAllNotes).catch(() => {})
   }, [user?.uid])
+
+  useEffect(() => {
+    if (!letterToast) return
+    const t = setTimeout(() => setLetterToast(null), 3500)
+    return () => clearTimeout(t)
+  }, [letterToast])
 
   const storeRef = useRef(store)
   storeRef.current = store
@@ -324,6 +376,7 @@ function EditContent() {
   }
 
   async function doAutoSave(flashField?: string) {
+    if (storeRef.current.letterType !== null) return  // letters not persisted to Firestore
     if (isSavingRef.current) return
     const data = latestFieldsRef.current
     if (!data.patient) return
@@ -379,6 +432,7 @@ function EditContent() {
   }
 
   function handleFieldBlur(fieldName: string) {
+    if (store.letterType !== null) return  // letter mode — no auto-save
     if (!autoSaveEnabledRef.current) return
     if (!latestFieldsRef.current.patient) return
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
@@ -507,6 +561,224 @@ function EditContent() {
     doAutoSave('patient')
   }
 
+  // Letter helpers
+  async function loadImageAsDataURL(url: string): Promise<{ dataUrl: string; w: number; h: number }> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.naturalWidth
+        canvas.height = img.naturalHeight
+        canvas.getContext('2d')!.drawImage(img, 0, 0)
+        resolve({ dataUrl: canvas.toDataURL('image/png'), w: img.naturalWidth, h: img.naturalHeight })
+      }
+      img.onerror = reject
+      img.src = url
+    })
+  }
+
+  async function handleLetterPDF() {
+    const { jsPDF } = await import('jspdf')
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const PW = 210, PH = 297, ML = 20, MR = 20, CW = PW - ML - MR
+    const LH = 5.5, PS = 3.5
+    let y = 20
+
+    if (activeLetterhead?.headerUrl) {
+      try {
+        const { dataUrl, w, h } = await loadImageAsDataURL(activeLetterhead.headerUrl)
+        const imgH = (h / w) * PW
+        doc.addImage(dataUrl, 'PNG', 0, 0, PW, imgH)
+        y = imgH + 8
+      } catch { /* no header */ }
+    }
+
+    const footerH = activeLetterhead?.footerUrl ? 25 : 10
+    const maxY = PH - footerH - 5
+
+    const write = (text: string, bold = false, size = 11) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal')
+      doc.setFontSize(size)
+      doc.splitTextToSize(text, CW).forEach((line: string) => {
+        if (y + LH > maxY) { doc.addPage(); y = 20 }
+        doc.text(line, ML, y)
+        y += LH
+      })
+    }
+    const nl = (n = 1) => { y += PS * n }
+
+    write(letterCommonFields.letterDate || '')
+    nl()
+    write('To:')
+    write(letterCommonFields.recipientName || '[Recipient Name]')
+    if (letterCommonFields.recipientAddress) write(letterCommonFields.recipientAddress)
+    nl()
+
+    if (letterType !== 'freetext') {
+      write(`Re: ${letterCommonFields.patientName || '[Patient Name]'}`, true)
+      if (letterCommonFields.dob) write(`DOB: ${letterCommonFields.dob}`, true)
+    } else {
+      write(`Subject: ${letterCommonFields.patientName || '[Subject]'}`, true)
+    }
+    nl()
+
+    if (letterType === 'referral') {
+      write(`To Dr. ${referralFields.doctorName || '[Doctor Name]'},`)
+      nl(0.5)
+      write(`I am writing to refer to you ${letterCommonFields.patientName || '[Patient Name]'}, who was admitted to the ${referralFields.admissionUnit || '[Unit]'} from the ${formatDateForLetter(referralFields.admissionDateStart)} to the ${formatDateForLetter(referralFields.admissionDateEnd)}.`)
+      nl(0.5)
+      const age = calculateAgeFromDOB(letterCommonFields.dob)
+      const agePart = age !== null ? `${age} year old ` : ''
+      const firstName = (letterCommonFields.patientName || '').split(' ')[0] || 'Patient'
+      const title = referralFields.gender === 'male' ? 'Mr.' : referralFields.gender === 'female' ? 'Ms.' : ''
+      write(`Thank you for seeing ${title} ${letterCommonFields.patientName || '[Patient Name]'}. ${firstName} is a ${agePart}${referralFields.gender || '[gender]'} who presented with ${referralFields.presentingComplaint || '[presenting complaint]'}.`)
+      if (referralFields.secondParagraph) { nl(0.5); write(referralFields.secondParagraph) }
+      nl(0.5)
+      write(`${referralFields.referralReason || '[reason for referral]'}${referralFields.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`)
+      if (referralFields.showPastMedicalHistory && referralFields.pastMedicalHistory) {
+        nl(0.5); write('Past Medical History:', true); write(referralFields.pastMedicalHistory)
+      }
+      if (referralFields.showMedicationList && referralFields.medicationList) {
+        nl(0.5); write('Medication List:', true); write(referralFields.medicationList)
+      }
+      nl(0.5)
+      write('Please do not hesitate to contact me if there are any queries regarding this referral.')
+    } else if (letterType === 'records') {
+      write('To whom it may concern,')
+      nl(0.5)
+      write(`I am writing to request any correspondence or documentation from their previous visits at ${recordsFields.recordsLocation || '[Location]'}.`)
+      if (recordsFields.secondParagraphRecords) { nl(0.5); write(recordsFields.secondParagraphRecords) }
+    } else if (letterType === 'freetext') {
+      write(freetextFields.freeTextContent || '')
+    }
+
+    nl(2)
+    write('Kind regards,')
+    nl(0.5)
+
+    if (profile?.signatureUrl) {
+      try {
+        const { dataUrl } = await loadImageAsDataURL(profile.signatureUrl)
+        if (y + 18 > maxY) { doc.addPage(); y = 20 }
+        doc.addImage(dataUrl, 'PNG', ML, y, 40, 14)
+        y += 16
+      } catch { nl(2) }
+    }
+
+    if (profile?.displayName) write(profile.displayName)
+    if (profile?.credentials) write(profile.credentials, false, 10)
+
+    if (activeLetterhead?.footerUrl) {
+      try {
+        const { dataUrl, w, h } = await loadImageAsDataURL(activeLetterhead.footerUrl)
+        const imgH = (h / w) * PW
+        doc.addImage(dataUrl, 'PNG', 0, PH - imgH, PW, imgH)
+      } catch { /* no footer */ }
+    }
+
+    const pname = (letterCommonFields.patientName || 'letter')
+      .replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-')
+    const typeLabel = letterType === 'referral' ? 'Referral'
+      : letterType === 'records' ? 'RecordsRequest' : 'Letter'
+    doc.save(`${typeLabel}_${pname}_${(letterCommonFields.letterDate || '').replace(/\//g, '-')}.pdf`)
+  }
+
+  function handleLetterEmail() {
+    const subject = letterType === 'referral'
+      ? `Referral: ${letterCommonFields.patientName || ''} - DOB: ${letterCommonFields.dob || ''}`
+      : letterType === 'records'
+      ? `Medical Records Request: ${letterCommonFields.patientName || ''}`
+      : `Letter: ${letterCommonFields.patientName || ''}`
+
+    const lines: string[] = []
+    lines.push(letterCommonFields.letterDate || '')
+    lines.push('')
+    lines.push('To: ' + (letterCommonFields.recipientName || '[Recipient Name]'))
+    if (letterCommonFields.recipientAddress) lines.push(letterCommonFields.recipientAddress)
+    lines.push('')
+    if (letterType !== 'freetext') {
+      lines.push('Re: ' + (letterCommonFields.patientName || '[Patient Name]'))
+      if (letterCommonFields.dob) lines.push('DOB: ' + letterCommonFields.dob)
+    } else {
+      lines.push('Subject: ' + (letterCommonFields.patientName || '[Subject]'))
+    }
+    lines.push('')
+
+    if (letterType === 'referral') {
+      lines.push(`To Dr. ${referralFields.doctorName || '[Doctor Name]'},`)
+      lines.push('')
+      lines.push(`I am writing to refer to you ${letterCommonFields.patientName || '[Patient Name]'}, who was admitted to the ${referralFields.admissionUnit || '[Unit]'} from the ${formatDateForLetter(referralFields.admissionDateStart)} to the ${formatDateForLetter(referralFields.admissionDateEnd)}.`)
+      lines.push('')
+      const age = calculateAgeFromDOB(letterCommonFields.dob)
+      const agePart = age !== null ? `${age} year old ` : ''
+      const firstName = (letterCommonFields.patientName || '').split(' ')[0] || 'Patient'
+      const title = referralFields.gender === 'male' ? 'Mr.' : referralFields.gender === 'female' ? 'Ms.' : ''
+      lines.push(`Thank you for seeing ${title} ${letterCommonFields.patientName || '[Patient Name]'}. ${firstName} is a ${agePart}${referralFields.gender || '[gender]'} who presented with ${referralFields.presentingComplaint || '[presenting complaint]'}.`)
+      if (referralFields.secondParagraph) { lines.push(''); lines.push(referralFields.secondParagraph) }
+      lines.push('')
+      lines.push(`${referralFields.referralReason || '[reason for referral]'}${referralFields.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`)
+      if (referralFields.showPastMedicalHistory && referralFields.pastMedicalHistory) {
+        lines.push(''); lines.push('Past Medical History:'); lines.push(referralFields.pastMedicalHistory)
+      }
+      if (referralFields.showMedicationList && referralFields.medicationList) {
+        lines.push(''); lines.push('Medication List:'); lines.push(referralFields.medicationList)
+      }
+      lines.push('')
+      lines.push('Please do not hesitate to contact me if there are any queries regarding this referral.')
+    } else if (letterType === 'records') {
+      lines.push('To whom it may concern,')
+      lines.push('')
+      lines.push(`I am writing to request any correspondence or documentation from their previous visits at ${recordsFields.recordsLocation || '[Location]'}. It would be greatly appreciated if any correspondence, treatments, and recent investigations could be provided to assist with their ongoing management.`)
+      if (recordsFields.secondParagraphRecords) { lines.push(''); lines.push(recordsFields.secondParagraphRecords) }
+    } else if (letterType === 'freetext') {
+      lines.push(freetextFields.freeTextContent || '')
+    }
+
+    lines.push('')
+    lines.push('Kind regards,')
+    if (profile?.displayName) lines.push(profile.displayName)
+    if (profile?.credentials) lines.push(profile.credentials)
+
+    const body = encodeURIComponent(lines.join('\n'))
+    const sub = encodeURIComponent(subject)
+    const ua = navigator.userAgent
+    const isIOS = /iPhone|iPad/i.test(ua)
+    const isAndroid = /Android/i.test(ua)
+    const outlookUrl = isIOS
+      ? `ms-outlook://compose?subject=${sub}&body=${body}`
+      : isAndroid
+      ? `ms-outlook://emails/new?subject=${sub}&body=${body}`
+      : `https://outlook.office.com/mail/deeplink/compose?subject=${sub}&body=${body}`
+    if (isIOS || isAndroid) window.location.href = outlookUrl
+    else window.open(outlookUrl, '_blank')
+  }
+
+  async function handleGenerateFromTranscript() {
+    if (!store.lastTranscript || !letterType) return
+    setIsGeneratingLetter(true)
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const groqKey = sessionStorage.getItem('groq_api_key')
+      if (groqKey) headers['x-groq-key'] = groqKey
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ mode: 'letter', letterType, transcript: store.lastTranscript }),
+      })
+      const data = await res.json() as { letterFields?: Record<string, unknown> }
+      if (data.letterFields) {
+        if (letterType === 'referral') store.setReferralFields(data.letterFields as Parameters<typeof store.setReferralFields>[0])
+        else if (letterType === 'records') store.setRecordsFields(data.letterFields as Parameters<typeof store.setRecordsFields>[0])
+        else if (letterType === 'freetext') store.setFreetextFields(data.letterFields as Parameters<typeof store.setFreetextFields>[0])
+      }
+    } catch {
+      setLetterToast('Generation failed. Fill fields manually.')
+    } finally {
+      setIsGeneratingLetter(false)
+    }
+  }
+
   const sessionStats = store.lastTranscript && store.lastRecordingDuration > 0
     ? (() => {
         const wordCount = store.lastTranscript.trim().split(/\s+/).filter(Boolean).length
@@ -519,8 +791,8 @@ function EditContent() {
   return (
     <div className="h-full flex flex-col overflow-hidden">
 
-      {/* Current note bar */}
-      {(store.currentNoteId || isAnimating || isGenerating) && (
+      {/* Note bar — clinical note mode only */}
+      {!isLetterMode && (store.currentNoteId || isAnimating || isGenerating) && (
         <div
           className={`flex items-center justify-between px-4 py-2 text-white text-sm shrink-0
             bg-gradient-to-r from-[#0e9f6e] to-[#059669]
@@ -561,8 +833,42 @@ function EditContent() {
         </div>
       )}
 
-      {/* Session stats card */}
-      {sessionStats && !isGenerating && (
+      {/* Letter mode bar */}
+      {isLetterMode && (
+        <div className="flex items-center justify-between px-4 py-2 bg-[var(--blue)] text-white text-sm shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { store.resetLetterMode(); router.push('/generate') }}
+              className="text-white/70 hover:text-white text-xs flex items-center gap-1 motion-safe:active:scale-95 motion-safe:transition-transform"
+            >
+              ← Back
+            </button>
+            <span className="text-white/40">|</span>
+            <span className="font-medium text-sm">
+              {letterType === 'referral' ? 'Referral Letter'
+                : letterType === 'records' ? 'Medical Records Request'
+                : 'Free Text Letter'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleLetterPDF}
+              className="text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-[var(--r)] motion-safe:active:scale-95 motion-safe:transition-transform"
+            >
+              Download PDF
+            </button>
+            <button
+              onClick={handleLetterEmail}
+              className="text-xs bg-[#10b981] text-white font-semibold px-3 py-1.5 rounded-[var(--r)] motion-safe:active:scale-95 motion-safe:transition-transform"
+            >
+              Email via Outlook
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Session stats card — clinical mode only */}
+      {!isLetterMode && sessionStats && !isGenerating && (
         <div className="mx-4 mt-3 p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--r)] flex items-center gap-6 shrink-0">
           <div className="text-center">
             <div className="text-lg font-bold text-[var(--text)]">{formatDuration(sessionStats.durationSeconds)}</div>
@@ -587,216 +893,424 @@ function EditContent() {
 
             {/* Header */}
             <div className="flex items-center justify-between">
-              <h1 className="text-lg font-semibold text-[var(--text)]">Edit note</h1>
+              <h1 className="text-lg font-semibold text-[var(--text)]">
+                {isLetterMode ? 'Letter' : 'Edit note'}
+              </h1>
               <div className="flex items-center gap-3">
-                {saveStatus === 'saving' && <span className="text-xs text-[var(--text3)]">Saving…</span>}
-                {saveStatus === 'saved' && <span className="text-xs text-[var(--green)]">Saved</span>}
-                {!store.currentNoteId && (
+                {!isLetterMode && saveStatus === 'saving' && <span className="text-xs text-[var(--text3)]">Saving…</span>}
+                {!isLetterMode && saveStatus === 'saved' && <span className="text-xs text-[var(--green)]">Saved</span>}
+                {!isLetterMode && !store.currentNoteId && (
                   <Button variant="ghost" size="sm" onClick={handleNewNote}>New note</Button>
                 )}
               </div>
             </div>
 
-            {/* Patient + Reg */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Patient with autocomplete */}
-              <div className="relative">
-                <Input
-                  label="Patient"
-                  value={fields.patient ?? ''}
-                  onChange={e => handlePatientInput(e.target.value)}
-                  onFocus={() => setPatientDropdownOpen(true)}
-                  onBlur={() => { setTimeout(() => setPatientDropdownOpen(false), 200); handleFieldBlur('patient') }}
-                  autoComplete="off"
-                  className={saveFlashFields.has('patient') ? 'save-flash' : ''}
-                />
-                {visitCount !== null && (
-                  <span className="text-xs text-[var(--text3)] mt-1 inline-block">
-                    {visitCount} previous visit{visitCount !== 1 ? 's' : ''}
-                  </span>
-                )}
-                {patientDropdownOpen && patientMatches.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 bg-white border border-[var(--border)] rounded-[var(--r)] shadow-lg max-h-48 overflow-y-auto mt-1">
-                    {patientMatches.map(p => (
-                      <button
-                        key={p.name}
-                        type="button"
-                        onMouseDown={() => handleSelectPatient(p)}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--bg)] flex items-center justify-between border-b border-[var(--border)] last:border-0"
+            {/* ── LETTER MODE FIELDS ── */}
+            {isLetterMode && (
+              <div className="space-y-4">
+
+                {/* Common fields */}
+                <div className="p-3 rounded-[var(--r-lg)] space-y-3" style={GLASS_CARD}>
+                  <div className="text-xs font-medium text-[var(--text3)]">{letterCommonFields.letterDate}</div>
+
+                  <Input
+                    label={letterType === 'freetext' ? 'Subject' : 'Patient name'}
+                    value={letterCommonFields.patientName}
+                    onChange={e => store.setLetterCommonFields({ patientName: e.target.value })}
+                  />
+
+                  {letterType !== 'freetext' && (
+                    <Input
+                      label="Date of birth (DD/MM/YYYY)"
+                      value={letterCommonFields.dob}
+                      onChange={e => store.setLetterCommonFields({ dob: e.target.value })}
+                      placeholder="DD/MM/YYYY"
+                    />
+                  )}
+
+                  <Input
+                    label="To (recipient name or organisation)"
+                    value={letterCommonFields.recipientName}
+                    onChange={e => store.setLetterCommonFields({ recipientName: e.target.value })}
+                  />
+
+                  <Textarea
+                    label="Recipient address (optional)"
+                    rows={2}
+                    value={letterCommonFields.recipientAddress}
+                    onChange={e => store.setLetterCommonFields({ recipientAddress: e.target.value })}
+                  />
+                </div>
+
+                {/* Referral fields */}
+                {letterType === 'referral' && (
+                  <div className="p-3 rounded-[var(--r-lg)] space-y-3" style={GLASS_CARD}>
+                    <p className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wide">Referral details</p>
+
+                    <Input
+                      label="Doctor name"
+                      value={referralFields.doctorName}
+                      onChange={e => store.setReferralFields({ doctorName: e.target.value })}
+                    />
+
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text)] mb-1">Admission unit</label>
+                      <input
+                        list="ln-admission-units"
+                        value={referralFields.admissionUnit}
+                        onChange={e => store.setReferralFields({ admissionUnit: e.target.value })}
+                        className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white px-3 py-2.5 text-sm text-[var(--text)] placeholder:text-[var(--text3)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
+                        placeholder="e.g. Psychiatric Unit"
+                      />
+                      <datalist id="ln-admission-units">
+                        {ADMISSION_UNITS.map(u => <option key={u} value={u} />)}
+                      </datalist>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text)] mb-1">Gender</label>
+                      <select
+                        value={referralFields.gender}
+                        onChange={e => store.setReferralFields({ gender: e.target.value as 'male' | 'female' | '' })}
+                        className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white px-3 py-2.5 text-sm text-[var(--text)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
                       >
-                        <span className="text-[var(--text)]">{p.name}</span>
-                        <span className="text-xs text-[var(--text3)]">{p.reg}</span>
-                      </button>
-                    ))}
+                        <option value="">Other / Not specified</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        label="Admission date (from)"
+                        value={referralFields.admissionDateStart}
+                        onChange={e => store.setReferralFields({ admissionDateStart: e.target.value })}
+                        placeholder="DD/MM/YYYY"
+                      />
+                      <Input
+                        label="Admission date (to)"
+                        value={referralFields.admissionDateEnd}
+                        onChange={e => store.setReferralFields({ admissionDateEnd: e.target.value })}
+                        placeholder="DD/MM/YYYY"
+                      />
+                    </div>
+
+                    <Textarea
+                      label="Presenting complaint"
+                      rows={3}
+                      value={referralFields.presentingComplaint}
+                      onChange={e => store.setReferralFields({ presentingComplaint: e.target.value })}
+                    />
+                    <Textarea
+                      label="Second paragraph (optional)"
+                      rows={3}
+                      value={referralFields.secondParagraph}
+                      onChange={e => store.setReferralFields({ secondParagraph: e.target.value })}
+                    />
+                    <Textarea
+                      label="Reason for referral"
+                      rows={3}
+                      value={referralFields.referralReason}
+                      onChange={e => store.setReferralFields({ referralReason: e.target.value })}
+                    />
+
+                    <label className="flex items-center gap-2 text-sm text-[var(--text)] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={referralFields.dischargeSummaryAttached}
+                        onChange={e => store.setReferralFields({ dischargeSummaryAttached: e.target.checked })}
+                        className="rounded border-[var(--border)]"
+                      />
+                      Discharge summary attached
+                    </label>
+
+                    <label className="flex items-center gap-2 text-sm text-[var(--text)] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={referralFields.showPastMedicalHistory}
+                        onChange={e => store.setReferralFields({ showPastMedicalHistory: e.target.checked })}
+                        className="rounded border-[var(--border)]"
+                      />
+                      Include past medical history
+                    </label>
+                    {referralFields.showPastMedicalHistory && (
+                      <Textarea
+                        label="Past medical history"
+                        rows={4}
+                        value={referralFields.pastMedicalHistory}
+                        onChange={e => store.setReferralFields({ pastMedicalHistory: e.target.value })}
+                      />
+                    )}
+
+                    <label className="flex items-center gap-2 text-sm text-[var(--text)] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={referralFields.showMedicationList}
+                        onChange={e => store.setReferralFields({ showMedicationList: e.target.checked })}
+                        className="rounded border-[var(--border)]"
+                      />
+                      Include medication list
+                    </label>
+                    {referralFields.showMedicationList && (
+                      <Textarea
+                        label="Medication list"
+                        rows={4}
+                        value={referralFields.medicationList}
+                        onChange={e => store.setReferralFields({ medicationList: e.target.value })}
+                      />
+                    )}
                   </div>
                 )}
+
+                {/* Records request fields */}
+                {letterType === 'records' && (
+                  <div className="p-3 rounded-[var(--r-lg)] space-y-3" style={GLASS_CARD}>
+                    <p className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wide">Records request</p>
+                    <Input
+                      label="Records location (hospital / clinic name)"
+                      value={recordsFields.recordsLocation}
+                      onChange={e => store.setRecordsFields({ recordsLocation: e.target.value })}
+                    />
+                    <Textarea
+                      label="Additional paragraph (optional)"
+                      rows={3}
+                      value={recordsFields.secondParagraphRecords}
+                      onChange={e => store.setRecordsFields({ secondParagraphRecords: e.target.value })}
+                    />
+                  </div>
+                )}
+
+                {/* Free text fields */}
+                {letterType === 'freetext' && (
+                  <div className="p-3 rounded-[var(--r-lg)]" style={GLASS_CARD}>
+                    <Textarea
+                      label="Letter content"
+                      rows={12}
+                      value={freetextFields.freeTextContent}
+                      onChange={e => store.setFreetextFields({ freeTextContent: e.target.value })}
+                      placeholder="Write your letter body here…"
+                    />
+                  </div>
+                )}
+
+                {/* AI generate from transcript */}
+                {store.lastTranscript && (
+                  <button
+                    onClick={handleGenerateFromTranscript}
+                    disabled={isGeneratingLetter}
+                    className="w-full text-xs bg-[var(--blue)] text-white rounded-[var(--r)] py-2.5 font-medium disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform"
+                  >
+                    {isGeneratingLetter ? 'Generating...' : '✦ Generate from transcript'}
+                  </button>
+                )}
               </div>
+            )}
 
-              {/* Reg number with validation */}
-              <Input
-                label="Registration Number"
-                value={fields.reg_number ?? ''}
-                onChange={e => setField('reg_number', e.target.value)}
-                onBlur={() => handleFieldBlur('reg_number')}
-                className={[
-                  saveFlashFields.has('reg_number') ? 'save-flash' : '',
-                  regStatus === 'valid' ? 'border-green-400' :
-                  regStatus === 'invalid' ? 'border-red-400' : '',
-                ].filter(Boolean).join(' ')}
-                hint={regStatus === 'invalid' ? `Expected format: ${activeWorkplace?.regTemplate ?? ''}` : undefined}
-              />
-            </div>
+            {/* ── CLINICAL NOTE FIELDS ── */}
+            {!isLetterMode && (
+              <>
+                {/* Patient + Reg */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Patient with autocomplete */}
+                  <div className="relative">
+                    <Input
+                      label="Patient"
+                      value={fields.patient ?? ''}
+                      onChange={e => handlePatientInput(e.target.value)}
+                      onFocus={() => setPatientDropdownOpen(true)}
+                      onBlur={() => { setTimeout(() => setPatientDropdownOpen(false), 200); handleFieldBlur('patient') }}
+                      autoComplete="off"
+                      className={saveFlashFields.has('patient') ? 'save-flash' : ''}
+                    />
+                    {visitCount !== null && (
+                      <span className="text-xs text-[var(--text3)] mt-1 inline-block">
+                        {visitCount} previous visit{visitCount !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {patientDropdownOpen && patientMatches.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-50 bg-white border border-[var(--border)] rounded-[var(--r)] shadow-lg max-h-48 overflow-y-auto mt-1">
+                        {patientMatches.map(p => (
+                          <button
+                            key={p.name}
+                            type="button"
+                            onMouseDown={() => handleSelectPatient(p)}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--bg)] flex items-center justify-between border-b border-[var(--border)] last:border-0"
+                          >
+                            <span className="text-[var(--text)]">{p.name}</span>
+                            <span className="text-xs text-[var(--text3)]">{p.reg}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-            {/* Date + Time */}
-            <div className="grid grid-cols-2 gap-3">
-              <DatePicker
-                label="Date"
-                value={fields.date ?? ''}
-                onChange={v => { setField('date', v); handleFieldBlur('date') }}
-              />
-              <TimePicker
-                label="Time"
-                value={fields.time ?? ''}
-                onChange={v => { setField('time', v); handleFieldBlur('time') }}
-              />
-            </div>
-
-            {/* Clinician + Session number */}
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="Clinician"
-                value={fields.clinician ?? ''}
-                onChange={e => setField('clinician', e.target.value)}
-                onBlur={() => handleFieldBlur('clinician')}
-                className={saveFlashFields.has('clinician') ? 'save-flash' : ''}
-              />
-              <Input
-                label="Session number"
-                value={fields.session_number ?? ''}
-                onChange={e => setField('session_number', e.target.value)}
-                onBlur={() => handleFieldBlur('session_number')}
-                className={saveFlashFields.has('session_number') ? 'save-flash' : ''}
-              />
-            </div>
-
-            <Input
-              label="Attendance"
-              value={fields.attendance ?? ''}
-              onChange={e => setField('attendance', e.target.value)}
-              onBlur={() => handleFieldBlur('attendance')}
-              className={saveFlashFields.has('attendance') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Diagnosis"
-              rows={3}
-              value={fields.diagnosis ?? ''}
-              onChange={e => setField('diagnosis', e.target.value)}
-              onBlur={() => handleFieldBlur('diagnosis')}
-              className={saveFlashFields.has('diagnosis') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Presentation"
-              rows={5}
-              value={fields.presentation ?? ''}
-              onChange={e => setField('presentation', e.target.value)}
-              onBlur={() => handleFieldBlur('presentation')}
-              className={saveFlashFields.has('presentation') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="History"
-              rows={5}
-              value={fields.history ?? ''}
-              onChange={e => setField('history', e.target.value)}
-              onBlur={() => handleFieldBlur('history')}
-              className={saveFlashFields.has('history') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Medications"
-              rows={3}
-              value={fields.medications ?? ''}
-              onChange={e => setField('medications', e.target.value)}
-              onBlur={() => handleFieldBlur('medications')}
-              className={saveFlashFields.has('medications') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Mental Status Examination"
-              rows={5}
-              value={fields.mse ?? ''}
-              onChange={e => setField('mse', e.target.value)}
-              onBlur={() => handleFieldBlur('mse')}
-              className={saveFlashFields.has('mse') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Session Content"
-              rows={8}
-              value={fields.content ?? ''}
-              onChange={e => setField('content', e.target.value)}
-              onBlur={() => handleFieldBlur('content')}
-              onKeyDown={e => handleListKeyDown(e, 'content')}
-              className={saveFlashFields.has('content') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Scales"
-              rows={3}
-              value={fields.scales ?? ''}
-              onChange={e => setField('scales', e.target.value)}
-              onBlur={() => handleFieldBlur('scales')}
-              onKeyDown={e => handleListKeyDown(e, 'scales')}
-              className={saveFlashFields.has('scales') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Risk"
-              rows={4}
-              value={fields.risk ?? ''}
-              onChange={e => setField('risk', e.target.value)}
-              onBlur={() => handleFieldBlur('risk')}
-              onKeyDown={e => handleListKeyDown(e, 'risk')}
-              className={saveFlashFields.has('risk') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Referrals"
-              rows={3}
-              value={fields.referrals ?? ''}
-              onChange={e => setField('referrals', e.target.value)}
-              onBlur={() => handleFieldBlur('referrals')}
-              onKeyDown={e => handleListKeyDown(e, 'referrals')}
-              className={saveFlashFields.has('referrals') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Summary"
-              rows={5}
-              value={fields.summary ?? ''}
-              onChange={e => setField('summary', e.target.value)}
-              onBlur={() => handleFieldBlur('summary')}
-              className={saveFlashFields.has('summary') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Next Steps"
-              rows={3}
-              value={fields.nextsteps ?? ''}
-              onChange={e => setField('nextsteps', e.target.value)}
-              onBlur={() => handleFieldBlur('nextsteps')}
-              onKeyDown={e => handleListKeyDown(e, 'nextsteps')}
-              className={saveFlashFields.has('nextsteps') ? 'save-flash' : ''}
-            />
-
-            {/* Raw transcript collapsible */}
-            {store.lastTranscript && (
-              <div className="mt-6 border border-[var(--border)] rounded-[var(--r)] overflow-hidden">
-                <button
-                  onClick={() => setTranscriptExpanded(v => !v)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-[var(--bg)] text-sm font-medium text-[var(--text2)] hover:bg-[var(--border)]"
-                >
-                  <span>Raw Transcript · {store.lastTranscript.trim().split(/\s+/).length} words</span>
-                  <span>{transcriptExpanded ? '▲' : '▼'}</span>
-                </button>
-                <div className={`relative px-4 py-3 text-sm text-[var(--text2)] leading-relaxed ${!transcriptExpanded ? 'max-h-24 overflow-hidden' : ''}`}>
-                  <p className="whitespace-pre-wrap">{store.lastTranscript}</p>
-                  {!transcriptExpanded && (
-                    <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent" />
-                  )}
+                  {/* Reg number with validation */}
+                  <Input
+                    label="Registration Number"
+                    value={fields.reg_number ?? ''}
+                    onChange={e => setField('reg_number', e.target.value)}
+                    onBlur={() => handleFieldBlur('reg_number')}
+                    className={[
+                      saveFlashFields.has('reg_number') ? 'save-flash' : '',
+                      regStatus === 'valid' ? 'border-green-400' :
+                      regStatus === 'invalid' ? 'border-red-400' : '',
+                    ].filter(Boolean).join(' ')}
+                    hint={regStatus === 'invalid' ? `Expected format: ${activeWorkplace?.regTemplate ?? ''}` : undefined}
+                  />
                 </div>
-              </div>
+
+                {/* Date + Time */}
+                <div className="grid grid-cols-2 gap-3">
+                  <DatePicker
+                    label="Date"
+                    value={fields.date ?? ''}
+                    onChange={v => { setField('date', v); handleFieldBlur('date') }}
+                  />
+                  <TimePicker
+                    label="Time"
+                    value={fields.time ?? ''}
+                    onChange={v => { setField('time', v); handleFieldBlur('time') }}
+                  />
+                </div>
+
+                {/* Clinician + Session number */}
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Clinician"
+                    value={fields.clinician ?? ''}
+                    onChange={e => setField('clinician', e.target.value)}
+                    onBlur={() => handleFieldBlur('clinician')}
+                    className={saveFlashFields.has('clinician') ? 'save-flash' : ''}
+                  />
+                  <Input
+                    label="Session number"
+                    value={fields.session_number ?? ''}
+                    onChange={e => setField('session_number', e.target.value)}
+                    onBlur={() => handleFieldBlur('session_number')}
+                    className={saveFlashFields.has('session_number') ? 'save-flash' : ''}
+                  />
+                </div>
+
+                <Input
+                  label="Attendance"
+                  value={fields.attendance ?? ''}
+                  onChange={e => setField('attendance', e.target.value)}
+                  onBlur={() => handleFieldBlur('attendance')}
+                  className={saveFlashFields.has('attendance') ? 'save-flash' : ''}
+                />
+                <Textarea
+                  label="Diagnosis"
+                  rows={3}
+                  value={fields.diagnosis ?? ''}
+                  onChange={e => setField('diagnosis', e.target.value)}
+                  onBlur={() => handleFieldBlur('diagnosis')}
+                  className={saveFlashFields.has('diagnosis') ? 'save-flash' : ''}
+                />
+                <Textarea
+                  label="Presentation"
+                  rows={5}
+                  value={fields.presentation ?? ''}
+                  onChange={e => setField('presentation', e.target.value)}
+                  onBlur={() => handleFieldBlur('presentation')}
+                  className={saveFlashFields.has('presentation') ? 'save-flash' : ''}
+                />
+                <Textarea
+                  label="History"
+                  rows={5}
+                  value={fields.history ?? ''}
+                  onChange={e => setField('history', e.target.value)}
+                  onBlur={() => handleFieldBlur('history')}
+                  className={saveFlashFields.has('history') ? 'save-flash' : ''}
+                />
+                <Textarea
+                  label="Medications"
+                  rows={3}
+                  value={fields.medications ?? ''}
+                  onChange={e => setField('medications', e.target.value)}
+                  onBlur={() => handleFieldBlur('medications')}
+                  className={saveFlashFields.has('medications') ? 'save-flash' : ''}
+                />
+                <Textarea
+                  label="Mental Status Examination"
+                  rows={5}
+                  value={fields.mse ?? ''}
+                  onChange={e => setField('mse', e.target.value)}
+                  onBlur={() => handleFieldBlur('mse')}
+                  className={saveFlashFields.has('mse') ? 'save-flash' : ''}
+                />
+                <Textarea
+                  label="Session Content"
+                  rows={8}
+                  value={fields.content ?? ''}
+                  onChange={e => setField('content', e.target.value)}
+                  onBlur={() => handleFieldBlur('content')}
+                  onKeyDown={e => handleListKeyDown(e, 'content')}
+                  className={saveFlashFields.has('content') ? 'save-flash' : ''}
+                />
+                <Textarea
+                  label="Scales"
+                  rows={3}
+                  value={fields.scales ?? ''}
+                  onChange={e => setField('scales', e.target.value)}
+                  onBlur={() => handleFieldBlur('scales')}
+                  onKeyDown={e => handleListKeyDown(e, 'scales')}
+                  className={saveFlashFields.has('scales') ? 'save-flash' : ''}
+                />
+                <Textarea
+                  label="Risk"
+                  rows={4}
+                  value={fields.risk ?? ''}
+                  onChange={e => setField('risk', e.target.value)}
+                  onBlur={() => handleFieldBlur('risk')}
+                  onKeyDown={e => handleListKeyDown(e, 'risk')}
+                  className={saveFlashFields.has('risk') ? 'save-flash' : ''}
+                />
+                <Textarea
+                  label="Referrals"
+                  rows={3}
+                  value={fields.referrals ?? ''}
+                  onChange={e => setField('referrals', e.target.value)}
+                  onBlur={() => handleFieldBlur('referrals')}
+                  onKeyDown={e => handleListKeyDown(e, 'referrals')}
+                  className={saveFlashFields.has('referrals') ? 'save-flash' : ''}
+                />
+                <Textarea
+                  label="Summary"
+                  rows={5}
+                  value={fields.summary ?? ''}
+                  onChange={e => setField('summary', e.target.value)}
+                  onBlur={() => handleFieldBlur('summary')}
+                  className={saveFlashFields.has('summary') ? 'save-flash' : ''}
+                />
+                <Textarea
+                  label="Next Steps"
+                  rows={3}
+                  value={fields.nextsteps ?? ''}
+                  onChange={e => setField('nextsteps', e.target.value)}
+                  onBlur={() => handleFieldBlur('nextsteps')}
+                  onKeyDown={e => handleListKeyDown(e, 'nextsteps')}
+                  className={saveFlashFields.has('nextsteps') ? 'save-flash' : ''}
+                />
+
+                {/* Raw transcript collapsible */}
+                {store.lastTranscript && (
+                  <div className="mt-6 border border-[var(--border)] rounded-[var(--r)] overflow-hidden">
+                    <button
+                      onClick={() => setTranscriptExpanded(v => !v)}
+                      className="w-full flex items-center justify-between px-4 py-3 bg-[var(--bg)] text-sm font-medium text-[var(--text2)] hover:bg-[var(--border)]"
+                    >
+                      <span>Raw Transcript · {store.lastTranscript.trim().split(/\s+/).length} words</span>
+                      <span>{transcriptExpanded ? '▲' : '▼'}</span>
+                    </button>
+                    <div className={`relative px-4 py-3 text-sm text-[var(--text2)] leading-relaxed ${!transcriptExpanded ? 'max-h-24 overflow-hidden' : ''}`}>
+                      <p className="whitespace-pre-wrap">{store.lastTranscript}</p>
+                      {!transcriptExpanded && (
+                        <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent" />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -822,11 +1336,19 @@ function EditContent() {
       {/* Mobile preview toggle */}
       <button
         onClick={() => setShowMobilePreview(v => !v)}
-        className="md:hidden fixed bottom-20 right-4 z-40 bg-white border border-[var(--border)] rounded-full px-4 py-2 text-xs font-medium text-[var(--text2)] active:scale-95 transition-transform"
+        className="md:hidden fixed bottom-20 right-4 z-40 bg-white border border-[var(--border)] rounded-full px-4 py-2 text-xs font-medium text-[var(--text2)] motion-safe:active:scale-95 motion-safe:transition-transform"
         style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
       >
         {showMobilePreview ? 'Hide Preview' : 'Preview'}
       </button>
+
+      {/* Letter toast */}
+      {letterToast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[var(--text)] text-white text-xs rounded-full px-4 py-2 pointer-events-none select-none"
+          style={{ boxShadow: '0 2px 8px rgba(15,23,42,.12)' }}>
+          {letterToast}
+        </div>
+      )}
 
       <TemplatePicker
         open={changeTemplateOpen}
