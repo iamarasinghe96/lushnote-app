@@ -172,6 +172,19 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
                 <div className="h-px bg-[var(--border)] mx-2 my-1" />
 
+                {user?.uid === process.env.NEXT_PUBLIC_ADMIN_UID && (
+                  <>
+                    <Link
+                      href="/admin/letterheads"
+                      onClick={() => setMenuOpen(false)}
+                      className="block px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--bg)] rounded-lg mx-1"
+                    >
+                      Admin: Letterheads
+                    </Link>
+                    <div className="h-px bg-[var(--border)] mx-2 my-1" />
+                  </>
+                )}
+
                 <button
                   onClick={handleSignOut}
                   className="w-full text-left px-3 py-2 text-sm text-[var(--danger)]
