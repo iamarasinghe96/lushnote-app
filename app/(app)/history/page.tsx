@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { useNoteStore } from '@/hooks/useNoteStore'
 import { listNotes } from '@/lib/firestore/notes'
 import { getPatientProfiles } from '@/lib/firestore/patients'
 import { GenderAvatar } from '@/components/ui/GenderAvatar'
@@ -103,7 +102,6 @@ export default function HistoryPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
-  const store = useNoteStore()
 
   const [notes, setNotes] = useState<Note[]>([])
   const [profiles, setProfiles] = useState<Record<string, PatientProfile>>({})
@@ -138,30 +136,8 @@ export default function HistoryPage() {
     return notes.filter(n => n.patient?.trim().toLowerCase() === norm)
   }, [notes, selectedPatient])
 
-  function loadNoteIntoStore(note: Note) {
-    store.setCurrentNoteId(note.id ?? null)
-    store.setCurrentNote({
-      patient:        note.patient,
-      reg_number:     note.reg_number,
-      date:           note.date,
-      time:           note.time,
-      clinician:      note.clinician,
-      session_number: note.session_number,
-      attendance:     note.attendance,
-      diagnosis:      note.diagnosis,
-      presentation:   note.presentation,
-      history:        note.history,
-      medications:    note.medications,
-      mse:            note.mse,
-      content:        note.content,
-      scales:         note.scales,
-      risk:           note.risk,
-      referrals:      note.referrals,
-      summary:        note.summary,
-      nextsteps:      note.nextsteps,
-    })
-    store.setLastTranscript(null)
-    router.push('/edit')
+  function handleOpenNote(noteId: string) {
+    router.push(`/edit?noteId=${noteId}`)
   }
 
   function selectPatient(name: string | null) {
@@ -284,7 +260,7 @@ export default function HistoryPage() {
               return (
                 <li key={note.id}>
                   <button
-                    onClick={() => loadNoteIntoStore(note)}
+                    onClick={() => handleOpenNote(note.id!)}
                     className="w-full text-left rounded-[var(--r)] border border-[var(--border)] bg-white
                                p-3 hover:border-[var(--blue)]/40 hover:shadow-sm active:scale-[0.99]
                                transition-all"

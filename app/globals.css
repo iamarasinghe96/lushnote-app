@@ -76,8 +76,46 @@ body { -webkit-font-smoothing: antialiased; }
 }
 
 @media print {
-  .no-print { display: none !important; }
-  nav, header, [data-tab-bar], [data-header] { display: none !important; }
-  body { background: white; }
-  .preview-pane { max-width: 100%; }
+  [data-header],
+  [data-tab-bar],
+  .no-print,
+  nav,
+  aside,
+  button,
+  .fab-container {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+    color: black;
+    font-family: Georgia, serif;
+    font-size: 11pt;
+    line-height: 1.6;
+  }
+
+  .preview-pane,
+  .preview-note {
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+
+  .preview-section h3 {
+    font-size: 9pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #555;
+    margin-bottom: 4px;
+  }
+
+  .preview-content p {
+    margin-bottom: 6px;
+  }
+
+  .preview-section {
+    break-inside: avoid;
+    margin-bottom: 16px;
+  }
 }

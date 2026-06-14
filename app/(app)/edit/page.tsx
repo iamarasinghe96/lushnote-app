@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { saveNote, updateNote, listNotes } from '@/lib/firestore/notes'
+import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { buildPreviewHTML } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import Input from '@/components/ui/Input'
@@ -76,7 +76,16 @@ interface PatientEntry {
 }
 
 export default function EditPage() {
+  return (
+    <Suspense>
+      <EditContent />
+    </Suspense>
+  )
+}
+
+function EditContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, profile } = useAuth()
   const store = useNoteStore()
 
@@ -140,6 +149,49 @@ export default function EditPage() {
 
   const storeRef = useRef(store)
   storeRef.current = store
+
+  // Load note from URL ?noteId= param (e.g. navigating from History tab)
+  useEffect(() => {
+    const noteId = searchParams.get('noteId')
+    const s = storeRef.current
+    if (noteId && noteId !== s.currentNoteId) {
+      loadNote(noteId)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
+  async function loadNote(noteId: string) {
+    const note = await getNote(noteId)
+    if (!note || !mountedRef.current) return
+    const noteFields: Partial<Note> = {
+      patient:        note.patient,
+      reg_number:     note.reg_number,
+      date:           note.date,
+      time:           note.time,
+      clinician:      note.clinician,
+      session_number: note.session_number,
+      attendance:     note.attendance,
+      diagnosis:      note.diagnosis,
+      presentation:   note.presentation,
+      history:        note.history,
+      medications:    note.medications,
+      mse:            note.mse,
+      content:        note.content,
+      scales:         note.scales,
+      risk:           note.risk,
+      referrals:      note.referrals,
+      summary:        note.summary,
+      nextsteps:      note.nextsteps,
+    }
+    latestFieldsRef.current = noteFields
+    setFields(noteFields)
+    store.setCurrentNote(noteFields)
+    store.setCurrentNoteId(noteId)
+    if (note.transcript) {
+      store.setLastTranscript(note.transcript)
+      store.setLastTranscriptMode((note.transcriptMode as Parameters<typeof store.setLastTranscriptMode>[0]) ?? 'paste')
+    }
+  }
 
   const scheduleSave = useCallback((data: Partial<Note>) => {
     if (!autoSaveEnabledRef.current) return
