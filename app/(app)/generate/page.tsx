@@ -348,12 +348,6 @@ export default function GeneratePage() {
   return (
     <div
       className="h-full overflow-y-auto"
-      style={{
-        backgroundImage: "url('/assets/bg.svg')",
-        backgroundRepeat: 'no-repeat',
-        backgroundPosition: 'bottom right',
-        backgroundSize: '280px',
-      }}
     >
       {/* Interrupted session banner */}
       {showBanner && (
