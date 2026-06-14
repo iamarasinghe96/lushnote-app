@@ -13,8 +13,9 @@ import RecordModal from '@/components/modals/RecordModal'
 import DictateModal from '@/components/modals/DictateModal'
 import TranscriptConfirmModal from '@/components/modals/TranscriptConfirmModal'
 import TemplatePicker from '@/components/modals/TemplatePicker'
+import LetterPickerModal from '@/components/modals/LetterPickerModal'
 import { listNotes } from '@/lib/firestore/notes'
-import type { AnyTemplate, NoteCreationMode, Note } from '@/types'
+import type { AnyTemplate, NoteCreationMode, Note, LetterType } from '@/types'
 
 const GEMINI_RPD = 20
 
@@ -164,6 +165,7 @@ export default function GeneratePage() {
   const [prefillPatient, setPrefillPatient] = useState<{ patient: string; reg_number: string } | null>(null)
   const [allNotes, setAllNotes] = useState<Note[]>([])
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
+  const [letterPickerOpen, setLetterPickerOpen] = useState(false)
 
   useEffect(() => {
     if (localStorage.getItem('_ln_rec_interrupted')) {
@@ -206,6 +208,24 @@ export default function GeneratePage() {
     setError(null)
     setTranscriptConfirmOpen(false)
     setPrefillPatient(null)
+  }
+
+  function handleSkipToLetter() {
+    setPhase('idle')
+    setInputText('')
+    setLetterPickerOpen(true)
+  }
+
+  function handleLetterTypeSelected(type: LetterType) {
+    setLetterPickerOpen(false)
+    store.setLetterType(type)
+    const today = new Date()
+    const dateStr =
+      String(today.getDate()).padStart(2, '0') + '/' +
+      String(today.getMonth() + 1).padStart(2, '0') + '/' +
+      today.getFullYear()
+    store.setLetterCommonFields({ letterDate: dateStr })
+    router.push('/edit')
   }
 
   function handleTextConfirm() {
@@ -445,6 +465,21 @@ export default function GeneratePage() {
             placeholder="Paste document text here…"
             autoFocus
           />
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-[var(--border)]" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-white px-3 text-xs text-[var(--text3)]">or</span>
+            </div>
+          </div>
+          <button
+            onClick={handleSkipToLetter}
+            className="w-full text-sm text-[var(--blue)] border border-[var(--blue)] rounded-[var(--r)] py-2.5
+              hover:bg-[var(--blue-lt)] motion-safe:active:scale-[0.97] motion-safe:transition-all"
+          >
+            Skip — write a letter instead →
+          </button>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={handleCancel} className="flex-1">Cancel</Button>
             <Button variant="primary" onClick={handleTextConfirm} disabled={!inputText.trim()} className="flex-1">Continue</Button>
@@ -497,6 +532,11 @@ export default function GeneratePage() {
         open={phase === 'template-picking'}
         onSelect={handleTemplateSelect}
         onCancel={() => { setPhase('idle'); setTranscriptConfirmOpen(true) }}
+      />
+      <LetterPickerModal
+        open={letterPickerOpen}
+        onSelect={handleLetterTypeSelected}
+        onClose={() => setLetterPickerOpen(false)}
       />
     </div>
   )

@@ -216,6 +216,41 @@ type FirestoreTimestamp = {
   toDate(): Date
 }
 
+type LetterType = 'referral' | 'records' | 'freetext'
+
+interface LetterCommonFields {
+  recipientName: string
+  recipientAddress: string
+  patientName: string
+  dob: string
+  letterDate: string
+}
+
+interface ReferralFields {
+  doctorName: string
+  admissionUnit: string
+  gender: 'male' | 'female' | ''
+  admissionDateStart: string
+  admissionDateEnd: string
+  presentingComplaint: string
+  secondParagraph: string
+  referralReason: string
+  dischargeSummaryAttached: boolean
+  showPastMedicalHistory: boolean
+  pastMedicalHistory: string
+  showMedicationList: boolean
+  medicationList: string
+}
+
+interface RecordsFields {
+  recordsLocation: string
+  secondParagraphRecords: string
+}
+
+interface FreetextFields {
+  freeTextContent: string
+}
+
 export type {
   User,
   Workplace,
@@ -243,6 +278,11 @@ export type {
   ViewName,
   DeletionFeedback,
   FirestoreTimestamp,
+  LetterType,
+  LetterCommonFields,
+  ReferralFields,
+  RecordsFields,
+  FreetextFields,
 }
 
 export { WP_THEMES }
