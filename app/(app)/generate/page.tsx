@@ -336,6 +336,7 @@ export default function GeneratePage() {
       const data = await res.json() as { content: string; groqTokensUsed?: number }
       clearInterval(statusTimer)
       setGenerationStatus(null)
+      if (!data.content?.trim()) throw new Error('AI returned empty response. Please try again.')
       if (data.groqTokensUsed) {
         const current = parseInt(localStorage.getItem('ln_groq_tokens_session') || '0', 10)
         const updated = current + data.groqTokensUsed

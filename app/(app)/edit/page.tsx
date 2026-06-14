@@ -145,18 +145,25 @@ function EditContent() {
   useEffect(() => { return () => { mountedRef.current = false } }, [])
 
   useEffect(() => {
-    if (store.pendingAnimation) {
-      store.setPendingAnimation(false)
+    const s = storeRef.current
+    if (s.pendingAnimation) {
+      s.setPendingAnimation(false)
       const toAnimate: Partial<Note> = {}
       for (const key of FIELD_ORDER) {
-        const v = (store.currentNote as Record<string, string>)[key]
+        const v = (s.currentNote as Record<string, string>)[key]
         if (v) (toAnimate as Record<string, string>)[key] = v
       }
-      animateFields(toAnimate)
+      if (Object.keys(toAnimate).length > 0) {
+        animateFields(toAnimate)
+      } else {
+        latestFieldsRef.current = s.currentNote
+        setFields(s.currentNote)
+        setPreviewHtml(buildPreviewHTML(s.currentNote))
+      }
     } else {
-      latestFieldsRef.current = store.currentNote
-      setFields(store.currentNote)
-      setPreviewHtml(buildPreviewHTML(store.currentNote))
+      latestFieldsRef.current = s.currentNote
+      setFields(s.currentNote)
+      setPreviewHtml(buildPreviewHTML(s.currentNote))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

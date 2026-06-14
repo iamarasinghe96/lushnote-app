@@ -21,10 +21,13 @@ async function geminiPost(model: string, body: object): Promise<string> {
 }
 
 export async function generateNote(prompt: string, systemPrompt: string): Promise<string> {
-  return geminiPost(PRIMARY_MODEL, {
-    systemInstruction: { parts: [{ text: systemPrompt }] },
+  const body: Record<string, unknown> = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-  })
+  }
+  if (systemPrompt.trim()) {
+    body.systemInstruction = { parts: [{ text: systemPrompt }] }
+  }
+  return geminiPost(PRIMARY_MODEL, body)
 }
 
 export async function transcribeAudio(audioBase64: string, mimeType: string): Promise<string> {
