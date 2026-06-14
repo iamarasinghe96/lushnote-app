@@ -91,7 +91,8 @@ Dictation: ${transcript}`,
           const waitSeconds = parseGroqWaitSeconds(err.message)
           return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
         }
-        throw err
+        const msg = err instanceof Error ? err.message : 'Letter generation failed'
+        return NextResponse.json({ error: msg }, { status: 500 })
       }
     }
 
@@ -117,15 +118,15 @@ Dictation: ${transcript}`,
       return NextResponse.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 })
     }
 
-    const profile = await getProfile(uid)
+    const profile = await getProfile(uid).catch(() => null)
     const prompt = `${templatePrompt}\n\n${transcript}`
 
     if (process.env.GEMINI_API_KEY) {
       const quota = profile?.geminiUsage ?? {}
-      if (checkQuota(quota, 'generate')) {
+      if (checkQuota(quota, 'gemini-2.5-flash')) {
         try {
           const content = await generateNote(prompt, systemPrompt!)
-          await updateGeminiUsage(uid, 'generate')
+          await updateGeminiUsage(uid, 'gemini-2.5-flash').catch(() => {})
           return NextResponse.json({ content, provider: 'gemini' })
         } catch {
           // fall through to Groq
@@ -146,7 +147,8 @@ Dictation: ${transcript}`,
         const waitSeconds = parseGroqWaitSeconds(err.message)
         return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
       }
-      throw err
+      const msg = err instanceof Error ? err.message : 'Generation failed'
+      return NextResponse.json({ error: msg }, { status: 500 })
     }
 
   } catch {

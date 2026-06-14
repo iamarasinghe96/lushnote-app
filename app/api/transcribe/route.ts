@@ -28,16 +28,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 })
     }
 
-    const profile = await getProfile(uid)
+    const profile = await getProfile(uid).catch(() => null)
     const arrayBuffer = await audio.arrayBuffer()
     const base64 = Buffer.from(arrayBuffer).toString('base64')
 
     if (process.env.GEMINI_API_KEY) {
       const quota = profile?.geminiUsage ?? {}
-      if (checkQuota(quota, 'transcribe')) {
+      if (checkQuota(quota, 'gemini-2.5-flash')) {
         try {
           const text = await transcribeAudio(base64, mimeType)
-          await updateGeminiUsage(uid, 'transcribe')
+          await updateGeminiUsage(uid, 'gemini-2.5-flash').catch(() => {})
           return NextResponse.json({ text, provider: 'gemini' })
         } catch {
           // fall through to Groq
@@ -60,7 +60,8 @@ export async function POST(req: NextRequest) {
         const waitSeconds = parseGroqWaitSeconds(err.message)
         return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
       }
-      throw err
+      const msg = err instanceof Error ? err.message : 'Transcription failed'
+      return NextResponse.json({ error: msg }, { status: 500 })
     }
 
   } catch {
