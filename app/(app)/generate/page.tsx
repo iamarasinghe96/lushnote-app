@@ -308,7 +308,7 @@ export default function GeneratePage() {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          transcript: pendingTranscript,
+          transcript: pendingTranscript || store.lastTranscript || '',
           templatePrompt: template.prompt,
           systemPrompt,
           uid: user!.uid,
@@ -531,7 +531,7 @@ export default function GeneratePage() {
         transcript={pendingTranscript}
         allNotes={allNotes}
         onConfirm={handleTranscriptConfirmPatient}
-        onClose={() => { setTranscriptConfirmOpen(false); setPendingTranscript('') }}
+        onClose={() => setTranscriptConfirmOpen(false)}
       />
       <TemplatePicker
         open={phase === 'template-picking'}
