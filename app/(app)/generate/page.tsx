@@ -240,13 +240,14 @@ export default function GeneratePage() {
     setPhase('template-picking')
   }
 
-  function handleTemplateSelect(template: AnyTemplate) {
+  function handleTemplateSelect(template: AnyTemplate, noteLength: string) {
     store.setCurrentNote({
       patient: prefillPatient?.patient ?? '',
       reg_number: prefillPatient?.reg_number ?? '',
     })
     store.setCurrentNoteId(null)
     store.setLastChosenTemplate(template)
+    store.setOverrideNoteLength(noteLength as 'brief' | 'balanced' | 'detailed')
     store.setPendingAnimation(true)
     setPhase('idle')
     router.push('/edit')

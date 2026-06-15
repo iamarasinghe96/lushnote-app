@@ -199,20 +199,25 @@ export default function TranscriptConfirmModal({
               />
 
               <div>
-                <label className="block text-sm font-medium text-[var(--text)] mb-1">
-                  Gender
+                <label className="block text-sm font-medium text-[var(--text)] mb-1.5">
+                  Gender <span className="text-[var(--text3)] font-normal">(optional)</span>
                 </label>
-                <select
-                  value={gender}
-                  onChange={e => setGender(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm bg-white border border-[var(--border)] rounded-[var(--r-sm)] text-[var(--text)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
-                >
-                  <option value="">Select gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                  <option value="prefer-not-to-say">Prefer not to say</option>
-                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['male', 'female'] as const).map(g => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setGender(prev => prev === g ? '' : g)}
+                      className={`py-2 rounded-[var(--r-sm)] text-sm font-medium border motion-safe:transition-colors capitalize ${
+                        gender === g
+                          ? 'bg-[var(--blue-lt)] border-[var(--blue)] text-[var(--blue)]'
+                          : 'bg-white border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)]'
+                      }`}
+                    >
+                      {g.charAt(0).toUpperCase() + g.slice(1)}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {suggestedReg && (

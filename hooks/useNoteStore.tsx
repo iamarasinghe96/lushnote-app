@@ -22,6 +22,7 @@ interface NoteStore {
   lastChosenTemplate: AnyTemplate | null
   lastRecordingDuration: number
   pendingAnimation: boolean
+  overrideNoteLength: 'brief' | 'balanced' | 'detailed' | null
   letterType: LetterType | null
   letterCommonFields: LetterCommonFields
   referralFields: ReferralFields
@@ -34,6 +35,7 @@ interface NoteStore {
   setLastChosenTemplate: (t: AnyTemplate | null) => void
   setLastRecordingDuration: (s: number) => void
   setPendingAnimation: (v: boolean) => void
+  setOverrideNoteLength: (v: 'brief' | 'balanced' | 'detailed' | null) => void
   setLetterType: (type: LetterType | null) => void
   setLetterCommonFields: (fields: Partial<LetterCommonFields>) => void
   setReferralFields: (fields: Partial<ReferralFields>) => void
@@ -53,6 +55,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   const [lastChosenTemplate, setLastChosenTemplate] = useState<AnyTemplate | null>(null)
   const [lastRecordingDuration, setLastRecordingDuration] = useState(0)
   const [pendingAnimation, setPendingAnimation] = useState(false)
+  const [overrideNoteLength, setOverrideNoteLength] = useState<'brief' | 'balanced' | 'detailed' | null>(null)
   const [letterType, setLetterType] = useState<LetterType | null>(null)
   const [letterCommonFields, setLetterCommonFieldsState] = useState<LetterCommonFields>(DEFAULT_LETTER_COMMON)
   const [referralFields, setReferralFieldsState] = useState<ReferralFields>(DEFAULT_REFERRAL)
@@ -86,6 +89,8 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       lastChosenTemplate,
       lastRecordingDuration,
       pendingAnimation,
+      overrideNoteLength,
+      setOverrideNoteLength,
       letterType,
       letterCommonFields,
       referralFields,

@@ -441,9 +441,10 @@ export default function EditPage() {
 
   function handleChangeTemplate() { setChangeTemplateOpen(true) }
 
-  function handleTemplateChange(newTemplate: AnyTemplate) {
+  function handleTemplateChange(newTemplate: AnyTemplate, noteLength?: string) {
     setChangeTemplateOpen(false)
     if (!window.confirm(`Regenerate note with "${newTemplate.title}"?`)) return
+    if (noteLength) store.setOverrideNoteLength(noteLength as 'brief' | 'balanced' | 'detailed')
     runGeneration(store.lastTranscript ?? '', newTemplate)
   }
 
@@ -494,7 +495,9 @@ export default function EditPage() {
     }
 
     try {
-      const noteLength = profile?.personalisation?.noteLength ?? 'balanced'
+      const s = storeRef.current
+      const noteLength = (s.overrideNoteLength ?? profile?.personalisation?.noteLength ?? 'balanced') as import('@/types').NoteLength
+      s.setOverrideNoteLength(null)
       const systemPrompt = profile ? getPersonalisationPrefix(profile, noteLength) : ''
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       const groqKey = sessionStorage.getItem('groq_api_key')
@@ -551,7 +554,8 @@ export default function EditPage() {
     }, 600)
 
     try {
-      const noteLength = profile?.personalisation?.noteLength ?? 'balanced'
+      const noteLength = (storeRef.current.overrideNoteLength ?? profile?.personalisation?.noteLength ?? 'balanced') as import('@/types').NoteLength
+      storeRef.current.setOverrideNoteLength(null)
       const systemPrompt = profile ? getPersonalisationPrefix(profile, noteLength) : ''
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       const groqKey = sessionStorage.getItem('groq_api_key')
