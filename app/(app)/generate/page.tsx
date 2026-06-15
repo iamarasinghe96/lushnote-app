@@ -4,7 +4,6 @@ import { useState, useEffect, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { getPersonalisationPrefix } from '@/lib/personalisation'
 import { openSettings } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -108,47 +107,6 @@ const UploadIcon = (
   </svg>
 )
 
-function parseGeneratedContent(content: string): Partial<Note> {
-  const sectionMap: Record<string, keyof Note> = {
-    'presentation':             'presentation',
-    'history':                  'history',
-    'medications':              'medications',
-    'mental status':            'mse',
-    'mse':                      'mse',
-    'mental status examination':'mse',
-    'session content':          'content',
-    'content':                  'content',
-    'scales':                   'scales',
-    'risk':                     'risk',
-    'referrals':                'referrals',
-    'summary':                  'summary',
-    'next steps':               'nextsteps',
-    'nextsteps':                'nextsteps',
-    'diagnosis':                'diagnosis',
-  }
-
-  const fields: Partial<Note> = {}
-  const sectionRegex = /#{1,3}\s+([^\n]+)\n([\s\S]*?)(?=#{1,3}\s+|$)/g
-  let match = sectionRegex.exec(content)
-  let parsed = false
-
-  while (match !== null) {
-    const header = match[1].trim().toLowerCase()
-    const body = match[2].trim()
-    const fieldKey = sectionMap[header]
-    if (fieldKey) {
-      ;(fields as Record<string, string>)[fieldKey] = body
-      parsed = true
-    }
-    match = sectionRegex.exec(content)
-  }
-
-  if (!parsed) {
-    fields.content = content.trim()
-  }
-
-  return fields
-}
 
 export default function GeneratePage() {
   const router = useRouter()
@@ -164,7 +122,6 @@ export default function GeneratePage() {
   const [transcriptConfirmOpen, setTranscriptConfirmOpen] = useState(false)
   const [prefillPatient, setPrefillPatient] = useState<{ patient: string; reg_number: string } | null>(null)
   const [allNotes, setAllNotes] = useState<Note[]>([])
-  const [generationStatus, setGenerationStatus] = useState<string | null>(null)
   const [letterPickerOpen, setLetterPickerOpen] = useState(false)
 
   useEffect(() => {
@@ -227,23 +184,6 @@ export default function GeneratePage() {
     setPrefillPatient(null)
   }
 
-
-
-  async function handlePasteClick() {
-    setCreationMode('paste')
-    setError(null)
-    try {
-      const text = (await navigator.clipboard.readText()).trim()
-      if (!text) { startMode('paste'); return }
-      const validation = validateTranscript(text)
-      if (!validation.valid) { setError(validation.error!); return }
-      setPendingTranscript(text)
-      setTranscriptConfirmOpen(true)
-    } catch {
-      startMode('paste')
-    }
-  }
-
   function handleTextConfirm() {
     if (!inputText.trim()) return
     const text = inputText.trim()
@@ -300,67 +240,17 @@ export default function GeneratePage() {
     setPhase('template-picking')
   }
 
-  async function handleTemplateSelect(template: AnyTemplate) {
-    setPhase('generating')
+  function handleTemplateSelect(template: AnyTemplate, noteLength: string) {
+    store.setCurrentNote({
+      patient: prefillPatient?.patient ?? '',
+      reg_number: prefillPatient?.reg_number ?? '',
+    })
+    store.setCurrentNoteId(null)
     store.setLastChosenTemplate(template)
-
-    const statusSequence = ['Transcribing...', 'Analysing...', 'Generating...', 'Formatting...']
-    let statusIdx = 0
-    setGenerationStatus(statusSequence[0])
-    const statusTimer = setInterval(() => {
-      statusIdx = (statusIdx + 1) % statusSequence.length
-      setGenerationStatus(statusSequence[statusIdx])
-    }, 600)
-
-    try {
-      const noteLength = profile?.personalisation?.noteLength ?? 'balanced'
-      const systemPrompt = profile ? getPersonalisationPrefix(profile, noteLength) : ''
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const groqKey = sessionStorage.getItem('groq_api_key')
-      if (groqKey) headers['x-groq-key'] = groqKey
-
-      const res = await fetch('/api/generate', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          transcript: pendingTranscript || store.lastTranscript || '',
-          templatePrompt: template.prompt,
-          systemPrompt,
-          uid: user!.uid,
-        }),
-      })
-      if (!res.ok) {
-        const data = await res.json() as { error?: string }
-        throw new Error(data.error ?? 'Generation failed')
-      }
-      const data = await res.json() as { content: string; groqTokensUsed?: number }
-      clearInterval(statusTimer)
-      setGenerationStatus(null)
-      if (!data.content?.trim()) throw new Error('AI returned empty response. Please try again.')
-      if (data.groqTokensUsed) {
-        const current = parseInt(localStorage.getItem('ln_groq_tokens_session') || '0', 10)
-        const updated = current + data.groqTokensUsed
-        localStorage.setItem('ln_groq_tokens_session', String(updated))
-        setGroqTokensUsed(updated)
-      }
-      const noteFields = parseGeneratedContent(data.content)
-      store.setCurrentNote({
-        ...noteFields,
-        patient: prefillPatient?.patient ?? '',
-        reg_number: prefillPatient?.reg_number ?? '',
-        transcript: pendingTranscript,
-        transcriptMode: creationMode,
-      })
-      store.setCurrentNoteId(null)
-      store.setPendingAnimation(true)
-      setPhase('idle')
-      router.push('/edit')
-    } catch (err) {
-      clearInterval(statusTimer)
-      setGenerationStatus(null)
-      setError(err instanceof Error ? err.message : 'Generation failed')
-      setPhase('idle')
-    }
+    store.setOverrideNoteLength(noteLength as 'brief' | 'balanced' | 'detailed')
+    store.setPendingAnimation(true)
+    setPhase('idle')
+    router.push('/edit')
   }
 
   return (
@@ -397,7 +287,7 @@ export default function GeneratePage() {
           </div>
         )}
 
-        <ModeCard icon={PasteIcon} title="Paste Transcript" description="Paste session transcript text" onClick={handlePasteClick} />
+        <ModeCard icon={PasteIcon} title="Paste Transcript" description="Paste session transcript text" onClick={() => startMode('paste')} />
         <ModeCard icon={RecordIcon} title="Record Session" description="In-person or telehealth recording" onClick={() => startMode('conversation')} />
         <ModeCard icon={DictateIcon} title="Dictate Note" description="Narrate the note yourself" onClick={() => startMode('dictation')} />
 
@@ -476,21 +366,6 @@ export default function GeneratePage() {
             placeholder="Paste document text here…"
             autoFocus
           />
-          <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[var(--border)]" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-white px-3 text-xs text-[var(--text3)]">or</span>
-            </div>
-          </div>
-          <button
-            onClick={handleSkipToLetter}
-            className="w-full text-sm text-[var(--blue)] border border-[var(--blue)] rounded-[var(--r)] py-2.5
-              hover:bg-[var(--blue-lt)] motion-safe:active:scale-[0.97] motion-safe:transition-all"
-          >
-            Skip — write a letter instead →
-          </button>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={handleCancel} className="flex-1">Cancel</Button>
             <Button variant="primary" onClick={handleTextConfirm} disabled={!inputText.trim()} className="flex-1">Continue</Button>
@@ -519,16 +394,6 @@ export default function GeneratePage() {
         </div>
       )}
 
-      {/* Generating overlay */}
-      {phase === 'generating' && (
-        <div className="fixed inset-0 bg-white/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-3">
-          <svg width="32" height="32" viewBox="0 0 24 24" className="animate-spin text-[#10b981]" aria-hidden>
-            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25"/>
-            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round"/>
-          </svg>
-          <p className="text-sm font-medium text-[var(--text2)]">{generationStatus ?? 'Generating note…'}</p>
-        </div>
-      )}
 
       <RecordModal
         open={phase === 'recording'}
@@ -547,7 +412,7 @@ export default function GeneratePage() {
         transcript={pendingTranscript}
         allNotes={allNotes}
         onConfirm={handleTranscriptConfirmPatient}
-        onClose={() => setTranscriptConfirmOpen(false)}
+        onClose={() => { setTranscriptConfirmOpen(false); setPendingTranscript('') }}
       />
       <TemplatePicker
         open={phase === 'template-picking'}

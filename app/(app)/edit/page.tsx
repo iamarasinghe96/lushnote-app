@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
+import { saveNote, updateNote, listNotes } from '@/lib/firestore/notes'
 import { buildPreviewHTML, buildLetterPreviewHTML, formatDateForLetter, calculateAgeFromDOB } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import Input from '@/components/ui/Input'
@@ -75,36 +75,16 @@ interface PatientEntry {
   lastDate: string
 }
 
-const GLASS_CARD = {
-  background: 'rgba(255,255,255,0.75)',
-  backdropFilter: 'blur(12px)',
-  boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
-} as const
-
-const ADMISSION_UNITS = [
-  'Emergency Department','Surgical Unit','Medical Unit',
-  'Psychiatric Unit','ICU','Oncology Unit','Outpatient Clinic',
-]
-
 export default function EditPage() {
-  return (
-    <Suspense>
-      <EditContent />
-    </Suspense>
-  )
-}
-
-function EditContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { user, profile } = useAuth()
   const store = useNoteStore()
 
   const [fields, setFields] = useState<Partial<Note>>(() => {
     if (store.pendingAnimation) {
-      const base = { ...store.currentNote }
-      for (const key of FIELD_ORDER) delete (base as Record<string, unknown>)[key]
-      return base
+      // Start with only patient + reg visible; generated fields animate in
+      const note = store.currentNote as Record<string, string>
+      return { patient: note['patient'] || '', reg_number: note['reg_number'] || '' }
     }
     return store.currentNote
   })
@@ -119,6 +99,7 @@ function EditContent() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
+  const [generationError, setGenerationError] = useState<string | null>(null)
   const [changeTemplateOpen, setChangeTemplateOpen] = useState(false)
   const [reassignOpen, setReassignOpen] = useState(false)
   const [allNotes, setAllNotes] = useState<Note[]>([])
@@ -136,9 +117,6 @@ function EditContent() {
   const referralFields = store.referralFields
   const recordsFields = store.recordsFields
   const freetextFields = store.freetextFields
-  const activeLetterhead = store.activeLetterhead
-
-
   const [isGeneratingLetter, setIsGeneratingLetter] = useState(false)
   const [letterToast, setLetterToast] = useState<string | null>(null)
 
@@ -148,18 +126,13 @@ function EditContent() {
     const s = storeRef.current
     if (s.pendingAnimation) {
       s.setPendingAnimation(false)
-      const toAnimate: Partial<Note> = {}
-      for (const key of FIELD_ORDER) {
-        const v = (s.currentNote as Record<string, string>)[key]
-        if (v) (toAnimate as Record<string, string>)[key] = v
+      const known: Partial<Note> = {
+        patient: (s.currentNote as Record<string, string>)['patient'] || '',
+        reg_number: (s.currentNote as Record<string, string>)['reg_number'] || '',
       }
-      if (Object.keys(toAnimate).length > 0) {
-        animateFields(toAnimate)
-      } else {
-        latestFieldsRef.current = s.currentNote
-        setFields(s.currentNote)
-        setPreviewHtml(buildPreviewHTML(s.currentNote))
-      }
+      latestFieldsRef.current = known
+      setFields(known)
+      runPendingGeneration()
     } else {
       latestFieldsRef.current = s.currentNote
       setFields(s.currentNote)
@@ -168,14 +141,12 @@ function EditContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Note preview — only in clinical mode
   useEffect(() => {
     if (isLetterMode) return
     const timer = setTimeout(() => setPreviewHtml(buildPreviewHTML(fields)), 200)
     return () => clearTimeout(timer)
   }, [fields, isLetterMode])
 
-  // Letter preview — only in letter mode
   useEffect(() => {
     if (!isLetterMode) return
     const timer = setTimeout(() => {
@@ -185,8 +156,8 @@ function EditContent() {
         referral: referralFields,
         records: recordsFields,
         freetext: freetextFields,
-        letterheadHeaderUrl: activeLetterhead?.headerUrl,
-        letterheadFooterUrl: activeLetterhead?.footerUrl,
+        letterheadHeaderUrl: null,
+        letterheadFooterUrl: null,
         signatureUrl: profile?.signatureUrl ?? null,
         clinicianName: profile?.displayName,
         credentials: profile?.credentials,
@@ -194,7 +165,7 @@ function EditContent() {
       setPreviewHtml(html)
     }, 200)
     return () => clearTimeout(timer)
-  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, activeLetterhead, profile])
+  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile])
 
   useEffect(() => {
     if (!letterToast) return
@@ -207,57 +178,8 @@ function EditContent() {
     listNotes(user.uid).then(setAllNotes).catch(() => {})
   }, [user?.uid])
 
-  useEffect(() => {
-    if (!letterToast) return
-    const t = setTimeout(() => setLetterToast(null), 3500)
-    return () => clearTimeout(t)
-  }, [letterToast])
-
   const storeRef = useRef(store)
   storeRef.current = store
-
-  // Load note from URL ?noteId= param (e.g. navigating from History tab)
-  useEffect(() => {
-    const noteId = searchParams.get('noteId')
-    const s = storeRef.current
-    if (noteId && noteId !== s.currentNoteId) {
-      loadNote(noteId)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
-
-  async function loadNote(noteId: string) {
-    const note = await getNote(noteId)
-    if (!note || !mountedRef.current) return
-    const noteFields: Partial<Note> = {
-      patient:        note.patient,
-      reg_number:     note.reg_number,
-      date:           note.date,
-      time:           note.time,
-      clinician:      note.clinician,
-      session_number: note.session_number,
-      attendance:     note.attendance,
-      diagnosis:      note.diagnosis,
-      presentation:   note.presentation,
-      history:        note.history,
-      medications:    note.medications,
-      mse:            note.mse,
-      content:        note.content,
-      scales:         note.scales,
-      risk:           note.risk,
-      referrals:      note.referrals,
-      summary:        note.summary,
-      nextsteps:      note.nextsteps,
-    }
-    latestFieldsRef.current = noteFields
-    setFields(noteFields)
-    store.setCurrentNote(noteFields)
-    store.setCurrentNoteId(noteId)
-    if (note.transcript) {
-      store.setLastTranscript(note.transcript)
-      store.setLastTranscriptMode((note.transcriptMode as Parameters<typeof store.setLastTranscriptMode>[0]) ?? 'paste')
-    }
-  }
 
   const scheduleSave = useCallback((data: Partial<Note>) => {
     if (!autoSaveEnabledRef.current) return
@@ -390,7 +312,7 @@ function EditContent() {
   }
 
   async function doAutoSave(flashField?: string) {
-    if (storeRef.current.letterType !== null) return  // letters not persisted to Firestore
+    if (storeRef.current.letterType !== null) return
     if (isSavingRef.current) return
     const data = latestFieldsRef.current
     if (!data.patient) return
@@ -519,10 +441,104 @@ function EditContent() {
 
   function handleChangeTemplate() { setChangeTemplateOpen(true) }
 
-  function handleTemplateChange(newTemplate: AnyTemplate) {
+  function handleTemplateChange(newTemplate: AnyTemplate, noteLength?: string) {
     setChangeTemplateOpen(false)
     if (!window.confirm(`Regenerate note with "${newTemplate.title}"?`)) return
+    if (noteLength) store.setOverrideNoteLength(noteLength as 'brief' | 'balanced' | 'detailed')
     runGeneration(store.lastTranscript ?? '', newTemplate)
+  }
+
+  async function runPendingGeneration() {
+    const s = storeRef.current
+    const template = s.lastChosenTemplate
+    const transcript = s.lastTranscript || ''
+    if (!template || !user) return
+
+    // Auto-fill date and clinician immediately
+    const now = new Date()
+    const dd = String(now.getDate()).padStart(2, '0')
+    const mm = String(now.getMonth() + 1).padStart(2, '0')
+    const yyyy = now.getFullYear()
+    const dateStr = `${dd}/${mm}/${yyyy}`
+
+    setFields(prev => {
+      const next = { ...prev, date: dateStr, clinician: profile?.displayName ?? '' }
+      latestFieldsRef.current = next
+      return next
+    })
+
+    autoSaveEnabledRef.current = false
+    setIsGenerating(true)
+
+    const STATUS_SEQ: [string, number][] = [
+      ['Analysing the consultation transcript',       1200],
+      ['Identifying speaker turns and dialogue',      1800],
+      ['Applying clinician and patient voice labels', 2400],
+      ['Extracting clinical symptoms and history',    2200],
+      ['Mapping diagnoses to ICD-10 codes',           1600],
+      ['Structuring the mental state examination',    2400],
+      ['Drafting the management plan and next steps', 2800],
+      ['Formatting clinical note sections',           2000],
+      ['Cross-referencing medications and risk',      1400],
+      ['Finalising the report',                       60000],
+    ]
+
+    setGenerationStatus(STATUS_SEQ[0][0])
+    const statusTimers: ReturnType<typeof setTimeout>[] = []
+    let elapsed = 0
+    for (let i = 1; i < STATUS_SEQ.length; i++) {
+      elapsed += STATUS_SEQ[i - 1][1]
+      const msg = STATUS_SEQ[i][0]
+      statusTimers.push(setTimeout(() => {
+        if (mountedRef.current) setGenerationStatus(msg)
+      }, elapsed))
+    }
+
+    try {
+      const s = storeRef.current
+      const noteLength = (s.overrideNoteLength ?? profile?.personalisation?.noteLength ?? 'balanced') as import('@/types').NoteLength
+      s.setOverrideNoteLength(null)
+      const systemPrompt = profile ? getPersonalisationPrefix(profile, noteLength) : ''
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const groqKey = sessionStorage.getItem('groq_api_key')
+      if (groqKey) headers['x-groq-key'] = groqKey
+
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ transcript, templatePrompt: template.prompt, systemPrompt, uid: user.uid }),
+      })
+
+      statusTimers.forEach(clearTimeout)
+      if (!mountedRef.current) return
+
+      if (!res.ok) {
+        const data = await res.json() as { error?: string }
+        throw new Error(data.error ?? 'Generation failed')
+      }
+
+      const data = await res.json() as { content: string; groqTokensUsed?: number }
+      if (!data.content?.trim()) throw new Error('AI returned empty response. Please try again.')
+
+      if (data.groqTokensUsed) {
+        const current = parseInt(localStorage.getItem('ln_groq_tokens_session') || '0', 10)
+        localStorage.setItem('ln_groq_tokens_session', String(current + data.groqTokensUsed))
+      }
+
+      setIsGenerating(false)
+      setGenerationStatus(null)
+
+      const noteFields = parseGeneratedContent(data.content)
+      await animateFields(noteFields)
+
+    } catch (err) {
+      statusTimers.forEach(clearTimeout)
+      if (!mountedRef.current) return
+      setIsGenerating(false)
+      setGenerationStatus(null)
+      autoSaveEnabledRef.current = true
+      setGenerationError(err instanceof Error ? err.message : 'Generation failed')
+    }
   }
 
   async function runGeneration(transcript: string, template: AnyTemplate) {
@@ -538,7 +554,8 @@ function EditContent() {
     }, 600)
 
     try {
-      const noteLength = profile?.personalisation?.noteLength ?? 'balanced'
+      const noteLength = (storeRef.current.overrideNoteLength ?? profile?.personalisation?.noteLength ?? 'balanced') as import('@/types').NoteLength
+      storeRef.current.setOverrideNoteLength(null)
       const systemPrompt = profile ? getPersonalisationPrefix(profile, noteLength) : ''
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       const groqKey = sessionStorage.getItem('groq_api_key')
@@ -772,7 +789,6 @@ function EditContent() {
     doAutoSave('patient')
   }
 
-
   const sessionStats = store.lastTranscript && store.lastRecordingDuration > 0
     ? (() => {
         const wordCount = store.lastTranscript.trim().split(/\s+/).filter(Boolean).length
@@ -839,7 +855,10 @@ function EditContent() {
             {isAnimating ? (
               <div className="h-4 w-48 rounded bg-white/30 animate-[shimmer_1.5s_infinite]" />
             ) : isGenerating ? (
-              <span className="font-medium truncate">{generationStatus ?? 'Generating…'}</span>
+              <>
+                <div className="h-3.5 w-28 rounded-full bg-white/30 animate-[shimmer_1.5s_infinite] shrink-0" />
+                <span className="text-xs text-white/80 truncate">{generationStatus ?? 'Preparing…'}</span>
+              </>
             ) : (
               <>
                 <span className="font-medium truncate">
@@ -867,6 +886,14 @@ function EditContent() {
               + New Note
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Generation error */}
+      {generationError && (
+        <div className="mx-4 mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-[var(--danger)] flex items-center justify-between shrink-0">
+          <span>{generationError}</span>
+          <button onClick={() => setGenerationError(null)} className="ml-2 text-xs underline shrink-0">Dismiss</button>
         </div>
       )}
 
@@ -1107,424 +1134,216 @@ function EditContent() {
 
             {/* Header */}
             <div className="flex items-center justify-between">
-              <h1 className="text-lg font-semibold text-[var(--text)]">
-                {isLetterMode ? 'Letter' : 'Edit note'}
-              </h1>
+              <h1 className="text-lg font-semibold text-[var(--text)]">Edit note</h1>
               <div className="flex items-center gap-3">
-                {!isLetterMode && saveStatus === 'saving' && <span className="text-xs text-[var(--text3)]">Saving…</span>}
-                {!isLetterMode && saveStatus === 'saved' && <span className="text-xs text-[var(--green)]">Saved</span>}
-                {!isLetterMode && !store.currentNoteId && (
+                {saveStatus === 'saving' && <span className="text-xs text-[var(--text3)]">Saving…</span>}
+                {saveStatus === 'saved' && <span className="text-xs text-[var(--green)]">Saved</span>}
+                {!store.currentNoteId && (
                   <Button variant="ghost" size="sm" onClick={handleNewNote}>New note</Button>
                 )}
               </div>
             </div>
 
-            {/* ── LETTER MODE FIELDS ── */}
-            {isLetterMode && (
-              <div className="space-y-4">
-
-                {/* Common fields */}
-                <div className="p-3 rounded-[var(--r-lg)] space-y-3" style={GLASS_CARD}>
-                  <div className="text-xs font-medium text-[var(--text3)]">{letterCommonFields.letterDate}</div>
-
-                  <Input
-                    label={letterType === 'freetext' ? 'Subject' : 'Patient name'}
-                    value={letterCommonFields.patientName}
-                    onChange={e => store.setLetterCommonFields({ patientName: e.target.value })}
-                  />
-
-                  {letterType !== 'freetext' && (
-                    <Input
-                      label="Date of birth (DD/MM/YYYY)"
-                      value={letterCommonFields.dob}
-                      onChange={e => store.setLetterCommonFields({ dob: e.target.value })}
-                      placeholder="DD/MM/YYYY"
-                    />
-                  )}
-
-                  <Input
-                    label="To (recipient name or organisation)"
-                    value={letterCommonFields.recipientName}
-                    onChange={e => store.setLetterCommonFields({ recipientName: e.target.value })}
-                  />
-
-                  <Textarea
-                    label="Recipient address (optional)"
-                    rows={2}
-                    value={letterCommonFields.recipientAddress}
-                    onChange={e => store.setLetterCommonFields({ recipientAddress: e.target.value })}
-                  />
-                </div>
-
-                {/* Referral fields */}
-                {letterType === 'referral' && (
-                  <div className="p-3 rounded-[var(--r-lg)] space-y-3" style={GLASS_CARD}>
-                    <p className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wide">Referral details</p>
-
-                    <Input
-                      label="Doctor name"
-                      value={referralFields.doctorName}
-                      onChange={e => store.setReferralFields({ doctorName: e.target.value })}
-                    />
-
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--text)] mb-1">Admission unit</label>
-                      <input
-                        list="ln-admission-units"
-                        value={referralFields.admissionUnit}
-                        onChange={e => store.setReferralFields({ admissionUnit: e.target.value })}
-                        className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white px-3 py-2.5 text-sm text-[var(--text)] placeholder:text-[var(--text3)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
-                        placeholder="e.g. Psychiatric Unit"
-                      />
-                      <datalist id="ln-admission-units">
-                        {ADMISSION_UNITS.map(u => <option key={u} value={u} />)}
-                      </datalist>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--text)] mb-1">Gender</label>
-                      <select
-                        value={referralFields.gender}
-                        onChange={e => store.setReferralFields({ gender: e.target.value as 'male' | 'female' | '' })}
-                        className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white px-3 py-2.5 text-sm text-[var(--text)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
+            {/* Patient + Reg */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Patient with autocomplete */}
+              <div className="relative">
+                <Input
+                  label="Patient"
+                  value={fields.patient ?? ''}
+                  onChange={e => handlePatientInput(e.target.value)}
+                  onFocus={() => setPatientDropdownOpen(true)}
+                  onBlur={() => { setTimeout(() => setPatientDropdownOpen(false), 200); handleFieldBlur('patient') }}
+                  autoComplete="off"
+                  className={saveFlashFields.has('patient') ? 'save-flash' : ''}
+                />
+                {visitCount !== null && (
+                  <span className="text-xs text-[var(--text3)] mt-1 inline-block">
+                    {visitCount} previous visit{visitCount !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {patientDropdownOpen && patientMatches.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 z-50 bg-white border border-[var(--border)] rounded-[var(--r)] shadow-lg max-h-48 overflow-y-auto mt-1">
+                    {patientMatches.map(p => (
+                      <button
+                        key={p.name}
+                        type="button"
+                        onMouseDown={() => handleSelectPatient(p)}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--bg)] flex items-center justify-between border-b border-[var(--border)] last:border-0"
                       >
-                        <option value="">Other / Not specified</option>
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                      </select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <Input
-                        label="Admission date (from)"
-                        value={referralFields.admissionDateStart}
-                        onChange={e => store.setReferralFields({ admissionDateStart: e.target.value })}
-                        placeholder="DD/MM/YYYY"
-                      />
-                      <Input
-                        label="Admission date (to)"
-                        value={referralFields.admissionDateEnd}
-                        onChange={e => store.setReferralFields({ admissionDateEnd: e.target.value })}
-                        placeholder="DD/MM/YYYY"
-                      />
-                    </div>
-
-                    <Textarea
-                      label="Presenting complaint"
-                      rows={3}
-                      value={referralFields.presentingComplaint}
-                      onChange={e => store.setReferralFields({ presentingComplaint: e.target.value })}
-                    />
-                    <Textarea
-                      label="Second paragraph (optional)"
-                      rows={3}
-                      value={referralFields.secondParagraph}
-                      onChange={e => store.setReferralFields({ secondParagraph: e.target.value })}
-                    />
-                    <Textarea
-                      label="Reason for referral"
-                      rows={3}
-                      value={referralFields.referralReason}
-                      onChange={e => store.setReferralFields({ referralReason: e.target.value })}
-                    />
-
-                    <label className="flex items-center gap-2 text-sm text-[var(--text)] cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={referralFields.dischargeSummaryAttached}
-                        onChange={e => store.setReferralFields({ dischargeSummaryAttached: e.target.checked })}
-                        className="rounded border-[var(--border)]"
-                      />
-                      Discharge summary attached
-                    </label>
-
-                    <label className="flex items-center gap-2 text-sm text-[var(--text)] cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={referralFields.showPastMedicalHistory}
-                        onChange={e => store.setReferralFields({ showPastMedicalHistory: e.target.checked })}
-                        className="rounded border-[var(--border)]"
-                      />
-                      Include past medical history
-                    </label>
-                    {referralFields.showPastMedicalHistory && (
-                      <Textarea
-                        label="Past medical history"
-                        rows={4}
-                        value={referralFields.pastMedicalHistory}
-                        onChange={e => store.setReferralFields({ pastMedicalHistory: e.target.value })}
-                      />
-                    )}
-
-                    <label className="flex items-center gap-2 text-sm text-[var(--text)] cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={referralFields.showMedicationList}
-                        onChange={e => store.setReferralFields({ showMedicationList: e.target.checked })}
-                        className="rounded border-[var(--border)]"
-                      />
-                      Include medication list
-                    </label>
-                    {referralFields.showMedicationList && (
-                      <Textarea
-                        label="Medication list"
-                        rows={4}
-                        value={referralFields.medicationList}
-                        onChange={e => store.setReferralFields({ medicationList: e.target.value })}
-                      />
-                    )}
+                        <span className="text-[var(--text)]">{p.name}</span>
+                        <span className="text-xs text-[var(--text3)]">{p.reg}</span>
+                      </button>
+                    ))}
                   </div>
-                )}
-
-                {/* Records request fields */}
-                {letterType === 'records' && (
-                  <div className="p-3 rounded-[var(--r-lg)] space-y-3" style={GLASS_CARD}>
-                    <p className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wide">Records request</p>
-                    <Input
-                      label="Records location (hospital / clinic name)"
-                      value={recordsFields.recordsLocation}
-                      onChange={e => store.setRecordsFields({ recordsLocation: e.target.value })}
-                    />
-                    <Textarea
-                      label="Additional paragraph (optional)"
-                      rows={3}
-                      value={recordsFields.secondParagraphRecords}
-                      onChange={e => store.setRecordsFields({ secondParagraphRecords: e.target.value })}
-                    />
-                  </div>
-                )}
-
-                {/* Free text fields */}
-                {letterType === 'freetext' && (
-                  <div className="p-3 rounded-[var(--r-lg)]" style={GLASS_CARD}>
-                    <Textarea
-                      label="Letter content"
-                      rows={12}
-                      value={freetextFields.freeTextContent}
-                      onChange={e => store.setFreetextFields({ freeTextContent: e.target.value })}
-                      placeholder="Write your letter body here…"
-                    />
-                  </div>
-                )}
-
-                {/* AI generate from transcript */}
-                {store.lastTranscript && (
-                  <button
-                    onClick={handleGenerateFromTranscript}
-                    disabled={isGeneratingLetter}
-                    className="w-full text-xs bg-[var(--blue)] text-white rounded-[var(--r)] py-2.5 font-medium disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform"
-                  >
-                    {isGeneratingLetter ? 'Generating...' : '✦ Generate from transcript'}
-                  </button>
                 )}
               </div>
-            )}
 
-            {/* ── CLINICAL NOTE FIELDS ── */}
-            {!isLetterMode && (
-              <>
-                {/* Patient + Reg */}
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Patient with autocomplete */}
-                  <div className="relative">
-                    <Input
-                      label="Patient"
-                      value={fields.patient ?? ''}
-                      onChange={e => handlePatientInput(e.target.value)}
-                      onFocus={() => setPatientDropdownOpen(true)}
-                      onBlur={() => { setTimeout(() => setPatientDropdownOpen(false), 200); handleFieldBlur('patient') }}
-                      autoComplete="off"
-                      className={saveFlashFields.has('patient') ? 'save-flash' : ''}
-                    />
-                    {visitCount !== null && (
-                      <span className="text-xs text-[var(--text3)] mt-1 inline-block">
-                        {visitCount} previous visit{visitCount !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                    {patientDropdownOpen && patientMatches.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 z-50 bg-white border border-[var(--border)] rounded-[var(--r)] shadow-lg max-h-48 overflow-y-auto mt-1">
-                        {patientMatches.map(p => (
-                          <button
-                            key={p.name}
-                            type="button"
-                            onMouseDown={() => handleSelectPatient(p)}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--bg)] flex items-center justify-between border-b border-[var(--border)] last:border-0"
-                          >
-                            <span className="text-[var(--text)]">{p.name}</span>
-                            <span className="text-xs text-[var(--text3)]">{p.reg}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+              {/* Reg number with validation */}
+              <Input
+                label="Registration Number"
+                value={fields.reg_number ?? ''}
+                onChange={e => setField('reg_number', e.target.value)}
+                onBlur={() => handleFieldBlur('reg_number')}
+                className={[
+                  saveFlashFields.has('reg_number') ? 'save-flash' : '',
+                  regStatus === 'valid' ? 'border-green-400' :
+                  regStatus === 'invalid' ? 'border-red-400' : '',
+                ].filter(Boolean).join(' ')}
+                hint={regStatus === 'invalid' ? `Expected format: ${activeWorkplace?.regTemplate ?? ''}` : undefined}
+              />
+            </div>
 
-                  {/* Reg number with validation */}
-                  <Input
-                    label="Registration Number"
-                    value={fields.reg_number ?? ''}
-                    onChange={e => setField('reg_number', e.target.value)}
-                    onBlur={() => handleFieldBlur('reg_number')}
-                    className={[
-                      saveFlashFields.has('reg_number') ? 'save-flash' : '',
-                      regStatus === 'valid' ? 'border-green-400' :
-                      regStatus === 'invalid' ? 'border-red-400' : '',
-                    ].filter(Boolean).join(' ')}
-                    hint={regStatus === 'invalid' ? `Expected format: ${activeWorkplace?.regTemplate ?? ''}` : undefined}
-                  />
+            {/* Date + Time */}
+            <div className="grid grid-cols-2 gap-3">
+              <DatePicker
+                label="Date"
+                value={fields.date ?? ''}
+                onChange={v => { setField('date', v); handleFieldBlur('date') }}
+              />
+              <TimePicker
+                label="Time"
+                value={fields.time ?? ''}
+                onChange={v => { setField('time', v); handleFieldBlur('time') }}
+              />
+            </div>
+
+            {/* Clinician + Session number */}
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Clinician"
+                value={fields.clinician ?? ''}
+                onChange={e => setField('clinician', e.target.value)}
+                onBlur={() => handleFieldBlur('clinician')}
+                className={saveFlashFields.has('clinician') ? 'save-flash' : ''}
+              />
+              <Input
+                label="Session number"
+                value={fields.session_number ?? ''}
+                onChange={e => setField('session_number', e.target.value)}
+                onBlur={() => handleFieldBlur('session_number')}
+                className={saveFlashFields.has('session_number') ? 'save-flash' : ''}
+              />
+            </div>
+
+            <Input
+              label="Attendance"
+              value={fields.attendance ?? ''}
+              onChange={e => setField('attendance', e.target.value)}
+              onBlur={() => handleFieldBlur('attendance')}
+              className={saveFlashFields.has('attendance') ? 'save-flash' : ''}
+            />
+            <Textarea
+              label="Diagnosis"
+              rows={3}
+              value={fields.diagnosis ?? ''}
+              onChange={e => setField('diagnosis', e.target.value)}
+              onBlur={() => handleFieldBlur('diagnosis')}
+              className={saveFlashFields.has('diagnosis') ? 'save-flash' : ''}
+            />
+            <Textarea
+              label="Presentation"
+              rows={5}
+              value={fields.presentation ?? ''}
+              onChange={e => setField('presentation', e.target.value)}
+              onBlur={() => handleFieldBlur('presentation')}
+              className={saveFlashFields.has('presentation') ? 'save-flash' : ''}
+            />
+            <Textarea
+              label="History"
+              rows={5}
+              value={fields.history ?? ''}
+              onChange={e => setField('history', e.target.value)}
+              onBlur={() => handleFieldBlur('history')}
+              className={saveFlashFields.has('history') ? 'save-flash' : ''}
+            />
+            <Textarea
+              label="Medications"
+              rows={3}
+              value={fields.medications ?? ''}
+              onChange={e => setField('medications', e.target.value)}
+              onBlur={() => handleFieldBlur('medications')}
+              className={saveFlashFields.has('medications') ? 'save-flash' : ''}
+            />
+            <Textarea
+              label="Mental Status Examination"
+              rows={5}
+              value={fields.mse ?? ''}
+              onChange={e => setField('mse', e.target.value)}
+              onBlur={() => handleFieldBlur('mse')}
+              className={saveFlashFields.has('mse') ? 'save-flash' : ''}
+            />
+            <Textarea
+              label="Session Content"
+              rows={8}
+              value={fields.content ?? ''}
+              onChange={e => setField('content', e.target.value)}
+              onBlur={() => handleFieldBlur('content')}
+              onKeyDown={e => handleListKeyDown(e, 'content')}
+              className={saveFlashFields.has('content') ? 'save-flash' : ''}
+            />
+            <Textarea
+              label="Scales"
+              rows={3}
+              value={fields.scales ?? ''}
+              onChange={e => setField('scales', e.target.value)}
+              onBlur={() => handleFieldBlur('scales')}
+              onKeyDown={e => handleListKeyDown(e, 'scales')}
+              className={saveFlashFields.has('scales') ? 'save-flash' : ''}
+            />
+            <Textarea
+              label="Risk"
+              rows={4}
+              value={fields.risk ?? ''}
+              onChange={e => setField('risk', e.target.value)}
+              onBlur={() => handleFieldBlur('risk')}
+              onKeyDown={e => handleListKeyDown(e, 'risk')}
+              className={saveFlashFields.has('risk') ? 'save-flash' : ''}
+            />
+            <Textarea
+              label="Referrals"
+              rows={3}
+              value={fields.referrals ?? ''}
+              onChange={e => setField('referrals', e.target.value)}
+              onBlur={() => handleFieldBlur('referrals')}
+              onKeyDown={e => handleListKeyDown(e, 'referrals')}
+              className={saveFlashFields.has('referrals') ? 'save-flash' : ''}
+            />
+            <Textarea
+              label="Summary"
+              rows={5}
+              value={fields.summary ?? ''}
+              onChange={e => setField('summary', e.target.value)}
+              onBlur={() => handleFieldBlur('summary')}
+              className={saveFlashFields.has('summary') ? 'save-flash' : ''}
+            />
+            <Textarea
+              label="Next Steps"
+              rows={3}
+              value={fields.nextsteps ?? ''}
+              onChange={e => setField('nextsteps', e.target.value)}
+              onBlur={() => handleFieldBlur('nextsteps')}
+              onKeyDown={e => handleListKeyDown(e, 'nextsteps')}
+              className={saveFlashFields.has('nextsteps') ? 'save-flash' : ''}
+            />
+
+            {/* Raw transcript collapsible */}
+            {store.lastTranscript && (
+              <div className="mt-6 border border-[var(--border)] rounded-[var(--r)] overflow-hidden">
+                <button
+                  onClick={() => setTranscriptExpanded(v => !v)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-[var(--bg)] text-sm font-medium text-[var(--text2)] hover:bg-[var(--border)]"
+                >
+                  <span>Raw Transcript · {store.lastTranscript.trim().split(/\s+/).length} words</span>
+                  <span>{transcriptExpanded ? '▲' : '▼'}</span>
+                </button>
+                <div className={`relative px-4 py-3 text-sm text-[var(--text2)] leading-relaxed ${!transcriptExpanded ? 'max-h-24 overflow-hidden' : ''}`}>
+                  <p className="whitespace-pre-wrap">{store.lastTranscript}</p>
+                  {!transcriptExpanded && (
+                    <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent" />
+                  )}
                 </div>
-
-                {/* Date + Time */}
-                <div className="grid grid-cols-2 gap-3">
-                  <DatePicker
-                    label="Date"
-                    value={fields.date ?? ''}
-                    onChange={v => { setField('date', v); handleFieldBlur('date') }}
-                  />
-                  <TimePicker
-                    label="Time"
-                    value={fields.time ?? ''}
-                    onChange={v => { setField('time', v); handleFieldBlur('time') }}
-                  />
-                </div>
-
-                {/* Clinician + Session number */}
-                <div className="grid grid-cols-2 gap-3">
-                  <Input
-                    label="Clinician"
-                    value={fields.clinician ?? ''}
-                    onChange={e => setField('clinician', e.target.value)}
-                    onBlur={() => handleFieldBlur('clinician')}
-                    className={saveFlashFields.has('clinician') ? 'save-flash' : ''}
-                  />
-                  <Input
-                    label="Session number"
-                    value={fields.session_number ?? ''}
-                    onChange={e => setField('session_number', e.target.value)}
-                    onBlur={() => handleFieldBlur('session_number')}
-                    className={saveFlashFields.has('session_number') ? 'save-flash' : ''}
-                  />
-                </div>
-
-                <Input
-                  label="Attendance"
-                  value={fields.attendance ?? ''}
-                  onChange={e => setField('attendance', e.target.value)}
-                  onBlur={() => handleFieldBlur('attendance')}
-                  className={saveFlashFields.has('attendance') ? 'save-flash' : ''}
-                />
-                <Textarea
-                  label="Diagnosis"
-                  rows={3}
-                  value={fields.diagnosis ?? ''}
-                  onChange={e => setField('diagnosis', e.target.value)}
-                  onBlur={() => handleFieldBlur('diagnosis')}
-                  className={saveFlashFields.has('diagnosis') ? 'save-flash' : ''}
-                />
-                <Textarea
-                  label="Presentation"
-                  rows={5}
-                  value={fields.presentation ?? ''}
-                  onChange={e => setField('presentation', e.target.value)}
-                  onBlur={() => handleFieldBlur('presentation')}
-                  className={saveFlashFields.has('presentation') ? 'save-flash' : ''}
-                />
-                <Textarea
-                  label="History"
-                  rows={5}
-                  value={fields.history ?? ''}
-                  onChange={e => setField('history', e.target.value)}
-                  onBlur={() => handleFieldBlur('history')}
-                  className={saveFlashFields.has('history') ? 'save-flash' : ''}
-                />
-                <Textarea
-                  label="Medications"
-                  rows={3}
-                  value={fields.medications ?? ''}
-                  onChange={e => setField('medications', e.target.value)}
-                  onBlur={() => handleFieldBlur('medications')}
-                  className={saveFlashFields.has('medications') ? 'save-flash' : ''}
-                />
-                <Textarea
-                  label="Mental Status Examination"
-                  rows={5}
-                  value={fields.mse ?? ''}
-                  onChange={e => setField('mse', e.target.value)}
-                  onBlur={() => handleFieldBlur('mse')}
-                  className={saveFlashFields.has('mse') ? 'save-flash' : ''}
-                />
-                <Textarea
-                  label="Session Content"
-                  rows={8}
-                  value={fields.content ?? ''}
-                  onChange={e => setField('content', e.target.value)}
-                  onBlur={() => handleFieldBlur('content')}
-                  onKeyDown={e => handleListKeyDown(e, 'content')}
-                  className={saveFlashFields.has('content') ? 'save-flash' : ''}
-                />
-                <Textarea
-                  label="Scales"
-                  rows={3}
-                  value={fields.scales ?? ''}
-                  onChange={e => setField('scales', e.target.value)}
-                  onBlur={() => handleFieldBlur('scales')}
-                  onKeyDown={e => handleListKeyDown(e, 'scales')}
-                  className={saveFlashFields.has('scales') ? 'save-flash' : ''}
-                />
-                <Textarea
-                  label="Risk"
-                  rows={4}
-                  value={fields.risk ?? ''}
-                  onChange={e => setField('risk', e.target.value)}
-                  onBlur={() => handleFieldBlur('risk')}
-                  onKeyDown={e => handleListKeyDown(e, 'risk')}
-                  className={saveFlashFields.has('risk') ? 'save-flash' : ''}
-                />
-                <Textarea
-                  label="Referrals"
-                  rows={3}
-                  value={fields.referrals ?? ''}
-                  onChange={e => setField('referrals', e.target.value)}
-                  onBlur={() => handleFieldBlur('referrals')}
-                  onKeyDown={e => handleListKeyDown(e, 'referrals')}
-                  className={saveFlashFields.has('referrals') ? 'save-flash' : ''}
-                />
-                <Textarea
-                  label="Summary"
-                  rows={5}
-                  value={fields.summary ?? ''}
-                  onChange={e => setField('summary', e.target.value)}
-                  onBlur={() => handleFieldBlur('summary')}
-                  className={saveFlashFields.has('summary') ? 'save-flash' : ''}
-                />
-                <Textarea
-                  label="Next Steps"
-                  rows={3}
-                  value={fields.nextsteps ?? ''}
-                  onChange={e => setField('nextsteps', e.target.value)}
-                  onBlur={() => handleFieldBlur('nextsteps')}
-                  onKeyDown={e => handleListKeyDown(e, 'nextsteps')}
-                  className={saveFlashFields.has('nextsteps') ? 'save-flash' : ''}
-                />
-
-                {/* Raw transcript collapsible */}
-                {store.lastTranscript && (
-                  <div className="mt-6 border border-[var(--border)] rounded-[var(--r)] overflow-hidden">
-                    <button
-                      onClick={() => setTranscriptExpanded(v => !v)}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-[var(--bg)] text-sm font-medium text-[var(--text2)] hover:bg-[var(--border)]"
-                    >
-                      <span>Raw Transcript · {store.lastTranscript.trim().split(/\s+/).length} words</span>
-                      <span>{transcriptExpanded ? '▲' : '▼'}</span>
-                    </button>
-                    <div className={`relative px-4 py-3 text-sm text-[var(--text2)] leading-relaxed ${!transcriptExpanded ? 'max-h-24 overflow-hidden' : ''}`}>
-                      <p className="whitespace-pre-wrap">{store.lastTranscript}</p>
-                      {!transcriptExpanded && (
-                        <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent" />
-                      )}
-                    </div>
-                  </div>
-                )}
-              </>
+              </div>
             )}
 
             </> /* end !isLetterMode */}
@@ -1552,19 +1371,11 @@ function EditContent() {
       {/* Mobile preview toggle */}
       <button
         onClick={() => setShowMobilePreview(v => !v)}
-        className="md:hidden fixed bottom-20 right-4 z-40 bg-white border border-[var(--border)] rounded-full px-4 py-2 text-xs font-medium text-[var(--text2)] motion-safe:active:scale-95 motion-safe:transition-transform"
+        className="md:hidden fixed bottom-20 right-4 z-40 bg-white border border-[var(--border)] rounded-full px-4 py-2 text-xs font-medium text-[var(--text2)] active:scale-95 transition-transform"
         style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
       >
         {showMobilePreview ? 'Hide Preview' : 'Preview'}
       </button>
-
-      {/* Letter toast */}
-      {letterToast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] bg-[var(--text)] text-white text-xs rounded-full px-4 py-2 pointer-events-none select-none"
-          style={{ boxShadow: '0 2px 8px rgba(15,23,42,.12)' }}>
-          {letterToast}
-        </div>
-      )}
 
       <TemplatePicker
         open={changeTemplateOpen}
