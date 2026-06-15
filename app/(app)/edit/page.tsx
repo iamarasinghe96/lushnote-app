@@ -82,9 +82,9 @@ export default function EditPage() {
 
   const [fields, setFields] = useState<Partial<Note>>(() => {
     if (store.pendingAnimation) {
-      const base = { ...store.currentNote }
-      for (const key of FIELD_ORDER) delete (base as Record<string, unknown>)[key]
-      return base
+      // Start with only patient + reg visible; generated fields animate in
+      const note = store.currentNote as Record<string, string>
+      return { patient: note['patient'] || '', reg_number: note['reg_number'] || '' }
     }
     return store.currentNote
   })
@@ -99,6 +99,7 @@ export default function EditPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
+  const [generationError, setGenerationError] = useState<string | null>(null)
   const [changeTemplateOpen, setChangeTemplateOpen] = useState(false)
   const [reassignOpen, setReassignOpen] = useState(false)
   const [allNotes, setAllNotes] = useState<Note[]>([])
@@ -122,18 +123,20 @@ export default function EditPage() {
   useEffect(() => { return () => { mountedRef.current = false } }, [])
 
   useEffect(() => {
-    if (store.pendingAnimation) {
-      store.setPendingAnimation(false)
-      const toAnimate: Partial<Note> = {}
-      for (const key of FIELD_ORDER) {
-        const v = (store.currentNote as Record<string, string>)[key]
-        if (v) (toAnimate as Record<string, string>)[key] = v
+    const s = storeRef.current
+    if (s.pendingAnimation) {
+      s.setPendingAnimation(false)
+      const known: Partial<Note> = {
+        patient: (s.currentNote as Record<string, string>)['patient'] || '',
+        reg_number: (s.currentNote as Record<string, string>)['reg_number'] || '',
       }
-      animateFields(toAnimate)
+      latestFieldsRef.current = known
+      setFields(known)
+      runPendingGeneration()
     } else {
-      latestFieldsRef.current = store.currentNote
-      setFields(store.currentNote)
-      setPreviewHtml(buildPreviewHTML(store.currentNote))
+      latestFieldsRef.current = s.currentNote
+      setFields(s.currentNote)
+      setPreviewHtml(buildPreviewHTML(s.currentNote))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -442,6 +445,97 @@ export default function EditPage() {
     setChangeTemplateOpen(false)
     if (!window.confirm(`Regenerate note with "${newTemplate.title}"?`)) return
     runGeneration(store.lastTranscript ?? '', newTemplate)
+  }
+
+  async function runPendingGeneration() {
+    const s = storeRef.current
+    const template = s.lastChosenTemplate
+    const transcript = s.lastTranscript || ''
+    if (!template || !user) return
+
+    // Auto-fill date and clinician immediately
+    const now = new Date()
+    const dd = String(now.getDate()).padStart(2, '0')
+    const mm = String(now.getMonth() + 1).padStart(2, '0')
+    const yyyy = now.getFullYear()
+    const dateStr = `${dd}/${mm}/${yyyy}`
+
+    setFields(prev => {
+      const next = { ...prev, date: dateStr, clinician: profile?.displayName ?? '' }
+      latestFieldsRef.current = next
+      return next
+    })
+
+    autoSaveEnabledRef.current = false
+    setIsGenerating(true)
+
+    const STATUS_SEQ: [string, number][] = [
+      ['Analysing the consultation transcript',       1200],
+      ['Identifying speaker turns and dialogue',      1800],
+      ['Applying clinician and patient voice labels', 2400],
+      ['Extracting clinical symptoms and history',    2200],
+      ['Mapping diagnoses to ICD-10 codes',           1600],
+      ['Structuring the mental state examination',    2400],
+      ['Drafting the management plan and next steps', 2800],
+      ['Formatting clinical note sections',           2000],
+      ['Cross-referencing medications and risk',      1400],
+      ['Finalising the report',                       60000],
+    ]
+
+    setGenerationStatus(STATUS_SEQ[0][0])
+    const statusTimers: ReturnType<typeof setTimeout>[] = []
+    let elapsed = 0
+    for (let i = 1; i < STATUS_SEQ.length; i++) {
+      elapsed += STATUS_SEQ[i - 1][1]
+      const msg = STATUS_SEQ[i][0]
+      statusTimers.push(setTimeout(() => {
+        if (mountedRef.current) setGenerationStatus(msg)
+      }, elapsed))
+    }
+
+    try {
+      const noteLength = profile?.personalisation?.noteLength ?? 'balanced'
+      const systemPrompt = profile ? getPersonalisationPrefix(profile, noteLength) : ''
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const groqKey = sessionStorage.getItem('groq_api_key')
+      if (groqKey) headers['x-groq-key'] = groqKey
+
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ transcript, templatePrompt: template.prompt, systemPrompt, uid: user.uid }),
+      })
+
+      statusTimers.forEach(clearTimeout)
+      if (!mountedRef.current) return
+
+      if (!res.ok) {
+        const data = await res.json() as { error?: string }
+        throw new Error(data.error ?? 'Generation failed')
+      }
+
+      const data = await res.json() as { content: string; groqTokensUsed?: number }
+      if (!data.content?.trim()) throw new Error('AI returned empty response. Please try again.')
+
+      if (data.groqTokensUsed) {
+        const current = parseInt(localStorage.getItem('ln_groq_tokens_session') || '0', 10)
+        localStorage.setItem('ln_groq_tokens_session', String(current + data.groqTokensUsed))
+      }
+
+      setIsGenerating(false)
+      setGenerationStatus(null)
+
+      const noteFields = parseGeneratedContent(data.content)
+      await animateFields(noteFields)
+
+    } catch (err) {
+      statusTimers.forEach(clearTimeout)
+      if (!mountedRef.current) return
+      setIsGenerating(false)
+      setGenerationStatus(null)
+      autoSaveEnabledRef.current = true
+      setGenerationError(err instanceof Error ? err.message : 'Generation failed')
+    }
   }
 
   async function runGeneration(transcript: string, template: AnyTemplate) {
@@ -757,7 +851,10 @@ export default function EditPage() {
             {isAnimating ? (
               <div className="h-4 w-48 rounded bg-white/30 animate-[shimmer_1.5s_infinite]" />
             ) : isGenerating ? (
-              <span className="font-medium truncate">{generationStatus ?? 'Generating…'}</span>
+              <>
+                <div className="h-3.5 w-28 rounded-full bg-white/30 animate-[shimmer_1.5s_infinite] shrink-0" />
+                <span className="text-xs text-white/80 truncate">{generationStatus ?? 'Preparing…'}</span>
+              </>
             ) : (
               <>
                 <span className="font-medium truncate">
@@ -785,6 +882,14 @@ export default function EditPage() {
               + New Note
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Generation error */}
+      {generationError && (
+        <div className="mx-4 mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-[var(--danger)] flex items-center justify-between shrink-0">
+          <span>{generationError}</span>
+          <button onClick={() => setGenerationError(null)} className="ml-2 text-xs underline shrink-0">Dismiss</button>
         </div>
       )}
 
