@@ -127,7 +127,6 @@ Dictation: ${transcript}`,
         try {
           const content = await generateNote(prompt, systemPrompt!)
           await updateGeminiUsage(uid, 'gemini-2.5-flash').catch(() => {})
-          console.log('[F8-TEMP] raw model output (first 500 chars):', content.slice(0, 500))
           return NextResponse.json({ content, provider: 'gemini' })
         } catch {
           // fall through to Groq

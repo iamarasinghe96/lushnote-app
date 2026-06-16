@@ -29,6 +29,40 @@ function formatDuration(secs: number): string {
 }
 
 function parseGeneratedContent(content: string): Partial<Note> {
+  const out: Partial<Note> = {}
+
+  // Primary: [key] bracket labels — format produced by llama-3.3-70b and Gemini with these templates.
+  // e.g.  [presentation] Current Presentation\n<body>\n[history] Past Medical...
+  // Anchor to line-start via (?:^|\n) so inline abbreviations like [SI] or [N/A] never
+  // prematurely split a section body. Keys are required to be 3+ lowercase letters,
+  // which covers every template section key and eliminates uppercase clinical abbreviations.
+  const DIRECT_FIELDS: Record<string, keyof Note> = {
+    'presentation': 'presentation',
+    'history':      'history',
+    'medications':  'medications',
+    'mse':          'mse',
+    'content':      'content',
+    'scales':       'scales',
+    'risk':         'risk',
+    'referrals':    'referrals',
+    'summary':      'summary',
+    'nextsteps':    'nextsteps',
+    'diagnosis':    'diagnosis',
+  }
+  const bracketRx = /(?:^|\n)\[([a-z]{3,})\][^\n]*\n([\s\S]*?)(?=(?:^|\n)\[[a-z]{3,}\]|$)/g
+  let bm = bracketRx.exec(content)
+  let bracketParsed = false
+  while (bm !== null) {
+    const field = DIRECT_FIELDS[bm[1]]
+    if (field) {
+      const body = bm[2].trim()
+      if (body) { (out as Record<string, string>)[field] = body; bracketParsed = true }
+    }
+    bm = bracketRx.exec(content)
+  }
+  if (bracketParsed) return out
+
+  // Fallback: ## markdown headings (Gemini sometimes outputs these instead)
   const sectionMap: Record<string, keyof Note> = {
     'presentation':              'presentation',
     'history':                   'history',
@@ -46,18 +80,21 @@ function parseGeneratedContent(content: string): Partial<Note> {
     'nextsteps':                 'nextsteps',
     'diagnosis':                 'diagnosis',
   }
-  const out: Partial<Note> = {}
-  const rx = /#{1,3}\s+([^\n]+)\n([\s\S]*?)(?=#{1,3}\s+|$)/g
-  let m = rx.exec(content)
-  let parsed = false
-  while (m !== null) {
-    const key = sectionMap[m[1].trim().toLowerCase()]
-    if (key) { (out as Record<string, string>)[key] = m[2].trim(); parsed = true }
-    m = rx.exec(content)
+  const headingRx = /#{1,3}\s+([^\n]+)\n([\s\S]*?)(?=#{1,3}\s+|$)/g
+  let hm = headingRx.exec(content)
+  let headingParsed = false
+  while (hm !== null) {
+    const key = sectionMap[hm[1].trim().toLowerCase()]
+    if (key) { (out as Record<string, string>)[key] = hm[2].trim(); headingParsed = true }
+    hm = headingRx.exec(content)
   }
-  if (!parsed) out.content = content.trim()
+  if (headingParsed) return out
+
+  // Last resort: whole response → content field
+  out.content = content.trim()
   return out
 }
+
 
 function checkRegStatus(value: string, workplace: Workplace | undefined): 'valid' | 'invalid' | 'none' {
   if (!workplace || workplace.regSystem !== 'existing' || !workplace.regPattern) return 'none'
