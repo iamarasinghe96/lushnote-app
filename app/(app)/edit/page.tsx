@@ -312,10 +312,12 @@ function EditContent() {
   }, [user, profile])
 
   function setField<K extends keyof Note>(key: K, value: string) {
-    const next = { ...fields, [key]: value }
-    latestFieldsRef.current = next
-    setFields(next)
-    store.setCurrentNote(next)
+    setFields(prev => {
+      const next = { ...prev, [key]: value }
+      latestFieldsRef.current = next
+      store.setCurrentNote(next)
+      return next
+    })
   }
 
   // Patient autocomplete index — preserves original name casing
@@ -480,7 +482,6 @@ function EditContent() {
       })
       setIsAnimating(false)
       autoSaveEnabledRef.current = true
-      triggerAutoSave()
       return
     }
 
@@ -494,7 +495,6 @@ function EditContent() {
     if (mountedRef.current) {
       setIsAnimating(false)
       autoSaveEnabledRef.current = true
-      triggerAutoSave()
     }
   }
 
@@ -617,12 +617,18 @@ function EditContent() {
       const noteFields = parseGeneratedContent(data.content)
       await animateFields(noteFields)
 
-      // Create patient profile for new patients — fires after generation succeeds
+      if (!mountedRef.current) return
+
+      // Synchronous save — note must reach Firestore before user can navigate
+      storeRef.current.setCurrentNote(latestFieldsRef.current)
+      await doAutoSave()
+
+      // Create patient profile for new patients — only after note is persisted
       const pending = storeRef.current.pendingPatientProfile
       if (pending && user) {
         const patientName = latestFieldsRef.current.patient ?? storeRef.current.currentNote.patient ?? ''
         if (patientName) {
-          savePatientProfile(user.uid, {
+          await savePatientProfile(user.uid, {
             displayName: patientName,
             ...(pending.dob ? { dob: pending.dob } : {}),
             ...(pending.gender ? { gender: pending.gender } : {}),
@@ -676,6 +682,10 @@ function EditContent() {
       setIsGenerating(false)
       const noteFields = parseGeneratedContent(data.content)
       await animateFields(noteFields)
+      if (mountedRef.current) {
+        storeRef.current.setCurrentNote(latestFieldsRef.current)
+        await doAutoSave()
+      }
     } catch {
       clearInterval(statusTimer)
       setGenerationStatus(null)
