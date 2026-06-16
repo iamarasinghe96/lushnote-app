@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { saveNote, updateNote, listNotes } from '@/lib/firestore/notes'
+import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile } from '@/lib/firestore/patients'
 import { buildPreviewHTML, buildLetterPreviewHTML, formatDateForLetter, calculateAgeFromDOB } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
@@ -77,7 +77,16 @@ interface PatientEntry {
 }
 
 export default function EditPage() {
+  return (
+    <Suspense>
+      <EditContent />
+    </Suspense>
+  )
+}
+
+function EditContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, profile } = useAuth()
   const store = useNoteStore()
 
@@ -125,7 +134,9 @@ export default function EditPage() {
 
   useEffect(() => {
     const s = storeRef.current
+    const noteIdParam = searchParams.get('noteId')
     if (s.pendingAnimation) {
+      // In-progress generation takes priority over any ?noteId= in the URL
       s.setPendingAnimation(false)
       const known: Partial<Note> = {
         patient: (s.currentNote as Record<string, string>)['patient'] || '',
@@ -134,13 +145,50 @@ export default function EditPage() {
       latestFieldsRef.current = known
       setFields(known)
       runPendingGeneration()
+    } else if (noteIdParam && noteIdParam !== s.currentNoteId) {
+      // Navigated here from History tab (or direct URL) with ?noteId=
+      loadNote(noteIdParam)
     } else {
       latestFieldsRef.current = s.currentNote
       setFields(s.currentNote)
       setPreviewHtml(buildPreviewHTML(s.currentNote))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [searchParams])
+
+  async function loadNote(noteId: string) {
+    const note = await getNote(noteId)
+    if (!note || !mountedRef.current) return
+    const noteFields: Partial<Note> = {
+      patient:        note.patient,
+      reg_number:     note.reg_number,
+      date:           note.date,
+      time:           note.time,
+      clinician:      note.clinician,
+      session_number: note.session_number,
+      attendance:     note.attendance,
+      diagnosis:      note.diagnosis,
+      presentation:   note.presentation,
+      history:        note.history,
+      medications:    note.medications,
+      mse:            note.mse,
+      content:        note.content,
+      scales:         note.scales,
+      risk:           note.risk,
+      referrals:      note.referrals,
+      summary:        note.summary,
+      nextsteps:      note.nextsteps,
+    }
+    latestFieldsRef.current = noteFields
+    setFields(noteFields)
+    setPreviewHtml(buildPreviewHTML(noteFields))
+    store.setCurrentNote(noteFields)
+    store.setCurrentNoteId(noteId)
+    if (note.transcript) {
+      store.setLastTranscript(note.transcript)
+      store.setLastTranscriptMode((note.transcriptMode as Parameters<typeof store.setLastTranscriptMode>[0]) ?? 'paste')
+    }
+  }
 
   useEffect(() => {
     if (isLetterMode) return
@@ -541,7 +589,7 @@ export default function EditPage() {
             displayName: patientName,
             ...(pending.dob ? { dob: pending.dob } : {}),
             ...(pending.gender ? { gender: pending.gender } : {}),
-          }).catch(() => {})
+          }).catch(err => console.error('savePatientProfile failed', err))
         }
         storeRef.current.setPendingPatientProfile(null)
       }
