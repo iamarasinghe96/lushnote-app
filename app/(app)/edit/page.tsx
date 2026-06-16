@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote, listNotes } from '@/lib/firestore/notes'
+import { savePatientProfile } from '@/lib/firestore/patients'
 import { buildPreviewHTML, buildLetterPreviewHTML, formatDateForLetter, calculateAgeFromDOB } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import Input from '@/components/ui/Input'
@@ -530,6 +531,20 @@ export default function EditPage() {
 
       const noteFields = parseGeneratedContent(data.content)
       await animateFields(noteFields)
+
+      // Create patient profile for new patients — fires after generation succeeds
+      const pending = storeRef.current.pendingPatientProfile
+      if (pending && user) {
+        const patientName = latestFieldsRef.current.patient ?? storeRef.current.currentNote.patient ?? ''
+        if (patientName) {
+          savePatientProfile(user.uid, {
+            displayName: patientName,
+            ...(pending.dob ? { dob: pending.dob } : {}),
+            ...(pending.gender ? { gender: pending.gender } : {}),
+          }).catch(() => {})
+        }
+        storeRef.current.setPendingPatientProfile(null)
+      }
 
     } catch (err) {
       statusTimers.forEach(clearTimeout)

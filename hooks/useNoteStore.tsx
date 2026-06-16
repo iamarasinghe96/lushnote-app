@@ -24,6 +24,7 @@ interface NoteStore {
   lastRecordingDuration: number
   pendingAnimation: boolean
   overrideNoteLength: 'brief' | 'balanced' | 'detailed' | null
+  pendingPatientProfile: { dob: string; gender: 'male' | 'female' | '' } | null
   activeLetterhead: LetterheadDoc | null
   letterType: LetterType | null
   letterCommonFields: LetterCommonFields
@@ -38,6 +39,7 @@ interface NoteStore {
   setLastRecordingDuration: (s: number) => void
   setPendingAnimation: (v: boolean) => void
   setOverrideNoteLength: (v: 'brief' | 'balanced' | 'detailed' | null) => void
+  setPendingPatientProfile: (v: { dob: string; gender: 'male' | 'female' | '' } | null) => void
   setActiveLetterhead: (lh: LetterheadDoc | null) => void
   setLetterType: (type: LetterType | null) => void
   setLetterCommonFields: (fields: Partial<LetterCommonFields>) => void
@@ -59,6 +61,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   const [lastRecordingDuration, setLastRecordingDuration] = useState(0)
   const [pendingAnimation, setPendingAnimation] = useState(false)
   const [overrideNoteLength, setOverrideNoteLength] = useState<'brief' | 'balanced' | 'detailed' | null>(null)
+  const [pendingPatientProfile, setPendingPatientProfile] = useState<{ dob: string; gender: 'male' | 'female' | '' } | null>(null)
   const [activeLetterhead, setActiveLetterhead] = useState<LetterheadDoc | null>(null)
   const [letterType, setLetterType] = useState<LetterType | null>(null)
   const [letterCommonFields, setLetterCommonFieldsState] = useState<LetterCommonFields>(DEFAULT_LETTER_COMMON)
@@ -95,6 +98,8 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       pendingAnimation,
       overrideNoteLength,
       setOverrideNoteLength,
+      pendingPatientProfile,
+      setPendingPatientProfile,
       activeLetterhead,
       setActiveLetterhead,
       letterType,

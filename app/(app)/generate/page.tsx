@@ -232,11 +232,18 @@ export default function GeneratePage() {
     }
   }
 
-  function handleTranscriptConfirmPatient(patient: string, regNumber: string) {
+  function handleTranscriptConfirmPatient(
+    patient: string,
+    regNumber: string,
+    dob: string,
+    gender: 'male' | 'female' | '',
+    isNewPatient: boolean,
+  ) {
     setTranscriptConfirmOpen(false)
     setPrefillPatient({ patient, reg_number: regNumber })
     store.setLastTranscript(pendingTranscript)
     store.setLastTranscriptMode(creationMode)
+    store.setPendingPatientProfile(isNewPatient ? { dob, gender } : null)
     setPhase('template-picking')
   }
 

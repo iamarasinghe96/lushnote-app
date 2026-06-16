@@ -11,7 +11,7 @@ interface TranscriptConfirmModalProps {
   open: boolean
   transcript: string
   allNotes: Note[]
-  onConfirm: (patient: string, regNumber: string) => void
+  onConfirm: (patient: string, regNumber: string, dob: string, gender: 'male' | 'female' | '', isNewPatient: boolean) => void
   onClose: () => void
 }
 
@@ -116,7 +116,7 @@ export default function TranscriptConfirmModal({
   function handleConfirm() {
     if (!patientName.trim()) return
     const reg = exactMatch ? exactMatch.reg : suggestedReg
-    onConfirm(patientName.trim(), reg)
+    onConfirm(patientName.trim(), reg, dob, gender as 'male' | 'female' | '', isNewPatient)
   }
 
   const dropdown =
