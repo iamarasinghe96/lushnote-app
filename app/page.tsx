@@ -67,8 +67,8 @@ export default function Page() {
           borderRadius: 20,
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          background: 'rgba(255,255,255,0.18)',
-          border: '1px solid rgba(255,255,255,0.32)',
+          background: 'rgba(255,255,255,0.08)',
+          border: '1px solid rgba(255,255,255,0.40)',
           boxShadow: '0 4px 16px rgba(15,23,42,.08), 0 1px 3px rgba(15,23,42,.06)',
         }}
       >
@@ -176,10 +176,10 @@ export default function Page() {
                 key={f.title}
                 className="rounded-[var(--r-lg)] p-4 backdrop-blur-md"
                 style={{
-                  background: 'rgba(255,255,255,0.14)',
-                  backdropFilter: 'blur(18px)',
-                  WebkitBackdropFilter: 'blur(18px)',
-                  boxShadow: '0 2px 8px rgba(15,23,42,.05), 0 0 0 1px rgba(255,255,255,0.35)',
+                  background: 'rgba(255,255,255,0.06)',
+                  backdropFilter: 'blur(24px)',
+                  WebkitBackdropFilter: 'blur(24px)',
+                  boxShadow: '0 2px 12px rgba(15,23,42,.06), 0 0 0 1px rgba(255,255,255,0.45)',
                 }}
               >
                 <div className="mb-2 text-[var(--blue)]">{f.icon}</div>
@@ -203,10 +203,10 @@ export default function Page() {
                 key={m.title}
                 className="rounded-[var(--r-lg)] border border-[var(--border)] p-4"
                 style={{
-                  background: 'rgba(255,255,255,0.14)',
-                  backdropFilter: 'blur(18px)',
-                  WebkitBackdropFilter: 'blur(18px)',
-                  boxShadow: '0 2px 8px rgba(15,23,42,.05), 0 0 0 1px rgba(255,255,255,0.35)',
+                  background: 'rgba(255,255,255,0.06)',
+                  backdropFilter: 'blur(24px)',
+                  WebkitBackdropFilter: 'blur(24px)',
+                  boxShadow: '0 2px 12px rgba(15,23,42,.06), 0 0 0 1px rgba(255,255,255,0.45)',
                 }}
               >
                 <div className="flex items-center gap-2 mb-2">
