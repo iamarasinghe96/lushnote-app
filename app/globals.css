@@ -68,7 +68,8 @@ body { -webkit-font-smoothing: antialiased; }
 /* Liquid tab capsule — squash & stretch while it slides between tabs */
 @keyframes ln-tab-stretch {
   0%   { transform: scaleX(1)    scaleY(1); }
-  42%  { transform: scaleX(1.16) scaleY(0.9); }
+  40%  { transform: scaleX(1.34) scaleY(0.8); }
+  70%  { transform: scaleX(0.96) scaleY(1.04); }
   100% { transform: scaleX(1)    scaleY(1); }
 }
 

@@ -75,11 +75,11 @@ export default function TabBar() {
         style={{
           height: 64,
           borderRadius: 32,
-          backdropFilter: 'blur(32px)',
-          WebkitBackdropFilter: 'blur(32px)',
-          background: 'rgba(10,15,30,0.62)',
-          border: '1px solid rgba(255,255,255,0.14)',
-          boxShadow: '0 8px 32px rgba(10,15,30,0.28), inset 0 1px 0 rgba(255,255,255,0.10)',
+          backdropFilter: 'blur(32px) saturate(1.6)',
+          WebkitBackdropFilter: 'blur(32px) saturate(1.6)',
+          background: 'rgba(255,255,255,0.45)',
+          border: '1px solid rgba(255,255,255,0.6)',
+          boxShadow: '0 8px 32px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.7)',
         }}
       >
         {/* Sliding liquid-glass selection capsule */}
@@ -106,14 +106,15 @@ export default function TabBar() {
                 style={{
                   left: 4,
                   right: 4,
-                  background: 'var(--blue)',
+                  background: 'color-mix(in srgb, var(--blue) 62%, transparent)',
+                  backdropFilter: 'blur(6px)',
+                  WebkitBackdropFilter: 'blur(6px)',
                   boxShadow: [
-                    '0 4px 18px color-mix(in srgb, var(--blue) 55%, transparent)',
-                    'inset 0 1.5px 0 rgba(255,255,255,0.38)',
-                    'inset 0 -1px 0 rgba(0,0,0,0.15)',
-                    '0 1px 3px rgba(0,0,0,0.25)',
+                    '0 4px 16px color-mix(in srgb, var(--blue) 38%, transparent)',
+                    'inset 0 1.5px 0 rgba(255,255,255,0.55)',
+                    'inset 0 -1px 0 rgba(0,0,0,0.08)',
                   ].join(', '),
-                  border: '1px solid rgba(255,255,255,0.22)',
+                  border: '1px solid rgba(255,255,255,0.45)',
                 }}
               />
             </div>
@@ -130,7 +131,8 @@ export default function TabBar() {
               style={{ minWidth: 0 }}
             >
               <span className={`flex flex-col items-center gap-0.5 py-1 motion-safe:transition-colors duration-300
-                ${active ? 'text-white' : 'text-white/45'}`}
+                ${active ? 'text-white' : 'text-[var(--text3)]'}`}
+                style={active ? { textShadow: '0 1px 2px rgba(0,0,0,0.18)' } : undefined}
               >
                 {icon}
                 <span className="text-[9px] font-semibold tracking-wide">{label}</span>
