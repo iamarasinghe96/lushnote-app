@@ -100,7 +100,7 @@ export function FAB() {
   return (
     <>
       {/* FAB button + sub-buttons */}
-      <div id="ln-fab-root" className="fixed bottom-20 right-4 z-[60] flex flex-col items-end gap-2">
+      <div id="ln-fab-root" className="fixed bottom-24 right-4 z-[60] flex flex-col items-end gap-2">
         {expanded && (
           <>
             <button
