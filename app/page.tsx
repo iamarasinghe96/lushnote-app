@@ -40,7 +40,19 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[var(--text)]">
+    <div
+      className="min-h-screen text-[var(--text)]"
+      style={{
+        background: [
+          'radial-gradient(ellipse 80% 40% at 50% 0%,   rgba(90,214,167,0.26) 0%, transparent 60%)',
+          'radial-gradient(ellipse 55% 30% at 88% 20%,  rgba(37,99,235,0.12)  0%, transparent 55%)',
+          'radial-gradient(ellipse 60% 28% at 10% 48%,  rgba(90,214,167,0.11) 0%, transparent 55%)',
+          'radial-gradient(ellipse 55% 28% at 85% 68%,  rgba(37,99,235,0.10)  0%, transparent 55%)',
+          'radial-gradient(ellipse 50% 22% at 25% 88%,  rgba(90,214,167,0.09) 0%, transparent 50%)',
+          '#f8fafc',
+        ].join(', '),
+      }}
+    >
 
       {/* ── Nav ── */}
       <nav
@@ -81,14 +93,7 @@ export default function Page() {
       {/* ── Hero ── */}
       <section
         className="relative flex flex-col items-center justify-center min-h-screen text-center px-4"
-        style={{
-          paddingTop: 56,
-          background: [
-            'radial-gradient(ellipse 70% 50% at 50% 0%, rgba(90,214,167,0.28) 0%, transparent 70%)',
-            'radial-gradient(ellipse 50% 40% at 80% 10%, rgba(37,99,235,0.10) 0%, transparent 65%)',
-            '#f8fafc',
-          ].join(', '),
-        }}
+        style={{ paddingTop: 56 }}
       >
         <div className="max-w-2xl mx-auto space-y-6">
           <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold
@@ -132,7 +137,7 @@ export default function Page() {
       </section>
 
       {/* ── How it works ── */}
-      <section id="how-it-works" className="py-20 px-4 bg-[#f8fafc]">
+      <section id="how-it-works" className="py-20 px-4">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold text-center text-[var(--text)] mb-12">
             How it works
@@ -153,7 +158,7 @@ export default function Page() {
       </section>
 
       {/* ── Features grid ── */}
-      <section className="py-20 px-4 bg-[#f8fafc]">
+      <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold text-center text-[var(--text)] mb-12">
             Everything you need
@@ -178,7 +183,7 @@ export default function Page() {
       </section>
 
       {/* ── Five modes ── */}
-      <section className="py-20 px-4 bg-[#f8fafc]">
+      <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold text-center text-[var(--text)] mb-12">
             Five ways to create a note
@@ -213,8 +218,17 @@ export default function Page() {
       </section>
 
       {/* ── Bottom CTA ── */}
-      <section className="py-20 px-4 bg-gradient-to-br from-[var(--blue-dk)] to-[var(--blue)]">
-        <div className="max-w-xl mx-auto text-center space-y-4">
+      <section className="py-20 px-4">
+        <div
+          className="max-w-xl mx-auto text-center space-y-4 rounded-[var(--r-lg)] py-14 px-6"
+          style={{
+            background: 'rgba(29,78,216,0.55)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255,255,255,0.18)',
+            boxShadow: '0 8px 32px rgba(29,78,216,0.18)',
+          }}
+        >
           <h2 className="text-3xl font-bold text-white">Document smarter.</h2>
           <p className="text-white/80 text-lg">Save one more life.</p>
           <button
