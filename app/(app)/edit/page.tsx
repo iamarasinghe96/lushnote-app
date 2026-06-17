@@ -504,21 +504,34 @@ function EditContent() {
       const value = (noteFields as Record<string, string>)[key]
       if (!value || typeof value !== 'string') continue
 
-      // Scroll both panes to the field being typed
       setCurrentAnimatingField(key)
+      // Form pane: [data-field] divs are always in the DOM — scroll immediately
       formScrollRef.current?.querySelector(`[data-field="${key}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      previewScrollRef.current?.querySelector(`[data-field="${key}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 
       await typewriterField(key, value)
+
+      if (!mountedRef.current) break
+
+      // Force preview HTML update now (bypasses the 200ms debounced useEffect so the
+      // preview section element exists in the DOM before we try to scrollIntoView it)
+      setPreviewHtml(buildPreviewHTML(latestFieldsRef.current))
+      await new Promise<void>(r => setTimeout(r, 80))
+
+      previewScrollRef.current?.querySelector(`[data-field="${key}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
 
     if (mountedRef.current) {
       setCurrentAnimatingField(null)
       setIsAnimating(false)
       autoSaveEnabledRef.current = true
-      // Return both panes to top after animation completes
-      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-      previewScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+      // Use direct scrollTop (not scrollTo smooth) inside a delay so it fires after
+      // the debounced preview HTML update (which would otherwise cancel a smooth scroll)
+      const form = formScrollRef.current
+      const preview = previewScrollRef.current
+      setTimeout(() => {
+        if (form) form.scrollTop = 0
+        if (preview) preview.scrollTop = 0
+      }, 250)
     }
   }
 
