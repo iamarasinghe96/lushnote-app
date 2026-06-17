@@ -772,3 +772,4 @@ export async function incrementGeminiUsage(uid: string, modelKey: string) {
 - Always run `tsc --noEmit` after editing TypeScript
 - Always commit to main directly — no new branches
 - Always start with: `git checkout main && git pull origin main`
+- After every push (regardless of which branch the session instructs), ALWAYS also run `git push origin HEAD:main` so Vercel deploys immediately — never leave changes only on a feature branch
