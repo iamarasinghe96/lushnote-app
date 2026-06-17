@@ -455,10 +455,16 @@ export default function PatientsPage() {
               <GenderAvatar gender={p.gender} size={40} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-[var(--text)] truncate">{p.name}</p>
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className="text-xs text-[var(--text3)]">
                     {p.visits} visit{p.visits !== 1 ? 's' : ''}
                   </span>
+                  {p.reg && (
+                    <>
+                      <span className="text-xs text-[var(--text3)]">·</span>
+                      <span className="text-xs text-[var(--text3)]">#{p.reg}</span>
+                    </>
+                  )}
                   {p.lastDate && (
                     <>
                       <span className="text-xs text-[var(--text3)]">·</span>
