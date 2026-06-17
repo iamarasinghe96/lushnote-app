@@ -102,17 +102,17 @@ function PatientDetail({ patient, notes, onBack, onLoadNote, onDeleteNote }: Pat
     <div className="flex flex-col h-full overflow-hidden">
       {/* Back button */}
       <div
-        className="shrink-0 px-4 py-2 border-b border-[var(--border)] flex items-center gap-2"
+        className="shrink-0 px-4 py-2 border-b border-[var(--border)] flex items-center justify-end"
         style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
       >
         <button
           onClick={onBack}
           className="flex items-center gap-1.5 text-sm text-[var(--blue)] active:scale-95 transition-transform"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <polyline points="15,18 9,12 15,6"/>
-          </svg>
           Patients
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <polyline points="9,18 15,12 9,6"/>
+          </svg>
         </button>
       </div>
 
