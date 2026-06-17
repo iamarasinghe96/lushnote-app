@@ -95,24 +95,24 @@ const PREVIEW_FIELD_ORDER = [
 
 function formatContent(text: string): string {
   const lines = escapeHtml(text).split('\n')
-  let html = '', inOl = false, inUl = false
+  let html = '', inOl = false
   lines.forEach(line => {
-    if (/^\d+\.\s/.test(line)) {
+    const subheading = line.match(/^#{1,3}\s+(.+)/)
+    if (subheading) {
+      if (inOl) { html += '</ol>'; inOl = false }
+      html += `<p style="font-weight:600;margin-top:0.75em;margin-bottom:0.15em;">${subheading[1]}</p>`
+    } else if (/^\d+\.\s/.test(line)) {
       if (!inOl) { html += '<ol>'; inOl = true }
-      if (inUl) { html += '</ul>'; inUl = false }
       html += `<li>${line.replace(/^\d+\.\s/, '')}</li>`
     } else if (/^[-•]\s/.test(line)) {
-      if (!inUl) { html += '<ul>'; inUl = true }
-      if (inOl) { html += '</ol>'; inOl = false }
+      if (!inOl) { html += '<ol>'; inOl = true }
       html += `<li>${line.replace(/^[-•]\s/, '')}</li>`
     } else {
       if (inOl) { html += '</ol>'; inOl = false }
-      if (inUl) { html += '</ul>'; inUl = false }
       if (line.trim()) html += `<p>${line}</p>`
     }
   })
   if (inOl) html += '</ol>'
-  if (inUl) html += '</ul>'
   return html
 }
 
