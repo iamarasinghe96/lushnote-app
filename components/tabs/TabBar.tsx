@@ -59,6 +59,11 @@ export default function TabBar() {
     { href: '/patients',   label: 'Patients',    icon: PatientsIcon },
   ]
 
+  const activeIndex = tabs.findIndex(
+    t => pathname === t.href || pathname.startsWith(t.href + '/')
+  )
+  const tabPct = 100 / tabs.length
+
   return (
     <>
       {/* Spacer so content doesn't hide behind fixed pill */}
@@ -72,42 +77,58 @@ export default function TabBar() {
           borderRadius: 32,
           backdropFilter: 'blur(32px)',
           WebkitBackdropFilter: 'blur(32px)',
-          background: 'rgba(10,15,30,0.52)',
+          background: 'rgba(10,15,30,0.62)',
           border: '1px solid rgba(255,255,255,0.14)',
           boxShadow: '0 8px 32px rgba(10,15,30,0.28), inset 0 1px 0 rgba(255,255,255,0.10)',
         }}
       >
+        {/* Sliding liquid-glass selection capsule */}
+        {activeIndex >= 0 && (
+          <div
+            aria-hidden
+            className="absolute pointer-events-none"
+            style={{ top: -4, bottom: -4, left: 8, right: 8 }}
+          >
+            {/* full-tab-width mover — translates by whole tabs */}
+            <div
+              className="absolute top-0 bottom-0 motion-safe:transition-transform"
+              style={{
+                width: `${tabPct}%`,
+                transform: `translateX(${activeIndex * 100}%)`,
+                transitionDuration: '460ms',
+                transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)',
+              }}
+            >
+              {/* inset pill */}
+              <span
+                className="absolute top-0 bottom-0 rounded-[26px]"
+                style={{
+                  left: 4,
+                  right: 4,
+                  background: 'var(--blue)',
+                  boxShadow: [
+                    '0 4px 18px color-mix(in srgb, var(--blue) 55%, transparent)',
+                    'inset 0 1.5px 0 rgba(255,255,255,0.38)',
+                    'inset 0 -1px 0 rgba(0,0,0,0.15)',
+                    '0 1px 3px rgba(0,0,0,0.25)',
+                  ].join(', '),
+                  border: '1px solid rgba(255,255,255,0.22)',
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {tabs.map(({ href, label, icon }) => {
           const active = pathname === href || pathname.startsWith(href + '/')
           return (
             <Link
               key={href}
               href={href}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5 relative motion-safe:transition-all"
+              className="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5"
               style={{ minWidth: 0 }}
             >
-              {/* Active capsule highlight */}
-              {active && (
-                <span
-                  className="absolute inset-x-0.5 rounded-[26px]"
-                  style={{
-                    top: -4,
-                    bottom: -4,
-                    background: 'var(--blue)',
-                    boxShadow: [
-                      '0 4px 18px color-mix(in srgb, var(--blue) 55%, transparent)',
-                      'inset 0 1.5px 0 rgba(255,255,255,0.38)',
-                      'inset 0 -1px 0 rgba(0,0,0,0.15)',
-                      '0 1px 3px rgba(0,0,0,0.25)',
-                    ].join(', '),
-                    backdropFilter: 'blur(8px)',
-                    WebkitBackdropFilter: 'blur(8px)',
-                    border: '1px solid rgba(255,255,255,0.22)',
-                  }}
-                  aria-hidden
-                />
-              )}
-              <span className={`relative flex flex-col items-center gap-0.5 py-1
+              <span className={`flex flex-col items-center gap-0.5 py-1 motion-safe:transition-colors duration-300
                 ${active ? 'text-white' : 'text-white/45'}`}
               >
                 {icon}
