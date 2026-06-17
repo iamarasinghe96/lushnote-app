@@ -11,7 +11,7 @@ export function GenderAvatar({ gender, size = 48 }: GenderAvatarProps) {
         width={size}
         height={size}
         alt="Male avatar"
-        style={{ borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #e2e8f0' }}
+        style={{ borderRadius: '50%', objectFit: 'cover', boxShadow: '0 0 0 1.5px rgba(15,23,42,0.08), 0 1px 4px rgba(15,23,42,0.06)' }}
       />
     )
   }
@@ -22,7 +22,7 @@ export function GenderAvatar({ gender, size = 48 }: GenderAvatarProps) {
         width={size}
         height={size}
         alt="Female avatar"
-        style={{ borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #e2e8f0' }}
+        style={{ borderRadius: '50%', objectFit: 'cover', boxShadow: '0 0 0 1.5px rgba(15,23,42,0.08), 0 1px 4px rgba(15,23,42,0.06)' }}
       />
     )
   }
