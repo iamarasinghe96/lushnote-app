@@ -6,20 +6,24 @@ interface GenderAvatarProps {
 export function GenderAvatar({ gender, size = 48 }: GenderAvatarProps) {
   if (gender === 'male') {
     return (
-      <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-hidden>
-        <circle cx="24" cy="24" r="24" fill="#dbeafe" />
-        <circle cx="24" cy="18" r="8" fill="#93c5fd" />
-        <path d="M8 44c0-8.8 7.2-16 16-16s16 7.2 16 16" fill="#93c5fd" />
-      </svg>
+      <img
+        src="/assets/undraw_male-avatar_zkzx.svg"
+        width={size}
+        height={size}
+        alt="Male avatar"
+        style={{ borderRadius: '50%', objectFit: 'cover' }}
+      />
     )
   }
   if (gender === 'female') {
     return (
-      <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-hidden>
-        <circle cx="24" cy="24" r="24" fill="#fce7f3" />
-        <circle cx="24" cy="18" r="8" fill="#f9a8d4" />
-        <path d="M8 46c0-8.8 7.2-14 16-14s16 5.2 16 14" fill="#f9a8d4" />
-      </svg>
+      <img
+        src="/assets/undraw_female-avatar_7t6k.svg"
+        width={size}
+        height={size}
+        alt="Female avatar"
+        style={{ borderRadius: '50%', objectFit: 'cover' }}
+      />
     )
   }
   return (
@@ -30,3 +34,4 @@ export function GenderAvatar({ gender, size = 48 }: GenderAvatarProps) {
     </svg>
   )
 }
+
