@@ -232,11 +232,11 @@ export default function Page() {
         <div
           className="max-w-xl mx-auto text-center space-y-4 rounded-[var(--r-lg)] py-14 px-6"
           style={{
-            background: 'rgba(29,78,216,0.55)',
+            background: 'rgba(29,78,216,0.78)',
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
-            border: '1px solid rgba(255,255,255,0.18)',
-            boxShadow: '0 8px 32px rgba(29,78,216,0.18)',
+            border: '1px solid rgba(255,255,255,0.28)',
+            boxShadow: '0 8px 32px rgba(29,78,216,0.30), inset 0 1px 0 rgba(255,255,255,0.18)',
           }}
         >
           <h2 className="text-3xl font-bold text-white">Document smarter.</h2>

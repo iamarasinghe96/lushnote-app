@@ -89,10 +89,20 @@ export default function TabBar() {
               {/* Active capsule highlight */}
               {active && (
                 <span
-                  className="absolute inset-x-1 inset-y-0 rounded-[22px]"
+                  className="absolute inset-x-0.5 rounded-[26px]"
                   style={{
-                    background: 'rgba(37,99,235,0.70)',
-                    boxShadow: '0 2px 12px rgba(37,99,235,0.45), inset 0 1px 0 rgba(255,255,255,0.18)',
+                    top: -4,
+                    bottom: -4,
+                    background: 'var(--blue)',
+                    boxShadow: [
+                      '0 4px 18px color-mix(in srgb, var(--blue) 55%, transparent)',
+                      'inset 0 1.5px 0 rgba(255,255,255,0.38)',
+                      'inset 0 -1px 0 rgba(0,0,0,0.15)',
+                      '0 1px 3px rgba(0,0,0,0.25)',
+                    ].join(', '),
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255,255,255,0.22)',
                   }}
                   aria-hidden
                 />
