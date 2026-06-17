@@ -11,7 +11,7 @@ export function GenderAvatar({ gender, size = 48 }: GenderAvatarProps) {
         width={size}
         height={size}
         alt="Male avatar"
-        style={{ borderRadius: '50%', objectFit: 'cover' }}
+        style={{ borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #e2e8f0' }}
       />
     )
   }
@@ -22,7 +22,7 @@ export function GenderAvatar({ gender, size = 48 }: GenderAvatarProps) {
         width={size}
         height={size}
         alt="Female avatar"
-        style={{ borderRadius: '50%', objectFit: 'cover' }}
+        style={{ borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #e2e8f0' }}
       />
     )
   }
