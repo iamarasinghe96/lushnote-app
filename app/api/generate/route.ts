@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateNote, checkQuota } from '@/lib/gemini'
+import { generateNote, checkQuota, GEMINI_RATE_LIMIT_ERROR } from '@/lib/gemini'
 import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
-import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles'
+import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles'
 import { rateLimit } from '@/lib/rateLimit'
 
 export async function POST(req: NextRequest) {
@@ -128,7 +128,10 @@ Dictation: ${transcript}`,
           const { text: content, totalTokens } = await generateNote(prompt, systemPrompt!)
           await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
           return NextResponse.json({ content, provider: 'gemini' })
-        } catch {
+        } catch (err) {
+          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR) {
+            await markGeminiLimitReached(uid, 'gemini-2.5-flash').catch(() => {})
+          }
           // fall through to Groq
         }
       }

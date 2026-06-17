@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { transcribeAudio, checkQuota } from '@/lib/gemini'
+import { transcribeAudio, checkQuota, GEMINI_RATE_LIMIT_ERROR } from '@/lib/gemini'
 import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
-import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles'
+import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles'
 import { rateLimit } from '@/lib/rateLimit'
 
 export async function POST(req: NextRequest) {
@@ -39,7 +39,10 @@ export async function POST(req: NextRequest) {
           const { text, totalTokens } = await transcribeAudio(base64, mimeType)
           await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
           return NextResponse.json({ text, provider: 'gemini' })
-        } catch {
+        } catch (err) {
+          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR) {
+            await markGeminiLimitReached(uid, 'gemini-2.5-flash').catch(() => {})
+          }
           // fall through to Groq
         }
       }

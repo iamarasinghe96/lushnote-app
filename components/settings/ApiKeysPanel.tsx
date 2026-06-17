@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Button from '@/components/ui/Button'
 import { updateProfile } from '@/lib/firestore/profiles'
+import { quotaDate } from '@/lib/utils'
 import type { User } from '@/types'
 
 interface ApiKeysPanelProps {
@@ -27,7 +28,7 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
   const router = useRouter()
 
   const geminiUsage = profile?.geminiUsage?.['gemini-2.5-flash']
-  const today = new Date().toISOString().slice(0, 10)
+  const today = quotaDate()
   const usedToday = geminiUsage?.date === today ? (geminiUsage?.count || 0) : 0
   const tokensToday = geminiUsage?.date === today ? (geminiUsage?.tokens || 0) : 0
 

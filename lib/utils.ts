@@ -1,5 +1,12 @@
 import { WP_THEMES, type Note, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields } from '@/types'
 
+// Daily quota date aligned to Google's free-tier reset (US Pacific midnight),
+// returned as YYYY-MM-DD. Using UTC here would reset hours early/late and
+// diverge from the limit Google actually enforces.
+export function quotaDate(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
+}
+
 export function getInitials(displayName: string): string {
   if (!displayName) return 'LN'
   const cleaned = displayName.replace(/^(doctor|dr\.?)\s+/i, '').trim()

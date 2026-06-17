@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { chatResponse, checkQuota } from '@/lib/gemini'
+import { chatResponse, checkQuota, GEMINI_RATE_LIMIT_ERROR } from '@/lib/gemini'
 import { generateNoteGroq } from '@/lib/groq'
-import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles'
+import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles'
 import { rateLimit } from '@/lib/rateLimit'
 
 const TRANSCRIPT_QA_SYSTEM_PROMPT = `You are a clinical documentation assistant. The user is a psychiatrist reviewing a session transcript.
@@ -58,7 +58,10 @@ Keep responses concise and practical.`
             await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
           }
           return NextResponse.json({ answer, provider: 'gemini' })
-        } catch {
+        } catch (err) {
+          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR && typeof uid === 'string') {
+            await markGeminiLimitReached(uid, 'chat').catch(() => {})
+          }
           // fall through to Groq
         }
       }
@@ -98,7 +101,10 @@ Keep responses concise and practical.`
             await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
           }
           return NextResponse.json({ answer, provider: 'gemini' })
-        } catch {
+        } catch (err) {
+          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR && typeof uid === 'string') {
+            await markGeminiLimitReached(uid, 'chat').catch(() => {})
+          }
           // fall through to Groq
         }
       }
@@ -146,7 +152,10 @@ Keep responses concise and practical.`
           const { text: reply, totalTokens } = await chatResponse(messages, systemPrompt)
           await updateGeminiUsage(uid, 'chat', totalTokens)
           return NextResponse.json({ reply, provider: 'gemini' })
-        } catch {
+        } catch (err) {
+          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR && typeof uid === 'string') {
+            await markGeminiLimitReached(uid, 'chat').catch(() => {})
+          }
           // fall through to Groq
         }
       }

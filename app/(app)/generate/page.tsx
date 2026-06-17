@@ -4,7 +4,7 @@ import { useState, useEffect, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { openSettings } from '@/lib/utils'
+import { openSettings, quotaDate } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import Textarea from '@/components/ui/Textarea'
@@ -143,8 +143,8 @@ export default function GeneratePage() {
     }
   }, [transcriptConfirmOpen, user?.uid])
 
-  // Quota calculation
-  const today = new Date().toISOString().slice(0, 10)
+  // Quota calculation (date aligned to Google's Pacific reset)
+  const today = quotaDate()
   const usageEntry = profile?.geminiUsage?.['gemini-2.5-flash']
   const usedToday = usageEntry?.date === today ? (usageEntry?.count ?? 0) : 0
 

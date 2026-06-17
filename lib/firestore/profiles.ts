@@ -1,6 +1,9 @@
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { quotaDate } from '@/lib/utils'
 import type { User, GeminiUsage } from '@/types'
+
+const GEMINI_RPD = 20
 
 export async function getProfile(uid: string): Promise<User | null> {
   const ref = doc(db, 'users', uid)
@@ -34,7 +37,7 @@ export async function deleteProfile(uid: string): Promise<void> {
 }
 
 export async function updateGeminiUsage(uid: string, modelKey: string, tokens = 0): Promise<void> {
-  const today = new Date().toISOString().split('T')[0]
+  const today = quotaDate()
   const ref = doc(db, 'users', uid)
   const snap = await getDoc(ref)
   const existing = (snap.data()?.geminiUsage as GeminiUsage | undefined)?.[modelKey]
@@ -46,6 +49,24 @@ export async function updateGeminiUsage(uid: string, modelKey: string, tokens = 
 
   await updateDoc(ref, {
     [`geminiUsage.${modelKey}`]: newRecord,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// Google returned 429 for this key — peg the local counter to the daily
+// limit so the UI reflects the real "limit reached" state instead of a
+// stale low number, and the app routes to Groq.
+export async function markGeminiLimitReached(uid: string, modelKey: string): Promise<void> {
+  const today = quotaDate()
+  const ref = doc(db, 'users', uid)
+  const snap = await getDoc(ref)
+  const existing = (snap.data()?.geminiUsage as GeminiUsage | undefined)?.[modelKey]
+  await updateDoc(ref, {
+    [`geminiUsage.${modelKey}`]: {
+      count: GEMINI_RPD,
+      date: today,
+      tokens: existing && existing.date === today ? (existing.tokens ?? 0) : 0,
+    },
     updatedAt: serverTimestamp(),
   })
 }

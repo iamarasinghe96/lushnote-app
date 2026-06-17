@@ -1,4 +1,7 @@
 import type { GeminiUsage } from '@/types'
+import { quotaDate } from '@/lib/utils'
+
+export const GEMINI_RATE_LIMIT_ERROR = 'GEMINI_RATE_LIMIT'
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 const PRIMARY_MODEL = 'gemini-2.5-flash'
@@ -19,6 +22,7 @@ async function geminiPost(model: string, body: object): Promise<GeminiResult> {
     }
   )
   if (!res.ok) {
+    if (res.status === 429) throw new Error(GEMINI_RATE_LIMIT_ERROR)
     throw new Error(`Gemini API error ${res.status}: ${res.statusText}`)
   }
   const data = await res.json()
@@ -62,7 +66,7 @@ export async function chatResponse(
 }
 
 export function checkQuota(usageRecord: GeminiUsage, modelKey: string): boolean {
-  const today = new Date().toISOString().split('T')[0]
+  const today = quotaDate()
   const record = usageRecord[modelKey]
   if (!record || record.date !== today) return true
   return record.count < 20
