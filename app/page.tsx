@@ -49,12 +49,12 @@ export default function Page() {
           inset: 0,
           zIndex: -1,
           background: [
-            'radial-gradient(ellipse 90% 55% at 50% 0%,   rgba(90,214,167,0.52) 0%, transparent 60%)',
-            'radial-gradient(ellipse 65% 40% at 90% 18%,  rgba(37,99,235,0.28)  0%, transparent 55%)',
-            'radial-gradient(ellipse 70% 38% at 8%  50%,  rgba(90,214,167,0.24) 0%, transparent 55%)',
-            'radial-gradient(ellipse 65% 38% at 88% 70%,  rgba(37,99,235,0.24)  0%, transparent 55%)',
-            'radial-gradient(ellipse 60% 30% at 20% 90%,  rgba(90,214,167,0.20) 0%, transparent 50%)',
-            '#f8fafc',
+            'radial-gradient(ellipse 90% 55% at 50% 0%,   rgba(90,214,167,0.85) 0%, transparent 58%)',
+            'radial-gradient(ellipse 65% 40% at 92% 18%,  rgba(37,99,235,0.60)  0%, transparent 52%)',
+            'radial-gradient(ellipse 70% 38% at 6%  50%,  rgba(90,214,167,0.55) 0%, transparent 52%)',
+            'radial-gradient(ellipse 65% 38% at 90% 70%,  rgba(37,99,235,0.55)  0%, transparent 52%)',
+            'radial-gradient(ellipse 60% 30% at 18% 90%,  rgba(90,214,167,0.50) 0%, transparent 48%)',
+            '#f0f7ff',
           ].join(', '),
         }}
       />
