@@ -351,7 +351,12 @@ export default function PatientsPage() {
     [notes, selectedPatient]
   )
 
-  // Find the stored profile for the selected patient
+  // Derive first-seen date from sorted patient notes
+  const patientFirstSeen = useMemo(() => {
+    if (!patientNotes.length) return ''
+    const sorted = [...patientNotes].sort((a, b) => compareDateStrs(a.date, b.date))
+    return sorted[0]?.date || ''
+  }, [patientNotes])
   const selectedProfile = useMemo(() => {
     if (!selectedPatient) return undefined
     return Object.values(profiles).find(
@@ -393,6 +398,8 @@ export default function PatientsPage() {
         <PatientModal
           open={!!editingProfile}
           patient={editingProfile}
+          regNumber={selectedPatient.reg || undefined}
+          firstSeen={patientFirstSeen || undefined}
           onSave={async saved => {
             if (saved.id) setProfiles(prev => ({ ...prev, [saved.id!]: saved }))
             const oldName = editingProfile?.displayName?.trim() ?? ''

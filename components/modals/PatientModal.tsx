@@ -12,6 +12,8 @@ import type { PatientProfile } from '@/types'
 interface PatientModalProps {
   open: boolean
   patient?: PatientProfile
+  regNumber?: string
+  firstSeen?: string
   onSave: (profile: PatientProfile) => void
   onClose: () => void
 }
@@ -24,7 +26,7 @@ const GENDER_OPTIONS = [
   { value: 'prefer-not-to-say', label: 'Prefer not to say' },
 ] as const
 
-export default function PatientModal({ open, patient, onSave, onClose }: PatientModalProps) {
+export default function PatientModal({ open, patient, regNumber, firstSeen, onSave, onClose }: PatientModalProps) {
   const { user } = useAuth()
   const isEdit = !!patient
 
@@ -109,6 +111,23 @@ export default function PatientModal({ open, patient, onSave, onClose }: Patient
             ))}
           </select>
         </div>
+
+        {isEdit && (regNumber || firstSeen) && (
+          <div className="grid grid-cols-2 gap-3 pt-1 border-t border-[var(--border)]">
+            {regNumber && (
+              <div>
+                <p className="text-xs text-[var(--text3)] mb-1">Registration #</p>
+                <p className="text-sm font-medium text-[var(--text)]">{regNumber}</p>
+              </div>
+            )}
+            {firstSeen && (
+              <div>
+                <p className="text-xs text-[var(--text3)] mb-1">First seen</p>
+                <p className="text-sm font-medium text-[var(--text)]">{firstSeen}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex gap-2 pt-1">
           <Button variant="ghost" onClick={onClose} className="flex-1" disabled={saving}>
