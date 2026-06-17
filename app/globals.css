@@ -65,6 +65,18 @@ body { -webkit-font-smoothing: antialiased; }
   animation: save-flash 0.6s ease-out forwards;
 }
 
+/* Liquid tab capsule — squash & stretch while it slides between tabs */
+@keyframes ln-tab-stretch {
+  0%   { transform: scaleX(1)    scaleY(1); }
+  42%  { transform: scaleX(1.16) scaleY(0.9); }
+  100% { transform: scaleX(1)    scaleY(1); }
+}
+
+.ln-tab-pill {
+  transform-origin: center;
+  animation: ln-tab-stretch 460ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 /* Reduced motion — disables ALL transitions and animations */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

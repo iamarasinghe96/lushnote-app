@@ -99,9 +99,10 @@ export default function TabBar() {
                 transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)',
               }}
             >
-              {/* inset pill */}
+              {/* inset pill — re-keyed so the squash/stretch replays each switch */}
               <span
-                className="absolute top-0 bottom-0 rounded-[26px]"
+                key={activeIndex}
+                className="absolute top-0 bottom-0 rounded-[26px] ln-tab-pill"
                 style={{
                   left: 4,
                   right: 4,
