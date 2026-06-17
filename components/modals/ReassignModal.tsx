@@ -34,6 +34,10 @@ export default function ReassignModal({ open, allNotes, onConfirm, onClose }: Re
       setRegNumber('')
       setShowDropdown(false)
       setDropdownRect(null)
+      // Delay focus so modal animation completes; on iOS this won't show
+      // the keyboard (iOS blocks programmatic keyboard) but it primes the
+      // input so the user's first tap shows the keyboard immediately.
+      setTimeout(() => inputRef.current?.focus(), 300)
     } else {
       setShowDropdown(false)
       setDropdownRect(null)
@@ -137,7 +141,7 @@ export default function ReassignModal({ open, allNotes, onConfirm, onClose }: Re
               }}
               onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
               placeholder="Search or enter patient name"
-              autoFocus
+              inputMode="text"
               className="w-full px-3 py-2.5 text-sm bg-white border border-[var(--border)] rounded-[var(--r-sm)] text-[var(--text)] placeholder:text-[var(--text3)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
             />
           </div>
