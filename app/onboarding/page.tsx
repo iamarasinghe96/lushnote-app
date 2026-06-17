@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { signOut } from 'firebase/auth'
 import { useAuth } from '@/hooks/useAuth'
+import { auth } from '@/lib/firebase'
 import { createProfile, updateProfile } from '@/lib/firestore/profiles'
 import { detectIdPattern } from '@/lib/utils'
 import type { WorkplaceType, Workplace } from '@/types'
@@ -149,9 +151,17 @@ export default function OnboardingPage() {
     <main className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         {/* Header */}
-        <div className="flex items-center gap-2 mb-8">
-          <img src="/icon.svg" alt="LushNote" width={32} height={32} />
-          <span className="font-semibold text-[#0f172a]">LushNote</span>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-2">
+            <img src="/icon.svg" alt="LushNote" width={32} height={32} />
+            <span className="font-semibold text-[#0f172a]">LushNote</span>
+          </div>
+          <button
+            onClick={() => signOut(auth).then(() => router.replace('/'))}
+            className="text-sm text-[#94a3b8] hover:text-[#475569] transition-colors"
+          >
+            Sign out
+          </button>
         </div>
 
         {/* Progress dots */}
