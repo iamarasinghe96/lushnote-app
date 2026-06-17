@@ -15,7 +15,7 @@ export async function generateNoteGroq(
     },
     body: JSON.stringify({
       model: GENERATION_MODEL,
-      max_tokens: 2048,
+      max_tokens: 32768,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt },
