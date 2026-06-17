@@ -1058,10 +1058,10 @@ function EditContent() {
         </div>
       )}
 
-      <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-[55%_45%]">
+      <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-[55%_45%] grid-rows-[1fr]">
 
         {/* LEFT: form */}
-        <div ref={formScrollRef} className="overflow-y-auto p-4">
+        <div ref={formScrollRef} className="overflow-y-auto p-4 min-h-0">
           <div className="max-w-lg mx-auto space-y-4 pb-10">
 
             {/* Letter mode fields */}
@@ -1517,7 +1517,7 @@ function EditContent() {
 
         {/* RIGHT: live preview — hidden on mobile unless toggled */}
         <div
-          className={`${showMobilePreview ? 'flex' : 'hidden'} md:flex flex-col border-l border-[var(--border)]`}
+          className={`${showMobilePreview ? 'flex' : 'hidden'} md:flex flex-col border-l border-[var(--border)] min-h-0 overflow-hidden`}
           style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
         >
           <div
@@ -1528,7 +1528,7 @@ function EditContent() {
           </div>
           <div
             ref={previewScrollRef}
-            className="flex-1 overflow-y-auto p-4 preview-pane"
+            className="flex-1 overflow-y-auto p-4 preview-pane min-h-0"
             dangerouslySetInnerHTML={{ __html: previewHtml }}
           />
         </div>
