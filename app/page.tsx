@@ -83,34 +83,13 @@ export default function Page() {
         className="relative flex flex-col items-center justify-center min-h-screen text-center px-4"
         style={{
           paddingTop: 56,
-          backgroundImage: "url('/assets/bg-landing.svg')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          background: [
+            'radial-gradient(ellipse 70% 50% at 50% 0%, rgba(90,214,167,0.28) 0%, transparent 70%)',
+            'radial-gradient(ellipse 50% 40% at 80% 10%, rgba(37,99,235,0.10) 0%, transparent 65%)',
+            '#f8fafc',
+          ].join(', '),
         }}
       >
-        {/* Radial glow */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          aria-hidden="true"
-          style={{
-            background: 'radial-gradient(ellipse 60% 40% at 50% 60%, rgba(16,185,129,0.08) 0%, transparent 70%)',
-          }}
-        />
-        {/* Edge fades — dissolve SVG into page background on all sides */}
-        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-          {/* bottom */}
-          <div className="absolute bottom-0 left-0 right-0 h-48"
-            style={{ background: 'linear-gradient(to bottom, transparent, #f8fafc)' }} />
-          {/* left */}
-          <div className="absolute top-0 bottom-0 left-0 w-32"
-            style={{ background: 'linear-gradient(to right, #f8fafc, transparent)' }} />
-          {/* right */}
-          <div className="absolute top-0 bottom-0 right-0 w-32"
-            style={{ background: 'linear-gradient(to left, #f8fafc, transparent)' }} />
-          {/* top (under nav) */}
-          <div className="absolute top-0 left-0 right-0 h-20"
-            style={{ background: 'linear-gradient(to top, transparent, #f8fafc)' }} />
-        </div>
         <div className="max-w-2xl mx-auto space-y-6">
           <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold
                            bg-[var(--blue-lt)] text-[var(--blue)]">
