@@ -1,13 +1,25 @@
-import type { TextareaHTMLAttributes } from 'react'
+'use client'
+
+import { useRef, useEffect, type TextareaHTMLAttributes } from 'react'
 
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string
   error?: string
   hint?: string
+  autoResize?: boolean
 }
 
-export default function Textarea({ label, error, hint, className = '', id, rows = 4, ...rest }: TextareaProps) {
+export default function Textarea({ label, error, hint, autoResize, className = '', id, rows = 4, ...rest }: TextareaProps) {
   const inputId = id ?? (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined)
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (!autoResize || !ref.current) return
+    const el = ref.current
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+  }, [rest.value, autoResize])
+
   return (
     <div className="w-full">
       {label && (
@@ -16,12 +28,13 @@ export default function Textarea({ label, error, hint, className = '', id, rows 
         </label>
       )}
       <textarea
+        ref={ref}
         id={inputId}
         rows={rows}
         className={`
           w-full rounded-[var(--r)] border border-[var(--border)] bg-white
           px-3 py-2.5 text-sm text-[var(--text)] placeholder:text-[var(--text3)]
-          outline-none resize-y
+          outline-none ${autoResize ? 'resize-none overflow-hidden' : 'resize-y'}
           focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
           disabled:opacity-50 disabled:cursor-not-allowed
           transition-colors

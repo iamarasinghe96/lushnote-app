@@ -1406,6 +1406,7 @@ function EditContent() {
               <Textarea
                 label="Diagnosis"
                 rows={3}
+                autoResize
                 value={fields.diagnosis ?? ''}
                 onChange={e => setField('diagnosis', e.target.value)}
                 onBlur={() => handleFieldBlur('diagnosis')}
@@ -1416,6 +1417,7 @@ function EditContent() {
               <Textarea
                 label="Presentation"
                 rows={5}
+                autoResize
                 value={fields.presentation ?? ''}
                 onChange={e => setField('presentation', e.target.value)}
                 onBlur={() => handleFieldBlur('presentation')}
@@ -1426,6 +1428,7 @@ function EditContent() {
               <Textarea
                 label="History"
                 rows={5}
+                autoResize
                 value={fields.history ?? ''}
                 onChange={e => setField('history', e.target.value)}
                 onBlur={() => handleFieldBlur('history')}
@@ -1436,6 +1439,7 @@ function EditContent() {
               <Textarea
                 label="Medications"
                 rows={3}
+                autoResize
                 value={fields.medications ?? ''}
                 onChange={e => setField('medications', e.target.value)}
                 onBlur={() => handleFieldBlur('medications')}
@@ -1446,6 +1450,7 @@ function EditContent() {
               <Textarea
                 label="Mental Status Examination"
                 rows={5}
+                autoResize
                 value={fields.mse ?? ''}
                 onChange={e => setField('mse', e.target.value)}
                 onBlur={() => handleFieldBlur('mse')}
@@ -1456,6 +1461,7 @@ function EditContent() {
               <Textarea
                 label="Session Content"
                 rows={8}
+                autoResize
                 value={fields.content ?? ''}
                 onChange={e => setField('content', e.target.value)}
                 onBlur={() => handleFieldBlur('content')}
@@ -1467,6 +1473,7 @@ function EditContent() {
               <Textarea
                 label="Scales"
                 rows={3}
+                autoResize
                 value={fields.scales ?? ''}
                 onChange={e => setField('scales', e.target.value)}
                 onBlur={() => handleFieldBlur('scales')}
@@ -1478,6 +1485,7 @@ function EditContent() {
               <Textarea
                 label="Risk"
                 rows={4}
+                autoResize
                 value={fields.risk ?? ''}
                 onChange={e => setField('risk', e.target.value)}
                 onBlur={() => handleFieldBlur('risk')}
@@ -1489,6 +1497,7 @@ function EditContent() {
               <Textarea
                 label="Referrals"
                 rows={3}
+                autoResize
                 value={fields.referrals ?? ''}
                 onChange={e => setField('referrals', e.target.value)}
                 onBlur={() => handleFieldBlur('referrals')}
@@ -1500,6 +1509,7 @@ function EditContent() {
               <Textarea
                 label="Summary"
                 rows={5}
+                autoResize
                 value={fields.summary ?? ''}
                 onChange={e => setField('summary', e.target.value)}
                 onBlur={() => handleFieldBlur('summary')}
@@ -1510,6 +1520,7 @@ function EditContent() {
               <Textarea
                 label="Next Steps"
                 rows={3}
+                autoResize
                 value={fields.nextsteps ?? ''}
                 onChange={e => setField('nextsteps', e.target.value)}
                 onBlur={() => handleFieldBlur('nextsteps')}
