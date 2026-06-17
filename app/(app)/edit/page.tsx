@@ -1517,18 +1517,18 @@ function EditContent() {
 
         {/* RIGHT: live preview — hidden on mobile unless toggled */}
         <div
-          className={`${showMobilePreview ? 'flex' : 'hidden'} md:flex flex-col border-l border-[var(--border)] min-h-0 overflow-hidden`}
-          style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
+          className={`${showMobilePreview ? 'grid' : 'hidden'} md:grid min-h-0 border-l border-[var(--border)]`}
+          style={{ gridTemplateRows: 'auto 1fr', background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
         >
           <div
-            className="sticky top-0 border-b border-[var(--border)] px-4 py-2"
+            className="border-b border-[var(--border)] px-4 py-2"
             style={{ background: 'rgba(255,255,255,0.80)', backdropFilter: 'blur(12px)' }}
           >
             <span className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wide">Preview</span>
           </div>
           <div
             ref={previewScrollRef}
-            className="flex-1 overflow-y-auto p-4 preview-pane min-h-0"
+            className="overflow-y-auto p-4 preview-pane min-h-0"
             dangerouslySetInnerHTML={{ __html: previewHtml }}
           />
         </div>
