@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { getPatientProfiles } from '@/lib/firestore/patients'
-import { listNotes, deleteNote } from '@/lib/firestore/notes'
+import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
 import { GenderAvatar } from '@/components/ui/GenderAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -353,11 +353,21 @@ export default function PatientsPage() {
         <PatientModal
           open={!!editingProfile}
           patient={editingProfile}
-          onSave={saved => {
+          onSave={async saved => {
             if (saved.id) setProfiles(prev => ({ ...prev, [saved.id!]: saved }))
-            // Sync gender/dob back onto selectedPatient
+            const oldName = editingProfile?.displayName?.trim() ?? ''
+            const newName = saved.displayName.trim()
+            if (oldName && newName && oldName.toLowerCase() !== newName.toLowerCase()) {
+              const toRename = notes.filter(n => n.patient?.trim().toLowerCase() === oldName.toLowerCase()).map(n => n.id!)
+              if (toRename.length) {
+                await renamePatientInNotes(toRename, newName)
+                setNotes(prev => prev.map(n =>
+                  n.patient?.trim().toLowerCase() === oldName.toLowerCase() ? { ...n, patient: newName } : n
+                ))
+              }
+            }
             setSelectedPatient(prev => prev
-              ? { ...prev, gender: saved.gender, dob: saved.dob }
+              ? { ...prev, name: newName || prev.name, gender: saved.gender, dob: saved.dob }
               : prev
             )
             setEditingProfile(undefined)

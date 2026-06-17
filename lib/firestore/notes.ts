@@ -55,6 +55,15 @@ export async function deleteNote(noteId: string): Promise<void> {
   await deleteDoc(doc(db, 'progress_notes', noteId))
 }
 
+export async function renamePatientInNotes(noteIds: string[], newName: string): Promise<void> {
+  if (!noteIds.length) return
+  const batch = writeBatch(db)
+  noteIds.forEach(id => {
+    batch.update(doc(db, 'progress_notes', id), { patient: newName, updatedAt: serverTimestamp() })
+  })
+  await batch.commit()
+}
+
 export async function deleteAllUserNotes(userId: string): Promise<void> {
   const q = query(
     collection(db, 'progress_notes'),
