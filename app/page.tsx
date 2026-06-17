@@ -66,8 +66,8 @@ export default function Page() {
           height: 56,
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          background: 'rgba(255,255,255,0.38)',
-          borderBottom: '1px solid rgba(255,255,255,0.35)',
+          background: 'rgba(255,255,255,0.18)',
+          borderBottom: '1px solid rgba(255,255,255,0.22)',
           boxShadow: '0 1px 4px rgba(15,23,42,.06)',
         }}
       >
@@ -175,10 +175,10 @@ export default function Page() {
                 key={f.title}
                 className="rounded-[var(--r-lg)] p-4 backdrop-blur-md"
                 style={{
-                  background: 'rgba(255,255,255,0.35)',
-                  backdropFilter: 'blur(16px)',
-                  WebkitBackdropFilter: 'blur(16px)',
-                  boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(255,255,255,0.5)',
+                  background: 'rgba(255,255,255,0.14)',
+                  backdropFilter: 'blur(18px)',
+                  WebkitBackdropFilter: 'blur(18px)',
+                  boxShadow: '0 2px 8px rgba(15,23,42,.05), 0 0 0 1px rgba(255,255,255,0.35)',
                 }}
               >
                 <div className="mb-2 text-[var(--blue)]">{f.icon}</div>
@@ -202,10 +202,10 @@ export default function Page() {
                 key={m.title}
                 className="rounded-[var(--r-lg)] border border-[var(--border)] p-4"
                 style={{
-                  background: 'rgba(255,255,255,0.35)',
-                  backdropFilter: 'blur(16px)',
-                  WebkitBackdropFilter: 'blur(16px)',
-                  boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(255,255,255,0.5)',
+                  background: 'rgba(255,255,255,0.14)',
+                  backdropFilter: 'blur(18px)',
+                  WebkitBackdropFilter: 'blur(18px)',
+                  boxShadow: '0 2px 8px rgba(15,23,42,.05), 0 0 0 1px rgba(255,255,255,0.35)',
                 }}
               >
                 <div className="flex items-center gap-2 mb-2">
