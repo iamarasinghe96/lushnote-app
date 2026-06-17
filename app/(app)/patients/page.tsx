@@ -224,10 +224,10 @@ function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNo
       <Modal open={confirmDeletePatient} onClose={() => setConfirmDeletePatient(false)} title="Delete Patient" maxWidth="sm">
         <div className="px-5 pb-5 space-y-4">
           <p className="text-sm text-[var(--text2)]">
-            Remove <strong>{patient.name}</strong> from your patient list?
+            Permanently delete <strong>{patient.name}</strong> and all their data? This cannot be undone.
             {notes.length > 0 && (
               <span className="block mt-1 text-[var(--danger)]">
-                Their {notes.length} session note{notes.length !== 1 ? 's' : ''} will not be deleted.
+                {notes.length} session note{notes.length !== 1 ? 's' : ''} will also be deleted.
               </span>
             )}
           </p>
@@ -384,6 +384,12 @@ export default function PatientsPage() {
           onDeleteNote={handleDeleteNote}
           onEditPatient={handleEditPatient}
           onDeletePatient={async () => {
+            // Delete all session notes for this patient
+            await Promise.all(patientNotes.filter(n => n.id).map(n => deleteNote(n.id!)))
+            setNotes(prev => prev.filter(n =>
+              n.patient?.trim().toLowerCase() !== selectedPatient.name.toLowerCase()
+            ))
+            // Delete the patient profile if one exists
             if (selectedProfile?.id && user) {
               await deletePatientProfile(user.uid, selectedProfile.id)
               setProfiles(prev => {
