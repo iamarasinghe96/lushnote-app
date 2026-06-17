@@ -126,29 +126,29 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
           </Button>
         </div>
 
-        <div className="mt-3 p-3 bg-[var(--bg)] rounded-[var(--r)] border border-[var(--border)]">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-medium text-[var(--text2)]">Daily requests</span>
-            <span className={`text-xs font-bold ${usedToday >= GEMINI_RPD ? 'text-orange-500' : 'text-[var(--text)]'}`}>
+        <div className="mt-3 px-3 py-2 bg-[var(--bg)] rounded-[var(--r)] border border-[var(--border)] space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-[var(--text2)] whitespace-nowrap">Daily requests</span>
+            <div className="flex-1 h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${usedToday >= GEMINI_RPD ? 'bg-orange-400' : 'bg-[var(--blue)]'}`}
+                style={{ width: `${Math.min((usedToday / GEMINI_RPD) * 100, 100)}%` }}
+              />
+            </div>
+            <span className={`text-xs font-bold whitespace-nowrap ${usedToday >= GEMINI_RPD ? 'text-orange-500' : 'text-[var(--text)]'}`}>
               {usedToday} / {GEMINI_RPD}
             </span>
           </div>
-          <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full ${usedToday >= GEMINI_RPD ? 'bg-orange-400' : 'bg-[var(--blue)]'}`}
-              style={{ width: `${Math.min((usedToday / GEMINI_RPD) * 100, 100)}%` }}
-            />
+          <div className="flex items-center justify-between">
+            {usedToday >= GEMINI_RPD ? (
+              <p className="text-xs text-orange-500">Limit reached — add a Groq key to continue.</p>
+            ) : (
+              <p className="text-xs text-[var(--text3)]">Resets daily. Add a Groq key to extend.</p>
+            )}
+            {tokensToday > 0 && (
+              <p className="text-xs text-[var(--text3)]">{tokensToday.toLocaleString()} tokens</p>
+            )}
           </div>
-          {tokensToday > 0 && (
-            <p className="text-xs text-[var(--text3)] mt-1.5">
-              {tokensToday.toLocaleString()} tokens used today
-            </p>
-          )}
-          {usedToday >= GEMINI_RPD ? (
-            <p className="text-xs text-orange-500 mt-1">Daily limit reached. Add a Groq key to continue generating notes.</p>
-          ) : (
-            <p className="text-xs text-[var(--text3)] mt-1">Resets daily. Get a Groq key to extend your daily limit.</p>
-          )}
         </div>
       </section>
 
