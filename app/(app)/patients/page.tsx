@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { getPatientProfiles } from '@/lib/firestore/patients'
+import { getPatientProfiles, deletePatientProfile } from '@/lib/firestore/patients'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
 import { GenderAvatar } from '@/components/ui/GenderAvatar'
 import Modal from '@/components/ui/Modal'
@@ -96,10 +96,12 @@ interface PatientDetailProps {
   onLoadNote: (noteId: string) => void
   onDeleteNote: (noteId: string) => void
   onEditPatient: () => void
+  onDeletePatient: () => void
 }
 
-function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNote, onEditPatient }: PatientDetailProps) {
+function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNote, onEditPatient, onDeletePatient }: PatientDetailProps) {
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null)
+  const [confirmDeletePatient, setConfirmDeletePatient] = useState(false)
 
   const sortedNotes = useMemo(() =>
     [...notes].sort((a, b) => compareDateStrs(b.date, a.date)),
@@ -135,13 +137,22 @@ function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNo
           className="bg-white border border-[var(--border)] rounded-[var(--r-lg)] p-4 relative"
           style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
         >
-          <button
-            onClick={onEditPatient}
-            className="absolute top-4 right-4 text-xs border border-[var(--blue)] text-[var(--blue)]
-                       px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-[var(--blue-lt)] active:scale-95 transition-all"
-          >
-            Edit
-          </button>
+          <div className="absolute top-4 right-4 flex gap-2">
+            <button
+              onClick={onEditPatient}
+              className="text-xs border border-[var(--blue)] text-[var(--blue)]
+                         px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-[var(--blue-lt)] active:scale-95 transition-all"
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => setConfirmDeletePatient(true)}
+              className="text-xs border border-[var(--danger)] text-[var(--danger)]
+                         px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-red-50 active:scale-95 transition-all"
+            >
+              Delete
+            </button>
+          </div>
 
           <div className="flex items-start gap-3 mb-4 pr-16">
             <GenderAvatar gender={patient.gender} size={56} />
@@ -198,13 +209,31 @@ function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNo
         )}
       </div>
 
-      {/* In-app delete confirmation */}
+      {/* In-app delete session confirmation */}
       <Modal open={!!deleteNoteId} onClose={() => setDeleteNoteId(null)} title="Delete Session" maxWidth="sm">
         <div className="px-5 pb-5 space-y-4">
           <p className="text-sm text-[var(--text2)]">Delete this session permanently? This cannot be undone.</p>
           <div className="flex gap-2 justify-end">
             <Button variant="ghost" onClick={() => setDeleteNoteId(null)}>Cancel</Button>
             <Button variant="danger" onClick={() => { onDeleteNote(deleteNoteId!); setDeleteNoteId(null) }}>Delete</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* In-app delete patient confirmation */}
+      <Modal open={confirmDeletePatient} onClose={() => setConfirmDeletePatient(false)} title="Delete Patient" maxWidth="sm">
+        <div className="px-5 pb-5 space-y-4">
+          <p className="text-sm text-[var(--text2)]">
+            Remove <strong>{patient.name}</strong> from your patient list?
+            {notes.length > 0 && (
+              <span className="block mt-1 text-[var(--danger)]">
+                Their {notes.length} session note{notes.length !== 1 ? 's' : ''} will not be deleted.
+              </span>
+            )}
+          </p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" onClick={() => setConfirmDeletePatient(false)}>Cancel</Button>
+            <Button variant="danger" onClick={() => { setConfirmDeletePatient(false); onDeletePatient() }}>Delete</Button>
           </div>
         </div>
       </Modal>
@@ -349,6 +378,17 @@ export default function PatientsPage() {
           onLoadNote={handleLoadNote}
           onDeleteNote={handleDeleteNote}
           onEditPatient={handleEditPatient}
+          onDeletePatient={async () => {
+            if (selectedProfile?.id && user) {
+              await deletePatientProfile(user.uid, selectedProfile.id)
+              setProfiles(prev => {
+                const next = { ...prev }
+                delete next[selectedProfile.id!]
+                return next
+              })
+            }
+            setSelectedPatient(null)
+          }}
         />
         <PatientModal
           open={!!editingProfile}
