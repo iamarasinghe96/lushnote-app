@@ -61,14 +61,15 @@ export default function Page() {
 
       {/* ── Nav ── */}
       <nav
-        className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-5 sm:px-8"
+        className="fixed top-3 left-4 right-4 z-40 flex items-center justify-between px-5 sm:px-8"
         style={{
-          height: 56,
+          height: 52,
+          borderRadius: 20,
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
           background: 'rgba(255,255,255,0.18)',
-          borderBottom: '1px solid rgba(255,255,255,0.22)',
-          boxShadow: '0 1px 4px rgba(15,23,42,.06)',
+          border: '1px solid rgba(255,255,255,0.32)',
+          boxShadow: '0 4px 16px rgba(15,23,42,.08), 0 1px 3px rgba(15,23,42,.06)',
         }}
       >
         <div className="flex items-center gap-2 select-none">
@@ -99,7 +100,7 @@ export default function Page() {
       {/* ── Hero ── */}
       <section
         className="relative flex flex-col items-center justify-center min-h-screen text-center px-4"
-        style={{ paddingTop: 56 }}
+        style={{ paddingTop: 80 }}
       >
         <div className="max-w-2xl mx-auto space-y-6">
           <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold
