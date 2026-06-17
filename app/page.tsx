@@ -40,19 +40,24 @@ export default function Page() {
   }
 
   return (
-    <div
-      className="min-h-screen text-[var(--text)]"
-      style={{
-        background: [
-          'radial-gradient(ellipse 80% 40% at 50% 0%,   rgba(90,214,167,0.26) 0%, transparent 60%)',
-          'radial-gradient(ellipse 55% 30% at 88% 20%,  rgba(37,99,235,0.12)  0%, transparent 55%)',
-          'radial-gradient(ellipse 60% 28% at 10% 48%,  rgba(90,214,167,0.11) 0%, transparent 55%)',
-          'radial-gradient(ellipse 55% 28% at 85% 68%,  rgba(37,99,235,0.10)  0%, transparent 55%)',
-          'radial-gradient(ellipse 50% 22% at 25% 88%,  rgba(90,214,167,0.09) 0%, transparent 50%)',
-          '#f8fafc',
-        ].join(', '),
-      }}
-    >
+    <div className="min-h-screen text-[var(--text)] relative">
+      {/* Fixed full-viewport background so glass cards scroll over it */}
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: -1,
+          background: [
+            'radial-gradient(ellipse 90% 55% at 50% 0%,   rgba(90,214,167,0.52) 0%, transparent 60%)',
+            'radial-gradient(ellipse 65% 40% at 90% 18%,  rgba(37,99,235,0.28)  0%, transparent 55%)',
+            'radial-gradient(ellipse 70% 38% at 8%  50%,  rgba(90,214,167,0.24) 0%, transparent 55%)',
+            'radial-gradient(ellipse 65% 38% at 88% 70%,  rgba(37,99,235,0.24)  0%, transparent 55%)',
+            'radial-gradient(ellipse 60% 30% at 20% 90%,  rgba(90,214,167,0.20) 0%, transparent 50%)',
+            '#f8fafc',
+          ].join(', '),
+        }}
+      />
 
       {/* ── Nav ── */}
       <nav
@@ -245,7 +250,7 @@ export default function Page() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-[var(--border)] bg-[#f8fafc] py-6 px-4">
+      <footer className="border-t border-[var(--border)] py-6 px-4">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-[var(--text3)]">
             © 2025 LushNote. Built to save one more life.
