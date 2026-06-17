@@ -165,6 +165,7 @@ function EditContent() {
   const latestFieldsRef = useRef<Partial<Note>>(store.currentNote)
   const formScrollRef = useRef<HTMLDivElement>(null)
   const previewScrollRef = useRef<HTMLDivElement>(null)
+  const scrollSyncLockRef = useRef(false)
   const [currentAnimatingField, setCurrentAnimatingField] = useState<string | null>(null)
 
   // Letter mode state — declared before effects that reference these
@@ -178,6 +179,31 @@ function EditContent() {
   const [letterToast, setLetterToast] = useState<string | null>(null)
 
   useEffect(() => { return () => { mountedRef.current = false } }, [])
+
+  // Bidirectional scroll sync — mirrors scroll position proportionally between both panes
+  useEffect(() => {
+    const form = formScrollRef.current
+    const preview = previewScrollRef.current
+    if (!form || !preview) return
+
+    function syncTo(source: HTMLDivElement, target: HTMLDivElement) {
+      if (scrollSyncLockRef.current) return
+      scrollSyncLockRef.current = true
+      const pct = source.scrollTop / (source.scrollHeight - source.clientHeight) || 0
+      target.scrollTop = pct * (target.scrollHeight - target.clientHeight)
+      requestAnimationFrame(() => { scrollSyncLockRef.current = false })
+    }
+
+    const onFormScroll = () => syncTo(form, preview)
+    const onPreviewScroll = () => syncTo(preview, form)
+
+    form.addEventListener('scroll', onFormScroll, { passive: true })
+    preview.addEventListener('scroll', onPreviewScroll, { passive: true })
+    return () => {
+      form.removeEventListener('scroll', onFormScroll)
+      preview.removeEventListener('scroll', onPreviewScroll)
+    }
+  }, [])
 
   useEffect(() => {
     const s = storeRef.current
