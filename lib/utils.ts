@@ -306,7 +306,7 @@ export function buildPreviewHTML(f: Partial<Note>): string {
   const sections = PREVIEW_FIELD_ORDER
     .filter(key => (f as Record<string, string>)[key]?.trim())
     .map(key =>
-      `<div class="preview-section"><h3>${FIELD_LABELS[key]}</h3><div class="preview-content">${formatContent((f as Record<string, string>)[key])}</div></div>`
+      `<div class="preview-section" data-field="${key}"><h3>${FIELD_LABELS[key]}</h3><div class="preview-content">${formatContent((f as Record<string, string>)[key])}</div></div>`
     )
     .join('')
 

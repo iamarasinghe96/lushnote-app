@@ -22,6 +22,13 @@ const FIELD_ORDER = [
   'content', 'scales', 'risk', 'referrals', 'summary', 'nextsteps',
 ] as const
 
+const FIELD_ANIM_LABEL: Record<string, string> = {
+  patient: 'Patient', date: 'Date', diagnosis: 'Diagnosis',
+  presentation: 'Presentation', history: 'History', medications: 'Medications',
+  mse: 'Mental State Exam', content: 'Session Content', scales: 'Scales',
+  risk: 'Risk', referrals: 'Referrals', summary: 'Summary', nextsteps: 'Next Steps',
+}
+
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60)
   const s = secs % 60
@@ -156,6 +163,9 @@ function EditContent() {
   const mountedRef = useRef(true)
   const autoSaveEnabledRef = useRef(true)
   const latestFieldsRef = useRef<Partial<Note>>(store.currentNote)
+  const formScrollRef = useRef<HTMLDivElement>(null)
+  const previewScrollRef = useRef<HTMLDivElement>(null)
+  const [currentAnimatingField, setCurrentAnimatingField] = useState<string | null>(null)
 
   // Letter mode state — declared before effects that reference these
   const letterType = store.letterType as LetterType | null
@@ -472,6 +482,9 @@ function EditContent() {
   async function animateFields(noteFields: Partial<Note>) {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     autoSaveEnabledRef.current = false
+    // Batch all three so there is no blank frame between isGenerating→isAnimating
+    setIsGenerating(false)
+    setGenerationStatus(null)
     setIsAnimating(true)
 
     if (reduced) {
@@ -480,6 +493,7 @@ function EditContent() {
         latestFieldsRef.current = next
         return next
       })
+      setCurrentAnimatingField(null)
       setIsAnimating(false)
       autoSaveEnabledRef.current = true
       return
@@ -489,12 +503,22 @@ function EditContent() {
       if (!mountedRef.current) break
       const value = (noteFields as Record<string, string>)[key]
       if (!value || typeof value !== 'string') continue
+
+      // Scroll both panes to the field being typed
+      setCurrentAnimatingField(key)
+      formScrollRef.current?.querySelector(`[data-field="${key}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      previewScrollRef.current?.querySelector(`[data-field="${key}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
       await typewriterField(key, value)
     }
 
     if (mountedRef.current) {
+      setCurrentAnimatingField(null)
       setIsAnimating(false)
       autoSaveEnabledRef.current = true
+      // Return both panes to top after animation completes
+      formScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+      previewScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 
@@ -611,9 +635,6 @@ function EditContent() {
         localStorage.setItem('ln_groq_tokens_session', String(current + data.groqTokensUsed))
       }
 
-      setIsGenerating(false)
-      setGenerationStatus(null)
-
       const noteFields = parseGeneratedContent(data.content)
       await animateFields(noteFields)
 
@@ -677,9 +698,7 @@ function EditContent() {
       }
       const data = await res.json() as { content: string }
       clearInterval(statusTimer)
-      setGenerationStatus(null)
       if (!mountedRef.current) return
-      setIsGenerating(false)
       const noteFields = parseGeneratedContent(data.content)
       await animateFields(noteFields)
       if (mountedRef.current) {
@@ -962,13 +981,14 @@ function EditContent() {
             ${isGenerating ? 'animate-pulse' : ''}`}
         >
           <div className="flex items-center gap-2 min-w-0">
-            {isAnimating ? (
-              <div className="h-4 w-48 rounded bg-white/30 animate-[shimmer_1.5s_infinite]" />
-            ) : isGenerating ? (
-              <>
-                <div className="h-3.5 w-28 rounded-full bg-white/30 animate-[shimmer_1.5s_infinite] shrink-0" />
-                <span className="text-xs text-white/80 truncate">{generationStatus ?? 'Preparing…'}</span>
-              </>
+            {(isAnimating || isGenerating) ? (
+              <div className="flex items-center justify-center rounded-full bg-white/25 px-4 h-7 animate-[shimmer_1.5s_infinite] motion-reduce:animate-none">
+                <span className="text-xs text-white font-medium truncate max-w-[260px]">
+                  {isGenerating
+                    ? (generationStatus ?? 'Preparing…')
+                    : (FIELD_ANIM_LABEL[currentAnimatingField ?? ''] ?? 'Writing note…')}
+                </span>
+              </div>
             ) : (
               <>
                 <span className="font-medium truncate">
@@ -1028,7 +1048,7 @@ function EditContent() {
       <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-[55%_45%]">
 
         {/* LEFT: form */}
-        <div className="overflow-y-auto p-4">
+        <div ref={formScrollRef} className="overflow-y-auto p-4">
           <div className="max-w-lg mx-auto space-y-4 pb-10">
 
             {/* Letter mode fields */}
@@ -1255,7 +1275,7 @@ function EditContent() {
             </div>
 
             {/* Patient + Reg */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3" data-field="patient">
               {/* Patient with autocomplete */}
               <div className="relative">
                 <Input
@@ -1305,7 +1325,7 @@ function EditContent() {
             </div>
 
             {/* Date + Time */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3" data-field="date">
               <DatePicker
                 label="Date"
                 value={fields.date ?? ''}
@@ -1343,99 +1363,121 @@ function EditContent() {
               onBlur={() => handleFieldBlur('attendance')}
               className={saveFlashFields.has('attendance') ? 'save-flash' : ''}
             />
-            <Textarea
-              label="Diagnosis"
-              rows={3}
-              value={fields.diagnosis ?? ''}
-              onChange={e => setField('diagnosis', e.target.value)}
-              onBlur={() => handleFieldBlur('diagnosis')}
-              className={saveFlashFields.has('diagnosis') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Presentation"
-              rows={5}
-              value={fields.presentation ?? ''}
-              onChange={e => setField('presentation', e.target.value)}
-              onBlur={() => handleFieldBlur('presentation')}
-              className={saveFlashFields.has('presentation') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="History"
-              rows={5}
-              value={fields.history ?? ''}
-              onChange={e => setField('history', e.target.value)}
-              onBlur={() => handleFieldBlur('history')}
-              className={saveFlashFields.has('history') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Medications"
-              rows={3}
-              value={fields.medications ?? ''}
-              onChange={e => setField('medications', e.target.value)}
-              onBlur={() => handleFieldBlur('medications')}
-              className={saveFlashFields.has('medications') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Mental Status Examination"
-              rows={5}
-              value={fields.mse ?? ''}
-              onChange={e => setField('mse', e.target.value)}
-              onBlur={() => handleFieldBlur('mse')}
-              className={saveFlashFields.has('mse') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Session Content"
-              rows={8}
-              value={fields.content ?? ''}
-              onChange={e => setField('content', e.target.value)}
-              onBlur={() => handleFieldBlur('content')}
-              onKeyDown={e => handleListKeyDown(e, 'content')}
-              className={saveFlashFields.has('content') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Scales"
-              rows={3}
-              value={fields.scales ?? ''}
-              onChange={e => setField('scales', e.target.value)}
-              onBlur={() => handleFieldBlur('scales')}
-              onKeyDown={e => handleListKeyDown(e, 'scales')}
-              className={saveFlashFields.has('scales') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Risk"
-              rows={4}
-              value={fields.risk ?? ''}
-              onChange={e => setField('risk', e.target.value)}
-              onBlur={() => handleFieldBlur('risk')}
-              onKeyDown={e => handleListKeyDown(e, 'risk')}
-              className={saveFlashFields.has('risk') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Referrals"
-              rows={3}
-              value={fields.referrals ?? ''}
-              onChange={e => setField('referrals', e.target.value)}
-              onBlur={() => handleFieldBlur('referrals')}
-              onKeyDown={e => handleListKeyDown(e, 'referrals')}
-              className={saveFlashFields.has('referrals') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Summary"
-              rows={5}
-              value={fields.summary ?? ''}
-              onChange={e => setField('summary', e.target.value)}
-              onBlur={() => handleFieldBlur('summary')}
-              className={saveFlashFields.has('summary') ? 'save-flash' : ''}
-            />
-            <Textarea
-              label="Next Steps"
-              rows={3}
-              value={fields.nextsteps ?? ''}
-              onChange={e => setField('nextsteps', e.target.value)}
-              onBlur={() => handleFieldBlur('nextsteps')}
-              onKeyDown={e => handleListKeyDown(e, 'nextsteps')}
-              className={saveFlashFields.has('nextsteps') ? 'save-flash' : ''}
-            />
+            <div data-field="diagnosis">
+              <Textarea
+                label="Diagnosis"
+                rows={3}
+                value={fields.diagnosis ?? ''}
+                onChange={e => setField('diagnosis', e.target.value)}
+                onBlur={() => handleFieldBlur('diagnosis')}
+                className={saveFlashFields.has('diagnosis') ? 'save-flash' : ''}
+              />
+            </div>
+            <div data-field="presentation">
+              <Textarea
+                label="Presentation"
+                rows={5}
+                value={fields.presentation ?? ''}
+                onChange={e => setField('presentation', e.target.value)}
+                onBlur={() => handleFieldBlur('presentation')}
+                className={saveFlashFields.has('presentation') ? 'save-flash' : ''}
+              />
+            </div>
+            <div data-field="history">
+              <Textarea
+                label="History"
+                rows={5}
+                value={fields.history ?? ''}
+                onChange={e => setField('history', e.target.value)}
+                onBlur={() => handleFieldBlur('history')}
+                className={saveFlashFields.has('history') ? 'save-flash' : ''}
+              />
+            </div>
+            <div data-field="medications">
+              <Textarea
+                label="Medications"
+                rows={3}
+                value={fields.medications ?? ''}
+                onChange={e => setField('medications', e.target.value)}
+                onBlur={() => handleFieldBlur('medications')}
+                className={saveFlashFields.has('medications') ? 'save-flash' : ''}
+              />
+            </div>
+            <div data-field="mse">
+              <Textarea
+                label="Mental Status Examination"
+                rows={5}
+                value={fields.mse ?? ''}
+                onChange={e => setField('mse', e.target.value)}
+                onBlur={() => handleFieldBlur('mse')}
+                className={saveFlashFields.has('mse') ? 'save-flash' : ''}
+              />
+            </div>
+            <div data-field="content">
+              <Textarea
+                label="Session Content"
+                rows={8}
+                value={fields.content ?? ''}
+                onChange={e => setField('content', e.target.value)}
+                onBlur={() => handleFieldBlur('content')}
+                onKeyDown={e => handleListKeyDown(e, 'content')}
+                className={saveFlashFields.has('content') ? 'save-flash' : ''}
+              />
+            </div>
+            <div data-field="scales">
+              <Textarea
+                label="Scales"
+                rows={3}
+                value={fields.scales ?? ''}
+                onChange={e => setField('scales', e.target.value)}
+                onBlur={() => handleFieldBlur('scales')}
+                onKeyDown={e => handleListKeyDown(e, 'scales')}
+                className={saveFlashFields.has('scales') ? 'save-flash' : ''}
+              />
+            </div>
+            <div data-field="risk">
+              <Textarea
+                label="Risk"
+                rows={4}
+                value={fields.risk ?? ''}
+                onChange={e => setField('risk', e.target.value)}
+                onBlur={() => handleFieldBlur('risk')}
+                onKeyDown={e => handleListKeyDown(e, 'risk')}
+                className={saveFlashFields.has('risk') ? 'save-flash' : ''}
+              />
+            </div>
+            <div data-field="referrals">
+              <Textarea
+                label="Referrals"
+                rows={3}
+                value={fields.referrals ?? ''}
+                onChange={e => setField('referrals', e.target.value)}
+                onBlur={() => handleFieldBlur('referrals')}
+                onKeyDown={e => handleListKeyDown(e, 'referrals')}
+                className={saveFlashFields.has('referrals') ? 'save-flash' : ''}
+              />
+            </div>
+            <div data-field="summary">
+              <Textarea
+                label="Summary"
+                rows={5}
+                value={fields.summary ?? ''}
+                onChange={e => setField('summary', e.target.value)}
+                onBlur={() => handleFieldBlur('summary')}
+                className={saveFlashFields.has('summary') ? 'save-flash' : ''}
+              />
+            </div>
+            <div data-field="nextsteps">
+              <Textarea
+                label="Next Steps"
+                rows={3}
+                value={fields.nextsteps ?? ''}
+                onChange={e => setField('nextsteps', e.target.value)}
+                onBlur={() => handleFieldBlur('nextsteps')}
+                onKeyDown={e => handleListKeyDown(e, 'nextsteps')}
+                className={saveFlashFields.has('nextsteps') ? 'save-flash' : ''}
+              />
+            </div>
 
             {/* Raw transcript collapsible */}
             {store.lastTranscript && (
@@ -1472,6 +1514,7 @@ function EditContent() {
             <span className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wide">Preview</span>
           </div>
           <div
+            ref={previewScrollRef}
             className="flex-1 overflow-y-auto p-4 preview-pane"
             dangerouslySetInnerHTML={{ __html: previewHtml }}
           />
