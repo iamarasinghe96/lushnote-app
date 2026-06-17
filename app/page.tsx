@@ -64,9 +64,10 @@ export default function Page() {
         className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-5 sm:px-8"
         style={{
           height: 56,
-          backdropFilter: 'blur(16px)',
-          background: 'rgba(255,255,255,0.85)',
-          borderBottom: '1px solid rgba(255,255,255,0.5)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          background: 'rgba(255,255,255,0.38)',
+          borderBottom: '1px solid rgba(255,255,255,0.35)',
           boxShadow: '0 1px 4px rgba(15,23,42,.06)',
         }}
       >
@@ -174,8 +175,10 @@ export default function Page() {
                 key={f.title}
                 className="rounded-[var(--r-lg)] p-4 backdrop-blur-md"
                 style={{
-                  background: 'rgba(255,255,255,0.75)',
-                  boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                  background: 'rgba(255,255,255,0.35)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(255,255,255,0.5)',
                 }}
               >
                 <div className="mb-2 text-[var(--blue)]">{f.icon}</div>
@@ -199,9 +202,10 @@ export default function Page() {
                 key={m.title}
                 className="rounded-[var(--r-lg)] border border-[var(--border)] p-4"
                 style={{
-                  background: 'rgba(255,255,255,0.75)',
-                  backdropFilter: 'blur(12px)',
-                  boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                  background: 'rgba(255,255,255,0.35)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)',
+                  boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(255,255,255,0.5)',
                 }}
               >
                 <div className="flex items-center gap-2 mb-2">
