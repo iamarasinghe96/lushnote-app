@@ -7,6 +7,8 @@ import { useNoteStore } from '@/hooks/useNoteStore'
 import { getPatientProfiles } from '@/lib/firestore/patients'
 import { listNotes, deleteNote } from '@/lib/firestore/notes'
 import { GenderAvatar } from '@/components/ui/GenderAvatar'
+import Modal from '@/components/ui/Modal'
+import Button from '@/components/ui/Button'
 import PatientModal from '@/components/modals/PatientModal'
 import type { Note, PatientProfile } from '@/types'
 
@@ -52,55 +54,65 @@ interface SessionCardProps {
 }
 
 function SessionCard({ note, isLatest, onClick, onDelete }: SessionCardProps) {
-  const snippet = (note.content || note.summary || '').slice(0, 120)
+  const snippet = (note.content || note.summary || note.presentation || '').slice(0, 120)
   return (
     <div
       onClick={onClick}
-      className="w-full text-left px-4 py-3 border-b border-[var(--border)] hover:bg-[var(--bg)]
-                 flex gap-3 cursor-pointer transition-colors"
+      className="bg-white border border-[var(--border)] rounded-[var(--r)] px-4 py-3
+                 flex items-center gap-3 cursor-pointer hover:border-[var(--blue)] transition-colors"
+      style={{ boxShadow: '0 1px 3px rgba(15,23,42,.05)' }}
     >
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <span className="text-sm font-medium text-[var(--text)]">{note.date}</span>
-          {note.time && <span className="text-xs text-[var(--text3)]">{note.time}</span>}
-          {isLatest
-            ? <span className="text-xs bg-[var(--blue-lt)] text-[var(--blue)] px-2 py-0.5 rounded-full font-medium">Latest</span>
-            : <span className="text-xs bg-[var(--bg)] text-[var(--text3)] px-2 py-0.5 rounded-full border border-[var(--border)]">Past</span>
-          }
-        </div>
-        {snippet && <p className="text-xs text-[var(--text2)] truncate">{snippet}</p>}
+      <div className="shrink-0 text-center min-w-[72px]">
+        <p className="text-sm font-bold text-[var(--text)]">{note.date || '—'}</p>
+        {note.time && <p className="text-xs text-[var(--text3)] mt-0.5">{note.time}</p>}
       </div>
-      <button
-        onClick={e => { e.stopPropagation(); onDelete() }}
-        className="text-[var(--text3)] hover:text-[var(--danger)] text-sm px-2 shrink-0 self-center
-                   active:scale-95 transition-all"
-        aria-label="Delete session"
-      >
-        ✕
-      </button>
+      <div className="flex-1 min-w-0 border-l border-[var(--border)] pl-3">
+        <p className="text-sm font-semibold text-[var(--text)] truncate">Progress Note</p>
+        {snippet && <p className="text-xs text-[var(--text2)] mt-0.5 line-clamp-2">{snippet}</p>}
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {isLatest
+          ? <span className="text-xs border border-[#10b981] text-[#10b981] px-2 py-0.5 rounded-full font-medium">Latest</span>
+          : <span className="text-xs border border-[var(--border)] text-[var(--text3)] px-2 py-0.5 rounded-full">Past</span>
+        }
+        <button
+          onClick={e => { e.stopPropagation(); onDelete() }}
+          className="text-xs bg-[var(--danger)] text-white px-3 py-1.5 rounded-[var(--r-sm)]
+                     font-medium hover:bg-red-700 active:scale-95 transition-all"
+          aria-label="Delete session"
+        >
+          Delete
+        </button>
+      </div>
     </div>
   )
 }
 
 interface PatientDetailProps {
   patient: PatientGroup
+  profile?: PatientProfile
   notes: Note[]
   onBack: () => void
   onLoadNote: (noteId: string) => void
   onDeleteNote: (noteId: string) => void
+  onEditPatient: () => void
 }
 
-function PatientDetail({ patient, notes, onBack, onLoadNote, onDeleteNote }: PatientDetailProps) {
+function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNote, onEditPatient }: PatientDetailProps) {
+  const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null)
+
   const sortedNotes = useMemo(() =>
     [...notes].sort((a, b) => compareDateStrs(b.date, a.date)),
     [notes]
   )
   const firstDate = sortedNotes[sortedNotes.length - 1]?.date || ''
   const lastDate = sortedNotes[0]?.date || ''
+  const clinician = sortedNotes[0]?.clinician || ''
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Back button */}
+    <div className="flex flex-col h-full overflow-hidden bg-[var(--bg)]">
+
+      {/* Back button — right-aligned */}
       <div
         className="shrink-0 px-4 py-2 border-b border-[var(--border)] flex items-center justify-end"
         style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
@@ -109,53 +121,93 @@ function PatientDetail({ patient, notes, onBack, onLoadNote, onDeleteNote }: Pat
           onClick={onBack}
           className="flex items-center gap-1.5 text-sm text-[var(--blue)] active:scale-95 transition-transform"
         >
-          Patients
+          All Patients
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <polyline points="9,18 15,12 9,6"/>
           </svg>
         </button>
       </div>
 
-      {/* Info card */}
-      <div
-        className="shrink-0 p-4 border-b border-[var(--border)] flex gap-4 items-start"
-        style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
-      >
-        <GenderAvatar gender={patient.gender} size={56} />
-        <div className="min-w-0">
-          <h2 className="text-lg font-bold text-[var(--text)] truncate">{patient.name}</h2>
-          {patient.dob && <p className="text-sm text-[var(--text2)]">DOB: {patient.dob}</p>}
-          {patient.gender && (
-            <p className="text-sm text-[var(--text2)] capitalize">
-              {patient.gender === 'prefer-not-to-say' ? 'Prefer not to say' : patient.gender}
-            </p>
-          )}
-          <div className="flex flex-wrap gap-3 mt-1 text-xs text-[var(--text3)]">
-            {firstDate && <span>First seen: {firstDate}</span>}
-            {lastDate && <span>Last seen: {lastDate}</span>}
-            <span>{notes.length} session{notes.length !== 1 ? 's' : ''}</span>
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6 space-y-4">
+
+        {/* Patient info card */}
+        <div
+          className="bg-white border border-[var(--border)] rounded-[var(--r-lg)] p-4 relative"
+          style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
+        >
+          <button
+            onClick={onEditPatient}
+            className="absolute top-4 right-4 text-xs border border-[var(--blue)] text-[var(--blue)]
+                       px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-[var(--blue-lt)] active:scale-95 transition-all"
+          >
+            Edit
+          </button>
+
+          <div className="flex items-start gap-3 mb-4 pr-16">
+            <GenderAvatar gender={patient.gender} size={56} />
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold text-[var(--text)] truncate">{patient.name}</h2>
+              {patient.reg && (
+                <p className="text-sm text-[var(--text3)] mt-0.5">Registration #{patient.reg}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <div>
+              <p className="text-xs text-[var(--text3)] mb-0.5">Registration #</p>
+              <p className="text-sm font-semibold text-[var(--text)]">{patient.reg || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text3)] mb-0.5">First seen</p>
+              <p className="text-sm font-semibold text-[var(--text)]">{firstDate || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text3)] mb-0.5">Last visit</p>
+              <p className="text-sm font-semibold text-[var(--text)]">{lastDate || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[var(--text3)] mb-0.5">Clinician</p>
+              <p className="text-sm font-semibold text-[var(--text)] truncate">{clinician || '—'}</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Session list */}
-      <div className="flex-1 overflow-y-auto">
+        {/* Sessions section */}
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wider">Sessions</span>
+          <span className="text-xs text-[var(--text3)]">{notes.length} visit{notes.length !== 1 ? 's' : ''}</span>
+        </div>
+
         {sortedNotes.length === 0 ? (
-          <div className="flex items-center justify-center h-40 text-center px-4">
-            <p className="text-sm text-[var(--text3)]">No session notes found for this patient.</p>
+          <div className="flex items-center justify-center h-32 text-center">
+            <p className="text-sm text-[var(--text3)]">No session notes for this patient.</p>
           </div>
         ) : (
-          sortedNotes.map((note, i) => (
-            <SessionCard
-              key={note.id}
-              note={note}
-              isLatest={i === 0}
-              onClick={() => note.id && onLoadNote(note.id)}
-              onDelete={() => note.id && onDeleteNote(note.id)}
-            />
-          ))
+          <div className="space-y-2">
+            {sortedNotes.map((note, i) => (
+              <SessionCard
+                key={note.id}
+                note={note}
+                isLatest={i === 0}
+                onClick={() => note.id && onLoadNote(note.id)}
+                onDelete={() => note.id && setDeleteNoteId(note.id)}
+              />
+            ))}
+          </div>
         )}
       </div>
+
+      {/* In-app delete confirmation */}
+      <Modal open={!!deleteNoteId} onClose={() => setDeleteNoteId(null)} title="Delete Session" maxWidth="sm">
+        <div className="px-5 pb-5 space-y-4">
+          <p className="text-sm text-[var(--text2)]">Delete this session permanently? This cannot be undone.</p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" onClick={() => setDeleteNoteId(null)}>Cancel</Button>
+            <Button variant="danger" onClick={() => { onDeleteNote(deleteNoteId!); setDeleteNoteId(null) }}>Delete</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -172,7 +224,8 @@ export default function PatientsPage() {
   const [quickFilter, setQuickFilter] = useState<'today' | 'week' | 'month' | null>(null)
   const [search, setSearch] = useState('')
   const [selectedPatient, setSelectedPatient] = useState<PatientGroup | null>(null)
-  const [modalOpen, setModalOpen] = useState(false)
+  const [addModalOpen, setAddModalOpen] = useState(false)
+  const [editingProfile, setEditingProfile] = useState<PatientProfile | undefined>(undefined)
 
   useEffect(() => {
     if (!user) return
@@ -224,16 +277,10 @@ export default function PatientsPage() {
       list = list.filter(p => p.lastDate === todayStr)
     } else if (quickFilter === 'week') {
       const weekAgo = new Date(today.getTime() - 7 * 86400000)
-      list = list.filter(p => {
-        const d = parseDateStr(p.lastDate)
-        return d ? d >= weekAgo : false
-      })
+      list = list.filter(p => { const d = parseDateStr(p.lastDate); return d ? d >= weekAgo : false })
     } else if (quickFilter === 'month') {
       const monthAgo = new Date(today.getTime() - 30 * 86400000)
-      list = list.filter(p => {
-        const d = parseDateStr(p.lastDate)
-        return d ? d >= monthAgo : false
-      })
+      list = list.filter(p => { const d = parseDateStr(p.lastDate); return d ? d >= monthAgo : false })
     }
 
     if (sortBy === 'recent') list.sort((a, b) => compareDateStrs(b.lastDate, a.lastDate))
@@ -264,12 +311,10 @@ export default function PatientsPage() {
   }
 
   async function handleDeleteNote(noteId: string) {
-    if (!window.confirm('Delete this session note? This cannot be undone.')) return
     await deleteNote(noteId)
     setNotes(prev => prev.filter(n => n.id !== noteId))
   }
 
-  // Keep selectedPatient in sync when notes change (after delete)
   const patientNotes = useMemo(
     () => selectedPatient
       ? notes.filter(n => n.patient?.trim().toLowerCase() === selectedPatient.name.toLowerCase())
@@ -277,15 +322,47 @@ export default function PatientsPage() {
     [notes, selectedPatient]
   )
 
+  // Find the stored profile for the selected patient
+  const selectedProfile = useMemo(() => {
+    if (!selectedPatient) return undefined
+    return Object.values(profiles).find(
+      p => p.displayName.trim().toLowerCase() === selectedPatient.name.toLowerCase()
+    )
+  }, [selectedPatient, profiles])
+
+  function handleEditPatient() {
+    setEditingProfile(selectedProfile ?? {
+      displayName: selectedPatient?.name ?? '',
+      dob: selectedPatient?.dob,
+      gender: selectedPatient?.gender ?? undefined,
+    })
+  }
+
   if (selectedPatient) {
     return (
       <div className="h-full overflow-hidden">
         <PatientDetail
           patient={selectedPatient}
+          profile={selectedProfile}
           notes={patientNotes}
           onBack={() => setSelectedPatient(null)}
           onLoadNote={handleLoadNote}
           onDeleteNote={handleDeleteNote}
+          onEditPatient={handleEditPatient}
+        />
+        <PatientModal
+          open={!!editingProfile}
+          patient={editingProfile}
+          onSave={saved => {
+            if (saved.id) setProfiles(prev => ({ ...prev, [saved.id!]: saved }))
+            // Sync gender/dob back onto selectedPatient
+            setSelectedPatient(prev => prev
+              ? { ...prev, gender: saved.gender, dob: saved.dob }
+              : prev
+            )
+            setEditingProfile(undefined)
+          }}
+          onClose={() => setEditingProfile(undefined)}
         />
       </div>
     )
@@ -298,7 +375,6 @@ export default function PatientsPage() {
         className="shrink-0 border-b border-[var(--border)] px-4 py-3 space-y-2"
         style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
       >
-        {/* Sort */}
         <div className="flex gap-2">
           {(['recent', 'az', 'visits'] as const).map(s => (
             <button
@@ -313,7 +389,6 @@ export default function PatientsPage() {
             </button>
           ))}
         </div>
-        {/* Quick filters */}
         <div className="flex gap-2 flex-wrap">
           {(['today', 'week', 'month'] as const).map(f => (
             <button
@@ -328,7 +403,6 @@ export default function PatientsPage() {
             </button>
           ))}
         </div>
-        {/* Search */}
         <input
           type="text"
           placeholder="Search patients..."
@@ -392,9 +466,8 @@ export default function PatientsPage() {
         )}
       </div>
 
-      {/* FAB — add patient via PatientModal */}
       <button
-        onClick={() => setModalOpen(true)}
+        onClick={() => setAddModalOpen(true)}
         className="fixed bottom-20 right-4 w-14 h-14 rounded-full bg-[#10b981] text-white
                    flex items-center justify-center
                    hover:bg-[#059669] active:scale-95 transition-all z-20"
@@ -408,13 +481,13 @@ export default function PatientsPage() {
       </button>
 
       <PatientModal
-        open={modalOpen}
+        open={addModalOpen}
         patient={undefined}
-        onSave={(saved) => {
+        onSave={saved => {
           if (saved.id) setProfiles(prev => ({ ...prev, [saved.id!]: saved }))
-          setModalOpen(false)
+          setAddModalOpen(false)
         }}
-        onClose={() => setModalOpen(false)}
+        onClose={() => setAddModalOpen(false)}
       />
     </div>
   )
