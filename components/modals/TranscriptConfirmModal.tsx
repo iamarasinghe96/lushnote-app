@@ -16,10 +16,16 @@ interface TranscriptConfirmModalProps {
   onClose: () => void
 }
 
-function suggestNextReg(dob: string, allNotes: Note[]): string {
-  const parts = dob.split('/')
-  if (parts.length !== 3 || parts[2].length !== 4) return ''
-  const prefix = parts[2] + parts[1] + parts[0]
+// Registration ID = today's date (YYYYMMDD) + a 3-digit daily sequence.
+// The sequence is "the Nth patient registered today", read from existing
+// reg numbers that share today's prefix. Minted once per new patient; a
+// returning patient keeps the reg already on their record.
+function suggestNextReg(allNotes: Note[]): string {
+  const now = new Date()
+  const prefix =
+    String(now.getFullYear()) +
+    String(now.getMonth() + 1).padStart(2, '0') +
+    String(now.getDate()).padStart(2, '0')
   const max = allNotes
     .map(n => n.reg_number || '')
     .filter(r => r.startsWith(prefix))
@@ -108,13 +114,18 @@ export default function TranscriptConfirmModal({
   const isNewPatient = patientName.trim().length > 0 && exactMatch === null
 
   const suggestedReg = useMemo(() => {
-    if (!isNewPatient || !dob) return ''
-    return suggestNextReg(dob, allNotes)
-  }, [isNewPatient, dob, allNotes])
+    if (!isNewPatient) return ''
+    return suggestNextReg(allNotes)
+  }, [isNewPatient, allNotes])
 
   useEffect(() => {
     if (suggestedReg && !regNumber) setRegNumber(suggestedReg)
   }, [suggestedReg]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Returning patient (exact name match) reuses their existing reg
+  useEffect(() => {
+    if (exactMatch?.reg && !regNumber) setRegNumber(exactMatch.reg)
+  }, [exactMatch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function updateDropdownPos() {
     if (inputRef.current) {

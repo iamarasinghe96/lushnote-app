@@ -135,6 +135,14 @@ export default function GeneratePage() {
     listNotes(user.uid).then(setAllNotes).catch(() => {})
   }, [user?.uid])
 
+  // Refresh notes when the confirm modal opens so the daily reg counter
+  // and patient index reflect anyone registered earlier this session.
+  useEffect(() => {
+    if (transcriptConfirmOpen && user) {
+      listNotes(user.uid).then(setAllNotes).catch(() => {})
+    }
+  }, [transcriptConfirmOpen, user?.uid])
+
   // Quota calculation
   const today = new Date().toISOString().slice(0, 10)
   const usageEntry = profile?.geminiUsage?.['gemini-2.5-flash']
