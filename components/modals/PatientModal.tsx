@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { savePatientProfile } from '@/lib/firestore/patients'
 import { useAuth } from '@/hooks/useAuth'
+import { formatDob } from '@/lib/utils'
 import type { PatientProfile } from '@/types'
 
 interface PatientModalProps {
@@ -13,21 +14,6 @@ interface PatientModalProps {
   patient?: PatientProfile
   onSave: (profile: PatientProfile) => void
   onClose: () => void
-}
-
-function dobInputToStored(value: string): string {
-  // input type=date yields YYYY-MM-DD; store as DD/MM/YYYY
-  if (!value) return ''
-  const [y, m, d] = value.split('-')
-  return `${d}/${m}/${y}`
-}
-
-function storedToDobInput(dob: string): string {
-  // DD/MM/YYYY → YYYY-MM-DD for input type=date
-  if (!dob) return ''
-  const [d, m, y] = dob.split('/')
-  if (!y) return ''
-  return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
 }
 
 const GENDER_OPTIONS = [
@@ -43,20 +29,18 @@ export default function PatientModal({ open, patient, onSave, onClose }: Patient
   const isEdit = !!patient
 
   const [displayName, setDisplayName] = useState(patient?.displayName ?? '')
-  const [dobInput, setDobInput] = useState(storedToDobInput(patient?.dob ?? ''))
+  const [dob, setDob] = useState(patient?.dob ?? '')
   const [gender, setGender] = useState<string>(patient?.gender ?? '')
   const [nameError, setNameError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  // Reset form when modal opens for a new patient
   function handleOpen() {
     setDisplayName(patient?.displayName ?? '')
-    setDobInput(storedToDobInput(patient?.dob ?? ''))
+    setDob(patient?.dob ?? '')
     setGender(patient?.gender ?? '')
     setNameError(null)
   }
 
-  // Sync form state when `patient` prop changes (open in edit mode)
   useState(() => { if (open) handleOpen() })
 
   async function handleSave() {
@@ -68,7 +52,7 @@ export default function PatientModal({ open, patient, onSave, onClose }: Patient
       const profile: PatientProfile = {
         ...(patient?.id ? { id: patient.id } : {}),
         displayName: trimmed,
-        ...(dobInput ? { dob: dobInputToStored(dobInput) } : {}),
+        ...(dob ? { dob } : {}),
         ...(gender ? { gender: gender as PatientProfile['gender'] } : {}),
       }
       const id = await savePatientProfile(user.uid, profile)
@@ -95,13 +79,16 @@ export default function PatientModal({ open, patient, onSave, onClose }: Patient
             Date of birth
           </label>
           <input
-            type="date"
-            value={dobInput}
-            onChange={e => setDobInput(e.target.value)}
+            type="text"
+            inputMode="numeric"
+            placeholder="DD/MM/YYYY"
+            maxLength={10}
+            value={dob}
+            onChange={e => setDob(formatDob(e.target.value))}
             className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white
-                       px-3 py-2.5 text-sm text-[var(--text)]
+                       px-3 py-2.5 text-sm text-[var(--text)] placeholder:text-[var(--text3)]
                        outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
-                       transition-colors"
+                       motion-safe:transition-colors"
           />
         </div>
 

@@ -168,11 +168,32 @@ export default function GeneratePage() {
     setCreationMode(mode)
     setError(null)
     setInputText('')
-    if (mode === 'paste') setPhase('paste-input')
-    else if (mode === 'document') setPhase('document-input')
+    if (mode === 'document') setPhase('document-input')
     else if (mode === 'conversation') setPhase('recording')
     else if (mode === 'dictation') setPhase('dictating')
     else if (mode === 'upload') setPhase('upload-input')
+  }
+
+  async function handlePasteMode() {
+    setCreationMode('paste')
+    setError(null)
+    setInputText('')
+    try {
+      const text = await navigator.clipboard.readText()
+      if (text.trim()) {
+        const validation = validateTranscript(text.trim())
+        if (!validation.valid) {
+          setError(validation.error!)
+          return
+        }
+        setPendingTranscript(text.trim())
+        setTranscriptConfirmOpen(true)
+        return
+      }
+    } catch {
+      // clipboard access denied or unavailable — fall through to textarea
+    }
+    setPhase('paste-input')
   }
 
   function handleCancel() {
@@ -294,7 +315,7 @@ export default function GeneratePage() {
           </div>
         )}
 
-        <ModeCard icon={PasteIcon} title="Paste Transcript" description="Paste session transcript text" onClick={() => startMode('paste')} />
+        <ModeCard icon={PasteIcon} title="Paste Transcript" description="Reads clipboard automatically" onClick={handlePasteMode} />
         <ModeCard icon={RecordIcon} title="Record Session" description="In-person or telehealth recording" onClick={() => startMode('conversation')} />
         <ModeCard icon={DictateIcon} title="Dictate Note" description="Narrate the note yourself" onClick={() => startMode('dictation')} />
 

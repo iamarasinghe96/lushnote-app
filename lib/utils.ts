@@ -295,6 +295,13 @@ export function buildLetterPreviewHTML(params: {
   `
 }
 
+export function formatDob(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8)
+  if (digits.length >= 5) return digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4)
+  if (digits.length >= 3) return digits.slice(0, 2) + '/' + digits.slice(2)
+  return digits
+}
+
 export function buildPreviewHTML(f: Partial<Note>): string {
   const sections = PREVIEW_FIELD_ORDER
     .filter(key => (f as Record<string, string>)[key]?.trim())
