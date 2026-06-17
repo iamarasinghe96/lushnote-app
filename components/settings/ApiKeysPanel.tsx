@@ -29,6 +29,7 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
   const geminiUsage = profile?.geminiUsage?.['gemini-2.5-flash']
   const today = new Date().toISOString().slice(0, 10)
   const usedToday = geminiUsage?.date === today ? (geminiUsage?.count || 0) : 0
+  const tokensToday = geminiUsage?.date === today ? (geminiUsage?.tokens || 0) : 0
 
   const [geminiKey, setGeminiKey] = useState(profile.geminiApiKey ?? '')
   const [geminiSaving, setGeminiSaving] = useState(false)
@@ -126,9 +127,9 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
 
         <div className="mt-3 p-3 bg-[var(--bg)] rounded-[var(--r)] border border-[var(--border)]">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-medium text-[var(--text2)]">Daily usage</span>
+            <span className="text-xs font-medium text-[var(--text2)]">Daily requests</span>
             <span className={`text-xs font-bold ${usedToday >= GEMINI_RPD ? 'text-orange-500' : 'text-[var(--text)]'}`}>
-              {usedToday} / {GEMINI_RPD} requests
+              {usedToday} / {GEMINI_RPD}
             </span>
           </div>
           <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden">
@@ -137,10 +138,15 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
               style={{ width: `${Math.min((usedToday / GEMINI_RPD) * 100, 100)}%` }}
             />
           </div>
+          {tokensToday > 0 && (
+            <p className="text-xs text-[var(--text3)] mt-1.5">
+              {tokensToday.toLocaleString()} tokens used today
+            </p>
+          )}
           {usedToday >= GEMINI_RPD ? (
-            <p className="text-xs text-orange-500 mt-1.5">Daily limit reached. Add a Groq key to continue generating notes.</p>
+            <p className="text-xs text-orange-500 mt-1">Daily limit reached. Add a Groq key to continue generating notes.</p>
           ) : (
-            <p className="text-xs text-[var(--text3)] mt-1.5">Resets daily. Get a Groq key to extend your daily limit.</p>
+            <p className="text-xs text-[var(--text3)] mt-1">Resets daily. Get a Groq key to extend your daily limit.</p>
           )}
         </div>
       </section>

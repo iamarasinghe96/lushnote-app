@@ -59,7 +59,7 @@ Dictation: ${transcript}`,
 
       if (process.env.GEMINI_API_KEY) {
         try {
-          const content = await generateNote(letterPrompt, '')
+          const { text: content } = await generateNote(letterPrompt, '')
           if (letterType === 'freetext') {
             return NextResponse.json({ letterFields: { freeTextContent: content.trim() } })
           }
@@ -125,8 +125,8 @@ Dictation: ${transcript}`,
       const quota = profile?.geminiUsage ?? {}
       if (checkQuota(quota, 'gemini-2.5-flash')) {
         try {
-          const content = await generateNote(prompt, systemPrompt!)
-          await updateGeminiUsage(uid, 'gemini-2.5-flash').catch(() => {})
+          const { text: content, totalTokens } = await generateNote(prompt, systemPrompt!)
+          await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
           return NextResponse.json({ content, provider: 'gemini' })
         } catch {
           // fall through to Groq

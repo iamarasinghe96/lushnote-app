@@ -53,9 +53,9 @@ Keep responses concise and practical.`
 
       if (process.env.GEMINI_API_KEY) {
         try {
-          const answer = await chatResponse(messages, systemPrompt)
+          const { text: answer, totalTokens } = await chatResponse(messages, systemPrompt)
           if (uid && typeof uid === 'string') {
-            await updateGeminiUsage(uid, 'chat').catch(() => {})
+            await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
           }
           return NextResponse.json({ answer, provider: 'gemini' })
         } catch {
@@ -93,9 +93,9 @@ Keep responses concise and practical.`
 
       if (process.env.GEMINI_API_KEY) {
         try {
-          const answer = await chatResponse(messages, systemPrompt)
+          const { text: answer, totalTokens } = await chatResponse(messages, systemPrompt)
           if (uid && typeof uid === 'string') {
-            await updateGeminiUsage(uid, 'chat').catch(() => {})
+            await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
           }
           return NextResponse.json({ answer, provider: 'gemini' })
         } catch {
@@ -143,8 +143,8 @@ Keep responses concise and practical.`
       const quota = profile?.geminiUsage ?? {}
       if (checkQuota(quota, 'chat')) {
         try {
-          const reply = await chatResponse(messages, systemPrompt)
-          await updateGeminiUsage(uid, 'chat')
+          const { text: reply, totalTokens } = await chatResponse(messages, systemPrompt)
+          await updateGeminiUsage(uid, 'chat', totalTokens)
           return NextResponse.json({ reply, provider: 'gemini' })
         } catch {
           // fall through to Groq

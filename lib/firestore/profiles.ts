@@ -33,7 +33,7 @@ export async function deleteProfile(uid: string): Promise<void> {
   await deleteDoc(doc(db, 'users', uid))
 }
 
-export async function updateGeminiUsage(uid: string, modelKey: string): Promise<void> {
+export async function updateGeminiUsage(uid: string, modelKey: string, tokens = 0): Promise<void> {
   const today = new Date().toISOString().split('T')[0]
   const ref = doc(db, 'users', uid)
   const snap = await getDoc(ref)
@@ -41,8 +41,8 @@ export async function updateGeminiUsage(uid: string, modelKey: string): Promise<
 
   const newRecord =
     existing && existing.date === today
-      ? { count: existing.count + 1, date: today }
-      : { count: 1, date: today }
+      ? { count: existing.count + 1, date: today, tokens: (existing.tokens ?? 0) + tokens }
+      : { count: 1, date: today, tokens }
 
   await updateDoc(ref, {
     [`geminiUsage.${modelKey}`]: newRecord,

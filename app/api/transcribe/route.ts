@@ -36,8 +36,8 @@ export async function POST(req: NextRequest) {
       const quota = profile?.geminiUsage ?? {}
       if (checkQuota(quota, 'gemini-2.5-flash')) {
         try {
-          const text = await transcribeAudio(base64, mimeType)
-          await updateGeminiUsage(uid, 'gemini-2.5-flash').catch(() => {})
+          const { text, totalTokens } = await transcribeAudio(base64, mimeType)
+          await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
           return NextResponse.json({ text, provider: 'gemini' })
         } catch {
           // fall through to Groq

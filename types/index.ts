@@ -197,6 +197,7 @@ interface GeminiUsage {
   [modelKey: string]: {
     count: number
     date: string              // ISO date string YYYY-MM-DD
+    tokens?: number           // cumulative tokens used today
   }
 }
 
