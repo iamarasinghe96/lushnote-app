@@ -87,7 +87,7 @@ export default function TabBar() {
           <div
             aria-hidden
             className="absolute pointer-events-none"
-            style={{ top: -4, bottom: -4, left: 8, right: 8 }}
+            style={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             {/* full-tab-width mover — translates by whole tabs */}
             <div
@@ -102,15 +102,15 @@ export default function TabBar() {
               {/* inset pill — re-keyed so the squash/stretch replays each switch */}
               <span
                 key={activeIndex}
-                className="absolute top-0 bottom-0 rounded-[26px] ln-tab-pill"
+                className="absolute top-0 bottom-0 rounded-[22px] ln-tab-pill"
                 style={{
                   left: 4,
                   right: 4,
-                  background: 'color-mix(in srgb, var(--blue) 62%, transparent)',
+                  background: 'color-mix(in srgb, var(--blue) 85%, transparent)',
                   backdropFilter: 'blur(6px)',
                   WebkitBackdropFilter: 'blur(6px)',
                   boxShadow: [
-                    '0 4px 16px color-mix(in srgb, var(--blue) 38%, transparent)',
+                    '0 4px 16px color-mix(in srgb, var(--blue) 45%, transparent)',
                     'inset 0 1.5px 0 rgba(255,255,255,0.55)',
                     'inset 0 -1px 0 rgba(0,0,0,0.08)',
                   ].join(', '),
