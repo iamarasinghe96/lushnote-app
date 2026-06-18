@@ -133,6 +133,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
             <button
               style={{ backgroundColor: avatarBg }}
               className="w-8 h-8 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0
+                         ring-2 ring-white/60
                          motion-safe:transition-transform motion-safe:active:scale-95"
               onClick={() => setMenuOpen(o => !o)}
               aria-label="User menu"
