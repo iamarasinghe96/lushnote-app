@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 
 const SLACK_WEBHOOK = 'https://hooks.slack.com' + '/services/T0B5HRCD3QT/B0B5X3GJYBW/wmD9BaIPKisWj0rQ67vWdmnQ'
@@ -19,6 +20,7 @@ Custom templates: Create in Settings > Templates.
 Personalisation: Set your professional identity, treatment approaches, and document style in Settings > Personalisation.`
 
 export function FAB() {
+  const pathname = usePathname()
   const [expanded, setExpanded] = useState(false)
   const [panel, setPanel] = useState<'ai' | 'support' | null>(null)
   const [aiMessages, setAiMessages] = useState<{ role: string; content: string }[]>([])
@@ -96,6 +98,8 @@ export function FAB() {
       window.location.href = `mailto:iamarasinghe96@gmail.com?subject=LushNote Support&body=${body}`
     }
   }
+
+  if (pathname === '/transcript') return null
 
   return (
     <>
