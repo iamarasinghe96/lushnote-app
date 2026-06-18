@@ -96,72 +96,58 @@ export default function ExportPage() {
   return (
     <div className="h-full relative overflow-hidden">
 
-      {/* Preview pane — full height, scrolls under the notch */}
-      <div className="absolute inset-0 overflow-y-auto" style={{ paddingTop: 54 }}>
+      {/* Preview pane — full height */}
+      <div className="absolute inset-0 overflow-y-auto p-4">
         {isEmpty ? (
           <div className="flex items-center justify-center h-full text-[var(--text3)] text-sm">
             No note loaded. Generate or load a note to export.
           </div>
         ) : (
           <div
-            className="preview-pane max-w-2xl mx-auto px-4 pb-4"
+            className="preview-pane max-w-2xl mx-auto"
             dangerouslySetInnerHTML={{ __html: previewHtml }}
           />
         )}
       </div>
 
-      {/* Floating notch — overlays the top of the preview */}
-      <div
-        className="absolute left-0 right-0 top-0 mx-4 mt-1 px-4 flex items-center justify-between no-print"
-        style={{
-          height: 44,
-          borderRadius: 20,
-          zIndex: 10,
-          background: 'rgba(14,159,110,0.82)',
-          backdropFilter: 'blur(10px) saturate(1.5)',
-          WebkitBackdropFilter: 'blur(10px) saturate(1.5)',
-          border: '1px solid rgba(255,255,255,0.25)',
-          boxShadow: '0 4px 16px rgba(14,159,110,0.22), inset 0 1px 0 rgba(255,255,255,0.20)',
-        }}
-      >
-        <span className="text-sm font-medium text-white truncate max-w-[60%]">
-          {currentNote.patient
-            ? `${currentNote.patient}${currentNote.date ? '  ·  ' + currentNote.date : ''}`
-            : 'Export Note'}
-        </span>
+      {/* Floating Export button — top-right corner */}
+      <div ref={menuRef} className="absolute top-3 right-4 z-10 no-print">
+        <button
+          onClick={() => setMenuOpen(o => !o)}
+          disabled={isEmpty}
+          className="text-white text-xs font-semibold px-4 py-2 rounded-full
+                     flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none
+                     motion-safe:transition-colors motion-safe:active:scale-[0.97]"
+          style={{
+            background: 'rgba(14,159,110,0.90)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255,255,255,0.25)',
+            boxShadow: '0 2px 8px rgba(14,159,110,0.30)',
+          }}
+        >
+          Export ▾
+        </button>
 
-        <div ref={menuRef} className="relative">
-          <button
-            onClick={() => setMenuOpen(o => !o)}
-            disabled={isEmpty}
-            className="text-white/90 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-full
-                       border border-white/30 hover:bg-white/15
-                       flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none
-                       motion-safe:transition-colors motion-safe:active:scale-[0.97]"
+        {menuOpen && (
+          <div
+            className="absolute right-0 top-full mt-1 w-52 bg-white border border-[var(--border)]
+                       rounded-[var(--r-lg)] z-50 overflow-hidden"
+            style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
           >
-            Export ▾
-          </button>
-
-          {menuOpen && (
-            <div
-              className="absolute right-0 top-full mt-1 w-52 bg-white border border-[var(--border)]
-                         rounded-[var(--r-lg)] z-50 overflow-hidden"
-              style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
-            >
-              {menuItems.map(item => (
-                <button
-                  key={item.label}
-                  onClick={item.action}
-                  className="w-full text-left px-4 py-2.5 text-sm text-[var(--text)]
-                             hover:bg-[var(--bg)] border-b border-[var(--border)] last:border-0
-                             active:scale-[0.98] transition-colors"
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+            {menuItems.map(item => (
+              <button
+                key={item.label}
+                onClick={item.action}
+                className="w-full text-left px-4 py-2.5 text-sm text-[var(--text)]
+                           hover:bg-[var(--bg)] border-b border-[var(--border)] last:border-0
+                           active:scale-[0.98] transition-colors"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Toast */}
