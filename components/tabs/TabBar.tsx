@@ -71,6 +71,7 @@ export default function TabBar() {
       className="relative shrink-0 mx-4 flex items-center px-2 z-30"
       style={{
         height: 64,
+        marginTop: 8,
         marginBottom: 'calc(env(safe-area-inset-bottom) + 8px)',
         borderRadius: 32,
         backdropFilter: 'blur(32px) saturate(1.6)',

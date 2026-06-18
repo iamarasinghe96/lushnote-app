@@ -108,7 +108,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
         className="relative z-30 flex items-center justify-between px-4 shrink-0 mx-4"
         style={{
           height: 52,
-          marginBottom: 4,
+          marginBottom: 8,
           borderRadius: 20,
           backdropFilter: 'blur(8px) saturate(1.5)',
           WebkitBackdropFilter: 'blur(8px) saturate(1.5)',
@@ -229,7 +229,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
       {/* ── Toast ── */}
       {toast && (
         <div className="fixed left-1/2 -translate-x-1/2 z-[70] bg-[var(--text)] text-white text-xs rounded-full px-4 py-2 pointer-events-none select-none"
-          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 80px)', boxShadow: '0 2px 8px rgba(15,23,42,.12)' }}>
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)', boxShadow: '0 2px 8px rgba(15,23,42,.12)' }}>
           {toast}
         </div>
       )}
