@@ -94,17 +94,32 @@ export default function ExportPage() {
   ]
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full relative overflow-hidden">
 
-      {/* Floating notch bar */}
+      {/* Preview pane — full height, scrolls under the notch */}
+      <div className="absolute inset-0 overflow-y-auto" style={{ paddingTop: 54 }}>
+        {isEmpty ? (
+          <div className="flex items-center justify-center h-full text-[var(--text3)] text-sm">
+            No note loaded. Generate or load a note to export.
+          </div>
+        ) : (
+          <div
+            className="preview-pane max-w-2xl mx-auto px-4 pb-4"
+            dangerouslySetInnerHTML={{ __html: previewHtml }}
+          />
+        )}
+      </div>
+
+      {/* Floating notch — overlays the top of the preview */}
       <div
-        className="shrink-0 mx-4 mt-1 mb-1 px-4 flex items-center justify-between no-print"
+        className="absolute left-0 right-0 top-0 mx-4 mt-1 px-4 flex items-center justify-between no-print"
         style={{
           height: 44,
           borderRadius: 20,
-          background: 'rgba(14,159,110,0.88)',
-          backdropFilter: 'blur(8px) saturate(1.5)',
-          WebkitBackdropFilter: 'blur(8px) saturate(1.5)',
+          zIndex: 10,
+          background: 'rgba(14,159,110,0.82)',
+          backdropFilter: 'blur(10px) saturate(1.5)',
+          WebkitBackdropFilter: 'blur(10px) saturate(1.5)',
           border: '1px solid rgba(255,255,255,0.25)',
           boxShadow: '0 4px 16px rgba(14,159,110,0.22), inset 0 1px 0 rgba(255,255,255,0.20)',
         }}
@@ -147,20 +162,6 @@ export default function ExportPage() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Preview pane */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {isEmpty ? (
-          <div className="flex items-center justify-center h-full text-[var(--text3)] text-sm">
-            No note loaded. Generate or load a note to export.
-          </div>
-        ) : (
-          <div
-            className="preview-pane max-w-2xl mx-auto"
-            dangerouslySetInnerHTML={{ __html: previewHtml }}
-          />
-        )}
       </div>
 
       {/* Toast */}
