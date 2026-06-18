@@ -438,19 +438,32 @@ export default function PatientsPage() {
         className="shrink-0 border-b border-[var(--border)] px-4 py-3 space-y-2"
         style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
       >
-        <div className="flex gap-2">
-          {(['recent', 'az', 'visits'] as const).map(s => (
-            <button
-              key={s}
-              onClick={() => setSortBy(s)}
-              className={`text-xs px-3 py-1 rounded-full border transition-colors
-                ${sortBy === s
-                  ? 'bg-[var(--blue)] text-white border-[var(--blue)]'
-                  : 'border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)]'}`}
-            >
-              {s === 'recent' ? 'Recent' : s === 'az' ? 'A–Z' : 'Most Visits'}
-            </button>
-          ))}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex gap-2">
+            {(['recent', 'az', 'visits'] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => setSortBy(s)}
+                className={`text-xs px-3 py-1 rounded-full border transition-colors
+                  ${sortBy === s
+                    ? 'bg-[var(--blue)] text-white border-[var(--blue)]'
+                    : 'border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)]'}`}
+              >
+                {s === 'recent' ? 'Recent' : s === 'az' ? 'A–Z' : 'Most Visits'}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setAddModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs bg-[var(--blue)] text-white
+                       px-3 py-1.5 rounded-full font-medium hover:bg-[var(--blue-dk)]
+                       active:scale-95 transition-all shrink-0"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Patient
+          </button>
         </div>
         <div className="flex gap-2 flex-wrap">
           {(['today', 'week', 'month'] as const).map(f => (
@@ -534,20 +547,6 @@ export default function PatientsPage() {
           ))
         )}
       </div>
-
-      <button
-        onClick={() => setAddModalOpen(true)}
-        className="fixed bottom-20 right-4 w-14 h-14 rounded-full bg-[#10b981] text-white
-                   flex items-center justify-center
-                   hover:bg-[#059669] active:scale-95 transition-all z-20"
-        aria-label="Add patient"
-        style={{ boxShadow: '0 4px 16px rgba(16,185,129,.35)' }}
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-          <line x1="12" y1="5" x2="12" y2="19"/>
-          <line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-      </button>
 
       <PatientModal
         open={addModalOpen}

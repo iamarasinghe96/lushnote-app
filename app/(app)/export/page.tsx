@@ -5,10 +5,18 @@ import { useNoteStore } from '@/hooks/useNoteStore'
 import { useAuth } from '@/hooks/useAuth'
 import { buildNoteText, buildCoverLetterEmail, buildPreviewHTML } from '@/lib/utils'
 import { downloadNotePDF } from '@/lib/pdf'
+import { getPatientProfiles } from '@/lib/firestore/patients'
+import type { PatientProfile } from '@/types'
 
 export default function ExportPage() {
   const { currentNote } = useNoteStore()
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
+  const [patientProfiles, setPatientProfiles] = useState<Record<string, PatientProfile>>({})
+
+  useEffect(() => {
+    if (!user) return
+    getPatientProfiles(user.uid).then(setPatientProfiles).catch(() => {})
+  }, [user?.uid])
   const [menuOpen, setMenuOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -45,7 +53,15 @@ export default function ExportPage() {
   }
 
   function handlePDF() {
-    downloadNotePDF(currentNote, profile?.displayName)
+    const matchedProfile = currentNote.patient
+      ? Object.values(patientProfiles).find(
+          p => p.displayName.trim().toLowerCase() === currentNote.patient!.trim().toLowerCase()
+        )
+      : undefined
+    downloadNotePDF(currentNote, profile?.displayName, matchedProfile
+      ? { dob: matchedProfile.dob, gender: matchedProfile.gender }
+      : undefined
+    )
     setMenuOpen(false)
   }
 

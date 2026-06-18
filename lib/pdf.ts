@@ -21,7 +21,23 @@ const SECTIONS: { key: keyof Note; label: string }[] = [
   { key: 'nextsteps',    label: 'Next Steps' },
 ]
 
-export function generateNotePDF(note: Partial<Note>, clinicianName?: string): jsPDF {
+function calcAge(dob: string): number | null {
+  const parts = dob.split('/')
+  if (parts.length !== 3) return null
+  const birth = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]))
+  if (isNaN(birth.getTime())) return null
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age >= 0 ? age : null
+}
+
+export function generateNotePDF(
+  note: Partial<Note>,
+  clinicianName?: string,
+  patientInfo?: { dob?: string; gender?: string }
+): jsPDF {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   let y = MARGIN
 
@@ -57,7 +73,30 @@ export function generateNotePDF(note: Partial<Note>, clinicianName?: string): js
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(15)
     doc.text(titleParts, MARGIN, y)
-    y += 9
+    y += 6
+  }
+
+  // ── Patient meta row ────────────────────────────────────
+  const metaParts: string[] = []
+  if (note.reg_number) metaParts.push(`Reg: ${note.reg_number}`)
+  if (note.session_number) metaParts.push(`Session ${note.session_number}`)
+  if (patientInfo?.dob) {
+    const age = calcAge(patientInfo.dob)
+    if (age !== null) metaParts.push(`Age: ${age}`)
+  }
+  if (patientInfo?.gender && patientInfo.gender !== 'prefer-not-to-say') {
+    const gMap: Record<string, string> = { male: 'Male', female: 'Female', other: 'Other' }
+    const g = gMap[patientInfo.gender]
+    if (g) metaParts.push(g)
+  }
+  if (metaParts.length) {
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(110)
+    doc.text(metaParts.join('   ·   '), MARGIN, y)
+    y += 7
+  } else {
+    y += 3
   }
 
   // ── Sections ─────────────────────────────────────────────
@@ -111,9 +150,13 @@ export function generateNotePDF(note: Partial<Note>, clinicianName?: string): js
   return doc
 }
 
-export function downloadNotePDF(note: Partial<Note>, clinicianName?: string): void {
+export function downloadNotePDF(
+  note: Partial<Note>,
+  clinicianName?: string,
+  patientInfo?: { dob?: string; gender?: string }
+): void {
   if (typeof window === 'undefined') return
-  const doc = generateNotePDF(note, clinicianName)
+  const doc = generateNotePDF(note, clinicianName, patientInfo)
   const filename = `LushNote_${note.patient || 'Note'}_${note.date || ''}`
     .replace(/\s+/g, '_')
     .replace(/[^a-zA-Z0-9_\-.]/g, '')
