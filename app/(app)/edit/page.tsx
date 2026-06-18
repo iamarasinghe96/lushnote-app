@@ -1011,13 +1011,22 @@ function EditContent() {
 
   // ── Custom note field handlers ────────────────────────────────────────────
 
+  const DIVIDER_FIELD_MAP: Record<string, keyof Note> = {
+    'after-attendance': 'attendance', 'after-diagnosis': 'diagnosis',
+    'after-presentation': 'presentation', 'after-history': 'history',
+    'after-medications': 'medications', 'after-mse': 'mse',
+    'after-content': 'content', 'after-scales': 'scales',
+    'after-risk': 'risk', 'after-referrals': 'referrals',
+    'after-summary': 'summary', 'after-nextsteps': 'nextsteps',
+  }
+
   function openCustomField(key: string) {
     setCustomFieldOpen(key)
     setCustomLabel('')
     setCustomPrompt('')
     setCustomRaw('')
     setCustomProcessed('')
-    setCustomTarget('nextsteps')
+    setCustomTarget(DIVIDER_FIELD_MAP[key] ?? 'nextsteps')
   }
 
   function closeCustomField() {
@@ -1306,14 +1315,14 @@ function EditContent() {
                   onChange={e => setCustomRaw(e.target.value)}
                   placeholder={'Jot notes exactly as you would on paper - e.g. "pt slept 5hrs, woke 3am, groggy next day". Typos are fine - AI will clean it up.'}
                 />
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <label className="block text-xs font-medium text-[var(--text)] mb-1">Append to field</label>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[var(--text3)]">
+                    Adding to:{' '}
                     <select value={customTarget as string} onChange={e => setCustomTarget(e.target.value as keyof Note)}
-                      className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white px-2 py-1.5 text-sm text-[var(--text)] outline-none focus:border-[var(--blue)]">
+                      className="text-xs text-[var(--blue)] font-medium bg-transparent border-none outline-none cursor-pointer hover:underline">
                       {TARGET_NOTE_FIELDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                     </select>
-                  </div>
+                  </span>
                   <button type="button" onClick={handleStandardize} disabled={!customRaw.trim() || customProcessing}
                     className="px-4 py-1.5 text-xs font-semibold bg-[var(--blue)] text-white rounded-[var(--r)] disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform">
                     {customProcessing ? 'Processing…' : '✦ Standardize'}
