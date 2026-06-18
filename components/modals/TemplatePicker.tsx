@@ -27,7 +27,7 @@ function recordUsage(id: string | number) {
   localStorage.setItem(USAGE_KEY, JSON.stringify([id, ...ids].slice(0, MAX_RECENT)))
 }
 
-type Tab = 'all' | 'session' | 'document'
+type Tab = 'all' | 'session' | 'document' | 'custom'
 
 const NOTE_LENGTHS: { value: NoteLength; label: string }[] = [
   { value: 'brief', label: 'Brief' },
@@ -63,11 +63,15 @@ export default function TemplatePicker({ open, onSelect, onCancel }: TemplatePic
   }, [open, profile?.personalisation?.noteLength])
 
   const custom: AnyTemplate[] = profile?.customTemplates ?? []
-  const all: AnyTemplate[] = [...(builtins as AnyTemplate[]), ...custom]
+  // Dedupe by id so a stale duplicate can never render twice
+  const all: AnyTemplate[] = Array.from(
+    new Map([...(builtins as AnyTemplate[]), ...custom].map(t => [String(t.id), t])).values()
+  )
 
   // Tab filtering
-  const tabFiltered = tab === 'all'
-    ? all
+  const tabFiltered =
+    tab === 'all'      ? all
+    : tab === 'custom' ? custom
     : all.filter(t => ('tplType' in t ? t.tplType === tab : tab === 'session'))
 
   const recentIds = getRecentIds()
@@ -116,11 +120,14 @@ export default function TemplatePicker({ open, onSelect, onCancel }: TemplatePic
       <div className="flex flex-col" style={{ maxHeight: '80vh' }}>
 
         {/* Tabs */}
-        <div className="flex gap-0 px-5 pt-1 border-b border-[var(--border)]">
+        <div className="flex gap-0 px-5 pt-1 border-b border-[var(--border)] overflow-x-auto scrollbar-none">
           {([
-            { key: 'all' as Tab, label: 'All Templates', count: all.length },
-            { key: 'session' as Tab, label: 'Session Templates', count: sessionCount },
-            { key: 'document' as Tab, label: 'Document Templates', count: documentCount },
+            { key: 'all' as Tab, label: 'All', count: all.length },
+            { key: 'session' as Tab, label: 'Session', count: sessionCount },
+            { key: 'document' as Tab, label: 'Document', count: documentCount },
+            ...(custom.length > 0
+              ? [{ key: 'custom' as Tab, label: 'My Templates', count: custom.length }]
+              : []),
           ]).map(({ key, label, count }) => (
             <button
               key={key}

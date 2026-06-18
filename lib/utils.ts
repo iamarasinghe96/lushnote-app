@@ -1,4 +1,4 @@
-import { WP_THEMES, type Note, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields } from '@/types'
+import { WP_THEMES, type Note, type AnyTemplate, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields } from '@/types'
 
 // Daily quota date aligned to Google's free-tier reset (US Pacific midnight),
 // returned as YYYY-MM-DD. Using UTC here would reset hours early/late and
@@ -311,6 +311,20 @@ export function formatDob(raw: string): string {
   if (digits.length >= 5) return digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4)
   if (digits.length >= 3) return digits.slice(0, 2) + '/' + digits.slice(2)
   return digits
+}
+
+// Builds the full generation prompt for a template, appending any saved
+// custom-field instructions so derived templates always include those sections.
+export function buildTemplatePrompt(template: AnyTemplate): string {
+  const base = (template.prompt ?? '').trim()
+  if (!('customFields' in template) || !template.customFields?.length) return base
+
+  const additions = template.customFields.map(f => {
+    const targetLabel = FIELD_LABELS[f.targetField] ?? f.targetField
+    return `\n\nADDITIONAL SECTION - "${f.label}" (incorporate this content within the ${targetLabel} section):\n${f.systemPrompt.trim()}`
+  }).join('')
+
+  return (base + additions).trim()
 }
 
 export function buildPreviewHTML(f: Partial<Note>): string {

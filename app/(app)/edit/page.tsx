@@ -7,7 +7,7 @@ import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile } from '@/lib/firestore/patients'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildPreviewHTML, buildLetterPreviewHTML, formatDateForLetter, calculateAgeFromDOB } from '@/lib/utils'
+import { buildPreviewHTML, buildLetterPreviewHTML, buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
@@ -708,7 +708,7 @@ function EditContent() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ transcript, templatePrompt: template.prompt, systemPrompt, uid: user.uid }),
+        body: JSON.stringify({ transcript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user.uid }),
       })
 
       statusTimers.forEach(clearTimeout)
@@ -781,7 +781,7 @@ function EditContent() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ transcript, templatePrompt: template.prompt, systemPrompt, uid: user!.uid }),
+        body: JSON.stringify({ transcript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user!.uid }),
       })
       if (!res.ok) {
         const data = await res.json() as { error?: string }
@@ -1073,21 +1073,29 @@ function EditContent() {
         targetField: customTarget,
       }
       const baseTemplate = store.lastChosenTemplate
+      // Carry forward fields from a base that is itself a derived template so
+      // custom sections accumulate rather than being lost when chaining.
+      const inheritedFields = baseTemplate && 'customFields' in baseTemplate && baseTemplate.customFields
+        ? baseTemplate.customFields
+        : []
+      const basePrompt = (baseTemplate?.prompt ?? '').trim()
+        || 'Generate a comprehensive clinical progress note based on the transcript.'
       const newTemplate: CustomTemplate = {
         id: 'custom_' + Date.now(),
         title: saveTemplateName.trim(),
-        category: baseTemplate && 'category' in baseTemplate ? String(baseTemplate.category) : 'Custom',
-        description: `Extended from "${baseTemplate?.title ?? 'base template'}" with custom "${customLabel.trim()}" field`,
-        prompt: baseTemplate?.prompt ?? '',
+        category: 'My Templates',
+        description: `Based on "${baseTemplate?.title ?? 'default note'}" with a custom "${customLabel.trim()}" section`,
+        prompt: basePrompt,
         custom: true,
         baseTemplateId: baseTemplate?.id != null ? String(baseTemplate.id) : undefined,
-        customFields: [newField],
+        customFields: [...inheritedFields, newField],
       }
       const existing = profile.customTemplates ?? []
       await updateProfile(user.uid, { customTemplates: [...existing, newTemplate] })
+      setLetterToast(`Template "${newTemplate.title}" saved`)
       closeCustomField()
     } catch {
-      // silently fail
+      setLetterToast('Could not save template')
     } finally {
       setSaveTemplateSaving(false)
     }
