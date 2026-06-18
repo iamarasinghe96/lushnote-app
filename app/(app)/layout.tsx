@@ -101,14 +101,20 @@ function AppContent({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col overflow-hidden bg-[var(--bg)]" style={{ height: '100dvh' }}>
 
       {/* ── Header ── */}
+      {/* Safe-area spacer so the floating pill clears the notch/Dynamic Island */}
+      <div aria-hidden style={{ height: 'calc(env(safe-area-inset-top) + 8px)', flexShrink: 0 }} />
       <header
         data-header
-        className="relative z-30 flex items-center justify-between px-4 shrink-0"
+        className="relative z-30 flex items-center justify-between px-4 shrink-0 mx-4"
         style={{
-          paddingTop: 'env(safe-area-inset-top)',
-          height: 'calc(52px + env(safe-area-inset-top))',
-          background: 'linear-gradient(to right, #1d4ed8, #2563eb)',
-          boxShadow: '0 2px 8px rgba(15,23,42,.12)',
+          height: 52,
+          marginBottom: 4,
+          borderRadius: 20,
+          backdropFilter: 'blur(8px) saturate(1.5)',
+          WebkitBackdropFilter: 'blur(8px) saturate(1.5)',
+          background: 'rgba(37,99,235,0.42)',
+          border: '1px solid rgba(255,255,255,0.28)',
+          boxShadow: '0 4px 20px rgba(37,99,235,0.22), inset 0 1px 0 rgba(255,255,255,0.22)',
         }}
       >
         {/* Left: LN circle + name/subtitle */}
