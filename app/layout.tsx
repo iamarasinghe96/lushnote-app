@@ -14,6 +14,10 @@ export const metadata: Metadata = {
     capable: true,
     title: 'LushNote',
     statusBarStyle: 'black-translucent',
+    startupImage: '/apple-touch-icon.png',
+  },
+  icons: {
+    apple: '/apple-touch-icon.png',
   },
   metadataBase: new URL('https://lushnote.com.au'),
   openGraph: {
