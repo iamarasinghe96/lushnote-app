@@ -82,7 +82,7 @@ export default function Page() {
             onClick={handleSignIn}
             disabled={signing}
             className="px-3 py-1.5 text-sm font-medium text-[var(--text2)] hover:text-[var(--text)]
-                       border border-[var(--border)] rounded-[var(--r)] hover:border-[var(--text3)]
+                       border border-white/70 rounded-[var(--r)] hover:border-white
                        motion-safe:transition-colors disabled:opacity-50"
           >
             Sign In
