@@ -112,7 +112,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
           borderRadius: 20,
           backdropFilter: 'blur(8px) saturate(1.5)',
           WebkitBackdropFilter: 'blur(8px) saturate(1.5)',
-          background: 'rgba(37,99,235,0.42)',
+          background: 'rgba(37,99,235,0.88)',
           border: '1px solid rgba(255,255,255,0.28)',
           boxShadow: '0 4px 20px rgba(37,99,235,0.22), inset 0 1px 0 rgba(255,255,255,0.22)',
         }}
