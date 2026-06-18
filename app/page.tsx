@@ -140,6 +140,10 @@ export default function Page() {
               See how it works →
             </a>
           </div>
+
+          <div className="flex justify-center pt-8">
+            <img src="/LushNote_Logo.svg" alt="LushNote" className="w-28 h-28" />
+          </div>
         </div>
       </section>
 
