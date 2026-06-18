@@ -113,8 +113,8 @@ export default function Page() {
           </h1>
 
           <p className="text-lg text-[var(--text2)] leading-relaxed">
-            AI-powered note generation for psychiatrists.<br className="hidden sm:block" />
-            Record, transcribe, structure - in one workflow.
+            AI-powered notes and referral letters for doctors.<br className="hidden sm:block" />
+            Record, transcribe, structure — in one workflow.
           </p>
 
           {error && (
