@@ -1020,9 +1020,16 @@ function EditContent() {
       {/* Current note bar */}
       {!isLetterMode && (store.currentNoteId || isAnimating || isGenerating) && (
         <div
-          className={`flex items-center justify-between px-4 py-2 text-white text-sm shrink-0
-            bg-gradient-to-r from-[#0e9f6e] to-[#059669]
+          className={`flex items-center justify-between px-4 py-2 text-white text-sm shrink-0 mx-4 mb-1
             ${isGenerating ? 'animate-pulse' : ''}`}
+          style={{
+            borderRadius: 20,
+            background: 'rgba(14,159,110,0.90)',
+            backdropFilter: 'blur(8px) saturate(1.5)',
+            WebkitBackdropFilter: 'blur(8px) saturate(1.5)',
+            border: '1px solid rgba(255,255,255,0.25)',
+            boxShadow: '0 4px 16px rgba(14,159,110,0.25), inset 0 1px 0 rgba(255,255,255,0.20)',
+          }}
         >
           <div className="flex items-center gap-2 min-w-0">
             {(isAnimating || isGenerating) ? (
