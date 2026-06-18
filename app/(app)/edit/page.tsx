@@ -187,6 +187,7 @@ function EditContent() {
   const formScrollRef = useRef<HTMLDivElement>(null)
   const previewScrollRef = useRef<HTMLDivElement>(null)
   const scrollSyncLockRef = useRef(false)
+  const isAnimatingRef = useRef(false)
   const [currentAnimatingField, setCurrentAnimatingField] = useState<string | null>(null)
 
   // Custom note fields
@@ -228,8 +229,8 @@ function EditContent() {
       requestAnimationFrame(() => { scrollSyncLockRef.current = false })
     }
 
-    const onFormScroll = () => syncTo(form, preview)
-    const onPreviewScroll = () => syncTo(preview, form)
+    const onFormScroll = () => { if (!isAnimatingRef.current) syncTo(form, preview) }
+    const onPreviewScroll = () => { if (!isAnimatingRef.current) syncTo(preview, form) }
 
     form.addEventListener('scroll', onFormScroll, { passive: true })
     preview.addEventListener('scroll', onPreviewScroll, { passive: true })
@@ -552,6 +553,7 @@ function EditContent() {
     setIsGenerating(false)
     setGenerationStatus(null)
     setIsAnimating(true)
+    isAnimatingRef.current = true
 
     if (reduced) {
       setFields(prev => {
@@ -561,6 +563,7 @@ function EditContent() {
       })
       setCurrentAnimatingField(null)
       setIsAnimating(false)
+      isAnimatingRef.current = false
       autoSaveEnabledRef.current = true
       return
     }
@@ -581,7 +584,8 @@ function EditContent() {
       // Force preview HTML update now (bypasses the 200ms debounced useEffect so the
       // preview section element exists in the DOM before we try to scrollIntoView it)
       setPreviewHtml(buildPreviewHTML(latestFieldsRef.current))
-      await new Promise<void>(r => setTimeout(r, 80))
+      // Double-rAF: first frame commits React's state update, second frame the DOM is painted
+      await new Promise<void>(r => requestAnimationFrame(() => { requestAnimationFrame(() => r()) }))
 
       previewScrollRef.current?.querySelector(`[data-field="${key}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
@@ -589,6 +593,7 @@ function EditContent() {
     if (mountedRef.current) {
       setCurrentAnimatingField(null)
       setIsAnimating(false)
+      isAnimatingRef.current = false
       autoSaveEnabledRef.current = true
       // Use direct scrollTop (not scrollTo smooth) inside a delay so it fires after
       // the debounced preview HTML update (which would otherwise cancel a smooth scroll)
