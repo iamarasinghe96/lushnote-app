@@ -65,11 +65,11 @@ export default function Page() {
         style={{
           height: 52,
           borderRadius: 20,
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.50)',
-          boxShadow: '0 4px 16px rgba(15,23,42,.08), 0 1px 3px rgba(15,23,42,.06)',
+          backdropFilter: 'blur(20px) saturate(1.8)',
+          WebkitBackdropFilter: 'blur(20px) saturate(1.8)',
+          background: 'rgba(255,255,255,0.45)',
+          border: '1px solid rgba(255,255,255,0.70)',
+          boxShadow: '0 4px 24px rgba(15,23,42,.10), 0 1px 3px rgba(15,23,42,.06)',
         }}
       >
         <div className="flex items-center gap-2 select-none">
@@ -176,10 +176,10 @@ export default function Page() {
                 key={f.title}
                 className="rounded-[var(--r-lg)] p-4 backdrop-blur-md"
                 style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  backdropFilter: 'blur(28px)',
-                  WebkitBackdropFilter: 'blur(28px)',
-                  boxShadow: '0 2px 12px rgba(15,23,42,.04), 0 0 0 1px rgba(255,255,255,0.55)',
+                  background: 'rgba(255,255,255,0.12)',
+                  backdropFilter: 'blur(28px) saturate(1.6)',
+                  WebkitBackdropFilter: 'blur(28px) saturate(1.6)',
+                  boxShadow: '0 2px 16px rgba(15,23,42,.06), 0 0 0 1px rgba(255,255,255,0.65)',
                 }}
               >
                 <div className="mb-2 text-[var(--blue)]">{f.icon}</div>
@@ -203,10 +203,10 @@ export default function Page() {
                 key={m.title}
                 className="rounded-[var(--r-lg)] border border-[var(--border)] p-4"
                 style={{
-                  background: 'rgba(255,255,255,0.03)',
-                  backdropFilter: 'blur(28px)',
-                  WebkitBackdropFilter: 'blur(28px)',
-                  boxShadow: '0 2px 12px rgba(15,23,42,.04), 0 0 0 1px rgba(255,255,255,0.55)',
+                  background: 'rgba(255,255,255,0.12)',
+                  backdropFilter: 'blur(28px) saturate(1.6)',
+                  WebkitBackdropFilter: 'blur(28px) saturate(1.6)',
+                  boxShadow: '0 2px 16px rgba(15,23,42,.06), 0 0 0 1px rgba(255,255,255,0.65)',
                 }}
               >
                 <div className="flex items-center gap-2 mb-2">
@@ -232,20 +232,20 @@ export default function Page() {
         <div
           className="max-w-xl mx-auto text-center space-y-4 rounded-[var(--r-lg)] py-14 px-6"
           style={{
-            background: 'rgba(29,78,216,0.78)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-            border: '1px solid rgba(255,255,255,0.28)',
-            boxShadow: '0 8px 32px rgba(29,78,216,0.30), inset 0 1px 0 rgba(255,255,255,0.18)',
+            background: 'rgba(29,78,216,0.18)',
+            backdropFilter: 'blur(32px) saturate(1.8)',
+            WebkitBackdropFilter: 'blur(32px) saturate(1.8)',
+            border: '1px solid rgba(29,78,216,0.30)',
+            boxShadow: '0 8px 32px rgba(29,78,216,0.12), inset 0 1px 0 rgba(255,255,255,0.25)',
           }}
         >
-          <h2 className="text-3xl font-bold text-white">Document smarter.</h2>
-          <p className="text-white/80 text-lg">Save one more life.</p>
+          <h2 className="text-3xl font-bold text-[#1d4ed8]">Document smarter.</h2>
+          <p className="text-[var(--text2)] text-lg">Save one more life.</p>
           <button
             onClick={handleSignIn}
             disabled={signing}
-            className="mt-2 px-8 py-3 rounded-[var(--r)] bg-white text-[var(--blue)] font-semibold
-                       text-sm hover:bg-[#f8fafc]
+            className="mt-2 px-8 py-3 rounded-[var(--r)] bg-[var(--blue)] text-white font-semibold
+                       text-sm hover:bg-[var(--blue-dk)]
                        motion-safe:transition-colors motion-safe:active:scale-[0.97]
                        motion-safe:duration-100 disabled:opacity-50"
           >
