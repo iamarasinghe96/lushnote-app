@@ -7,19 +7,6 @@ const PAGE_H = 297
 const TEXT_W = PAGE_W - MARGIN * 2
 const BOTTOM_LIMIT = PAGE_H - MARGIN - 8
 
-// Word-justify a single line; falls back to left-align on last line or single word
-function justifyLine(doc: jsPDF, text: string, x: number, y: number, maxW: number, isLast: boolean) {
-  if (isLast) { doc.text(text, x, y); return }
-  const words = text.trim().split(/\s+/).filter(Boolean)
-  if (words.length <= 1) { doc.text(text, x, y); return }
-  const totalWordW = words.reduce((s, w) => s + doc.getTextWidth(w), 0)
-  const gap = (maxW - totalWordW) / (words.length - 1)
-  let cx = x
-  for (const word of words) {
-    doc.text(word, cx, y)
-    cx += doc.getTextWidth(word) + gap
-  }
-}
 
 const SECTIONS: { key: keyof Note; label: string }[] = [
   { key: 'diagnosis',    label: 'Diagnosis' },
@@ -164,22 +151,16 @@ export function generateNotePDF(
         // First piece starts after bold label - left-align (constrained width)
         doc.text(restLines[0], MARGIN + labelW, y)
         y += 4.5
-        // Overflow lines at full width - justify except last
         for (let ri = 1; ri < restLines.length; ri++) {
           ensureSpace(5)
-          const isLast = ri === restLines.length - 1
-          justifyLine(doc, restLines[ri], MARGIN, y, TEXT_W, isLast)
+          doc.text(restLines[ri], MARGIN, y)
           y += 4.5
         }
       } else {
         const wrapped = doc.splitTextToSize(raw, TEXT_W) as string[]
         for (let wi = 0; wi < wrapped.length; wi++) {
           ensureSpace(5)
-          if (isBullet) {
-            doc.text(wrapped[wi], MARGIN, y)
-          } else {
-            justifyLine(doc, wrapped[wi], MARGIN, y, TEXT_W, wi === wrapped.length - 1)
-          }
+          doc.text(wrapped[wi], MARGIN, y)
           y += 4.5
         }
       }
