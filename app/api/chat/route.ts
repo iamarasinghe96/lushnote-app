@@ -117,6 +117,65 @@ Keep responses concise and practical.`
       return NextResponse.json({ answer, provider: 'groq' })
     }
 
+    // ── Prompt engineering: natural language → AI system prompt ────────────────
+    if (type === 'engineer-prompt') {
+      const { label, description, example, uid } = body as {
+        label?: string
+        description: string
+        example?: string
+        uid?: string
+      }
+
+      if (!description || typeof description !== 'string' || description.length > 2000) {
+        return NextResponse.json({ error: 'Invalid description' }, { status: 400 })
+      }
+
+      const engineerSystemPrompt = `You are a clinical AI prompt engineer for LushNote, a note-writing tool for psychiatrists.
+A doctor wants to add a custom section to their clinical notes. They have described what they want in plain language.
+Your task: write a concise, specific system prompt that will guide an AI to write that section professionally.
+
+Rules for the prompt you write:
+- Begin with "You are a clinical documentation assistant writing the [section name] section of a psychiatric progress note."
+- Specify exactly what clinical content to include from the raw notes
+- Instruct the AI to use professional third-person clinical language
+- Instruct the AI to output only the section text, no labels or headings
+- If an example output was provided, mirror that format and level of detail
+- Be under 150 words total
+
+Return ONLY the system prompt text, nothing else - no explanation, no preamble.`
+
+      const userMsg = [
+        `Section name: "${label || 'Custom Section'}"`,
+        `Doctor's description: ${description}`,
+        example ? `Example of desired output:\n${example}` : '',
+      ].filter(Boolean).join('\n\n')
+
+      const msgs: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }> = [
+        { role: 'user', parts: [{ text: userMsg }] },
+      ]
+
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const { text: systemPrompt, totalTokens } = await chatResponse(msgs, engineerSystemPrompt)
+          if (uid && typeof uid === 'string') {
+            await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
+          }
+          return NextResponse.json({ systemPrompt, provider: 'gemini' })
+        } catch (err) {
+          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR && typeof uid === 'string') {
+            await markGeminiLimitReached(uid, 'chat').catch(() => {})
+          }
+        }
+      }
+
+      const groqKey = req.headers.get('x-groq-key')
+      if (!groqKey) {
+        return NextResponse.json({ error: 'No API key available' }, { status: 401 })
+      }
+      const { content: systemPrompt } = await generateNoteGroq(userMsg, engineerSystemPrompt, groqKey)
+      return NextResponse.json({ systemPrompt, provider: 'groq' })
+    }
+
     // ── Custom field standardize ────────────────────────────────────────────────
     if (type === 'standardize') {
       const { rawInput, prompt: fieldPrompt, uid } = body as {

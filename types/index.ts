@@ -133,6 +133,13 @@ interface Template {
   custom?: false
 }
 
+interface CustomTemplateField {
+  id: string
+  label: string
+  systemPrompt: string
+  targetField: keyof Note
+}
+
 interface CustomTemplate {
   id: string                // 'custom_' + timestamp
   title: string
@@ -140,6 +147,8 @@ interface CustomTemplate {
   description: string
   prompt: string
   custom: true
+  baseTemplateId?: string
+  customFields?: CustomTemplateField[]
 }
 
 type AnyTemplate = Template | CustomTemplate
@@ -261,6 +270,7 @@ export type {
   PatientProfile,
   PatientSummary,
   Template,
+  CustomTemplateField,
   CustomTemplate,
   AnyTemplate,
   NoteCreationMode,

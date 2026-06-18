@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile } from '@/lib/firestore/patients'
+import { updateProfile } from '@/lib/firestore/profiles'
 import { buildPreviewHTML, buildLetterPreviewHTML, formatDateForLetter, calculateAgeFromDOB } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import Input from '@/components/ui/Input'
@@ -15,7 +16,7 @@ import DatePicker from '@/components/ui/DatePicker'
 import TimePicker from '@/components/ui/TimePicker'
 import TemplatePicker from '@/components/modals/TemplatePicker'
 import ReassignModal from '@/components/modals/ReassignModal'
-import type { Note, NoteInput, AnyTemplate, Workplace, LetterType } from '@/types'
+import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate } from '@/types'
 
 const FIELD_ORDER = [
   'patient', 'date', 'diagnosis', 'presentation', 'history', 'medications', 'mse',
@@ -193,11 +194,18 @@ function EditContent() {
   // Custom note fields
   const [customFieldOpen, setCustomFieldOpen] = useState<string | null>(null)
   const [customLabel, setCustomLabel] = useState('')
+  const [customDescription, setCustomDescription] = useState('')
+  const [customExample, setCustomExample] = useState('')
+  const [customEngineering, setCustomEngineering] = useState(false)
+  const [customPromptReady, setCustomPromptReady] = useState(false)
   const [customPrompt, setCustomPrompt] = useState('')
   const [customRaw, setCustomRaw] = useState('')
   const [customTarget, setCustomTarget] = useState<keyof Note>('nextsteps')
   const [customProcessed, setCustomProcessed] = useState('')
   const [customProcessing, setCustomProcessing] = useState(false)
+  const [customInserted, setCustomInserted] = useState(false)
+  const [saveTemplateName, setSaveTemplateName] = useState('')
+  const [saveTemplateSaving, setSaveTemplateSaving] = useState(false)
   const [savedCustomFields, setSavedCustomFields] = useState<CustomNoteFieldDef[]>(() => {
     if (typeof window === 'undefined') return []
     try { return JSON.parse(localStorage.getItem('ln_custom_fields') || '[]') } catch { return [] }
@@ -1015,6 +1023,74 @@ function EditContent() {
   function closeCustomField() {
     setCustomFieldOpen(null)
     setCustomProcessed('')
+    setCustomDescription('')
+    setCustomExample('')
+    setCustomPrompt('')
+    setCustomPromptReady(false)
+    setCustomRaw('')
+    setCustomInserted(false)
+    setSaveTemplateName('')
+  }
+
+  async function handleEngineerPrompt() {
+    if (!customDescription.trim() || !customLabel.trim()) return
+    setCustomEngineering(true)
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const groqKey = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('groq_api_key') : null
+      if (groqKey) headers['x-groq-key'] = groqKey
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          type: 'engineer-prompt',
+          label: customLabel.trim(),
+          description: customDescription.trim(),
+          example: customExample.trim() || undefined,
+          uid: user?.uid,
+        }),
+      })
+      const data = await res.json() as { systemPrompt?: string; error?: string }
+      if (data.systemPrompt) {
+        setCustomPrompt(data.systemPrompt)
+        setCustomPromptReady(true)
+      }
+    } catch {
+      setCustomPromptReady(true)
+    } finally {
+      setCustomEngineering(false)
+    }
+  }
+
+  async function handleSaveAsTemplate() {
+    if (!saveTemplateName.trim() || !user?.uid || !profile) return
+    setSaveTemplateSaving(true)
+    try {
+      const newField: CustomTemplateField = {
+        id: Date.now().toString(),
+        label: customLabel.trim(),
+        systemPrompt: customPrompt.trim(),
+        targetField: customTarget,
+      }
+      const baseTemplate = store.lastChosenTemplate
+      const newTemplate: CustomTemplate = {
+        id: 'custom_' + Date.now(),
+        title: saveTemplateName.trim(),
+        category: baseTemplate && 'category' in baseTemplate ? String(baseTemplate.category) : 'Custom',
+        description: `Extended from "${baseTemplate?.title ?? 'base template'}" with custom "${customLabel.trim()}" field`,
+        prompt: baseTemplate?.prompt ?? '',
+        custom: true,
+        baseTemplateId: baseTemplate?.id != null ? String(baseTemplate.id) : undefined,
+        customFields: [newField],
+      }
+      const existing = profile.customTemplates ?? []
+      await updateProfile(user.uid, { customTemplates: [...existing, newTemplate] })
+      closeCustomField()
+    } catch {
+      // silently fail
+    } finally {
+      setSaveTemplateSaving(false)
+    }
   }
 
   async function handleStandardize() {
@@ -1051,7 +1127,9 @@ function EditContent() {
     const appended = current.trim() ? `${current}\n\n${label}:\n${customProcessed}` : `${label}:\n${customProcessed}`
     setField(customTarget, appended)
     doAutoSave(String(customTarget))
-    closeCustomField()
+    const base = store.lastChosenTemplate
+    setSaveTemplateName(base ? `${base.title} + ${label}` : label)
+    setCustomInserted(true)
   }
 
   function saveCustomFieldDef() {
@@ -1074,66 +1152,191 @@ function EditContent() {
   }
 
   function renderCustomFieldForm() {
+    const templateFields = (store.lastChosenTemplate && 'customFields' in store.lastChosenTemplate && store.lastChosenTemplate.customFields) || []
+    const allSaved = [
+      ...templateFields.map(f => ({ id: f.id, label: f.label, prompt: f.systemPrompt, targetField: f.targetField })),
+      ...savedCustomFields,
+    ]
+    const targetLabel = TARGET_NOTE_FIELDS.find(([k]) => k === customTarget)?.[1] ?? String(customTarget)
+
     return (
       <div className="rounded-[var(--r-lg)] border border-[var(--border)] bg-white p-3 space-y-2.5 mb-1"
         style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06)' }}>
+
+        {/* Header */}
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-[var(--text)]">Custom section</span>
+          <span className="text-xs font-semibold text-[var(--text)]">Add custom section</span>
           <button type="button" onClick={closeCustomField} className="text-[var(--text3)] hover:text-[var(--text)] text-xl leading-none">×</button>
         </div>
-        {savedCustomFields.length > 0 && (
+
+        {/* Quick-load saved fields */}
+        {allSaved.length > 0 && !customInserted && (
           <div className="flex flex-wrap gap-1.5">
-            {savedCustomFields.map(def => (
+            {allSaved.map(def => (
               <div key={def.id} className="flex items-center">
                 <button type="button"
-                  onClick={() => { setCustomLabel(def.label); setCustomPrompt(def.prompt); setCustomTarget(def.targetField) }}
+                  onClick={() => {
+                    setCustomLabel(def.label)
+                    setCustomPrompt(def.prompt)
+                    setCustomTarget(def.targetField)
+                    setCustomPromptReady(true)
+                  }}
                   className="text-xs bg-[var(--bg)] border border-[var(--border)] rounded-l-full px-2.5 py-0.5 text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)]">
                   {def.label}
                 </button>
-                <button type="button" onClick={() => deleteCustomFieldDef(def.id)}
-                  className="text-xs bg-[var(--bg)] border border-l-0 border-[var(--border)] rounded-r-full px-1.5 py-0.5 text-[var(--text3)] hover:text-[var(--danger)] hover:border-[var(--danger)]">
-                  ×
-                </button>
+                {savedCustomFields.some(s => s.id === def.id) && (
+                  <button type="button" onClick={() => deleteCustomFieldDef(def.id)}
+                    className="text-xs bg-[var(--bg)] border border-l-0 border-[var(--border)] rounded-r-full px-1.5 py-0.5 text-[var(--text3)] hover:text-[var(--danger)] hover:border-[var(--danger)]">
+                    ×
+                  </button>
+                )}
               </div>
             ))}
           </div>
         )}
-        <Input label="Section label" value={customLabel} onChange={e => setCustomLabel(e.target.value)} placeholder="e.g. Sleep History, Immunisation Status" />
-        <Textarea label="Instructions for AI" rows={2} value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} placeholder="Describe what goes here, e.g. 'Summarise sleep patterns including hours, quality and disturbances'" />
-        <Textarea label="Your raw notes" rows={4} value={customRaw} onChange={e => setCustomRaw(e.target.value)} placeholder={'Jot notes exactly as you would on paper - e.g. "pt slept 5hrs tues, woke 3am, groggy next day, still anxious on waking, denies nightmares last 2wks". AI will rewrite into clean clinical prose.'} />
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-[var(--text)] mb-1">Append to field</label>
-            <select value={customTarget as string} onChange={e => setCustomTarget(e.target.value as keyof Note)}
-              className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white px-2 py-1.5 text-sm text-[var(--text)] outline-none focus:border-[var(--blue)]">
-              {TARGET_NOTE_FIELDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-            </select>
-          </div>
-          <button type="button" onClick={handleStandardize} disabled={!customRaw.trim() || customProcessing}
-            className="px-4 py-1.5 text-xs font-semibold bg-[var(--blue)] text-white rounded-[var(--r)] disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform">
-            {customProcessing ? 'Processing…' : '✦ Standardize'}
-          </button>
-        </div>
-        {customProcessed && !customProcessed.startsWith('Error:') && (
-          <div className="space-y-2 pt-1 border-t border-[var(--border)]">
-            <p className="text-xs font-medium text-[var(--text3)]">Processed result</p>
-            <div className="text-xs text-[var(--text2)] bg-[var(--bg)] rounded-[var(--r)] p-2.5 whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
-              {customProcessed}
+
+        {/* ── PHASE: After inserting - offer to save as template ── */}
+        {customInserted ? (
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-2 text-xs text-[#059669] font-medium">
+              <span>✓</span>
+              <span>Added to {targetLabel}</span>
             </div>
-            <div className="flex gap-2">
-              <button type="button" onClick={handleInsertCustomField}
-                className="flex-1 text-xs font-semibold bg-[#10b981] text-white rounded-[var(--r)] py-2 motion-safe:active:scale-95 motion-safe:transition-transform">
-                Add to {TARGET_NOTE_FIELDS.find(([k]) => k === customTarget)?.[1] ?? String(customTarget)}
-              </button>
-              <button type="button" onClick={saveCustomFieldDef} disabled={!customLabel.trim()}
-                className="text-xs text-[var(--text2)] border border-[var(--border)] rounded-[var(--r)] px-3 py-2 hover:bg-[var(--bg)] disabled:opacity-40">
-                Save field
-              </button>
+            <div className="rounded-[var(--r)] bg-[var(--bg)] border border-[var(--border)] p-3 space-y-2.5">
+              <p className="text-xs font-semibold text-[var(--text)]">Save as a new template?</p>
+              <p className="text-xs text-[var(--text3)] leading-relaxed">
+                This creates a new template based on &ldquo;{store.lastChosenTemplate?.title ?? 'your current template'}&rdquo; that always includes the <strong>{customLabel.trim() || 'custom'}</strong> field - ready to use in future sessions.
+              </p>
+              <Input
+                label="Template name"
+                value={saveTemplateName}
+                onChange={e => setSaveTemplateName(e.target.value)}
+                placeholder={`e.g. ${store.lastChosenTemplate?.title ?? 'My Template'} + ${customLabel.trim() || 'Custom'}`}
+              />
+              <div className="flex gap-2">
+                <button type="button" onClick={handleSaveAsTemplate}
+                  disabled={!saveTemplateName.trim() || saveTemplateSaving}
+                  className="flex-1 text-xs font-semibold bg-[var(--blue)] text-white rounded-[var(--r)] py-2 disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform">
+                  {saveTemplateSaving ? 'Saving…' : 'Save template'}
+                </button>
+                <button type="button" onClick={closeCustomField}
+                  className="text-xs text-[var(--text2)] border border-[var(--border)] rounded-[var(--r)] px-4 py-2 hover:bg-[var(--bg)]">
+                  Skip
+                </button>
+              </div>
             </div>
           </div>
-        )}
-        {customProcessed.startsWith('Error:') && (
-          <p className="text-xs text-[var(--danger)]">{customProcessed}</p>
+        ) : (
+          <>
+            {/* ── PHASE 1: Describe → Generate AI instructions ── */}
+            {!customPromptReady ? (
+              <div className="space-y-2.5">
+                <Input
+                  label="Section name"
+                  value={customLabel}
+                  onChange={e => setCustomLabel(e.target.value)}
+                  placeholder="e.g. Sleep History, Immunisation Status"
+                />
+                <Textarea
+                  label="What should this section do?"
+                  rows={3}
+                  value={customDescription}
+                  onChange={e => setCustomDescription(e.target.value)}
+                  placeholder={'Describe in plain language, like asking a colleague - e.g. "I want a paragraph summarising the patient\'s sleep patterns: how many hours they get, any disturbances or early waking, and whether it has improved since last session."'}
+                />
+                <Textarea
+                  label="Example output (optional - helps AI match your style)"
+                  rows={2}
+                  value={customExample}
+                  onChange={e => setCustomExample(e.target.value)}
+                  placeholder={'e.g. "The patient reports sleeping approximately 5 hours per night with 3-4 nocturnal awakenings over the past 2 weeks, representing a mild improvement from the previous session."'}
+                />
+                <div className="flex items-center gap-3">
+                  <button type="button"
+                    onClick={handleEngineerPrompt}
+                    disabled={!customLabel.trim() || !customDescription.trim() || customEngineering}
+                    className="flex-1 py-2 text-xs font-semibold bg-[var(--blue)] text-white rounded-[var(--r)] disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform">
+                    {customEngineering ? 'Generating AI instructions…' : '✦ Generate AI Instructions'}
+                  </button>
+                  <button type="button"
+                    onClick={() => { setCustomPromptReady(true) }}
+                    className="text-xs text-[var(--text3)] hover:text-[var(--blue)] shrink-0">
+                    Write manually
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* ── PHASE 2+: Edit prompt, enter raw notes, standardize ── */
+              <div className="space-y-2.5">
+                <Input
+                  label="Section name"
+                  value={customLabel}
+                  onChange={e => setCustomLabel(e.target.value)}
+                  placeholder="e.g. Sleep History"
+                />
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-medium text-[var(--text)]">AI Instructions</label>
+                    <button type="button" onClick={() => { setCustomPromptReady(false); setCustomPrompt('') }}
+                      className="text-xs text-[var(--text3)] hover:text-[var(--blue)]">
+                      Regenerate
+                    </button>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={customPrompt}
+                    onChange={e => setCustomPrompt(e.target.value)}
+                    placeholder="AI will write instructions here - or type your own"
+                    className="w-full rounded-[var(--r)] border border-[var(--blue)] bg-[var(--blue-lt)] px-3 py-2 text-xs text-[var(--text)] outline-none focus:ring-2 focus:ring-blue-500/10 resize-none leading-relaxed"
+                  />
+                  <p className="text-xs text-[var(--text3)]">Review and edit if needed - this is the exact instruction the AI will follow.</p>
+                </div>
+                <Textarea
+                  label="Your raw notes"
+                  rows={4}
+                  value={customRaw}
+                  onChange={e => setCustomRaw(e.target.value)}
+                  placeholder={'Jot notes exactly as you would on paper - e.g. "pt slept 5hrs, woke 3am, groggy next day". Typos are fine - AI will clean it up.'}
+                />
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-[var(--text)] mb-1">Append to field</label>
+                    <select value={customTarget as string} onChange={e => setCustomTarget(e.target.value as keyof Note)}
+                      className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white px-2 py-1.5 text-sm text-[var(--text)] outline-none focus:border-[var(--blue)]">
+                      {TARGET_NOTE_FIELDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                    </select>
+                  </div>
+                  <button type="button" onClick={handleStandardize} disabled={!customRaw.trim() || customProcessing}
+                    className="px-4 py-1.5 text-xs font-semibold bg-[var(--blue)] text-white rounded-[var(--r)] disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform">
+                    {customProcessing ? 'Processing…' : '✦ Standardize'}
+                  </button>
+                </div>
+
+                {/* Result */}
+                {customProcessed && !customProcessed.startsWith('Error:') && (
+                  <div className="space-y-2 pt-1 border-t border-[var(--border)]">
+                    <p className="text-xs font-medium text-[var(--text3)]">Processed result</p>
+                    <div className="text-xs text-[var(--text2)] bg-[var(--bg)] rounded-[var(--r)] p-2.5 whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
+                      {customProcessed}
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={handleInsertCustomField}
+                        className="flex-1 text-xs font-semibold bg-[#10b981] text-white rounded-[var(--r)] py-2 motion-safe:active:scale-95 motion-safe:transition-transform">
+                        Add to {targetLabel}
+                      </button>
+                      <button type="button" onClick={saveCustomFieldDef} disabled={!customLabel.trim()}
+                        className="text-xs text-[var(--text2)] border border-[var(--border)] rounded-[var(--r)] px-3 py-2 hover:bg-[var(--bg)] disabled:opacity-40">
+                        Save field
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {customProcessed.startsWith('Error:') && (
+                  <p className="text-xs text-[var(--danger)]">{customProcessed}</p>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     )
