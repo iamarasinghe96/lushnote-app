@@ -152,11 +152,12 @@ export function generateNotePDF(
       } else if (inlineMatch) {
         const label  = inlineMatch[1] + ':'
         const rest   = ' ' + inlineMatch[2]
+        // Measure label width in bold so the rest text starts at the correct offset
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(80)
         const labelW = doc.getTextWidth(label)
         const restLines = doc.splitTextToSize(rest, TEXT_W - labelW) as string[]
         ensureSpace(5)
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(80)
         doc.text(label, MARGIN, y)
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(60)
