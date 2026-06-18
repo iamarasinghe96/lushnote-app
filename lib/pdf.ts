@@ -77,11 +77,23 @@ export function generateNotePDF(note: Partial<Note>, clinicianName?: string): js
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(60)
 
-    const lines = doc.splitTextToSize(value, TEXT_W) as string[]
-    for (const line of lines) {
-      ensureSpace(5)
-      doc.text(line, MARGIN, y)
-      y += 4.5
+    const rawLines = value.split('\n')
+    for (const raw of rawLines) {
+      const isSubheading = /^[A-Za-z][A-Za-z &\/\-()]{0,40}:\s*$/.test(raw.trim())
+      const wrapped = doc.splitTextToSize(raw, TEXT_W) as string[]
+      for (const line of wrapped) {
+        ensureSpace(5)
+        if (isSubheading) {
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(80)
+          doc.text(line, MARGIN, y)
+          doc.setFont('helvetica', 'normal')
+          doc.setTextColor(60)
+        } else {
+          doc.text(line, MARGIN, y)
+        }
+        y += 4.5
+      }
     }
 
     y += 4
