@@ -348,32 +348,6 @@ export default function GeneratePage() {
         </div>
       </div>
 
-      {/* API Quota bar */}
-      <div className="mx-4 mt-3 max-w-lg quota-bar pb-4 space-y-1">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-[var(--text3)]">Gemini usage today</span>
-          <span className={`text-xs font-semibold ${usedToday >= GEMINI_RPD ? 'text-orange-500' : 'text-[var(--text2)]'}`}>
-            {usedToday} / {GEMINI_RPD}
-          </span>
-        </div>
-        <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-300 ${usedToday >= GEMINI_RPD ? 'bg-orange-400' : 'bg-[var(--blue)]'}`}
-            style={{ width: `${Math.min((usedToday / GEMINI_RPD) * 100, 100)}%` }}
-          />
-        </div>
-        {usedToday >= GEMINI_RPD && (
-          <p className="text-xs text-orange-500">Daily limit reached — Groq fallback active.</p>
-        )}
-        {hasGroqKey && (
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-xs text-[var(--text3)]">Groq usage (session)</span>
-            <span className="text-xs text-[var(--text2)] font-medium">
-              {groqTokensUsed.toLocaleString()} tokens
-            </span>
-          </div>
-        )}
-      </div>
 
       {/* Paste transcript modal */}
       <Modal open={phase === 'paste-input'} onClose={handleCancel} title="Paste Transcript" maxWidth="lg">

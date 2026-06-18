@@ -666,12 +666,11 @@ function EditContent() {
         throw new Error(data.error ?? 'Generation failed')
       }
 
-      const data = await res.json() as { content: string; groqTokensUsed?: number }
+      const data = await res.json() as { content: string; provider?: string; groqTokensUsed?: number }
       if (!data.content?.trim()) throw new Error('AI returned empty response. Please try again.')
 
-      if (data.groqTokensUsed) {
-        const current = parseInt(localStorage.getItem('ln_groq_tokens_session') || '0', 10)
-        localStorage.setItem('ln_groq_tokens_session', String(current + data.groqTokensUsed))
+      if (data.provider === 'groq') {
+        setLetterToast('Note generated using Groq — Gemini daily limit reached')
       }
 
       const noteFields = parseGeneratedContent(data.content)
