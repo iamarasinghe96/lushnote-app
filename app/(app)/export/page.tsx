@@ -96,20 +96,33 @@ export default function ExportPage() {
   return (
     <div className="h-full flex flex-col overflow-hidden">
 
-      {/* Action bar */}
+      {/* Floating notch bar */}
       <div
-        className="shrink-0 border-b border-[var(--border)] px-4 py-3 flex items-center justify-between no-print"
-        style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
+        className="shrink-0 mx-4 mt-1 mb-1 px-4 flex items-center justify-between no-print"
+        style={{
+          height: 44,
+          borderRadius: 20,
+          background: 'rgba(14,159,110,0.88)',
+          backdropFilter: 'blur(8px) saturate(1.5)',
+          WebkitBackdropFilter: 'blur(8px) saturate(1.5)',
+          border: '1px solid rgba(255,255,255,0.25)',
+          boxShadow: '0 4px 16px rgba(14,159,110,0.22), inset 0 1px 0 rgba(255,255,255,0.20)',
+        }}
       >
-        <h2 className="text-sm font-semibold text-[var(--text)]">Export Note</h2>
+        <span className="text-sm font-medium text-white truncate max-w-[60%]">
+          {currentNote.patient
+            ? `${currentNote.patient}${currentNote.date ? '  ·  ' + currentNote.date : ''}`
+            : 'Export Note'}
+        </span>
 
         <div ref={menuRef} className="relative">
           <button
             onClick={() => setMenuOpen(o => !o)}
             disabled={isEmpty}
-            className="bg-[var(--blue)] text-white text-sm font-medium px-4 py-2 rounded-[var(--r)]
-                       flex items-center gap-2 hover:bg-[var(--blue-dk)] active:scale-[0.97]
-                       disabled:opacity-40 disabled:pointer-events-none transition-all"
+            className="text-white/90 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-full
+                       border border-white/30 hover:bg-white/15
+                       flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none
+                       motion-safe:transition-colors motion-safe:active:scale-[0.97]"
           >
             Export ▾
           </button>
