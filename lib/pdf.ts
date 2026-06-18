@@ -118,20 +118,45 @@ export function generateNotePDF(
 
     const rawLines = value.split('\n')
     for (const raw of rawLines) {
-      const isSubheading = /^[A-Za-z][A-Za-z &\/\-()]{0,40}:\s*$/.test(raw.trim())
-      const wrapped = doc.splitTextToSize(raw, TEXT_W) as string[]
-      for (const line of wrapped) {
+      const trimmed = raw.trim()
+      // Standalone subheading: entire line is "Label:" with nothing after
+      const isStandalone = /^[A-Za-z][A-Za-z &\/\-()]{0,40}:\s*$/.test(trimmed)
+      // Inline subheading: "Label: rest of content..."
+      const inlineMatch = !isStandalone && trimmed.match(/^([A-Za-z][A-Za-z ,&\/\-()]{0,50}):\s+(.+)/)
+
+      if (isStandalone) {
         ensureSpace(5)
-        if (isSubheading) {
-          doc.setFont('helvetica', 'bold')
-          doc.setTextColor(80)
-          doc.text(line, MARGIN, y)
-          doc.setFont('helvetica', 'normal')
-          doc.setTextColor(60)
-        } else {
-          doc.text(line, MARGIN, y)
-        }
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(80)
+        doc.text(trimmed, MARGIN, y)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(60)
         y += 4.5
+      } else if (inlineMatch) {
+        const label = inlineMatch[1] + ':'
+        const rest  = ' ' + inlineMatch[2]
+        const labelW = doc.getTextWidth(label)
+        const restLines = doc.splitTextToSize(rest, TEXT_W - labelW) as string[]
+        ensureSpace(5)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(80)
+        doc.text(label, MARGIN, y)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(60)
+        doc.text(restLines[0], MARGIN + labelW, y)
+        y += 4.5
+        for (let ri = 1; ri < restLines.length; ri++) {
+          ensureSpace(5)
+          doc.text(restLines[ri], MARGIN, y)
+          y += 4.5
+        }
+      } else {
+        const wrapped = doc.splitTextToSize(raw, TEXT_W) as string[]
+        for (const line of wrapped) {
+          ensureSpace(5)
+          doc.text(line, MARGIN, y)
+          y += 4.5
+        }
       }
     }
 
