@@ -82,6 +82,7 @@ export default function Page() {
             onClick={handleSignIn}
             disabled={signing}
             className="px-3 py-1.5 text-sm font-medium text-[var(--text2)] hover:text-[var(--text)]
+                       border border-[var(--border)] rounded-[var(--r)] hover:border-[var(--text3)]
                        motion-safe:transition-colors disabled:opacity-50"
           >
             Sign In
@@ -122,7 +123,7 @@ export default function Page() {
             <p className="text-sm text-[var(--danger)]">{error}</p>
           )}
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="flex items-center justify-center">
             <button
               onClick={handleSignIn}
               disabled={signing}
@@ -133,13 +134,6 @@ export default function Page() {
             >
               {signing ? 'Signing in…' : 'Get started free'}
             </button>
-            <a
-              href="#how-it-works"
-              className="text-sm font-medium text-[var(--text2)] hover:text-[var(--text)]
-                         motion-safe:transition-colors"
-            >
-              See how it works →
-            </a>
           </div>
 
           <div className="flex justify-center pt-8">
