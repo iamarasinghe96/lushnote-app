@@ -1365,7 +1365,7 @@ function EditContent() {
       <>
         <button type="button" onClick={() => isOpen ? closeCustomField() : openCustomField(key)}
           className="flex items-center gap-2 w-full py-0.5 group" title="Add custom section">
-          <span className={`text-sm font-bold shrink-0 motion-safe:transition-colors ${isOpen ? 'text-[var(--blue)]' : 'text-[var(--text3)] group-hover:text-[var(--text2)]'}`}>+</span>
+          <span className={`text-sm font-bold shrink-0 motion-safe:transition-colors ${isOpen ? 'text-[var(--blue)]' : 'text-[var(--text3)] group-hover:text-[var(--text2)]'}`}>{isOpen ? '−' : '+'}</span>
           <div className={`flex-1 h-px motion-safe:transition-colors ${isOpen ? 'bg-[var(--blue)]' : 'bg-[var(--border)] group-hover:bg-[var(--text3)]'}`} />
         </button>
         {isOpen && renderCustomFieldForm()}
