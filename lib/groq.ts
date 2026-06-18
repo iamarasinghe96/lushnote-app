@@ -7,6 +7,9 @@ export async function generateNoteGroq(
   systemPrompt: string,
   apiKey: string
 ): Promise<{ content: string; totalTokens: number }> {
+  const estimatedInputTokens = Math.ceil((systemPrompt.length + prompt.length) / 4)
+  const max_tokens = Math.max(512, 12000 - estimatedInputTokens - 200)
+
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -15,7 +18,7 @@ export async function generateNoteGroq(
     },
     body: JSON.stringify({
       model: GENERATION_MODEL,
-      max_tokens: 4096,
+      max_tokens,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt },
