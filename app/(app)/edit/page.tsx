@@ -1474,9 +1474,6 @@ function EditContent() {
             <button onClick={() => setReassignOpen(true)} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded hover:bg-white/10">
               Reassign
             </button>
-            <button onClick={handleNewNote} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded hover:bg-white/10 border border-white/30">
-              + New Note
-            </button>
           </div>
         </div>
       )}
