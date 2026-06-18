@@ -1100,7 +1100,7 @@ function EditContent() {
         )}
         <Input label="Section label" value={customLabel} onChange={e => setCustomLabel(e.target.value)} placeholder="e.g. Sleep History, Immunisation Status" />
         <Textarea label="Instructions for AI" rows={2} value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} placeholder="Describe what goes here, e.g. 'Summarise sleep patterns including hours, quality and disturbances'" />
-        <Textarea label="Your raw notes" rows={3} value={customRaw} onChange={e => setCustomRaw(e.target.value)} placeholder="Type your raw notes here…" />
+        <Textarea label="Your raw notes" rows={4} value={customRaw} onChange={e => setCustomRaw(e.target.value)} placeholder={'Jot notes exactly as you would on paper — e.g. "pt slept 5hrs tues, woke 3am, groggy next day, still anxious on waking, denies nightmares last 2wks". AI will rewrite into clean clinical prose.'} />
         <div className="flex items-end gap-2">
           <div className="flex-1">
             <label className="block text-xs font-medium text-[var(--text)] mb-1">Append to field</label>
