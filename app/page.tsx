@@ -114,7 +114,7 @@ export default function Page() {
 
           <p className="text-lg text-[var(--text2)] leading-relaxed">
             AI-powered notes and referral letters for doctors.<br className="hidden sm:block" />
-            Record, transcribe, structure — in one workflow.
+            Record, transcribe, structure, all in one workflow.
           </p>
 
           {error && (
