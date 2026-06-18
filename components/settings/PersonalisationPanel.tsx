@@ -47,15 +47,17 @@ export default function PersonalisationPanel({ profile, onSave, onToast }: Perso
   const [saving, setSaving] = useState(false)
 
   // A2HS state
-  const [installState, setInstallState] = useState<'ios' | 'android' | 'installed' | 'unsupported'>('unsupported')
+  const [installState, setInstallState] = useState<'ios' | 'installable' | 'desktop' | 'installed' | 'unsupported'>('unsupported')
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [iosSheetOpen, setIosSheetOpen] = useState(false)
+  const [desktopSheetOpen, setDesktopSheetOpen] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     const ua = navigator.userAgent
     const isIos = /iPhone|iPad|iPod/.test(ua)
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    const isDesktop = !isIos && !/Android/i.test(ua)
 
     if (isStandalone) { setInstallState('installed'); return }
     if (isIos) { setInstallState('ios'); return }
@@ -63,19 +65,24 @@ export default function PersonalisationPanel({ profile, onSave, onToast }: Perso
     const handler = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e as BeforeInstallPromptEvent)
-      setInstallState('android')
+      setInstallState('installable')
     }
     window.addEventListener('beforeinstallprompt', handler)
+
+    if (isDesktop) setInstallState('desktop')
+
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
   async function handleInstall() {
     if (installState === 'ios') {
       setIosSheetOpen(true)
-    } else if (installState === 'android' && deferredPrompt) {
+    } else if (installState === 'installable' && deferredPrompt) {
       deferredPrompt.prompt()
       const { outcome } = await deferredPrompt.userChoice
       if (outcome === 'accepted') setInstallState('installed')
+    } else if (installState === 'desktop') {
+      setDesktopSheetOpen(true)
     }
   }
 
@@ -253,17 +260,58 @@ export default function PersonalisationPanel({ profile, onSave, onToast }: Perso
             <span>LushNote is already installed</span>
           </div>
         ) : installState === 'unsupported' ? (
-          <p className="text-xs text-[var(--text3)]">Open LushNote in Safari (iOS) or Chrome (Android) to install.</p>
+          <p className="text-xs text-[var(--text3)]">Open LushNote in Chrome or Safari to install.</p>
         ) : (
           <button
             onClick={handleInstall}
             className="bg-[var(--blue)] text-white text-sm font-medium px-4 py-2 rounded-[var(--r)]
                        motion-safe:transition-transform motion-safe:active:scale-[0.97]"
           >
-            Add to Home Screen
+            {installState === 'desktop' ? 'Install App' : 'Add to Home Screen'}
           </button>
         )}
       </div>
+
+      {/* Desktop install sheet */}
+      {desktopSheetOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-end">
+          <div className="bg-white w-full rounded-t-[20px] p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-[var(--text)]">Install LushNote</h3>
+              <button
+                onClick={() => setDesktopSheetOpen(false)}
+                className="text-[var(--text3)] w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--bg)]"
+                aria-label="Close"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <ol className="space-y-4 text-sm text-[var(--text2)]">
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-[var(--blue)] text-white text-xs flex items-center justify-center shrink-0 mt-0.5">1</span>
+                <span>In Chrome, click the <strong>install icon</strong> (⊕) in the address bar — or click the three-dot menu (⋮) and select <strong>&ldquo;Install LushNote&rdquo;</strong></span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-[var(--blue)] text-white text-xs flex items-center justify-center shrink-0 mt-0.5">2</span>
+                <span>In Edge, click the three-dot menu (···) → <strong>Apps</strong> → <strong>&ldquo;Install this site as an app&rdquo;</strong></span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="w-6 h-6 rounded-full bg-[var(--blue)] text-white text-xs flex items-center justify-center shrink-0 mt-0.5">3</span>
+                <span>Click <strong>&ldquo;Install&rdquo;</strong> in the popup — LushNote will open as a standalone window</span>
+              </li>
+            </ol>
+            <button
+              onClick={() => setDesktopSheetOpen(false)}
+              className="w-full mt-6 bg-[var(--blue)] text-white font-medium py-3 rounded-[var(--r-lg)] text-sm
+                         motion-safe:transition-transform motion-safe:active:scale-[0.97]"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* iOS step sheet */}
       {iosSheetOpen && (

@@ -113,7 +113,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
       >
         {/* Left: LN circle + name/subtitle */}
         <div className="flex items-center gap-2 min-w-0">
-          <img src="/LushNote_Logo.svg" alt="LushNote" className="w-8 h-8 rounded-full shrink-0" />
+          <img src="/LushNote_Logo.svg" alt="LushNote" className="w-10 h-10 rounded-full shrink-0" />
           {profile && (
             <div className="flex flex-col min-w-0">
               <span className="text-sm font-bold text-white leading-tight truncate max-w-[200px] sm:max-w-xs">
