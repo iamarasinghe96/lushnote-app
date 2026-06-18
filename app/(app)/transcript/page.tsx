@@ -28,6 +28,32 @@ export default function TranscriptPage() {
 
   const wordCount = lastTranscript.trim().split(/\s+/).filter(Boolean).length
 
+  function parseQAResponse(raw: string): { found: boolean; inferred: boolean; answer: string; quote: string } | null {
+    let text = raw.trim()
+    // Strip markdown code fences
+    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+    if (fenceMatch) text = fenceMatch[1].trim()
+    // Extract first JSON object if prefixed with prose
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (jsonMatch) text = jsonMatch[0]
+    try {
+      const obj = JSON.parse(text) as Record<string, unknown>
+      let answer = String(obj.answer ?? '')
+      // Handle double-encoded: AI put the full JSON object inside the answer field
+      if (answer.trimStart().startsWith('{')) {
+        try {
+          const inner = JSON.parse(answer) as Record<string, unknown>
+          if (inner.answer) {
+            return { found: Boolean(inner.found ?? true), inferred: Boolean(inner.inferred ?? false), answer: String(inner.answer), quote: String(inner.quote ?? '') }
+          }
+        } catch { /* keep original */ }
+      }
+      return { found: Boolean(obj.found ?? true), inferred: Boolean(obj.inferred ?? false), answer, quote: String(obj.quote ?? '') }
+    } catch {
+      return null
+    }
+  }
+
   async function handleAsk() {
     if (!input.trim() || loading) return
     const question = input.trim()
@@ -50,18 +76,20 @@ export default function TranscriptPage() {
           uid: user?.uid,
         }),
       })
-      const data = await response.json()
-      const parsed = typeof data.answer === 'string' ? JSON.parse(data.answer) : data.answer
+      const data = await response.json() as { answer?: string; error?: string }
+      if (!data.answer) throw new Error(data.error || 'No response')
+
+      const parsed = parseQAResponse(data.answer)
+      if (!parsed) throw new Error('Could not parse response')
+
       setMessages(prev => [...prev, {
         role: 'ai',
-        content: parsed.answer + (parsed.inferred ? '\n\n_(inferred - not directly stated)_' : ''),
+        content: parsed.answer + (parsed.inferred ? '\n\n_(inferred — not directly stated)_' : ''),
         quote: parsed.quote || undefined,
       }])
-      if (parsed.quote) {
-        trsHighlightQuote(parsed.quote)
-      }
+      if (parsed.quote) trsHighlightQuote(parsed.quote)
     } catch {
-      setMessages(prev => [...prev, { role: 'ai', content: 'Sorry, could not reach the AI. Check your API key.' }])
+      setMessages(prev => [...prev, { role: 'ai', content: 'Could not get an answer. Check your API key in Settings.' }])
     } finally {
       setLoading(false)
     }
@@ -144,7 +172,9 @@ export default function TranscriptPage() {
           </span>
         </div>
         <div
-          className={`relative text-sm text-[var(--text2)] leading-relaxed whitespace-pre-wrap ${!expanded ? 'max-h-28 overflow-hidden' : ''}`}
+          className={`relative text-sm text-[var(--text2)] leading-relaxed whitespace-pre-wrap ${
+            !expanded ? 'max-h-28 overflow-hidden' : 'max-h-[38vh] overflow-y-auto'
+          }`}
           ref={transcriptRef}
         >
           {lastTranscript}
@@ -156,10 +186,10 @@ export default function TranscriptPage() {
           )}
         </div>
         <button
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => setExpanded(v => !v)}
           className="text-xs text-[var(--blue)] font-medium mt-2"
         >
-          {expanded ? 'Show less' : 'Show more'}
+          {expanded ? 'Show less ↑' : 'Show more ↓'}
         </button>
       </div>
 
