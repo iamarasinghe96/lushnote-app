@@ -427,6 +427,12 @@ function EditContent() {
           latestFieldsRef.current = next
           return next
         })
+        // Keep textarea scrolled to bottom as text arrives
+        requestAnimationFrame(() => {
+          const ta = formScrollRef.current
+            ?.querySelector<HTMLTextAreaElement>(`[data-field="${key}"] textarea`)
+          if (ta) ta.scrollTop = ta.scrollHeight
+        })
         if (i >= value.length) {
           clearInterval(interval)
           resolve()
