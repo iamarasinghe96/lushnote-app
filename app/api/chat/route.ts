@@ -117,6 +117,42 @@ Keep responses concise and practical.`
       return NextResponse.json({ answer, provider: 'groq' })
     }
 
+    // ── Custom field standardize ────────────────────────────────────────────────
+    if (type === 'standardize') {
+      const { rawInput, prompt: fieldPrompt, uid } = body as {
+        rawInput?: string
+        prompt?: string
+        uid?: string
+      }
+
+      if (!rawInput || typeof rawInput !== 'string' || rawInput.length > 5000) {
+        return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
+      }
+
+      const systemPrompt = [
+        'You are a clinical documentation assistant. A doctor has entered raw notes for a custom clinical section.',
+        fieldPrompt ? `Instructions for this section: ${fieldPrompt}` : '',
+        '',
+        'Rewrite the raw notes as polished, professional clinical text suitable for a medical record.',
+        'Use clear, concise clinical language. Maintain all clinical facts. Do not add information not present.',
+        'Output only the standardised clinical text — no preamble, no explanation, no labels.',
+      ].filter(Boolean).join('\n')
+
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const msgs: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }> = [{ role: 'user', parts: [{ text: rawInput }] }]
+          const { text: result } = await chatResponse(msgs, systemPrompt)
+          if (uid && typeof uid === 'string') await updateGeminiUsage(uid, 'chat', 0).catch(() => {})
+          return NextResponse.json({ result, provider: 'gemini' })
+        } catch { /* fall through to Groq */ }
+      }
+
+      const groqKey = req.headers.get('x-groq-key')
+      if (!groqKey) return NextResponse.json({ error: 'No API key available' }, { status: 401 })
+      const { content: result } = await generateNoteGroq(rawInput, systemPrompt, groqKey)
+      return NextResponse.json({ result, provider: 'groq' })
+    }
+
     // ── Standard chat ───────────────────────────────────────────────────────────
     const { messages, systemPrompt, uid } = body as {
       messages: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }>

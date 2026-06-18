@@ -120,6 +120,27 @@ interface PatientEntry {
   lastDate: string
 }
 
+interface CustomNoteFieldDef {
+  id: string
+  label: string
+  prompt: string
+  targetField: keyof Note
+}
+
+const TARGET_NOTE_FIELDS: Array<[keyof Note, string]> = [
+  ['diagnosis',    'Diagnosis'],
+  ['presentation', 'Presentation'],
+  ['history',      'History'],
+  ['medications',  'Medications'],
+  ['mse',          'Mental Status Exam'],
+  ['content',      'Session Content'],
+  ['scales',       'Scales'],
+  ['risk',         'Risk'],
+  ['referrals',    'Referrals'],
+  ['summary',      'Summary'],
+  ['nextsteps',    'Next Steps'],
+]
+
 export default function EditPage() {
   return (
     <Suspense>
@@ -167,6 +188,19 @@ function EditContent() {
   const previewScrollRef = useRef<HTMLDivElement>(null)
   const scrollSyncLockRef = useRef(false)
   const [currentAnimatingField, setCurrentAnimatingField] = useState<string | null>(null)
+
+  // Custom note fields
+  const [customFieldOpen, setCustomFieldOpen] = useState<string | null>(null)
+  const [customLabel, setCustomLabel] = useState('')
+  const [customPrompt, setCustomPrompt] = useState('')
+  const [customRaw, setCustomRaw] = useState('')
+  const [customTarget, setCustomTarget] = useState<keyof Note>('nextsteps')
+  const [customProcessed, setCustomProcessed] = useState('')
+  const [customProcessing, setCustomProcessing] = useState(false)
+  const [savedCustomFields, setSavedCustomFields] = useState<CustomNoteFieldDef[]>(() => {
+    if (typeof window === 'undefined') return []
+    try { return JSON.parse(localStorage.getItem('ln_custom_fields') || '[]') } catch { return [] }
+  })
 
   // Letter mode state — declared before effects that reference these
   const letterType = store.letterType as LetterType | null
@@ -962,6 +996,158 @@ function EditContent() {
     doAutoSave('patient')
   }
 
+  // ── Custom note field handlers ────────────────────────────────────────────
+
+  function openCustomField(key: string) {
+    setCustomFieldOpen(key)
+    setCustomLabel('')
+    setCustomPrompt('')
+    setCustomRaw('')
+    setCustomProcessed('')
+    setCustomTarget('nextsteps')
+  }
+
+  function closeCustomField() {
+    setCustomFieldOpen(null)
+    setCustomProcessed('')
+  }
+
+  async function handleStandardize() {
+    if (!customRaw.trim()) return
+    setCustomProcessing(true)
+    setCustomProcessed('')
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const groqKey = sessionStorage.getItem('groq_api_key')
+      if (groqKey) headers['x-groq-key'] = groqKey
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          type: 'standardize',
+          rawInput: customRaw,
+          prompt: customPrompt.trim() || `Write professional clinical notes for the section "${customLabel || 'Custom'}"`,
+          uid: user?.uid,
+        }),
+      })
+      const data = await res.json() as { result?: string; error?: string }
+      setCustomProcessed(data.result ?? ('Error: ' + (data.error || 'Processing failed')))
+    } catch {
+      setCustomProcessed('Error: Request failed')
+    } finally {
+      setCustomProcessing(false)
+    }
+  }
+
+  function handleInsertCustomField() {
+    if (!customProcessed || customProcessed.startsWith('Error:')) return
+    const label = customLabel.trim() || 'Custom'
+    const current = (fields[customTarget] as string | undefined) ?? ''
+    const appended = current.trim() ? `${current}\n\n${label}:\n${customProcessed}` : `${label}:\n${customProcessed}`
+    setField(customTarget, appended)
+    doAutoSave(String(customTarget))
+    closeCustomField()
+  }
+
+  function saveCustomFieldDef() {
+    if (!customLabel.trim()) return
+    const def: CustomNoteFieldDef = {
+      id: Date.now().toString(),
+      label: customLabel.trim(),
+      prompt: customPrompt.trim(),
+      targetField: customTarget,
+    }
+    const updated = [...savedCustomFields, def]
+    setSavedCustomFields(updated)
+    localStorage.setItem('ln_custom_fields', JSON.stringify(updated))
+  }
+
+  function deleteCustomFieldDef(id: string) {
+    const updated = savedCustomFields.filter(f => f.id !== id)
+    setSavedCustomFields(updated)
+    localStorage.setItem('ln_custom_fields', JSON.stringify(updated))
+  }
+
+  function renderCustomFieldForm() {
+    return (
+      <div className="rounded-[var(--r-lg)] border border-[var(--border)] bg-white p-3 space-y-2.5 mb-1"
+        style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06)' }}>
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-[var(--text)]">Custom section</span>
+          <button type="button" onClick={closeCustomField} className="text-[var(--text3)] hover:text-[var(--text)] text-xl leading-none">×</button>
+        </div>
+        {savedCustomFields.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {savedCustomFields.map(def => (
+              <div key={def.id} className="flex items-center">
+                <button type="button"
+                  onClick={() => { setCustomLabel(def.label); setCustomPrompt(def.prompt); setCustomTarget(def.targetField) }}
+                  className="text-xs bg-[var(--bg)] border border-[var(--border)] rounded-l-full px-2.5 py-0.5 text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)]">
+                  {def.label}
+                </button>
+                <button type="button" onClick={() => deleteCustomFieldDef(def.id)}
+                  className="text-xs bg-[var(--bg)] border border-l-0 border-[var(--border)] rounded-r-full px-1.5 py-0.5 text-[var(--text3)] hover:text-[var(--danger)] hover:border-[var(--danger)]">
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <Input label="Section label" value={customLabel} onChange={e => setCustomLabel(e.target.value)} placeholder="e.g. Sleep History, Immunisation Status" />
+        <Textarea label="Instructions for AI" rows={2} value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} placeholder="Describe what goes here, e.g. 'Summarise sleep patterns including hours, quality and disturbances'" />
+        <Textarea label="Your raw notes" rows={3} value={customRaw} onChange={e => setCustomRaw(e.target.value)} placeholder="Type your raw notes here…" />
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-[var(--text)] mb-1">Append to field</label>
+            <select value={customTarget as string} onChange={e => setCustomTarget(e.target.value as keyof Note)}
+              className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white px-2 py-1.5 text-sm text-[var(--text)] outline-none focus:border-[var(--blue)]">
+              {TARGET_NOTE_FIELDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+          </div>
+          <button type="button" onClick={handleStandardize} disabled={!customRaw.trim() || customProcessing}
+            className="px-4 py-1.5 text-xs font-semibold bg-[var(--blue)] text-white rounded-[var(--r)] disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform">
+            {customProcessing ? 'Processing…' : '✦ Standardize'}
+          </button>
+        </div>
+        {customProcessed && !customProcessed.startsWith('Error:') && (
+          <div className="space-y-2 pt-1 border-t border-[var(--border)]">
+            <p className="text-xs font-medium text-[var(--text3)]">Processed result</p>
+            <div className="text-xs text-[var(--text2)] bg-[var(--bg)] rounded-[var(--r)] p-2.5 whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
+              {customProcessed}
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={handleInsertCustomField}
+                className="flex-1 text-xs font-semibold bg-[#10b981] text-white rounded-[var(--r)] py-2 motion-safe:active:scale-95 motion-safe:transition-transform">
+                Add to {TARGET_NOTE_FIELDS.find(([k]) => k === customTarget)?.[1] ?? String(customTarget)}
+              </button>
+              <button type="button" onClick={saveCustomFieldDef} disabled={!customLabel.trim()}
+                className="text-xs text-[var(--text2)] border border-[var(--border)] rounded-[var(--r)] px-3 py-2 hover:bg-[var(--bg)] disabled:opacity-40">
+                Save field
+              </button>
+            </div>
+          </div>
+        )}
+        {customProcessed.startsWith('Error:') && (
+          <p className="text-xs text-[var(--danger)]">{customProcessed}</p>
+        )}
+      </div>
+    )
+  }
+
+  function renderDivider(key: string) {
+    const isOpen = customFieldOpen === key
+    return (
+      <>
+        <button type="button" onClick={() => isOpen ? closeCustomField() : openCustomField(key)}
+          className="flex items-center gap-2 w-full py-0.5 group" title="Add custom section">
+          <span className={`text-sm font-bold shrink-0 motion-safe:transition-colors ${isOpen ? 'text-[var(--blue)]' : 'text-[var(--text3)] group-hover:text-[var(--text2)]'}`}>+</span>
+          <div className={`flex-1 h-px motion-safe:transition-colors ${isOpen ? 'bg-[var(--blue)]' : 'bg-[var(--border)] group-hover:bg-[var(--text3)]'}`} />
+        </button>
+        {isOpen && renderCustomFieldForm()}
+      </>
+    )
+  }
+
   const sessionStats = store.lastTranscript && store.lastRecordingDuration > 0
     ? (() => {
         const wordCount = store.lastTranscript.trim().split(/\s+/).filter(Boolean).length
@@ -1414,6 +1600,7 @@ function EditContent() {
               onBlur={() => handleFieldBlur('attendance')}
               className={saveFlashFields.has('attendance') ? 'save-flash' : ''}
             />
+            {renderDivider('after-attendance')}
             <div data-field="diagnosis">
               <Textarea
                 label="Diagnosis"
@@ -1425,6 +1612,7 @@ function EditContent() {
                 className={saveFlashFields.has('diagnosis') ? 'save-flash' : ''}
               />
             </div>
+            {renderDivider('after-diagnosis')}
             <div data-field="presentation">
               <Textarea
                 label="Presentation"
@@ -1436,6 +1624,7 @@ function EditContent() {
                 className={saveFlashFields.has('presentation') ? 'save-flash' : ''}
               />
             </div>
+            {renderDivider('after-presentation')}
             <div data-field="history">
               <Textarea
                 label="History"
@@ -1447,6 +1636,7 @@ function EditContent() {
                 className={saveFlashFields.has('history') ? 'save-flash' : ''}
               />
             </div>
+            {renderDivider('after-history')}
             <div data-field="medications">
               <Textarea
                 label="Medications"
@@ -1458,6 +1648,7 @@ function EditContent() {
                 className={saveFlashFields.has('medications') ? 'save-flash' : ''}
               />
             </div>
+            {renderDivider('after-medications')}
             <div data-field="mse">
               <Textarea
                 label="Mental Status Examination"
@@ -1469,6 +1660,7 @@ function EditContent() {
                 className={saveFlashFields.has('mse') ? 'save-flash' : ''}
               />
             </div>
+            {renderDivider('after-mse')}
             <div data-field="content">
               <Textarea
                 label="Session Content"
@@ -1481,6 +1673,7 @@ function EditContent() {
                 className={saveFlashFields.has('content') ? 'save-flash' : ''}
               />
             </div>
+            {renderDivider('after-content')}
             <div data-field="scales">
               <Textarea
                 label="Scales"
@@ -1493,6 +1686,7 @@ function EditContent() {
                 className={saveFlashFields.has('scales') ? 'save-flash' : ''}
               />
             </div>
+            {renderDivider('after-scales')}
             <div data-field="risk">
               <Textarea
                 label="Risk"
@@ -1505,6 +1699,7 @@ function EditContent() {
                 className={saveFlashFields.has('risk') ? 'save-flash' : ''}
               />
             </div>
+            {renderDivider('after-risk')}
             <div data-field="referrals">
               <Textarea
                 label="Referrals"
@@ -1517,6 +1712,7 @@ function EditContent() {
                 className={saveFlashFields.has('referrals') ? 'save-flash' : ''}
               />
             </div>
+            {renderDivider('after-referrals')}
             <div data-field="summary">
               <Textarea
                 label="Summary"
@@ -1528,6 +1724,7 @@ function EditContent() {
                 className={saveFlashFields.has('summary') ? 'save-flash' : ''}
               />
             </div>
+            {renderDivider('after-summary')}
             <div data-field="nextsteps">
               <Textarea
                 label="Next Steps"
@@ -1540,6 +1737,7 @@ function EditContent() {
                 className={saveFlashFields.has('nextsteps') ? 'save-flash' : ''}
               />
             </div>
+            {renderDivider('after-nextsteps')}
 
             {/* Raw transcript collapsible */}
             {store.lastTranscript && (
