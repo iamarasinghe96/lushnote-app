@@ -105,7 +105,8 @@ function AppContent({ children }: { children: React.ReactNode }) {
         data-header
         className="relative z-30 flex items-center justify-between px-4 shrink-0"
         style={{
-          height: 52,
+          paddingTop: 'env(safe-area-inset-top)',
+          height: 'calc(52px + env(safe-area-inset-top))',
           background: 'linear-gradient(to right, #1d4ed8, #2563eb)',
           boxShadow: '0 2px 8px rgba(15,23,42,.12)',
         }}
