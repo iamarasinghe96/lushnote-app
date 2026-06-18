@@ -3,7 +3,7 @@ interface RateLimitEntry {
   resetAt: number // epoch ms
 }
 
-// In-memory store — resets on cold start (acceptable for serverless)
+// In-memory store - resets on cold start (acceptable for serverless)
 const store = new Map<string, RateLimitEntry>()
 
 export function rateLimit(

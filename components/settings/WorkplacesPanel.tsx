@@ -62,7 +62,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  // Letterhead state — undefined = not yet loaded, null = not found, object = found
+  // Letterhead state - undefined = not yet loaded, null = not found, object = found
   const [letterheads, setLetterheads] = useState<Record<string, LetterheadDoc | null | undefined>>({})
   const [requestingFor, setRequestingFor] = useState<string | null>(null)
   const [requestNote, setRequestNote] = useState('')
@@ -343,7 +343,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
 
             {isEditing && <InlineForm onSave={saveEdit} />}
 
-            {/* Letterhead status — only when not editing */}
+            {/* Letterhead status - only when not editing */}
             {!isEditing && (
               <div className="mt-3 pt-3 border-t border-[var(--border)]">
                 <p className="text-xs font-medium text-[var(--text2)] mb-1">Letterhead</p>
@@ -408,7 +408,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
                     <Textarea
                       label="Message (optional)"
                       rows={3}
-                      placeholder="e.g. Please use the AWH letterhead — fax and phone numbers are on the intranet portal."
+                      placeholder="e.g. Please use the AWH letterhead - fax and phone numbers are on the intranet portal."
                       value={requestNote}
                       onChange={e => setRequestNote(e.target.value)}
                     />

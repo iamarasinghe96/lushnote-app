@@ -267,7 +267,7 @@ export default function TranscriptConfirmModal({
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden>
                     <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
                   </svg>
-                  New patient — a couple more details
+                  New patient - a couple more details
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>

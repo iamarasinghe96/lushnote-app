@@ -65,7 +65,7 @@ export default function TabBar() {
   const tabPct = 100 / tabs.length
 
   return (
-    // Flex item — no position:fixed — solves iOS PWA keyboard-jump bug
+    // Flex item - no position:fixed - solves iOS PWA keyboard-jump bug
     <nav
       data-tab-bar
       className="relative shrink-0 mx-4 flex items-center px-2 z-30"

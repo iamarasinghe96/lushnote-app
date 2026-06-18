@@ -143,7 +143,7 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
             <p className="text-xs text-[var(--text3)]">{tokensToday.toLocaleString()} tokens used today</p>
           )}
           {usedToday >= GEMINI_RPD ? (
-            <p className="text-xs text-orange-500">Limit reached — add a Groq key to continue.</p>
+            <p className="text-xs text-orange-500">Limit reached - add a Groq key to continue.</p>
           ) : (
             <p className="text-xs text-[var(--text3)]">Resets daily. Add a Groq key to extend.</p>
           )}

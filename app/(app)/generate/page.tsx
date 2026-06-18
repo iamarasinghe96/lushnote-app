@@ -199,7 +199,7 @@ export default function GeneratePage() {
         return
       }
     } catch {
-      // clipboard access denied or unavailable — fall through to textarea
+      // clipboard access denied or unavailable - fall through to textarea
     }
     setPhase('paste-input')
   }
@@ -342,7 +342,7 @@ export default function GeneratePage() {
 
         <ModeCard icon={DocumentIcon} title="Create Document" description="Paste or upload a text document" onClick={() => startMode('document')} />
 
-        {/* Upload Recording — hidden in UI, code preserved */}
+        {/* Upload Recording - hidden in UI, code preserved */}
         <div style={{ display: 'none' }}>
           <ModeCard icon={UploadIcon} title="Upload Recording" description="Upload an audio file" onClick={() => startMode('upload')} />
         </div>

@@ -291,7 +291,7 @@ export default function PersonalisationPanel({ profile, onSave, onToast }: Perso
             <ol className="space-y-4 text-sm text-[var(--text2)]">
               <li className="flex items-start gap-3">
                 <span className="w-6 h-6 rounded-full bg-[var(--blue)] text-white text-xs flex items-center justify-center shrink-0 mt-0.5">1</span>
-                <span>In Chrome, click the <strong>install icon</strong> (⊕) in the address bar — or click the three-dot menu (⋮) and select <strong>&ldquo;Install LushNote&rdquo;</strong></span>
+                <span>In Chrome, click the <strong>install icon</strong> (⊕) in the address bar - or click the three-dot menu (⋮) and select <strong>&ldquo;Install LushNote&rdquo;</strong></span>
               </li>
               <li className="flex items-start gap-3">
                 <span className="w-6 h-6 rounded-full bg-[var(--blue)] text-white text-xs flex items-center justify-center shrink-0 mt-0.5">2</span>
@@ -299,7 +299,7 @@ export default function PersonalisationPanel({ profile, onSave, onToast }: Perso
               </li>
               <li className="flex items-start gap-3">
                 <span className="w-6 h-6 rounded-full bg-[var(--blue)] text-white text-xs flex items-center justify-center shrink-0 mt-0.5">3</span>
-                <span>Click <strong>&ldquo;Install&rdquo;</strong> in the popup — LushNote will open as a standalone window</span>
+                <span>Click <strong>&ldquo;Install&rdquo;</strong> in the popup - LushNote will open as a standalone window</span>
               </li>
             </ol>
             <button

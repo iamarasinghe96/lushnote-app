@@ -170,7 +170,7 @@ export default function AdminLetterheadsPage() {
           <div className="w-8 h-8 rounded-full bg-[#5ad6a7] flex items-center justify-center shrink-0">
             <span className="text-white text-xs font-bold select-none">LN</span>
           </div>
-          <span className="text-white font-semibold text-sm select-none">Admin — Letterheads</span>
+          <span className="text-white font-semibold text-sm select-none">Admin - Letterheads</span>
         </div>
         <button
           onClick={() => router.push('/generate')}

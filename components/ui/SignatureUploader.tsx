@@ -156,7 +156,7 @@ export default function SignatureUploader({ existingUrl, onSave, saving }: Props
         </div>
       )}
 
-      {/* Upload zone — shown when no extracted SVG yet */}
+      {/* Upload zone - shown when no extracted SVG yet */}
       {!svgDataUrl && (
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -197,7 +197,7 @@ export default function SignatureUploader({ existingUrl, onSave, saving }: Props
         </div>
       )}
 
-      {/* Update button — shown when existing URL but no new extraction yet */}
+      {/* Update button - shown when existing URL but no new extraction yet */}
       {!svgDataUrl && existingUrl && (
         <button
           onClick={() => fileRef.current?.click()}

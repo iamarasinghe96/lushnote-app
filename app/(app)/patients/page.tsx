@@ -63,7 +63,7 @@ function SessionCard({ note, isLatest, onClick, onDelete }: SessionCardProps) {
       style={{ boxShadow: '0 1px 3px rgba(15,23,42,.05)' }}
     >
       <div className="shrink-0 text-center min-w-[72px]">
-        <p className="text-sm font-bold text-[var(--text)]">{note.date || '—'}</p>
+        <p className="text-sm font-bold text-[var(--text)]">{note.date || '-'}</p>
         {note.time && <p className="text-xs text-[var(--text3)] mt-0.5">{note.time}</p>}
       </div>
       <div className="flex-1 min-w-0 border-l border-[var(--border)] pl-3">
@@ -114,7 +114,7 @@ function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNo
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[var(--bg)]">
 
-      {/* Back button — right-aligned */}
+      {/* Back button - right-aligned */}
       <div
         className="shrink-0 px-4 py-2 border-b border-[var(--border)] flex items-center justify-end"
         style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
@@ -167,19 +167,19 @@ function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNo
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             <div>
               <p className="text-xs text-[var(--text3)] mb-0.5">Registration #</p>
-              <p className="text-sm font-semibold text-[var(--text)]">{patient.reg || '—'}</p>
+              <p className="text-sm font-semibold text-[var(--text)]">{patient.reg || '-'}</p>
             </div>
             <div>
               <p className="text-xs text-[var(--text3)] mb-0.5">First seen</p>
-              <p className="text-sm font-semibold text-[var(--text)]">{firstDate || '—'}</p>
+              <p className="text-sm font-semibold text-[var(--text)]">{firstDate || '-'}</p>
             </div>
             <div>
               <p className="text-xs text-[var(--text3)] mb-0.5">Last visit</p>
-              <p className="text-sm font-semibold text-[var(--text)]">{lastDate || '—'}</p>
+              <p className="text-sm font-semibold text-[var(--text)]">{lastDate || '-'}</p>
             </div>
             <div>
               <p className="text-xs text-[var(--text3)] mb-0.5">Clinician</p>
-              <p className="text-sm font-semibold text-[var(--text)] truncate">{clinician || '—'}</p>
+              <p className="text-sm font-semibold text-[var(--text)] truncate">{clinician || '-'}</p>
             </div>
           </div>
         </div>

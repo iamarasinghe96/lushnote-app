@@ -96,7 +96,7 @@ export default function ExportPage() {
   return (
     <div className="h-full relative overflow-hidden">
 
-      {/* Preview pane — full height */}
+      {/* Preview pane - full height */}
       <div className="absolute inset-0 overflow-y-auto p-4">
         {isEmpty ? (
           <div className="flex items-center justify-center h-full text-[var(--text3)] text-sm">
@@ -110,7 +110,7 @@ export default function ExportPage() {
         )}
       </div>
 
-      {/* Floating Export button — top-right corner */}
+      {/* Floating Export button - top-right corner */}
       <div ref={menuRef} className="absolute top-3 right-4 z-10 no-print">
         <button
           onClick={() => setMenuOpen(o => !o)}

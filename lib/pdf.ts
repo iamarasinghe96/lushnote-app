@@ -138,7 +138,7 @@ export function generateNotePDF(
       // Inline subheading: "Label: rest of content..."
       const inlineMatch = !isStandalone && trimmed.match(/^([A-Za-z][A-Za-z ,&\/\-()]{0,50}):\s+(.+)/)
 
-      // Bullet / numbered list — always left-aligned
+      // Bullet / numbered list - always left-aligned
       const isBullet = /^[\-•*]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed)
 
       if (isStandalone) {
@@ -161,10 +161,10 @@ export function generateNotePDF(
         doc.text(label, MARGIN, y)
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(60)
-        // First piece starts after bold label — left-align (constrained width)
+        // First piece starts after bold label - left-align (constrained width)
         doc.text(restLines[0], MARGIN + labelW, y)
         y += 4.5
-        // Overflow lines at full width — justify except last
+        // Overflow lines at full width - justify except last
         for (let ri = 1; ri < restLines.length; ri++) {
           ensureSpace(5)
           const isLast = ri === restLines.length - 1

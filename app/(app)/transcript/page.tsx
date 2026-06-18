@@ -84,7 +84,7 @@ export default function TranscriptPage() {
 
       setMessages(prev => [...prev, {
         role: 'ai',
-        content: parsed.answer + (parsed.inferred ? '\n\n_(inferred — not directly stated)_' : ''),
+        content: parsed.answer + (parsed.inferred ? '\n\n_(inferred - not directly stated)_' : ''),
         quote: parsed.quote || undefined,
       }])
       if (parsed.quote) trsHighlightQuote(parsed.quote)

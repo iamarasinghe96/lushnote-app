@@ -1,4 +1,4 @@
-// Layer 2 — all shared TypeScript interfaces
+// Layer 2 - all shared TypeScript interfaces
 
 interface User {
   uid: string
@@ -105,7 +105,7 @@ interface Note {
   updatedAt?: FirestoreTimestamp
 }
 
-// Subset used when creating or updating — omits server-managed fields
+// Subset used when creating or updating - omits server-managed fields
 type NoteInput = Omit<Note, 'id' | 'createdAt' | 'updatedAt'>
 
 interface PatientProfile {
@@ -115,7 +115,7 @@ interface PatientProfile {
   gender?: 'male' | 'female' | 'other' | 'prefer-not-to-say'
 }
 
-// Derived from notes — not stored in Firestore
+// Derived from notes - not stored in Firestore
 interface PatientSummary {
   name: string
   regNumber: string
@@ -244,7 +244,7 @@ interface DeletionFeedback {
   deletedAt?: FirestoreTimestamp
 }
 
-// Represents firebase.firestore.Timestamp — import the real type in lib/firestore files
+// Represents firebase.firestore.Timestamp - import the real type in lib/firestore files
 // This keeps types/index.ts free of Firebase imports
 type FirestoreTimestamp = {
   seconds: number

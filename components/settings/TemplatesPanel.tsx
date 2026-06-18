@@ -63,9 +63,9 @@ function assemblePrompt(form: CustomTemplateForm): string {
     .join(', ')
 
   const lengthInstruction = {
-    brief:    'Keep it concise — dot points only, most important information.',
+    brief:    'Keep it concise - dot points only, most important information.',
     balanced: 'Use full sentences with appropriate clinical detail.',
-    detailed: 'Be comprehensive — use direct quotes where relevant, expand on clinical reasoning.',
+    detailed: 'Be comprehensive - use direct quotes where relevant, expand on clinical reasoning.',
   }[form.noteLength]
 
   const typeLabel = form.tplType === 'session' ? 'session note'

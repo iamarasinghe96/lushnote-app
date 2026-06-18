@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     const { uid, transcript, templatePrompt, systemPrompt, mode, letterType } = body
 
-    // Letter AI generation — separate path, no uid/quota tracking
+    // Letter AI generation - separate path, no uid/quota tracking
     if (mode === 'letter' && letterType && transcript) {
       if (typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 100000) {
         return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })
@@ -46,7 +46,7 @@ Dictation: ${transcript}`,
 
         freetext: `You are a medical professional's writing assistant.
 Based on this dictation, write a professional medical letter body in plain text.
-Do NOT include salutation, subject line, closing, or signature — only the main paragraphs.
+Do NOT include salutation, subject line, closing, or signature - only the main paragraphs.
 Use the exact words and intent from the dictation.
 Return ONLY the letter body as plain text.
 Dictation: ${transcript}`,

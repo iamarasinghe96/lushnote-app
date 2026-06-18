@@ -135,7 +135,7 @@ Keep responses concise and practical.`
         '',
         'Rewrite the raw notes as polished, professional clinical text suitable for a medical record.',
         'Use clear, concise clinical language. Maintain all clinical facts. Do not add information not present.',
-        'Output only the standardised clinical text — no preamble, no explanation, no labels.',
+        'Output only the standardised clinical text - no preamble, no explanation, no labels.',
       ].filter(Boolean).join('\n')
 
       if (process.env.GEMINI_API_KEY) {

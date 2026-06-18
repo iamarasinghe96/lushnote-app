@@ -245,7 +245,7 @@ function SettingsContent() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar — desktop */}
+        {/* Sidebar - desktop */}
         <nav className="hidden sm:flex flex-col w-52 shrink-0 border-r border-[var(--border)] overflow-y-auto py-2">
           {TABS.map(tab => {
             const active = tab.key === activeTab
@@ -267,7 +267,7 @@ function SettingsContent() {
           })}
         </nav>
 
-        {/* Mobile nav — horizontal scroll */}
+        {/* Mobile nav - horizontal scroll */}
         <div className="sm:hidden absolute top-[52px] left-0 right-0 z-20 bg-white border-b border-[var(--border)] overflow-x-auto scrollbar-none">
           <div className="flex gap-1 px-3 py-2 min-w-max">
             {TABS.map(tab => {

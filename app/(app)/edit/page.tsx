@@ -38,7 +38,7 @@ function formatDuration(secs: number): string {
 function parseGeneratedContent(content: string): Partial<Note> {
   const out: Partial<Note> = {}
 
-  // Primary: [key] bracket labels — format produced by llama-3.3-70b and Gemini with these templates.
+  // Primary: [key] bracket labels - format produced by llama-3.3-70b and Gemini with these templates.
   // e.g.  [presentation] Current Presentation\n<body>\n[history] Past Medical...
   // Anchor to line-start via (?:^|\n) so inline abbreviations like [SI] or [N/A] never
   // prematurely split a section body. Keys are required to be 3+ lowercase letters,
@@ -203,7 +203,7 @@ function EditContent() {
     try { return JSON.parse(localStorage.getItem('ln_custom_fields') || '[]') } catch { return [] }
   })
 
-  // Letter mode state — declared before effects that reference these
+  // Letter mode state - declared before effects that reference these
   const letterType = store.letterType as LetterType | null
   const isLetterMode = letterType !== null
   const letterCommonFields = store.letterCommonFields
@@ -215,7 +215,7 @@ function EditContent() {
 
   useEffect(() => { return () => { mountedRef.current = false } }, [])
 
-  // Bidirectional scroll sync — mirrors scroll position proportionally between both panes
+  // Bidirectional scroll sync - mirrors scroll position proportionally between both panes
   useEffect(() => {
     const form = formScrollRef.current
     const preview = previewScrollRef.current
@@ -391,7 +391,7 @@ function EditContent() {
     })
   }
 
-  // Patient autocomplete index — preserves original name casing
+  // Patient autocomplete index - preserves original name casing
   const patientIndex = useMemo<PatientEntry[]>(() => {
     const seen = new Map<string, PatientEntry>()
     allNotes.forEach(n => {
@@ -525,7 +525,7 @@ function EditContent() {
         }, 600)
       }
     } catch {
-      // silent fail — auto-save errors are non-blocking
+      // silent fail - auto-save errors are non-blocking
     } finally {
       isSavingRef.current = false
       if (mountedRef.current) setIsSaving(false)
@@ -574,7 +574,7 @@ function EditContent() {
       if (!value || typeof value !== 'string') continue
 
       setCurrentAnimatingField(key)
-      // Form pane: [data-field] divs are always in the DOM — scroll immediately
+      // Form pane: [data-field] divs are always in the DOM - scroll immediately
       formScrollRef.current?.querySelector(`[data-field="${key}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
 
       await typewriterField(key, value)
@@ -715,7 +715,7 @@ function EditContent() {
       if (!data.content?.trim()) throw new Error('AI returned empty response. Please try again.')
 
       if (data.provider === 'groq') {
-        setLetterToast('Note generated using Groq — Gemini daily limit reached')
+        setLetterToast('Note generated using Groq - Gemini daily limit reached')
       }
 
       const noteFields = parseGeneratedContent(data.content)
@@ -723,11 +723,11 @@ function EditContent() {
 
       if (!mountedRef.current) return
 
-      // Synchronous save — note must reach Firestore before user can navigate
+      // Synchronous save - note must reach Firestore before user can navigate
       storeRef.current.setCurrentNote(latestFieldsRef.current)
       await doAutoSave()
 
-      // Create patient profile for new patients — only after note is persisted
+      // Create patient profile for new patients - only after note is persisted
       const pending = storeRef.current.pendingPatientProfile
       if (pending && user) {
         const patientName = latestFieldsRef.current.patient ?? storeRef.current.currentNote.patient ?? ''
@@ -1100,7 +1100,7 @@ function EditContent() {
         )}
         <Input label="Section label" value={customLabel} onChange={e => setCustomLabel(e.target.value)} placeholder="e.g. Sleep History, Immunisation Status" />
         <Textarea label="Instructions for AI" rows={2} value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} placeholder="Describe what goes here, e.g. 'Summarise sleep patterns including hours, quality and disturbances'" />
-        <Textarea label="Your raw notes" rows={4} value={customRaw} onChange={e => setCustomRaw(e.target.value)} placeholder={'Jot notes exactly as you would on paper — e.g. "pt slept 5hrs tues, woke 3am, groggy next day, still anxious on waking, denies nightmares last 2wks". AI will rewrite into clean clinical prose.'} />
+        <Textarea label="Your raw notes" rows={4} value={customRaw} onChange={e => setCustomRaw(e.target.value)} placeholder={'Jot notes exactly as you would on paper - e.g. "pt slept 5hrs tues, woke 3am, groggy next day, still anxious on waking, denies nightmares last 2wks". AI will rewrite into clean clinical prose.'} />
         <div className="flex items-end gap-2">
           <div className="flex-1">
             <label className="block text-xs font-medium text-[var(--text)] mb-1">Append to field</label>
@@ -1501,7 +1501,7 @@ function EditContent() {
               </div>
             )}
 
-            {/* Clinical note fields — hidden in letter mode */}
+            {/* Clinical note fields - hidden in letter mode */}
             {!isLetterMode && <>
 
             {/* Header */}
@@ -1767,7 +1767,7 @@ function EditContent() {
           </div>
         </div>
 
-        {/* RIGHT: live preview — hidden on mobile unless toggled */}
+        {/* RIGHT: live preview - hidden on mobile unless toggled */}
         <div
           className={`${showMobilePreview ? 'grid' : 'hidden'} md:grid min-h-0 border-l border-[var(--border)]`}
           style={{ gridTemplateRows: 'auto 1fr', background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
