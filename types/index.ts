@@ -68,7 +68,7 @@ interface Workplace {
   regFormat?: string        // raw example ID string entered by user
   regPattern?: string       // generated regex string e.g. "^\d{8}[A-Za-z]{2}$"
   regTemplate?: string      // display template e.g. "########AA"
-  themeIndex: number        // 0 = blue, 1 = purple, 2 = teal
+  themeIndex: number        // 0 = rose-red, 1 = amber-yellow, 2 = teal
 }
 
 type WorkplaceType =
@@ -218,9 +218,9 @@ interface WorkplaceTheme {
 
 // The three built-in themes
 const WP_THEMES: readonly WorkplaceTheme[] = [
-  { primary: '#1a56db', dk: '#1347b8', lt: '#ebf0ff' },
-  { primary: '#7c3aed', dk: '#6d28d9', lt: '#ede9fe' },
-  { primary: '#0e9f6e', dk: '#0a7d57', lt: '#e3f9ee' },
+  { primary: '#e11d48', dk: '#be123c', lt: '#ffe4e6' },  // 0 = rose-red
+  { primary: '#d97706', dk: '#b45309', lt: '#fef3c7' },  // 1 = amber-yellow
+  { primary: '#0e9f6e', dk: '#0a7d57', lt: '#e3f9ee' },  // 2 = teal (unchanged)
 ]
 
 interface AppState {
