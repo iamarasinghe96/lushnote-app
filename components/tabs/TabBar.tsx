@@ -65,83 +65,77 @@ export default function TabBar() {
   const tabPct = 100 / tabs.length
 
   return (
-    <>
-      {/* Spacer so content doesn't hide behind fixed pill */}
-      <div className="shrink-0" style={{ height: 'calc(env(safe-area-inset-bottom) + 88px)' }} aria-hidden data-tab-bar />
-
-      {/* Floating liquid glass pill */}
-      <nav
-        className="fixed left-4 right-4 z-30 flex items-center px-2"
-        style={{
-          bottom: 'calc(env(safe-area-inset-bottom) + 16px)',
-          height: 64,
-          borderRadius: 32,
-          backdropFilter: 'blur(32px) saturate(1.6)',
-          WebkitBackdropFilter: 'blur(32px) saturate(1.6)',
-          background: 'rgba(255,255,255,0.45)',
-          border: '1px solid rgba(255,255,255,0.6)',
-          boxShadow: '0 8px 32px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.7)',
-        }}
-      >
-        {/* Sliding liquid-glass selection capsule */}
-        {activeIndex >= 0 && (
+    // Flex item — no position:fixed — solves iOS PWA keyboard-jump bug
+    <nav
+      data-tab-bar
+      className="relative shrink-0 mx-4 flex items-center px-2 z-30"
+      style={{
+        height: 64,
+        marginBottom: 'calc(env(safe-area-inset-bottom) + 8px)',
+        borderRadius: 32,
+        backdropFilter: 'blur(32px) saturate(1.6)',
+        WebkitBackdropFilter: 'blur(32px) saturate(1.6)',
+        background: 'rgba(255,255,255,0.45)',
+        border: '1px solid rgba(255,255,255,0.6)',
+        boxShadow: '0 8px 32px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.7)',
+      }}
+    >
+      {/* Sliding liquid-glass selection capsule */}
+      {activeIndex >= 0 && (
+        <div
+          aria-hidden
+          className="absolute pointer-events-none"
+          style={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <div
-            aria-hidden
-            className="absolute pointer-events-none"
-            style={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            className="absolute top-0 bottom-0 motion-safe:transition-transform"
+            style={{
+              width: `${tabPct}%`,
+              transform: `translateX(${activeIndex * 100}%)`,
+              transitionDuration: '460ms',
+              transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)',
+            }}
           >
-            {/* full-tab-width mover — translates by whole tabs */}
-            <div
-              className="absolute top-0 bottom-0 motion-safe:transition-transform"
+            <span
+              key={activeIndex}
+              className="absolute top-0 bottom-0 rounded-[22px] ln-tab-pill"
               style={{
-                width: `${tabPct}%`,
-                transform: `translateX(${activeIndex * 100}%)`,
-                transitionDuration: '460ms',
-                transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)',
+                left: 4,
+                right: 4,
+                background: 'color-mix(in srgb, var(--blue) 85%, transparent)',
+                backdropFilter: 'blur(6px)',
+                WebkitBackdropFilter: 'blur(6px)',
+                boxShadow: [
+                  '0 4px 16px color-mix(in srgb, var(--blue) 45%, transparent)',
+                  'inset 0 1.5px 0 rgba(255,255,255,0.55)',
+                  'inset 0 -1px 0 rgba(0,0,0,0.08)',
+                ].join(', '),
+                border: '1px solid rgba(255,255,255,0.45)',
               }}
-            >
-              {/* inset pill — re-keyed so the squash/stretch replays each switch */}
-              <span
-                key={activeIndex}
-                className="absolute top-0 bottom-0 rounded-[22px] ln-tab-pill"
-                style={{
-                  left: 4,
-                  right: 4,
-                  background: 'color-mix(in srgb, var(--blue) 85%, transparent)',
-                  backdropFilter: 'blur(6px)',
-                  WebkitBackdropFilter: 'blur(6px)',
-                  boxShadow: [
-                    '0 4px 16px color-mix(in srgb, var(--blue) 45%, transparent)',
-                    'inset 0 1.5px 0 rgba(255,255,255,0.55)',
-                    'inset 0 -1px 0 rgba(0,0,0,0.08)',
-                  ].join(', '),
-                  border: '1px solid rgba(255,255,255,0.45)',
-                }}
-              />
-            </div>
+            />
           </div>
-        )}
+        </div>
+      )}
 
-        {tabs.map(({ href, label, icon }) => {
-          const active = pathname === href || pathname.startsWith(href + '/')
-          return (
-            <Link
-              key={href}
-              href={href}
-              className="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5"
-              style={{ minWidth: 0 }}
+      {tabs.map(({ href, label, icon }) => {
+        const active = pathname === href || pathname.startsWith(href + '/')
+        return (
+          <Link
+            key={href}
+            href={href}
+            className="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5"
+            style={{ minWidth: 0 }}
+          >
+            <span className={`flex flex-col items-center gap-0.5 py-1 motion-safe:transition-colors duration-300
+              ${active ? 'text-white' : 'text-[var(--text3)]'}`}
+              style={active ? { textShadow: '0 1px 2px rgba(0,0,0,0.18)' } : undefined}
             >
-              <span className={`flex flex-col items-center gap-0.5 py-1 motion-safe:transition-colors duration-300
-                ${active ? 'text-white' : 'text-[var(--text3)]'}`}
-                style={active ? { textShadow: '0 1px 2px rgba(0,0,0,0.18)' } : undefined}
-              >
-                {icon}
-                <span className="text-[9px] font-semibold tracking-wide">{label}</span>
-              </span>
-            </Link>
-          )
-        })}
-      </nav>
-    </>
+              {icon}
+              <span className="text-[9px] font-semibold tracking-wide">{label}</span>
+            </span>
+          </Link>
+        )
+      })}
+    </nav>
   )
 }
