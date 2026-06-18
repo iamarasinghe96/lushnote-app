@@ -51,6 +51,7 @@ export default function Page() {
           background: [
             'radial-gradient(ellipse 90% 55% at 50% 0%,   rgba(90,214,167,0.85) 0%, transparent 58%)',
             'radial-gradient(ellipse 65% 40% at 92% 18%,  rgba(37,99,235,0.60)  0%, transparent 52%)',
+            'radial-gradient(ellipse 55% 35% at 0%   0%,  rgba(37,99,235,0.45)  0%, transparent 55%)',
             'radial-gradient(ellipse 70% 38% at 6%  50%,  rgba(90,214,167,0.55) 0%, transparent 52%)',
             'radial-gradient(ellipse 65% 38% at 90% 70%,  rgba(37,99,235,0.55)  0%, transparent 52%)',
             'radial-gradient(ellipse 60% 30% at 18% 90%,  rgba(90,214,167,0.50) 0%, transparent 48%)',
@@ -66,8 +67,8 @@ export default function Page() {
           top: 'calc(env(safe-area-inset-top) + 12px)',
           height: 52,
           borderRadius: 20,
-          backdropFilter: 'blur(20px) saturate(1.8)',
-          WebkitBackdropFilter: 'blur(20px) saturate(1.8)',
+          backdropFilter: 'blur(6px) saturate(1.4)',
+          WebkitBackdropFilter: 'blur(6px) saturate(1.4)',
           background: 'transparent',
           border: '1px solid rgba(255,255,255,0.0)',
           boxShadow: '0 4px 24px rgba(15,23,42,.10), 0 1px 3px rgba(15,23,42,.06)',
