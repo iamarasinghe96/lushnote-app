@@ -61,8 +61,9 @@ export default function Page() {
 
       {/* ── Nav ── */}
       <nav
-        className="fixed top-3 left-4 right-4 z-40 flex items-center justify-between px-5 sm:px-8"
+        className="fixed left-4 right-4 z-40 flex items-center justify-between px-5 sm:px-8"
         style={{
+          top: 'calc(env(safe-area-inset-top) + 12px)',
           height: 52,
           borderRadius: 20,
           backdropFilter: 'blur(20px) saturate(1.8)',
@@ -100,7 +101,7 @@ export default function Page() {
       {/* ── Hero ── */}
       <section
         className="relative flex flex-col items-center justify-center min-h-screen text-center px-4"
-        style={{ paddingTop: 80 }}
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 80px)' }}
       >
         <div className="max-w-2xl mx-auto space-y-6">
           <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold

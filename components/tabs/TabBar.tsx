@@ -67,12 +67,13 @@ export default function TabBar() {
   return (
     <>
       {/* Spacer so content doesn't hide behind fixed pill */}
-      <div className="shrink-0" style={{ height: 88 }} aria-hidden data-tab-bar />
+      <div className="shrink-0" style={{ height: 'calc(env(safe-area-inset-bottom) + 88px)' }} aria-hidden data-tab-bar />
 
       {/* Floating liquid glass pill */}
       <nav
-        className="fixed bottom-4 left-4 right-4 z-30 flex items-center px-2"
+        className="fixed left-4 right-4 z-30 flex items-center px-2"
         style={{
+          bottom: 'calc(env(safe-area-inset-bottom) + 16px)',
           height: 64,
           borderRadius: 32,
           backdropFilter: 'blur(32px) saturate(1.6)',
