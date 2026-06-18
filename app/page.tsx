@@ -68,8 +68,8 @@ export default function Page() {
           borderRadius: 20,
           backdropFilter: 'blur(20px) saturate(1.8)',
           WebkitBackdropFilter: 'blur(20px) saturate(1.8)',
-          background: 'rgba(255,255,255,0.01)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'transparent',
+          border: '1px solid rgba(255,255,255,0.0)',
           boxShadow: '0 4px 24px rgba(15,23,42,.10), 0 1px 3px rgba(15,23,42,.06)',
         }}
       >
