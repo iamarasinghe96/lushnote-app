@@ -219,7 +219,7 @@ interface WorkplaceTheme {
 // The three built-in themes
 const WP_THEMES: readonly WorkplaceTheme[] = [
   { primary: '#e11d48', dk: '#be123c', lt: '#ffe4e6' },  // 0 = rose-red
-  { primary: '#d97706', dk: '#b45309', lt: '#fef3c7' },  // 1 = amber-yellow
+  { primary: '#4361EE', dk: '#3451D1', lt: '#eef2ff' },  // 1 = indigo-blue
   { primary: '#0e9f6e', dk: '#0a7d57', lt: '#e3f9ee' },  // 2 = teal (unchanged)
 ]
 
