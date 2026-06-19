@@ -123,6 +123,7 @@ export default function GeneratePage() {
   const [prefillPatient, setPrefillPatient] = useState<{ patient: string; reg_number: string } | null>(null)
   const [allNotes, setAllNotes] = useState<Note[]>([])
   const [letterPickerOpen, setLetterPickerOpen] = useState(false)
+  const [clinicalNoteMode, setClinicalNoteMode] = useState(false)
 
   useEffect(() => {
     if (localStorage.getItem('_ln_rec_interrupted')) {
@@ -170,6 +171,14 @@ export default function GeneratePage() {
     store.setLetterType(type)
     store.setLetterCommonFields({ letterDate: `${dd}/${mm}/${yyyy}` })
     router.push('/edit')
+  }
+
+  // Doctor wants to write a consultation note by hand (no dictation/transcript):
+  // pick a clinical template, then fill the note fields manually on the edit tab.
+  function handleSelectClinicalNote() {
+    setLetterPickerOpen(false)
+    setClinicalNoteMode(true)
+    setPhase('template-picking')
   }
 
   function startMode(mode: NoteCreationMode) {
@@ -277,6 +286,20 @@ export default function GeneratePage() {
   }
 
   function handleTemplateSelect(template: AnyTemplate, noteLength: string) {
+    if (clinicalNoteMode) {
+      // Manual note: blank fields, no transcript, no AI generation.
+      store.setLetterType(null)
+      store.setCurrentNote({})
+      store.setCurrentNoteId(null)
+      store.setLastTranscript(null)
+      store.setLastChosenTemplate(template)
+      store.setOverrideNoteLength(noteLength as 'brief' | 'balanced' | 'detailed')
+      store.setPendingAnimation(false)
+      setClinicalNoteMode(false)
+      setPhase('idle')
+      router.push('/edit')
+      return
+    }
     store.setCurrentNote({
       patient: prefillPatient?.patient ?? '',
       reg_number: prefillPatient?.reg_number ?? '',
@@ -340,7 +363,7 @@ export default function GeneratePage() {
           </p>
         )}
 
-        <ModeCard icon={DocumentIcon} title="Create Document" description="Paste or upload a text document" onClick={() => startMode('document')} />
+        <ModeCard icon={DocumentIcon} title="Create Document" description="Write a letter or clinical note" onClick={() => { setClinicalNoteMode(false); setLetterPickerOpen(true) }} />
 
         {/* Upload Recording - hidden in UI, code preserved */}
         <div style={{ display: 'none' }}>
@@ -427,11 +450,20 @@ export default function GeneratePage() {
       <TemplatePicker
         open={phase === 'template-picking'}
         onSelect={handleTemplateSelect}
-        onCancel={() => { setPhase('idle'); setTranscriptConfirmOpen(true) }}
+        onCancel={() => {
+          setPhase('idle')
+          if (clinicalNoteMode) {
+            setClinicalNoteMode(false)
+            setLetterPickerOpen(true)
+          } else {
+            setTranscriptConfirmOpen(true)
+          }
+        }}
       />
       <LetterPickerModal
         open={letterPickerOpen}
         onSelect={handleLetterTypeSelected}
+        onSelectClinicalNote={handleSelectClinicalNote}
         onClose={() => setLetterPickerOpen(false)}
       />
     </div>
