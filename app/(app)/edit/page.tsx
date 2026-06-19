@@ -329,12 +329,12 @@ function EditContent() {
         providerNumber: profile?.providerNumber,
         workPhone: profile?.workPhone,
         position: profile?.position,
-        workplaceName: activeWorkplace?.name,
+        workplaceName: profile?.workplaces?.find(w => w.id === profile?.activeWorkplaceId)?.name,
       })
       setPreviewHtml(html)
     }, 200)
     return () => clearTimeout(timer)
-  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile, activeWorkplace])
+  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile])
 
   useEffect(() => {
     if (!letterToast) return
