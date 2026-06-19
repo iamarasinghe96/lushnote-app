@@ -43,6 +43,9 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
   const { user } = useAuth()
   const [displayName, setDisplayName] = useState(profile.displayName ?? '')
   const [credentials, setCredentials] = useState(profile.credentials ?? '')
+  const [position, setPosition] = useState(profile.position ?? '')
+  const [providerNumber, setProviderNumber] = useState(profile.providerNumber ?? '')
+  const [workPhone, setWorkPhone] = useState(profile.workPhone ?? '')
   const [emailPretext, setEmailPretext] = useState(profile.emailPretext ?? '')
   const [saving, setSaving] = useState(false)
   const [sigSaving, setSigSaving] = useState(false)
@@ -56,7 +59,14 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
   async function handleSave() {
     setSaving(true)
     try {
-      await onSave({ displayName: displayName.trim(), credentials: credentials.trim(), emailPretext })
+      await onSave({
+        displayName: displayName.trim(),
+        credentials: credentials.trim(),
+        position: position.trim(),
+        providerNumber: providerNumber.trim(),
+        workPhone: workPhone.trim(),
+        emailPretext,
+      })
       onToast('Profile saved')
     } catch {
       onToast('Failed to save profile')
@@ -177,6 +187,26 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
         onChange={e => setCredentials(e.target.value)}
         placeholder="e.g. FRANZCP, MBChB"
       />
+      <Input
+        label="Position / Title"
+        value={position}
+        onChange={e => setPosition(e.target.value)}
+        placeholder="e.g. Consultant Psychiatrist"
+      />
+      <div className="grid grid-cols-2 gap-3">
+        <Input
+          label="Provider Number"
+          value={providerNumber}
+          onChange={e => setProviderNumber(e.target.value)}
+          placeholder="e.g. 2345678B"
+        />
+        <Input
+          label="Work Phone"
+          value={workPhone}
+          onChange={e => setWorkPhone(e.target.value)}
+          placeholder="e.g. (02) 6058 4444"
+        />
+      </div>
 
       <div>
         <label className="block text-sm font-medium text-[var(--text)] mb-1">

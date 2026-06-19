@@ -326,11 +326,15 @@ function EditContent() {
         signatureUrl: profile?.signatureUrl ?? null,
         clinicianName: profile?.displayName,
         credentials: profile?.credentials,
+        providerNumber: profile?.providerNumber,
+        workPhone: profile?.workPhone,
+        position: profile?.position,
+        workplaceName: activeWorkplace?.name,
       })
       setPreviewHtml(html)
     }, 200)
     return () => clearTimeout(timer)
-  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile])
+  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile, activeWorkplace])
 
   useEffect(() => {
     if (!letterToast) return

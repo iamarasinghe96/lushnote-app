@@ -17,6 +17,9 @@ interface User {
   groqApiKey?: string
   geminiApiKey?: string
   signatureUrl?: string
+  providerNumber?: string
+  workPhone?: string
+  position?: string
   transcriptPrivacy?: TranscriptPrivacy
   recordingDefaults?: RecordingDefaults
   personalisation?: Personalisation

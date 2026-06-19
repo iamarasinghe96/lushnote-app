@@ -215,11 +215,16 @@ export function buildLetterPreviewHTML(params: {
   signatureUrl?: string | null
   clinicianName?: string
   credentials?: string
+  providerNumber?: string
+  workPhone?: string
+  position?: string
+  workplaceName?: string
 }): string {
   const {
     letterType, common, referral, records, freetext,
     letterheadHeaderUrl, letterheadFooterUrl,
     signatureUrl, clinicianName, credentials,
+    providerNumber, workPhone, position, workplaceName,
   } = params
 
   const headerHtml = letterheadHeaderUrl
@@ -294,11 +299,14 @@ export function buildLetterPreviewHTML(params: {
         ${recipientBlock}
         ${reBlock}
         ${bodyHtml}
-        <div style="margin-top:32px;">
-          <p style="margin:0 0 8px;">Kind regards,</p>
+        <div style="margin-top:48px;">
           ${signatureHtml}
-          <p style="margin:0;">${escapeHtml(clinicianName || '')}</p>
-          ${credentials ? `<p style="margin:0;font-size:10pt;color:#475569;">${escapeHtml(credentials)}</p>` : ''}
+          <p style="margin:0 0 2px;">Thank you and kind regards,</p>
+          <p style="margin:0 0 2px;font-weight:700;">${escapeHtml(clinicianName || '')}</p>
+          ${credentials ? `<p style="margin:0 0 2px;font-size:10pt;">${escapeHtml(credentials)}</p>` : ''}
+          ${(providerNumber || workPhone) ? `<p style="margin:0 0 2px;font-size:10pt;">${providerNumber ? 'Provider No: ' + escapeHtml(providerNumber) : ''}${providerNumber && workPhone ? ' | ' : ''}${workPhone ? 'Ph no: ' + escapeHtml(workPhone) : ''}</p>` : ''}
+          ${position ? `<p style="margin:0 0 2px;font-size:10pt;">${escapeHtml(position)}</p>` : ''}
+          ${workplaceName ? `<p style="margin:0;font-size:10pt;">${escapeHtml(workplaceName)}</p>` : ''}
         </div>
       </div>
       ${footerHtml}
