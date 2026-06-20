@@ -956,6 +956,9 @@ function EditContent() {
     const contentTop = headerImg ? headerH + 8 : 20
     const footerY = PH - footerH
     const maxY = footerImg ? footerY - 4 : PH - 15
+    // Signature block can overlap into the footer's white curved zone (top ~42%)
+    // so it sits right above the blue band rather than floating high above the footer.
+    const sigZoneBottom = footerImg ? footerY + footerH * 0.42 : maxY
 
     const stampLetterhead = () => {
       if (headerImg) doc.addImage(headerImg.dataUrl, 'JPEG', 0, 0, PW, headerH)
@@ -1029,21 +1032,21 @@ function EditContent() {
     const sigF = (sigScaleDraft > 0 ? sigScaleDraft : 100) / 100
     const sigImgH = sigDataUrl ? 14 * sigF + 3 : 0
 
-    const sigLines: { text: string; bold?: boolean; size?: number }[] = [{ text: 'Thank you and kind regards,' }]
+    const sigLines: { text: string; bold?: boolean }[] = [{ text: 'Thank you and kind regards,' }]
     if (profile?.displayName) sigLines.push({ text: profile.displayName, bold: true })
-    if (profile?.credentials) sigLines.push({ text: profile.credentials, size: smallFs })
+    if (profile?.credentials) sigLines.push({ text: profile.credentials })
     const providerLine = [
       profile?.providerNumber ? `Provider No: ${profile.providerNumber}` : '',
       profile?.workPhone ? `Ph no: ${profile.workPhone}` : '',
     ].filter(Boolean).join(' | ')
-    if (providerLine) sigLines.push({ text: providerLine, size: smallFs })
-    if (profile?.position) sigLines.push({ text: profile.position, size: smallFs })
+    if (providerLine) sigLines.push({ text: providerLine })
+    if (profile?.position) sigLines.push({ text: profile.position })
     const wpName = profile?.workplaces?.find(w => w.id === profile?.activeWorkplaceId)?.name
-    if (wpName) sigLines.push({ text: wpName, size: smallFs })
+    if (wpName) sigLines.push({ text: wpName })
 
     const blockH = sigImgH + sigLines.length * LH
-    let sy = maxY - blockH
-    if (sy < y + PS * 2) { doc.addPage(); stampLetterhead(); sy = maxY - blockH }
+    let sy = sigZoneBottom - blockH
+    if (sy < y + PS * 2) { doc.addPage(); stampLetterhead(); sy = sigZoneBottom - blockH }
     if (sy < contentTop) sy = contentTop
 
     const cx = PW / 2
@@ -1053,7 +1056,7 @@ function EditContent() {
     }
     for (const line of sigLines) {
       doc.setFont('helvetica', line.bold ? 'bold' : 'normal')
-      doc.setFontSize(line.size ?? fs)
+      doc.setFontSize(fs)
       doc.text(line.text, cx, sy, { align: 'center' })
       sy += LH
     }
