@@ -297,11 +297,13 @@ export function buildLetterPreviewHTML(params: {
   return `
     <div style="font-family:Arial,sans-serif;font-size:11pt;color:#000;background:#fff;min-height:297mm;display:flex;flex-direction:column;max-width:210mm;">
       ${headerHtml}
-      <div style="padding:15px 20mm;flex:1;">
-        ${recipientBlock}
-        ${reBlock}
-        ${bodyHtml}
-        <div style="margin-top:48px;">
+      <div style="padding:15px 20mm;flex:1;display:flex;flex-direction:column;">
+        <div>
+          ${recipientBlock}
+          ${reBlock}
+          ${bodyHtml}
+        </div>
+        <div style="margin-top:auto;padding-top:32px;">
           ${signatureHtml}
           <p style="margin:0 0 2px;">Thank you and kind regards,</p>
           <p style="margin:0 0 2px;font-weight:700;">${escapeHtml(clinicianName || '')}</p>

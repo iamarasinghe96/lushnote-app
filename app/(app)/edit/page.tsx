@@ -849,6 +849,21 @@ function EditContent() {
     })
   }
 
+  function handleSearchAddress() {
+    const query = letterCommonFields.recipientName.trim() || letterCommonFields.recipientAddress.trim()
+    if (!query) { setLetterToast('Enter a recipient name first'); return }
+    window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query), '_blank', 'noopener,noreferrer')
+  }
+
+  async function handlePasteAddress() {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (text.trim()) store.setLetterCommonFields({ recipientAddress: text.trim() })
+    } catch {
+      setLetterToast('Unable to read clipboard — paste manually')
+    }
+  }
+
   async function handleLetterPDF() {
     const { jsPDF } = await import('jspdf')
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -915,23 +930,41 @@ function EditContent() {
       write(freetextFields.freeTextContent || '')
     }
 
-    nl(2)
-    write('Kind regards,')
-    nl(0.5)
-
+    // Signature block, pinned to the bottom of the page so the body uses the full letter length
+    let sigDataUrl: string | null = null
     if (profile?.signatureUrl) {
-      try {
-        const { dataUrl } = await loadImageAsDataURL(profile.signatureUrl)
-        const f = (sigScaleDraft > 0 ? sigScaleDraft : 100) / 100
-        const sigW = 40 * f, sigH = 14 * f
-        if (y + sigH + 4 > maxY) { doc.addPage(); y = 20 }
-        doc.addImage(dataUrl, 'PNG', ML, y, sigW, sigH)
-        y += sigH + 2
-      } catch { nl(2) }
+      try { sigDataUrl = (await loadImageAsDataURL(profile.signatureUrl)).dataUrl } catch { sigDataUrl = null }
     }
+    const sigF = (sigScaleDraft > 0 ? sigScaleDraft : 100) / 100
+    const sigImgH = sigDataUrl ? 14 * sigF + 3 : 0
 
-    if (profile?.displayName) write(profile.displayName)
-    if (profile?.credentials) write(profile.credentials, false, 10)
+    const sigLines: { text: string; bold?: boolean; size?: number }[] = [{ text: 'Thank you and kind regards,' }]
+    if (profile?.displayName) sigLines.push({ text: profile.displayName, bold: true })
+    if (profile?.credentials) sigLines.push({ text: profile.credentials, size: 10 })
+    const providerLine = [
+      profile?.providerNumber ? `Provider No: ${profile.providerNumber}` : '',
+      profile?.workPhone ? `Ph no: ${profile.workPhone}` : '',
+    ].filter(Boolean).join(' | ')
+    if (providerLine) sigLines.push({ text: providerLine, size: 10 })
+    if (profile?.position) sigLines.push({ text: profile.position, size: 10 })
+    const wpName = profile?.workplaces?.find(w => w.id === profile?.activeWorkplaceId)?.name
+    if (wpName) sigLines.push({ text: wpName, size: 10 })
+
+    const blockH = sigImgH + sigLines.length * LH
+    let sy = maxY - blockH
+    if (sy < y + PS * 2) { doc.addPage(); sy = maxY - blockH }
+    if (sy < 20) sy = 20
+
+    if (sigDataUrl) {
+      try { doc.addImage(sigDataUrl, 'PNG', ML, sy, 40 * sigF, 14 * sigF) } catch {}
+      sy += 14 * sigF + 3
+    }
+    for (const line of sigLines) {
+      doc.setFont('helvetica', line.bold ? 'bold' : 'normal')
+      doc.setFontSize(line.size ?? 11)
+      doc.text(line.text, ML, sy)
+      sy += LH
+    }
 
     const pname = (letterCommonFields.patientName || 'letter').replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-')
     const typeLabel = letterType === 'referral' ? 'Referral' : letterType === 'records' ? 'RecordsRequest' : 'Letter'
@@ -1573,13 +1606,50 @@ function EditContent() {
                     value={letterCommonFields.recipientName}
                     onChange={e => store.setLetterCommonFields({ recipientName: e.target.value })}
                   />
-                  <Textarea
-                    label="Recipient address (optional)"
-                    rows={2}
-                    className="mt-3"
-                    value={letterCommonFields.recipientAddress}
-                    onChange={e => store.setLetterCommonFields({ recipientAddress: e.target.value })}
-                  />
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-[var(--text)] mb-1">Recipient address (optional)</label>
+                    <div className="flex gap-2 items-start">
+                      <textarea
+                        rows={2}
+                        value={letterCommonFields.recipientAddress}
+                        onChange={e => store.setLetterCommonFields({ recipientAddress: e.target.value })}
+                        placeholder="e.g. 79 High St, Wodonga VIC 3690"
+                        className="flex-1 rounded-[var(--r)] border border-[var(--border)] bg-white px-3 py-2 text-sm
+                                   text-[var(--text)] placeholder:text-[var(--text3)] outline-none
+                                   focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 resize-none"
+                      />
+                      <div className="flex flex-col gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleSearchAddress}
+                          title="Find on Google Maps"
+                          aria-label="Find on Google Maps"
+                          className="w-9 h-9 rounded-[var(--r)] border border-[var(--border)] bg-white flex items-center justify-center
+                                     text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)]
+                                     motion-safe:transition-colors motion-safe:active:scale-95"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handlePasteAddress}
+                          title="Paste address from clipboard"
+                          aria-label="Paste address from clipboard"
+                          className="w-9 h-9 rounded-[var(--r)] border border-[var(--border)] bg-white flex items-center justify-center
+                                     text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)]
+                                     motion-safe:transition-colors motion-safe:active:scale-95"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <rect x="9" y="2" width="6" height="4" rx="1"/>
+                            <path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Referral fields */}
