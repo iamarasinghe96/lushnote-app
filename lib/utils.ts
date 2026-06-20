@@ -128,6 +128,79 @@ const FIELD_LABELS: Record<string, string> = {
   summary: 'Summary', nextsteps: 'Next Steps',
 }
 
+// The AI frequently restates a section's own title as the first line of that
+// section's body (e.g. a "Session Content" field whose text opens with
+// "Session Content:"). Since every field already renders its label as a header,
+// that first line displays as a duplicate. We strip it deterministically.
+//
+// Each list holds the title variants the model is known to echo for that field —
+// the canonical display label plus the section headings used across the 116
+// templates and the common synonyms a model might produce. Matching is strict:
+// the first line, once stripped of markdown/emphasis/trailing punctuation, must
+// EXACTLY equal one of these. Bulleted/numbered first lines (legitimate sub-items
+// like "• Presenting complaint: …") are never touched.
+const REDUNDANT_SECTION_LABELS: Record<string, string[]> = {
+  patient:      ['patient', 'patient name', 'name', 'client', 'client name'],
+  diagnosis:    ['diagnosis', 'diagnoses', 'provisional diagnosis', 'working diagnosis', 'clinical diagnosis', 'diagnostic impression', 'diagnostic impressions'],
+  presentation: ['presentation', 'current presentation', 'presenting complaint', 'presenting complaints', 'presenting problem', 'presenting problems', 'presenting concerns', 'presenting issues', 'reason for presentation', 'reason for referral'],
+  history:      ['history', 'past medical & psychiatric history', 'past medical and psychiatric history', 'past medical history', 'past psychiatric history', 'background', 'background history', 'history of presenting illness', 'relevant history', 'psychiatric history'],
+  medications:  ['medications', 'medication', 'current medications', 'medication list', 'medication history'],
+  mse:          ['mental state examination', 'mental status examination', 'mental state exam', 'mental status exam', 'mse'],
+  content:      ['session content', 'content', 'session content, goals, obstacles/progress, and interventions', 'session detail', 'session details', 'body of session'],
+  scales:       ['rating scales', 'scales', 'rating scale', 'psychometric scales', 'psychometric assessment', 'outcome measures'],
+  risk:         ['risk assessment', 'risk', 'risk assessment and management', 'risk assessment & management', 'risk & management', 'risk and management'],
+  referrals:    ['referrals & correspondence', 'referrals and correspondence', 'referrals', 'referral', 'correspondence'],
+  summary:      ['summary', 'session summary', 'clinical summary', 'impression', 'formulation', 'formulation / impression'],
+  nextsteps:    ['next steps', 'next steps / plan', 'next steps/plan', 'plan', 'management plan', 'treatment plan', 'recommendations', 'nextsteps'],
+}
+
+function isListLine(line: string): boolean {
+  return /^\s*([-*•]\s|\d+[.)]\s)/.test(line)
+}
+
+function normaliseLabelLine(line: string): string {
+  return line
+    .replace(/^#{1,6}\s*/, '')                   // markdown heading hashes
+    .replace(/\*\*/g, '').replace(/[*_`]/g, '')  // bold / italic / code markers
+    .replace(/\s*\([^)]*\)\s*$/, '')             // trailing parenthetical e.g. "(MSE)"
+    .replace(/[\s:：\-–—.]+$/, '')                // trailing colon / dash / period / space
+    .trim()
+    .toLowerCase()
+}
+
+// Remove a redundant leading title from a single field's body. Idempotent, so it
+// is safe to run at both parse time (clean storage) and render time (clean any
+// note already saved with the duplicate baked in).
+export function stripRedundantSectionLabel(field: string, value: string): string {
+  if (!value) return value
+  const labels = REDUNDANT_SECTION_LABELS[field]
+  if (!labels) return value
+
+  const nlIdx = value.indexOf('\n')
+  const firstLine = nlIdx === -1 ? value : value.slice(0, nlIdx)
+  const rest = nlIdx === -1 ? '' : value.slice(nlIdx + 1)
+
+  // Never strip a legitimate bullet / numbered sub-item.
+  if (isListLine(firstLine)) return value
+
+  // "Label: inline content" on the first line → keep only the inline content.
+  const colonIdx = firstLine.search(/[:：]/)
+  if (colonIdx !== -1) {
+    const before = normaliseLabelLine(firstLine.slice(0, colonIdx + 1))
+    const after = firstLine.slice(colonIdx + 1).trim()
+    if (after && labels.includes(before)) {
+      return (after + (rest ? '\n' + rest : '')).replace(/^\n+/, '')
+    }
+  }
+
+  // First line is ONLY the label → drop it entirely.
+  if (labels.includes(normaliseLabelLine(firstLine))) {
+    return rest.replace(/^\n+/, '')
+  }
+
+  return value
+}
+
 const PREVIEW_FIELD_ORDER = [
   'patient', 'reg_number', 'date', 'time', 'clinician', 'session_number', 'attendance',
   'diagnosis', 'presentation', 'history', 'medications', 'mse', 'content', 'scales',
@@ -179,7 +252,7 @@ const NOTE_TEXT_ORDER = [
 export function buildNoteText(f: Partial<Note>): string {
   return NOTE_TEXT_ORDER
     .map(key => {
-      const val = (f as Record<string, string>)[key]
+      const val = stripRedundantSectionLabel(key, (f as Record<string, string>)[key] || '')
       if (!val || !val.trim()) return ''
       return `${NOTE_TEXT_LABELS[key]}\n${val.trim()}`
     })
@@ -397,9 +470,10 @@ export function buildTemplatePrompt(template: AnyTemplate): string {
 
 export function buildPreviewHTML(f: Partial<Note>): string {
   const sections = PREVIEW_FIELD_ORDER
-    .filter(key => (f as Record<string, string>)[key]?.trim())
-    .map(key =>
-      `<div class="preview-section" data-field="${key}"><h3>${FIELD_LABELS[key]}</h3><div class="preview-content">${formatContent((f as Record<string, string>)[key])}</div></div>`
+    .map(key => ({ key, val: stripRedundantSectionLabel(key, (f as Record<string, string>)[key] || '') }))
+    .filter(({ val }) => val.trim())
+    .map(({ key, val }) =>
+      `<div class="preview-section" data-field="${key}"><h3>${FIELD_LABELS[key]}</h3><div class="preview-content">${formatContent(val)}</div></div>`
     )
     .join('')
 

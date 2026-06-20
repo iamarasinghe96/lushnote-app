@@ -7,7 +7,7 @@ import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildPreviewHTML, buildLetterPreviewHTML, buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines } from '@/lib/utils'
+import { buildPreviewHTML, buildLetterPreviewHTML, buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
@@ -43,6 +43,16 @@ function autoFormatDate(raw: string): string {
   return digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4)
 }
 
+// Remove any leading title the model echoed inside a section body, so the value
+// we store (and show in the textarea) doesn't duplicate the field's own header.
+function finalizeFields(out: Partial<Note>): Partial<Note> {
+  for (const key of Object.keys(out) as (keyof Note)[]) {
+    const v = (out as Record<string, string>)[key]
+    if (typeof v === 'string') (out as Record<string, string>)[key] = stripRedundantSectionLabel(key, v)
+  }
+  return out
+}
+
 function parseGeneratedContent(content: string): Partial<Note> {
   const out: Partial<Note> = {}
 
@@ -75,7 +85,7 @@ function parseGeneratedContent(content: string): Partial<Note> {
     }
     bm = bracketRx.exec(content)
   }
-  if (bracketParsed) return out
+  if (bracketParsed) return finalizeFields(out)
 
   // Fallback: ## markdown headings (Gemini sometimes outputs these instead)
   const sectionMap: Record<string, keyof Note> = {
@@ -103,11 +113,11 @@ function parseGeneratedContent(content: string): Partial<Note> {
     if (key) { (out as Record<string, string>)[key] = hm[2].trim(); headingParsed = true }
     hm = headingRx.exec(content)
   }
-  if (headingParsed) return out
+  if (headingParsed) return finalizeFields(out)
 
   // Last resort: whole response → content field
   out.content = content.trim()
-  return out
+  return finalizeFields(out)
 }
 
 
