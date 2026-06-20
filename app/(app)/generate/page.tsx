@@ -114,6 +114,9 @@ export default function GeneratePage() {
   const store = useNoteStore()
 
   const [phase, setPhase] = useState<GenPhase>('idle')
+  // For long recordings transcribed in multiple segments — drives the overlay's
+  // "Part X of Y" progress so the user knows work is happening.
+  const [transcribeProgress, setTranscribeProgress] = useState<{ current: number; total: number } | null>(null)
   const [inputText, setInputText] = useState('')
   const [pendingTranscript, setPendingTranscript] = useState('')
   const [creationMode, setCreationMode] = useState<NoteCreationMode>('paste')
@@ -283,14 +286,16 @@ export default function GeneratePage() {
       segments.push(new Blob(parts, { type: mimeType }))
     }
     const texts: string[] = []
-    for (const seg of segments) {
-      texts.push(await transcribeSegment(seg, mimeType))
+    for (let i = 0; i < segments.length; i++) {
+      setTranscribeProgress({ current: i + 1, total: segments.length })
+      texts.push(await transcribeSegment(segments[i], mimeType))
     }
     return texts.join(' ')
   }
 
   async function handleAudioReady(blob: Blob, mimeType: string, duration: number, chunks: Blob[]) {
     store.setLastRecordingDuration(duration)
+    setTranscribeProgress(null)
     setPhase('transcribing')
     try {
       const text = await transcribeAudio(blob, chunks, mimeType)
@@ -298,14 +303,17 @@ export default function GeneratePage() {
       if (!validation.valid) {
         setError(validation.error!)
         setPhase('idle')
+        setTranscribeProgress(null)
         return
       }
       setPendingTranscript(text)
       setTranscriptConfirmOpen(true)
       setPhase('idle')
+      setTranscribeProgress(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Transcription failed')
       setPhase('idle')
+      setTranscribeProgress(null)
     }
   }
 
@@ -457,12 +465,27 @@ export default function GeneratePage() {
 
       {/* Transcribing overlay */}
       {phase === 'transcribing' && (
-        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-3">
+        <div className="fixed inset-0 bg-white/85 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-3 px-6 text-center">
           <svg width="32" height="32" viewBox="0 0 24 24" className="animate-spin text-[var(--blue)]" aria-hidden>
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25"/>
             <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round"/>
           </svg>
-          <p className="text-sm font-medium text-[var(--text2)]">Transcribing audio…</p>
+          <p className="text-sm font-medium text-[var(--text2)]">
+            {transcribeProgress
+              ? `Transcribing audio — part ${transcribeProgress.current} of ${transcribeProgress.total}…`
+              : 'Transcribing audio…'}
+          </p>
+          {transcribeProgress && transcribeProgress.total > 1 && (
+            <div className="w-48 h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
+              <div
+                className="h-full bg-[var(--blue)] motion-safe:transition-all motion-safe:duration-500"
+                style={{ width: `${(transcribeProgress.current / transcribeProgress.total) * 100}%` }}
+              />
+            </div>
+          )}
+          <p className="text-xs text-[var(--text3)] max-w-xs">
+            Long recordings are split into segments — this can take a minute or two. After this you&apos;ll confirm the patient and pick a template.
+          </p>
         </div>
       )}
 

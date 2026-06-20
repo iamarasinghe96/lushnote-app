@@ -70,8 +70,10 @@ export default function DictateModal({ open, onClose, onAudioReady, recordingDef
       streamRef.current.getTracks().forEach(t => t.stop())
       streamRef.current = null
     }
+    // Do NOT call onClose() here — the parent transitions to 'transcribing'
+    // (closing this modal) and shows the transcribing overlay. onClose() would
+    // reset the parent phase to 'idle' and hide that progress feedback.
     onAudioReady(result.blob, result.mimeType, result.duration, result.chunks)
-    onClose()
   }
 
   stopRef.current = doStop

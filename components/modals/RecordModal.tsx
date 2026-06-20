@@ -73,8 +73,11 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
       streamRef.current.getTracks().forEach(t => t.stop())
       streamRef.current = null
     }
+    // Hand the audio to the parent. Do NOT call onClose() here — the parent
+    // transitions its phase to 'transcribing' (which closes this modal via the
+    // `open` prop) and shows the transcribing overlay. Calling onClose() would
+    // reset the parent phase back to 'idle' and hide that progress feedback.
     onAudioReady(result.blob, result.mimeType, result.duration, result.chunks)
-    onClose()
   }
 
   // Keep stopRef current so the auto-stop timeout always calls the latest version
