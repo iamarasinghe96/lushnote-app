@@ -1559,19 +1559,11 @@ function EditContent() {
         <div className="bg-[var(--blue)] text-white text-sm shrink-0">
           {/* Top row — always visible */}
           <div className="flex items-center justify-between px-4 py-2 gap-2">
-            <div className="flex items-center gap-3 min-w-0">
-              <button
-                onClick={() => { store.resetLetterMode(); router.push('/generate') }}
-                className="text-white/70 hover:text-white text-xs flex items-center gap-1 motion-safe:active:scale-95 motion-safe:transition-transform shrink-0">
-                ← Back
-              </button>
-              <span className="text-white/40 shrink-0">|</span>
-              <span className="font-medium text-sm truncate">
-                {letterType === 'referral' ? 'Referral Letter'
-                  : letterType === 'records' ? 'Medical Records Request'
-                  : 'Free Text Letter'}
-              </span>
-            </div>
+            <span className="font-medium text-sm truncate">
+              {letterType === 'referral' ? 'Referral Letter'
+                : letterType === 'records' ? 'Medical Records Request'
+                : 'Free Text Letter'}
+            </span>
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={handleLetterPDF}
