@@ -94,18 +94,22 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
 
       streamRef.current = stream
       localStorage.setItem('ln_recording_interrupted', '1')
-      startRecording(stream)
+      // getDisplayMedia returns video + audio tracks; MediaRecorder is configured
+      // for audio-only. Build an audio-only stream so the recorder doesn't reject it.
+      const audioOnlyStream = subMode === 'telehealth'
+        ? new MediaStream(stream.getAudioTracks())
+        : stream
+      startRecording(audioOnlyStream)
       setPhase('recording')
       autoStopRef.current = setTimeout(() => {
         setAutoStopped(true)
         stopRef.current?.()
       }, autoStopMinutes * 60 * 1000)
-    } catch (e) {
-      const err = e instanceof Error ? `${e.name}: ${e.message}` : String(e)
+    } catch {
       setPermError(
         subMode === 'telehealth'
-          ? `Screen share failed — ${err}`
-          : `Microphone access denied — ${err}`
+          ? 'Screen share was cancelled or denied. Click "Start recording" and select the tab to share.'
+          : 'Microphone access denied. Please allow microphone access and try again.'
       )
     }
   }
