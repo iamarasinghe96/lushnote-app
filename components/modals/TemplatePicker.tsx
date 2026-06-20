@@ -3,12 +3,14 @@
 import { useState, useEffect, useRef } from 'react'
 import Modal from '@/components/ui/Modal'
 import { useAuth } from '@/hooks/useAuth'
-import type { AnyTemplate, NoteLength, Template } from '@/types'
+import type { AnyTemplate, NoteLength, Template, LetterType } from '@/types'
 
 interface TemplatePickerProps {
   open: boolean
   onSelect: (template: AnyTemplate, noteLength: NoteLength) => void
   onCancel: () => void
+  /** When provided, a "Letters" tab is shown so the user can switch into letter mode. */
+  onSelectLetter?: (letterType: LetterType) => void
 }
 
 const USAGE_KEY = 'lnTemplateUsage'
@@ -27,7 +29,7 @@ function recordUsage(id: string | number) {
   localStorage.setItem(USAGE_KEY, JSON.stringify([id, ...ids].slice(0, MAX_RECENT)))
 }
 
-type Tab = 'all' | 'session' | 'document' | 'custom'
+type Tab = 'all' | 'session' | 'document' | 'custom' | 'letters'
 
 const NOTE_LENGTHS: { value: NoteLength; label: string }[] = [
   { value: 'brief', label: 'Brief' },
@@ -35,7 +37,64 @@ const NOTE_LENGTHS: { value: NoteLength; label: string }[] = [
   { value: 'detailed', label: 'Detailed' },
 ]
 
-export default function TemplatePicker({ open, onSelect, onCancel }: TemplatePickerProps) {
+// Preferred display order for category sections; anything else falls to the end alphabetically.
+const CATEGORY_ORDER = ['Progress Notes', 'Assessments', 'Therapy Notes', 'Risk & Safety']
+function categoryRank(cat: string): number {
+  const i = CATEGORY_ORDER.indexOf(cat)
+  return i === -1 ? CATEGORY_ORDER.length : i
+}
+
+const LETTER_OPTIONS: { type: LetterType; title: string; description: string; icon: JSX.Element }[] = [
+  {
+    type: 'referral',
+    title: 'Referral Letter',
+    description: 'Refer this patient to a specialist, unit, or service',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <path d="M5 12h14M12 5l7 7-7 7" />
+      </svg>
+    ),
+  },
+  {
+    type: 'records',
+    title: 'Request Medical Records',
+    description: 'Request clinical notes, investigations, or discharge summaries',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+      </svg>
+    ),
+  },
+  {
+    type: 'freetext',
+    title: 'Free Text Letter',
+    description: 'Write or dictate a custom letter with your own content',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+      </svg>
+    ),
+  },
+]
+
+function templateType(t: AnyTemplate): 'session' | 'document' | 'both' {
+  return 'tplType' in t ? t.tplType : 'session'
+}
+
+function matchesTab(t: AnyTemplate, tab: Tab, customIds: Set<string>): boolean {
+  if (tab === 'all') return true
+  if (tab === 'custom') return customIds.has(String(t.id))
+  const type = templateType(t)
+  if (tab === 'session') return type === 'session' || type === 'both'
+  if (tab === 'document') return type === 'document' || type === 'both'
+  return true
+}
+
+export default function TemplatePicker({ open, onSelect, onCancel, onSelectLetter }: TemplatePickerProps) {
   const { profile } = useAuth()
   const [builtins, setBuiltins] = useState<Template[]>([])
   const [search, setSearch] = useState('')
@@ -63,22 +122,19 @@ export default function TemplatePicker({ open, onSelect, onCancel }: TemplatePic
   }, [open, profile?.personalisation?.noteLength])
 
   const custom: AnyTemplate[] = profile?.customTemplates ?? []
+  const customIds = new Set(custom.map(t => String(t.id)))
   // Dedupe by id so a stale duplicate can never render twice
   const all: AnyTemplate[] = Array.from(
     new Map([...(builtins as AnyTemplate[]), ...custom].map(t => [String(t.id), t])).values()
   )
 
-  // Tab filtering
-  const tabFiltered =
-    tab === 'all'      ? all
-    : tab === 'custom' ? custom
-    : all.filter(t => ('tplType' in t ? t.tplType === tab : tab === 'session'))
-
   const recentIds = getRecentIds()
   const favIds: (string | number)[] = profile?.favoriteTemplateIds ?? []
 
+  const tabFiltered = all.filter(t => matchesTab(t, tab, customIds))
+
   const q = search.trim().toLowerCase()
-  const filtered = q
+  const searchFiltered = q
     ? tabFiltered.filter(t =>
         t.title.toLowerCase().includes(q) ||
         t.category.toLowerCase().includes(q) ||
@@ -86,16 +142,37 @@ export default function TemplatePicker({ open, onSelect, onCancel }: TemplatePic
       )
     : tabFiltered
 
-  const sorted = q
-    ? filtered
-    : [
-        ...filtered.filter(t => favIds.includes(t.id)),
-        ...filtered.filter(t => !favIds.includes(t.id) && recentIds.includes(t.id)),
-        ...filtered.filter(t => !favIds.includes(t.id) && !recentIds.includes(t.id)),
-      ]
+  // Highlight groups (only when not searching) — favourites + recently used, shown as chips.
+  const byId = new Map(tabFiltered.map(t => [String(t.id), t]))
+  const favTemplates = favIds.map(id => byId.get(String(id))).filter(Boolean) as AnyTemplate[]
+  const recentTemplates = recentIds
+    .filter(id => !favIds.includes(id))
+    .map(id => byId.get(String(id)))
+    .filter(Boolean) as AnyTemplate[]
 
-  const sessionCount = all.filter(t => ('tplType' in t ? t.tplType === 'session' : true)).length
-  const documentCount = all.filter(t => ('tplType' in t ? t.tplType === 'document' : false)).length
+  // Category groups (only when not searching), in preferred order.
+  const categoryGroups: { label: string; items: AnyTemplate[] }[] = []
+  if (!q) {
+    const map = new Map<string, AnyTemplate[]>()
+    for (const t of tabFiltered) {
+      const cat = t.category || 'Other'
+      if (!map.has(cat)) map.set(cat, [])
+      map.get(cat)!.push(t)
+    }
+    const cats = Array.from(map.keys()).sort((a, b) => {
+      const r = categoryRank(a) - categoryRank(b)
+      return r !== 0 ? r : a.localeCompare(b)
+    })
+    for (const cat of cats) {
+      categoryGroups.push({ label: cat, items: map.get(cat)!.sort((a, b) => a.title.localeCompare(b.title)) })
+    }
+  }
+
+  const sessionCount = all.filter(t => { const x = templateType(t); return x === 'session' || x === 'both' }).length
+  const documentCount = all.filter(t => { const x = templateType(t); return x === 'document' || x === 'both' }).length
+
+  const showLetters = Boolean(onSelectLetter)
+  const isLettersTab = tab === 'letters'
 
   function handleSelect(t: AnyTemplate) {
     recordUsage(t.id)
@@ -115,6 +192,68 @@ export default function TemplatePicker({ open, onSelect, onCancel }: TemplatePic
     onSelect(defaultTemplate, noteLength)
   }
 
+  function renderCard(t: AnyTemplate) {
+    const isFav = favIds.includes(t.id)
+    const isRecent = recentIds.includes(t.id)
+    return (
+      <li key={String(t.id)}>
+        <button
+          onClick={() => handleSelect(t)}
+          className="w-full text-left rounded-[var(--r)] px-3 py-2.5
+                     hover:bg-[var(--bg)] active:bg-[var(--blue-lt)]
+                     motion-safe:transition-colors"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[var(--text)] truncate">{t.title}</p>
+              {t.description && (
+                <p className="text-xs text-[var(--text2)] mt-0.5 line-clamp-1">{t.description}</p>
+              )}
+            </div>
+            <div className="flex gap-1 shrink-0 mt-0.5">
+              {isFav && (
+                <span className="text-[10px] bg-[var(--blue-lt)] text-[var(--blue)] rounded-full px-1.5 py-0.5 font-medium">
+                  Fav
+                </span>
+              )}
+              {isRecent && !isFav && (
+                <span className="text-[10px] bg-[var(--bg)] text-[var(--text3)] rounded-full px-1.5 py-0.5 border border-[var(--border)]">
+                  Recent
+                </span>
+              )}
+              {'custom' in t && t.custom && (
+                <span className="text-[10px] bg-[#ede9fe] text-[#5b21b6] rounded-full px-1.5 py-0.5 font-medium">
+                  Custom
+                </span>
+              )}
+            </div>
+          </div>
+        </button>
+      </li>
+    )
+  }
+
+  function renderChipGroup(label: string, items: AnyTemplate[]) {
+    if (items.length === 0) return null
+    return (
+      <div className="pt-2">
+        <p className="text-[11px] font-semibold text-[var(--text3)] uppercase tracking-wide mb-1.5">{label}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {items.map(t => (
+            <button
+              key={String(t.id)}
+              onClick={() => handleSelect(t)}
+              className="px-2.5 py-1 rounded-full border border-[var(--border)] bg-white text-xs text-[var(--text2)]
+                         hover:border-[var(--blue)] hover:text-[var(--blue)] motion-safe:transition-colors truncate max-w-full"
+            >
+              {t.title}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <Modal open={open} onClose={onCancel} title="Select Clinical Template" maxWidth="lg">
       <div className="flex flex-col" style={{ maxHeight: '80vh' }}>
@@ -128,6 +267,9 @@ export default function TemplatePicker({ open, onSelect, onCancel }: TemplatePic
             ...(custom.length > 0
               ? [{ key: 'custom' as Tab, label: 'My Templates', count: custom.length }]
               : []),
+            ...(showLetters
+              ? [{ key: 'letters' as Tab, label: 'Letters', count: LETTER_OPTIONS.length }]
+              : []),
           ]).map(({ key, label, count }) => (
             <button
               key={key}
@@ -139,109 +281,113 @@ export default function TemplatePicker({ open, onSelect, onCancel }: TemplatePic
               }`}
             >
               {label}
-              {all.length > 0 && (
-                <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                  tab === key
-                    ? 'bg-[var(--blue)] text-white'
-                    : 'bg-[var(--border)] text-[var(--text3)]'
-                }`}>
-                  {count}
-                </span>
-              )}
+              <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                tab === key
+                  ? 'bg-[var(--blue)] text-white'
+                  : 'bg-[var(--border)] text-[var(--text3)]'
+              }`}>
+                {count}
+              </span>
             </button>
           ))}
         </div>
 
-        {/* Search */}
-        <div className="px-5 pt-3 pb-2">
-          <input
-            type="search"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search templates…"
-            className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white
-                       px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--text3)]
-                       outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
-                       transition-colors"
-            autoFocus
-          />
-        </div>
-
-        {/* Template list */}
-        <div className="flex-1 overflow-y-auto px-5 min-h-0">
-          {sorted.length === 0 ? (
-            <div className="py-10 text-center text-sm text-[var(--text3)]">
-              {all.length === 0 ? 'No templates loaded' : 'No templates match your search'}
-            </div>
-          ) : (
-            <ul className="space-y-1 pb-2">
-              {sorted.map(t => {
-                const isFav = favIds.includes(t.id)
-                const isRecent = recentIds.includes(t.id)
-                return (
-                  <li key={String(t.id)}>
-                    <button
-                      onClick={() => handleSelect(t)}
-                      className="w-full text-left rounded-[var(--r)] px-3 py-2.5
-                                 hover:bg-[var(--bg)] active:bg-[var(--blue-lt)]
-                                 motion-safe:transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-[var(--text)] truncate">{t.title}</p>
-                          <p className="text-xs text-[var(--text3)] truncate">{t.category}</p>
-                          {t.description && (
-                            <p className="text-xs text-[var(--text2)] mt-0.5 line-clamp-1">{t.description}</p>
-                          )}
-                        </div>
-                        <div className="flex gap-1 shrink-0 mt-0.5">
-                          {isFav && (
-                            <span className="text-[10px] bg-[var(--blue-lt)] text-[var(--blue)] rounded-full px-1.5 py-0.5 font-medium">
-                              Fav
-                            </span>
-                          )}
-                          {isRecent && !isFav && (
-                            <span className="text-[10px] bg-[var(--bg)] text-[var(--text3)] rounded-full px-1.5 py-0.5 border border-[var(--border)]">
-                              Recent
-                            </span>
-                          )}
-                          {'custom' in t && t.custom && (
-                            <span className="text-[10px] bg-[#ede9fe] text-[#5b21b6] rounded-full px-1.5 py-0.5 font-medium">
-                              Custom
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </div>
-
-        {/* Note length selector */}
-        <div className="px-5 py-3 border-t border-[var(--border)] bg-[var(--bg)]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wide">Note Length</span>
-            <span className="text-xs font-semibold text-[var(--blue)] capitalize">{noteLength}</span>
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {NOTE_LENGTHS.map(({ value, label }) => (
+        {isLettersTab ? (
+          /* Letters tab — choose a letter type for this patient */
+          <div className="flex-1 overflow-y-auto px-5 py-4 min-h-0 space-y-3">
+            <p className="text-sm text-[var(--text2)]">
+              Switch to a letter for this patient. Their name carries over automatically.
+            </p>
+            {LETTER_OPTIONS.map(opt => (
               <button
-                key={value}
-                onClick={() => setNoteLength(value)}
-                className={`py-1.5 rounded-[var(--r-sm)] text-xs font-medium motion-safe:transition-colors ${
-                  noteLength === value
-                    ? 'bg-[var(--blue)] text-white'
-                    : 'bg-white border border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)]'
-                }`}
+                key={opt.type}
+                onClick={() => onSelectLetter?.(opt.type)}
+                className="w-full flex items-center gap-4 p-4 rounded-[var(--r-lg)] border border-[var(--border)]
+                  text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
+                  motion-safe:active:scale-[0.98] motion-safe:transition-all motion-safe:duration-150"
               >
-                {label}
+                <span className="text-[var(--blue)] shrink-0">{opt.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[var(--text)]">{opt.title}</p>
+                  <p className="text-xs text-[var(--text3)] mt-0.5">{opt.description}</p>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="1.8" className="text-[var(--text3)] shrink-0" aria-hidden>
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
               </button>
             ))}
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Search */}
+            <div className="px-5 pt-3 pb-2">
+              <input
+                type="search"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search templates…"
+                className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white
+                           px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--text3)]
+                           outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
+                           transition-colors"
+                autoFocus
+              />
+            </div>
+
+            {/* Template list */}
+            <div className="flex-1 overflow-y-auto px-5 min-h-0">
+              {tabFiltered.length === 0 ? (
+                <div className="py-10 text-center text-sm text-[var(--text3)]">
+                  {all.length === 0 ? 'No templates loaded' : 'No templates here yet'}
+                </div>
+              ) : q ? (
+                searchFiltered.length === 0 ? (
+                  <div className="py-10 text-center text-sm text-[var(--text3)]">No templates match your search</div>
+                ) : (
+                  <ul className="space-y-1 pb-2">{searchFiltered.map(renderCard)}</ul>
+                )
+              ) : (
+                <div className="pb-2">
+                  {renderChipGroup('Favourites', favTemplates)}
+                  {renderChipGroup('Recently Used', recentTemplates)}
+                  {categoryGroups.map(g => (
+                    <div key={g.label} className="pt-3">
+                      <p className="text-[11px] font-semibold text-[var(--text3)] uppercase tracking-wide mb-1 px-1">
+                        {g.label}
+                        <span className="ml-1.5 text-[var(--text3)]/70 normal-case font-normal">{g.items.length}</span>
+                      </p>
+                      <ul className="space-y-1">{g.items.map(renderCard)}</ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Note length selector */}
+            <div className="px-5 py-3 border-t border-[var(--border)] bg-[var(--bg)]">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wide">Note Length</span>
+                <span className="text-xs font-semibold text-[var(--blue)] capitalize">{noteLength}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {NOTE_LENGTHS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setNoteLength(value)}
+                    className={`py-1.5 rounded-[var(--r-sm)] text-xs font-medium motion-safe:transition-colors ${
+                      noteLength === value
+                        ? 'bg-[var(--blue)] text-white'
+                        : 'bg-white border border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Footer buttons */}
         <div className="flex gap-2 px-5 pb-4 pt-2">
@@ -251,12 +397,14 @@ export default function TemplatePicker({ open, onSelect, onCancel }: TemplatePic
           >
             ← Back
           </button>
-          <button
-            onClick={handleSkip}
-            className="flex-1 py-2 text-sm text-[var(--text2)] border border-[var(--border)] rounded-[var(--r)] hover:bg-[var(--bg)] motion-safe:transition-colors"
-          >
-            Skip, use default note
-          </button>
+          {!isLettersTab && (
+            <button
+              onClick={handleSkip}
+              className="flex-1 py-2 text-sm text-[var(--text2)] border border-[var(--border)] rounded-[var(--r)] hover:bg-[var(--bg)] motion-safe:transition-colors"
+            >
+              Skip, use default note
+            </button>
+          )}
         </div>
 
       </div>

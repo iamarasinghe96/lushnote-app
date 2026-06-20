@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
-import { savePatientProfile } from '@/lib/firestore/patients'
+import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
 import { updateProfile } from '@/lib/firestore/profiles'
 import { buildPreviewHTML, buildLetterPreviewHTML, buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
@@ -188,6 +188,7 @@ function EditContent() {
   const [changeTemplateOpen, setChangeTemplateOpen] = useState(false)
   const [reassignOpen, setReassignOpen] = useState(false)
   const [allNotes, setAllNotes] = useState<Note[]>([])
+  const patientDobMap = useRef<Map<string, string>>(new Map())
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false)
   const [visitCount, setVisitCount] = useState<number | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -421,6 +422,16 @@ function EditContent() {
   useEffect(() => {
     if (!user) return
     listNotes(user.uid).then(setAllNotes).catch(() => {})
+    // Cache patient DOBs (keyed by lowercased name) so letters can pre-fill DOB.
+    getPatientProfiles(user.uid)
+      .then(profiles => {
+        const map = new Map<string, string>()
+        Object.values(profiles).forEach(p => {
+          if (p.displayName && p.dob) map.set(p.displayName.trim().toLowerCase(), p.dob)
+        })
+        patientDobMap.current = map
+      })
+      .catch(() => {})
   }, [user?.uid])
 
   const storeRef = useRef(store)
@@ -725,9 +736,40 @@ function EditContent() {
 
   function handleTemplateChange(newTemplate: AnyTemplate, noteLength?: string) {
     setChangeTemplateOpen(false)
-    if (!window.confirm(`Regenerate note with "${newTemplate.title}"?`)) return
-    if (noteLength) store.setOverrideNoteLength(noteLength as 'brief' | 'balanced' | 'detailed')
-    runGeneration(store.lastTranscript ?? '', newTemplate)
+    const wasLetter = store.letterType !== null
+    if (store.lastTranscript) {
+      if (!window.confirm(`Regenerate note with "${newTemplate.title}"?`)) return
+      if (wasLetter) store.resetLetterMode()
+      if (noteLength) store.setOverrideNoteLength(noteLength as 'brief' | 'balanced' | 'detailed')
+      runGeneration(store.lastTranscript, newTemplate)
+    } else {
+      // No transcript to regenerate from — just leave letter mode (if any) and keep
+      // the existing note fields. Used when switching a letter back to its note.
+      if (wasLetter) store.resetLetterMode()
+      store.setLastChosenTemplate(newTemplate)
+      if (noteLength) store.setOverrideNoteLength(noteLength as 'brief' | 'balanced' | 'detailed')
+    }
+  }
+
+  // Switch the current patient's record into letter mode (referral / records / free text).
+  // Reachable from the "Change Template" picker's Letters tab. Carries the patient name
+  // (and DOB if known) into the letter so the doctor doesn't retype it.
+  function handleSelectLetterType(type: LetterType) {
+    setChangeTemplateOpen(false)
+    const alreadyLetter = store.letterType !== null
+    store.setLetterType(type)
+    if (!alreadyLetter) {
+      const now = new Date()
+      const dd = String(now.getDate()).padStart(2, '0')
+      const mm = String(now.getMonth() + 1).padStart(2, '0')
+      const yyyy = now.getFullYear()
+      const name = latestFieldsRef.current.patient ?? ''
+      store.setLetterCommonFields({
+        letterDate: `${dd}/${mm}/${yyyy}`,
+        patientName: name,
+        dob: patientDobMap.current.get(name.trim().toLowerCase()) ?? '',
+      })
+    }
   }
 
   async function runPendingGeneration() {
@@ -1664,12 +1706,19 @@ function EditContent() {
       {/* Letter mode bar — label | centred controls | actions */}
       {isLetterMode && (
         <div className="relative flex items-center px-3 py-2 bg-[var(--blue)] text-white text-sm shrink-0 mx-4 rounded-2xl">
-          {/* Left: letter type label */}
-          <span className="font-medium text-sm shrink-0">
-            {letterType === 'referral' ? 'Referral Letter'
-              : letterType === 'records' ? 'Records Request'
-              : 'Free Text Letter'}
-          </span>
+          {/* Left: letter type label + change action */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="font-medium text-sm">
+              {letterType === 'referral' ? 'Referral Letter'
+                : letterType === 'records' ? 'Records Request'
+                : 'Free Text Letter'}
+            </span>
+            <button
+              onClick={handleChangeTemplate}
+              className="text-white/80 hover:text-white text-xs px-2 py-1 rounded hover:bg-white/10 motion-safe:transition-colors">
+              Change
+            </button>
+          </div>
 
           {/* Centre: layout controls — absolutely centred */}
           <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
@@ -2417,6 +2466,7 @@ function EditContent() {
       <TemplatePicker
         open={changeTemplateOpen}
         onSelect={handleTemplateChange}
+        onSelectLetter={handleSelectLetterType}
         onCancel={() => setChangeTemplateOpen(false)}
       />
       <ReassignModal
