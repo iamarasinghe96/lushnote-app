@@ -422,7 +422,7 @@ function EditContent() {
       const h = child ? child.scrollHeight : el.scrollHeight
       // 8px slack absorbs sub-pixel rounding so a letter that just fills the
       // sheet stays at 1 page.
-      setLetterPageCount(h <= pageHeightPx + 8 ? 1 : Math.ceil(h / pageHeightPx))
+      setLetterPageCount(h <= pageHeightPx + 100 ? 1 : Math.ceil(h / pageHeightPx))
       el.innerHTML = ''
     }
 
