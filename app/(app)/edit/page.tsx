@@ -18,18 +18,6 @@ import TemplatePicker from '@/components/modals/TemplatePicker'
 import ReassignModal from '@/components/modals/ReassignModal'
 import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate } from '@/types'
 
-const FIELD_ORDER = [
-  'patient', 'date', 'diagnosis', 'presentation', 'history', 'medications', 'mse',
-  'content', 'scales', 'risk', 'referrals', 'summary', 'nextsteps',
-] as const
-
-const FIELD_ANIM_LABEL: Record<string, string> = {
-  patient: 'Patient', date: 'Date', diagnosis: 'Diagnosis',
-  presentation: 'Presentation', history: 'History', medications: 'Medications',
-  mse: 'Mental State Exam', content: 'Session Content', scales: 'Scales',
-  risk: 'Risk', referrals: 'Referrals', summary: 'Summary', nextsteps: 'Next Steps',
-}
-
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60)
   const s = secs % 60
@@ -192,7 +180,6 @@ function EditContent() {
   const imageAspectCache = useRef<Map<string, number>>(new Map())
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [changeTemplateOpen, setChangeTemplateOpen] = useState(false)
@@ -208,8 +195,6 @@ function EditContent() {
   const formScrollRef = useRef<HTMLDivElement>(null)
   const previewScrollRef = useRef<HTMLDivElement>(null)
   const scrollSyncLockRef = useRef(false)
-  const isAnimatingRef = useRef(false)
-  const [currentAnimatingField, setCurrentAnimatingField] = useState<string | null>(null)
 
   // Custom note fields
   const [customFieldOpen, setCustomFieldOpen] = useState<string | null>(null)
@@ -306,8 +291,8 @@ function EditContent() {
       requestAnimationFrame(() => { scrollSyncLockRef.current = false })
     }
 
-    const onFormScroll = () => { if (!isAnimatingRef.current) syncTo(form, preview) }
-    const onPreviewScroll = () => { if (!isAnimatingRef.current) syncTo(preview, form) }
+    const onFormScroll = () => syncTo(form, preview)
+    const onPreviewScroll = () => syncTo(preview, form)
 
     form.addEventListener('scroll', onFormScroll, { passive: true })
     preview.addEventListener('scroll', onPreviewScroll, { passive: true })
@@ -555,36 +540,6 @@ function EditContent() {
     [fields.reg_number, activeWorkplace]
   )
 
-  function typewriterField(key: string, value: string): Promise<void> {
-    return new Promise(resolve => {
-      let i = 0
-      setFields(prev => {
-        const next = { ...prev, [key]: '' }
-        latestFieldsRef.current = next
-        return next
-      })
-      const interval = setInterval(() => {
-        i++
-        const slice = value.slice(0, i)
-        setFields(prev => {
-          const next = { ...prev, [key]: slice }
-          latestFieldsRef.current = next
-          return next
-        })
-        // Keep textarea scrolled to bottom as text arrives
-        requestAnimationFrame(() => {
-          const ta = formScrollRef.current
-            ?.querySelector<HTMLTextAreaElement>(`[data-field="${key}"] textarea`)
-          if (ta) ta.scrollTop = ta.scrollHeight
-        })
-        if (i >= value.length) {
-          clearInterval(interval)
-          resolve()
-        }
-      }, 15)
-    })
-  }
-
   async function doAutoSave(flashField?: string) {
     if (storeRef.current.letterType !== null) return
     if (isSavingRef.current) return
@@ -655,63 +610,26 @@ function EditContent() {
     doAutoSave(undefined)
   }
 
-  async function animateFields(noteFields: Partial<Note>) {
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  function animateFields(noteFields: Partial<Note>) {
+    // The typewriter reveal and per-field auto-scroll were deliberate delays.
+    // They're removed: the generated note is populated all at once and shown
+    // immediately. (AI generation itself is unchanged — same model, same tokens.)
     autoSaveEnabledRef.current = false
-    // Batch all three so there is no blank frame between isGenerating→isAnimating
     setIsGenerating(false)
     setGenerationStatus(null)
-    setIsAnimating(true)
-    isAnimatingRef.current = true
 
-    if (reduced) {
-      setFields(prev => {
-        const next = { ...prev, ...noteFields }
-        latestFieldsRef.current = next
-        return next
-      })
-      setCurrentAnimatingField(null)
-      setIsAnimating(false)
-      isAnimatingRef.current = false
-      autoSaveEnabledRef.current = true
-      return
-    }
+    const next = { ...latestFieldsRef.current, ...noteFields }
+    latestFieldsRef.current = next
+    setFields(next)
+    setPreviewHtml(buildPreviewHTML(next))
 
-    for (const key of FIELD_ORDER) {
-      if (!mountedRef.current) break
-      const value = (noteFields as Record<string, string>)[key]
-      if (!value || typeof value !== 'string') continue
-
-      setCurrentAnimatingField(key)
-      // Form pane: [data-field] divs are always in the DOM - scroll immediately
-      formScrollRef.current?.querySelector(`[data-field="${key}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-
-      await typewriterField(key, value)
-
-      if (!mountedRef.current) break
-
-      // Force preview HTML update now (bypasses the 200ms debounced useEffect so the
-      // preview section element exists in the DOM before we try to scrollIntoView it)
-      setPreviewHtml(buildPreviewHTML(latestFieldsRef.current))
-      // Double-rAF: first frame commits React's state update, second frame the DOM is painted
-      await new Promise<void>(r => requestAnimationFrame(() => { requestAnimationFrame(() => r()) }))
-
-      previewScrollRef.current?.querySelector(`[data-field="${key}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
+    autoSaveEnabledRef.current = true
 
     if (mountedRef.current) {
-      setCurrentAnimatingField(null)
-      setIsAnimating(false)
-      isAnimatingRef.current = false
-      autoSaveEnabledRef.current = true
-      // Use direct scrollTop (not scrollTo smooth) inside a delay so it fires after
-      // the debounced preview HTML update (which would otherwise cancel a smooth scroll)
       const form = formScrollRef.current
       const preview = previewScrollRef.current
-      setTimeout(() => {
-        if (form) form.scrollTop = 0
-        if (preview) preview.scrollTop = 0
-      }, 250)
+      if (form) form.scrollTop = 0
+      if (preview) preview.scrollTop = 0
     }
   }
 
@@ -859,7 +777,7 @@ function EditContent() {
       }
 
       const noteFields = parseGeneratedContent(data.content)
-      await animateFields(noteFields)
+      animateFields(noteFields)
 
       if (!mountedRef.current) return
 
@@ -923,7 +841,7 @@ function EditContent() {
       clearInterval(statusTimer)
       if (!mountedRef.current) return
       const noteFields = parseGeneratedContent(data.content)
-      await animateFields(noteFields)
+      animateFields(noteFields)
       if (mountedRef.current) {
         storeRef.current.setCurrentNote(latestFieldsRef.current)
         await doAutoSave()
@@ -1770,7 +1688,7 @@ function EditContent() {
       )}
 
       {/* Current note bar */}
-      {!isLetterMode && (store.currentNoteId || isAnimating || isGenerating) && (
+      {!isLetterMode && (store.currentNoteId || isGenerating) && (
         <div
           className={`flex items-center justify-between px-4 py-2 text-white text-sm shrink-0 mx-4 mb-1
             ${isGenerating ? 'animate-pulse' : ''}`}
@@ -1784,12 +1702,10 @@ function EditContent() {
           }}
         >
           <div className="flex items-center gap-2 min-w-0">
-            {(isAnimating || isGenerating) ? (
+            {isGenerating ? (
               <div className="flex items-center justify-center rounded-full bg-white/25 px-4 h-7 animate-[shimmer_1.5s_infinite] motion-reduce:animate-none">
                 <span className="text-xs text-white font-medium truncate max-w-[260px]">
-                  {isGenerating
-                    ? (generationStatus ?? 'Preparing…')
-                    : (FIELD_ANIM_LABEL[currentAnimatingField ?? ''] ?? 'Writing note…')}
+                  {generationStatus ?? 'Preparing…'}
                 </span>
               </div>
             ) : (
