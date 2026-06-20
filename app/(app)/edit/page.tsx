@@ -179,7 +179,7 @@ function EditContent() {
   const [previewHtml, setPreviewHtml] = useState(() => buildPreviewHTML(store.currentNote))
   const [showMobilePreview, setShowMobilePreview] = useState(false)
   const [letterPageCount, setLetterPageCount] = useState(1)
-  const pageMeasureRef = useRef<HTMLDivElement>(null)
+  const imageAspectCache = useRef<Map<string, number>>(new Map())
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -398,52 +398,19 @@ function EditContent() {
     return () => clearTimeout(timer)
   }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile, store.activeLetterhead, sigScaleDraft, fontSizeDraft, lineSpacingDraft, marginDraft])
 
-  // Estimate how many A4 pages the letter spans by measuring the rendered
-  // preview HTML at exact A4 width. Lets the user know when they're spilling
-  // onto a 2nd page so they can shrink font/spacing/margin to fit.
-  // We strip the container's min-height:297mm so we measure the *natural*
-  // content height, and wait for the letterhead images to load so their
-  // height is counted — otherwise a 1-page letter mis-reports as 2.
+  // Estimate how many A4 pages the letter spans by replaying the *exact* vertical
+  // accounting used by the PDF export (handleLetterPDF) — same geometry, same line
+  // wrapping (jsPDF splitTextToSize), same signature-block placement rule. The HTML
+  // preview uses a different layout engine, so measuring it never matched the real
+  // page break; mirroring the PDF flow does, to the line.
   useEffect(() => {
     if (!isLetterMode) { setLetterPageCount(1); return }
-    const el = pageMeasureRef.current
-    if (!el) return
-
-    const PX_PER_MM = 96 / 25.4
-    const pageHeightPx = 297 * PX_PER_MM
-    // Tolerance = 1 text line at current settings. A letter that exactly fills
-    // the page may measure a few px over 297mm due to sub-pixel font rendering;
-    // this slack absorbs that without creating false "2 pages" warnings.
-    const linePx = Math.round(fontSizeDraft * (96 / 72) * lineSpacingDraft)
-    el.innerHTML = previewHtml
-    const child = el.firstElementChild as HTMLElement | null
-    if (child) child.style.minHeight = '0px'
-
-    let done = false
-    const finish = () => {
-      if (done) return
-      done = true
-      const h = child ? child.scrollHeight : el.scrollHeight
-      // 8px slack absorbs sub-pixel rounding so a letter that just fills the
-      // sheet stays at 1 page.
-      setLetterPageCount(h <= pageHeightPx + linePx ? 1 : Math.ceil(h / pageHeightPx))
-      el.innerHTML = ''
-    }
-
-    const pending = Array.from(el.querySelectorAll('img')).filter(img => !img.complete)
-    if (pending.length === 0) {
-      finish()
-      return
-    }
-    let remaining = pending.length
-    const onSettle = () => { if (--remaining <= 0) finish() }
-    pending.forEach(img => {
-      img.addEventListener('load', onSettle, { once: true })
-      img.addEventListener('error', onSettle, { once: true })
-    })
-    const safety = setTimeout(finish, 1500)
-    return () => { clearTimeout(safety); done = true }
-  }, [isLetterMode, previewHtml])
+    let cancelled = false
+    const t = setTimeout(() => {
+      computeLetterPages().then(pages => { if (!cancelled) setLetterPageCount(pages) })
+    }, 250)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile, store.activeLetterhead, sigScaleDraft, fontSizeDraft, lineSpacingDraft, marginDraft])
 
   useEffect(() => {
     if (!letterToast) return
@@ -980,6 +947,141 @@ function EditContent() {
     }
   }
 
+  // The exact letter body sequence, expressed as write()/para() calls. Shared by
+  // the PDF export and the page-count estimate so neither can drift from the other.
+  function flowLetterBody(write: (text: string, bold?: boolean) => void, para: () => void) {
+    write(letterCommonFields.letterDate || '')
+    para()
+    write('To:')
+    write(letterCommonFields.recipientName || '[Recipient Name]')
+    if (letterCommonFields.recipientAddress) {
+      letterCommonFields.recipientAddress.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => write(l))
+    }
+    para()
+
+    if (letterType !== 'freetext') {
+      write(`Re: ${letterCommonFields.patientName || '[Patient Name]'}`, true)
+      if (letterCommonFields.dob) write(`DOB: ${letterCommonFields.dob}`, true)
+    } else {
+      write(`Subject: ${letterCommonFields.patientName || '[Subject]'}`, true)
+    }
+    para()
+
+    if (letterType === 'referral') {
+      write(`To Dr. ${referralFields.doctorName || '[Doctor Name]'},`)
+      para()
+      write(`I am writing to refer to you ${letterCommonFields.patientName || '[Patient Name]'}, who was admitted to the ${referralFields.admissionUnit || '[Unit]'} from the ${formatDateForLetter(referralFields.admissionDateStart)} to the ${formatDateForLetter(referralFields.admissionDateEnd)}.`)
+      para()
+      const age = calculateAgeFromDOB(letterCommonFields.dob)
+      const agePart = age !== null ? `${age} year old ` : ''
+      const firstName = (letterCommonFields.patientName || '').split(' ')[0] || 'Patient'
+      const title = referralFields.gender === 'male' ? 'Mr.' : referralFields.gender === 'female' ? 'Ms.' : ''
+      write(`Thank you for seeing ${title} ${letterCommonFields.patientName || '[Patient Name]'}. ${firstName} is a ${agePart}${referralFields.gender || '[gender]'} who presented with ${referralFields.presentingComplaint || '[presenting complaint]'}.`)
+      if (referralFields.secondParagraph) { para(); write(referralFields.secondParagraph) }
+      para()
+      write(`${referralFields.referralReason || '[reason for referral]'}${referralFields.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`)
+      if (referralFields.showPastMedicalHistory && referralFields.pastMedicalHistory) {
+        para(); write('Past Medical History:', true)
+        referralFields.pastMedicalHistory.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => write(l))
+      }
+      if (referralFields.showMedicationList && referralFields.medicationList) {
+        para(); write('Medication List:', true)
+        autoNumberLines(referralFields.medicationList).split('\n').map(l => l.trim()).filter(Boolean).forEach(l => write(l))
+      }
+      para()
+      write('Please do not hesitate to contact me if there are any queries regarding this referral.')
+    } else if (letterType === 'records') {
+      write('To whom it may concern,')
+      para()
+      write(`I am writing to request any correspondence or documentation from their previous visits at ${recordsFields.recordsLocation || '[Location]'}.`)
+      if (recordsFields.secondParagraphRecords) { para(); write(recordsFields.secondParagraphRecords) }
+    } else if (letterType === 'freetext') {
+      freetextFields.freeTextContent.split('\n').map(l => l.trim()).forEach(l => {
+        if (l) write(l); else para()
+      })
+    }
+  }
+
+  // The signature lines (name, provider/phone, position, workplace), built once so
+  // the PDF and the page-count estimate use an identical block height.
+  function buildSigLines(): { text: string; bold?: boolean; small?: boolean }[] {
+    const sigLines: { text: string; bold?: boolean; small?: boolean }[] = [{ text: 'Thank you and kind regards,' }]
+    const nameWithCreds = profile?.displayName
+      ? profile?.credentials ? `${profile.displayName} (${profile.credentials})` : profile.displayName
+      : ''
+    if (nameWithCreds) sigLines.push({ text: nameWithCreds, bold: true })
+    const providerLine = [
+      profile?.providerNumber ? `Provider No: ${profile.providerNumber}` : '',
+      profile?.workPhone ? `Ph no: ${profile.workPhone}` : '',
+    ].filter(Boolean).join(' | ')
+    if (providerLine) sigLines.push({ text: providerLine })
+    if (profile?.position) sigLines.push({ text: profile.position, small: true })
+    const wpName = profile?.workplaces?.find(w => w.id === profile?.activeWorkplaceId)?.name
+    if (wpName) sigLines.push({ text: wpName, small: true })
+    return sigLines
+  }
+
+  // Natural aspect ratio (height / width) of a letterhead image, cached by URL.
+  // Only dimensions are needed here, so a plain Image load is fine (no proxy).
+  function imageAspect(url: string | null): Promise<number> {
+    if (!url) return Promise.resolve(0)
+    const cached = imageAspectCache.current.get(url)
+    if (cached !== undefined) return Promise.resolve(cached)
+    return new Promise<number>((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const ar = img.naturalWidth ? img.naturalHeight / img.naturalWidth : 0
+        imageAspectCache.current.set(url, ar)
+        resolve(ar)
+      }
+      img.onerror = () => { imageAspectCache.current.set(url, 0); resolve(0) }
+      img.src = url
+    })
+  }
+
+  // Predict how many A4 pages the letter will occupy, replaying handleLetterPDF's
+  // geometry exactly: same line wrapping, same maxY break, same signature placement.
+  async function computeLetterPages(): Promise<number> {
+    const { jsPDF } = await import('jspdf')
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const PW = 210, PH = 297
+    const ML = marginDraft > 0 ? marginDraft : 20
+    const CW = PW - ML * 2
+    const fs = fontSizeDraft > 0 ? fontSizeDraft : 11
+    const ls = lineSpacingDraft > 0 ? lineSpacingDraft : 1.4
+    const LH = fs * 0.3528 * ls
+    const PS = LH * 0.5
+
+    const lh = store.activeLetterhead
+    const headerAR = await imageAspect(lh?.headerUrl ?? null)
+    const footerAR = await imageAspect(lh?.footerUrl ?? null)
+    const headerH = headerAR ? headerAR * PW : 0
+    const footerH = footerAR ? footerAR * PW : 0
+    const contentTop = headerH ? headerH + 8 : 20
+    const footerY = PH - footerH
+    const maxY = footerH ? footerY - 4 : PH - 15
+    const sigZoneBottom = footerH ? footerY + footerH * 0.42 : maxY
+
+    let y = contentTop
+    let pages = 1
+    const write = (text: string, bold = false) => {
+      doc.setFont('helvetica', bold ? 'bold' : 'normal')
+      doc.setFontSize(fs)
+      doc.splitTextToSize(text, CW).forEach(() => {
+        if (y + LH > maxY) { pages++; y = contentTop }
+        y += LH
+      })
+    }
+    const para = () => { y += PS * 2 }
+    flowLetterBody(write, para)
+
+    const sigF = (sigScaleDraft > 0 ? sigScaleDraft : 100) / 100
+    const sigImgH = profile?.signatureUrl ? 14 * sigF + 3 : 0
+    const blockH = sigImgH + buildSigLines().length * LH
+    if (sigZoneBottom - blockH < y + PS * 2) pages++
+    return pages
+  }
+
   async function handleLetterPDF() {
     const { jsPDF } = await import('jspdf')
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -1032,56 +1134,7 @@ function EditContent() {
     // PS = LH*0.5, so nl(2) == PS*2 == LH == one blank line.
     const para = () => nl(2)
 
-    write(letterCommonFields.letterDate || '')
-    para()
-    write('To:')
-    write(letterCommonFields.recipientName || '[Recipient Name]')
-    if (letterCommonFields.recipientAddress) {
-      letterCommonFields.recipientAddress.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => write(l))
-    }
-    para()
-
-    if (letterType !== 'freetext') {
-      write(`Re: ${letterCommonFields.patientName || '[Patient Name]'}`, true)
-      if (letterCommonFields.dob) write(`DOB: ${letterCommonFields.dob}`, true)
-    } else {
-      write(`Subject: ${letterCommonFields.patientName || '[Subject]'}`, true)
-    }
-    para()
-
-    if (letterType === 'referral') {
-      write(`To Dr. ${referralFields.doctorName || '[Doctor Name]'},`)
-      para()
-      write(`I am writing to refer to you ${letterCommonFields.patientName || '[Patient Name]'}, who was admitted to the ${referralFields.admissionUnit || '[Unit]'} from the ${formatDateForLetter(referralFields.admissionDateStart)} to the ${formatDateForLetter(referralFields.admissionDateEnd)}.`)
-      para()
-      const age = calculateAgeFromDOB(letterCommonFields.dob)
-      const agePart = age !== null ? `${age} year old ` : ''
-      const firstName = (letterCommonFields.patientName || '').split(' ')[0] || 'Patient'
-      const title = referralFields.gender === 'male' ? 'Mr.' : referralFields.gender === 'female' ? 'Ms.' : ''
-      write(`Thank you for seeing ${title} ${letterCommonFields.patientName || '[Patient Name]'}. ${firstName} is a ${agePart}${referralFields.gender || '[gender]'} who presented with ${referralFields.presentingComplaint || '[presenting complaint]'}.`)
-      if (referralFields.secondParagraph) { para(); write(referralFields.secondParagraph) }
-      para()
-      write(`${referralFields.referralReason || '[reason for referral]'}${referralFields.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`)
-      if (referralFields.showPastMedicalHistory && referralFields.pastMedicalHistory) {
-        para(); write('Past Medical History:', true)
-        referralFields.pastMedicalHistory.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => write(l))
-      }
-      if (referralFields.showMedicationList && referralFields.medicationList) {
-        para(); write('Medication List:', true)
-        autoNumberLines(referralFields.medicationList).split('\n').map(l => l.trim()).filter(Boolean).forEach(l => write(l))
-      }
-      para()
-      write('Please do not hesitate to contact me if there are any queries regarding this referral.')
-    } else if (letterType === 'records') {
-      write('To whom it may concern,')
-      para()
-      write(`I am writing to request any correspondence or documentation from their previous visits at ${recordsFields.recordsLocation || '[Location]'}.`)
-      if (recordsFields.secondParagraphRecords) { para(); write(recordsFields.secondParagraphRecords) }
-    } else if (letterType === 'freetext') {
-      freetextFields.freeTextContent.split('\n').map(l => l.trim()).forEach(l => {
-        if (l) write(l); else para()
-      })
-    }
+    flowLetterBody(write, para)
 
     // Signature block, pinned to the bottom of the page (above the footer)
     let sigDataUrl: string | null = null
@@ -1090,20 +1143,7 @@ function EditContent() {
     }
     const sigF = (sigScaleDraft > 0 ? sigScaleDraft : 100) / 100
     const sigImgH = sigDataUrl ? 14 * sigF + 3 : 0
-
-    const sigLines: { text: string; bold?: boolean; small?: boolean }[] = [{ text: 'Thank you and kind regards,' }]
-    const nameWithCreds = profile?.displayName
-      ? profile?.credentials ? `${profile.displayName} (${profile.credentials})` : profile.displayName
-      : ''
-    if (nameWithCreds) sigLines.push({ text: nameWithCreds, bold: true })
-    const providerLine = [
-      profile?.providerNumber ? `Provider No: ${profile.providerNumber}` : '',
-      profile?.workPhone ? `Ph no: ${profile.workPhone}` : '',
-    ].filter(Boolean).join(' | ')
-    if (providerLine) sigLines.push({ text: providerLine })
-    if (profile?.position) sigLines.push({ text: profile.position, small: true })
-    const wpName = profile?.workplaces?.find(w => w.id === profile?.activeWorkplaceId)?.name
-    if (wpName) sigLines.push({ text: wpName, small: true })
+    const sigLines = buildSigLines()
 
     const blockH = sigImgH + sigLines.length * LH
     let sy = sigZoneBottom - blockH
@@ -2364,13 +2404,6 @@ function EditContent() {
           />
         </div>
       </div>
-
-      {/* Off-screen A4-width sandbox used only to measure letter page count */}
-      <div
-        ref={pageMeasureRef}
-        aria-hidden
-        style={{ position: 'fixed', left: -99999, top: 0, width: '210mm', visibility: 'hidden', pointerEvents: 'none' }}
-      />
 
       {/* Mobile preview toggle */}
       <button
