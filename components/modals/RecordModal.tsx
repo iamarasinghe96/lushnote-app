@@ -33,7 +33,10 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
   const stopRef = useRef<(() => void) | null>(null)
   const { duration, startRecording, stopRecording, error: recError } = useRecorder()
 
-  const autoStopMinutes = recordingDefaults?.autoStop ? (recordingDefaults.autoStopMinutes ?? 55) : 55
+  // null means auto-stop is disabled; otherwise stop after this many minutes
+  const autoStopMinutes = recordingDefaults?.autoStop === false
+    ? null
+    : (recordingDefaults?.autoStopMinutes ?? 90)
 
   useEffect(() => {
     if (open && localStorage.getItem('ln_recording_interrupted') === '1') {
@@ -101,10 +104,12 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
         : stream
       startRecording(audioOnlyStream)
       setPhase('recording')
-      autoStopRef.current = setTimeout(() => {
-        setAutoStopped(true)
-        stopRef.current?.()
-      }, autoStopMinutes * 60 * 1000)
+      if (autoStopMinutes !== null) {
+        autoStopRef.current = setTimeout(() => {
+          setAutoStopped(true)
+          stopRef.current?.()
+        }, autoStopMinutes * 60 * 1000)
+      }
     } catch {
       setPermError(
         subMode === 'telehealth'
@@ -122,7 +127,7 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
             A previous recording was interrupted.
           </div>
         )}
-        {autoStopped && (
+        {autoStopped && autoStopMinutes !== null && (
           <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-800">
             Recording stopped automatically after {autoStopMinutes} minutes.
           </div>
