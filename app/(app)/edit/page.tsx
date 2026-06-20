@@ -7,7 +7,7 @@ import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile } from '@/lib/firestore/patients'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildPreviewHTML, buildLetterPreviewHTML, buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB } from '@/lib/utils'
+import { buildPreviewHTML, buildLetterPreviewHTML, buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
@@ -979,12 +979,18 @@ function EditContent() {
     }
     const nl = (n = 1) => { y += PS * n }
 
+    // Para break = one full blank line. LH is already one line advance;
+    // PS = LH*0.5, so nl(2) == PS*2 == LH == one blank line.
+    const para = () => nl(2)
+
     write(letterCommonFields.letterDate || '')
-    nl()
+    para()
     write('To:')
     write(letterCommonFields.recipientName || '[Recipient Name]')
-    if (letterCommonFields.recipientAddress) write(letterCommonFields.recipientAddress)
-    nl()
+    if (letterCommonFields.recipientAddress) {
+      letterCommonFields.recipientAddress.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => write(l))
+    }
+    para()
 
     if (letterType !== 'freetext') {
       write(`Re: ${letterCommonFields.patientName || '[Patient Name]'}`, true)
@@ -992,36 +998,40 @@ function EditContent() {
     } else {
       write(`Subject: ${letterCommonFields.patientName || '[Subject]'}`, true)
     }
-    nl()
+    para()
 
     if (letterType === 'referral') {
       write(`To Dr. ${referralFields.doctorName || '[Doctor Name]'},`)
-      nl(0.5)
+      para()
       write(`I am writing to refer to you ${letterCommonFields.patientName || '[Patient Name]'}, who was admitted to the ${referralFields.admissionUnit || '[Unit]'} from the ${formatDateForLetter(referralFields.admissionDateStart)} to the ${formatDateForLetter(referralFields.admissionDateEnd)}.`)
-      nl(0.5)
+      para()
       const age = calculateAgeFromDOB(letterCommonFields.dob)
       const agePart = age !== null ? `${age} year old ` : ''
       const firstName = (letterCommonFields.patientName || '').split(' ')[0] || 'Patient'
       const title = referralFields.gender === 'male' ? 'Mr.' : referralFields.gender === 'female' ? 'Ms.' : ''
       write(`Thank you for seeing ${title} ${letterCommonFields.patientName || '[Patient Name]'}. ${firstName} is a ${agePart}${referralFields.gender || '[gender]'} who presented with ${referralFields.presentingComplaint || '[presenting complaint]'}.`)
-      if (referralFields.secondParagraph) { nl(0.5); write(referralFields.secondParagraph) }
-      nl(0.5)
+      if (referralFields.secondParagraph) { para(); write(referralFields.secondParagraph) }
+      para()
       write(`${referralFields.referralReason || '[reason for referral]'}${referralFields.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`)
       if (referralFields.showPastMedicalHistory && referralFields.pastMedicalHistory) {
-        nl(0.5); write('Past Medical History:', true); write(referralFields.pastMedicalHistory)
+        para(); write('Past Medical History:', true)
+        referralFields.pastMedicalHistory.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => write(l))
       }
       if (referralFields.showMedicationList && referralFields.medicationList) {
-        nl(0.5); write('Medication List:', true); write(referralFields.medicationList)
+        para(); write('Medication List:', true)
+        autoNumberLines(referralFields.medicationList).split('\n').map(l => l.trim()).filter(Boolean).forEach(l => write(l))
       }
-      nl(0.5)
+      para()
       write('Please do not hesitate to contact me if there are any queries regarding this referral.')
     } else if (letterType === 'records') {
       write('To whom it may concern,')
-      nl(0.5)
+      para()
       write(`I am writing to request any correspondence or documentation from their previous visits at ${recordsFields.recordsLocation || '[Location]'}.`)
-      if (recordsFields.secondParagraphRecords) { nl(0.5); write(recordsFields.secondParagraphRecords) }
+      if (recordsFields.secondParagraphRecords) { para(); write(recordsFields.secondParagraphRecords) }
     } else if (letterType === 'freetext') {
-      write(freetextFields.freeTextContent || '')
+      freetextFields.freeTextContent.split('\n').map(l => l.trim()).forEach(l => {
+        if (l) write(l); else para()
+      })
     }
 
     // Signature block, pinned to the bottom of the page (above the footer)

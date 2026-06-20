@@ -204,6 +204,16 @@ export function calculateAgeFromDOB(dob: string): number | null {
   return age
 }
 
+// Auto-numbers un-numbered lines in a text block (used for medication lists).
+// Lines that already start with "1." / "1)" etc. are left as-is.
+export function autoNumberLines(text: string): string {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  if (lines.length < 2) return text
+  return lines.map((line, i) =>
+    /^\d+[\.\)]\s/.test(line) ? line : `${i + 1}. ${line}`
+  ).join('\n')
+}
+
 export function buildLetterPreviewHTML(params: {
   letterType: LetterType
   common: LetterCommonFields
@@ -270,35 +280,40 @@ export function buildLetterPreviewHTML(params: {
 
   let bodyHtml = ''
 
+  const p = (content: string) => `<p style="margin:0 0 0.8em;">${content}</p>`
+
   if (letterType === 'referral' && referral) {
     const title = referral.gender === 'male' ? 'Mr.' : referral.gender === 'female' ? 'Ms.' : ''
     const firstName = (common.patientName || '').split(' ')[0] || 'Patient'
     const age = calculateAgeFromDOB(common.dob)
     const agePart = age !== null ? `${age} year old ` : ''
+    const medList = referral.showMedicationList && referral.medicationList
+      ? autoNumberLines(referral.medicationList)
+      : ''
     bodyHtml = `
-      <p>To Dr. ${escapeHtml(referral.doctorName || '[Doctor Name]')},</p>
-      <p>I am writing to refer to you ${escapeHtml(common.patientName || '[Patient Name]')}, who was admitted to the ${escapeHtml(referral.admissionUnit || '[Unit]')} from the ${formatDateForLetter(referral.admissionDateStart)} to the ${formatDateForLetter(referral.admissionDateEnd)}.</p>
-      <p>Thank you for seeing ${title} ${escapeHtml(common.patientName || '[Patient Name]')}. ${escapeHtml(firstName)} is a ${agePart}${escapeHtml(referral.gender || '[gender]')} who presented with ${escapeHtml(referral.presentingComplaint || '[presenting complaint]')}.</p>
-      ${referral.secondParagraph ? `<p>${escapeHtml(referral.secondParagraph)}</p>` : ''}
-      <p>${escapeHtml(referral.referralReason || '[reason for referral]')}${referral.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}</p>
+      ${p(`To Dr. ${escapeHtml(referral.doctorName || '[Doctor Name]')},`)}
+      ${p(`I am writing to refer to you ${escapeHtml(common.patientName || '[Patient Name]')}, who was admitted to the ${escapeHtml(referral.admissionUnit || '[Unit]')} from the ${formatDateForLetter(referral.admissionDateStart)} to the ${formatDateForLetter(referral.admissionDateEnd)}.`)}
+      ${p(`Thank you for seeing ${title} ${escapeHtml(common.patientName || '[Patient Name]')}. ${escapeHtml(firstName)} is a ${agePart}${escapeHtml(referral.gender || '[gender]')} who presented with ${escapeHtml(referral.presentingComplaint || '[presenting complaint]')}.`)}
+      ${referral.secondParagraph ? p(escapeHtml(referral.secondParagraph)) : ''}
+      ${p(`${escapeHtml(referral.referralReason || '[reason for referral]')}${referral.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`)}
       ${referral.showPastMedicalHistory && referral.pastMedicalHistory
-        ? `<p><strong><u>Past Medical History:</u></strong></p><p style="white-space:pre-line;">${escapeHtml(referral.pastMedicalHistory)}</p>`
+        ? `${p('<strong><u>Past Medical History:</u></strong>')}<p style="margin:0 0 0.8em;white-space:pre-line;">${escapeHtml(referral.pastMedicalHistory)}</p>`
         : ''}
-      ${referral.showMedicationList && referral.medicationList
-        ? `<p><strong><u>Medication List:</u></strong></p><p style="white-space:pre-line;">${escapeHtml(referral.medicationList)}</p>`
+      ${medList
+        ? `${p('<strong><u>Medication List:</u></strong>')}<p style="margin:0 0 0.8em;white-space:pre-line;">${escapeHtml(medList)}</p>`
         : ''}
-      <p>Please do not hesitate to contact me if there are any queries regarding this referral.</p>
+      ${p('Please do not hesitate to contact me if there are any queries regarding this referral.')}
     `
   } else if (letterType === 'records' && records) {
     bodyHtml = `
-      <p>To whom it may concern,</p>
-      <p>I am writing to request any correspondence or documentation from their previous visits at ${escapeHtml(records.recordsLocation || '[Location]')}. It would be greatly appreciated if any correspondence, treatments, and recent investigations could be provided to assist with their ongoing management.</p>
-      ${records.secondParagraphRecords ? `<p>${escapeHtml(records.secondParagraphRecords)}</p>` : ''}
+      ${p('To whom it may concern,')}
+      ${p(`I am writing to request any correspondence or documentation from their previous visits at ${escapeHtml(records.recordsLocation || '[Location]')}. It would be greatly appreciated if any correspondence, treatments, and recent investigations could be provided to assist with their ongoing management.`)}
+      ${records.secondParagraphRecords ? p(escapeHtml(records.secondParagraphRecords)) : ''}
     `
   } else if (letterType === 'freetext' && freetext) {
     bodyHtml = freetext.freeTextContent
       ? freetext.freeTextContent.split('\n')
-          .map(l => l.trim() ? `<p>${escapeHtml(l)}</p>` : '<br>').join('')
+          .map(l => l.trim() ? p(escapeHtml(l)) : '<br>').join('')
       : '<p style="color:#94a3b8;">[Letter content will appear here]</p>'
   }
 
