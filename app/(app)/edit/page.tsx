@@ -1557,60 +1557,45 @@ function EditContent() {
         </div>
       )}
 
-      {/* Letter mode bar */}
+      {/* Letter mode bar — single row */}
       {isLetterMode && (
-        <div className="bg-[var(--blue)] text-white text-sm shrink-0">
-          {/* Top row — always visible */}
-          <div className="flex items-center justify-between px-4 py-2 gap-2">
-            <span className="font-medium text-sm truncate">
-              {letterType === 'referral' ? 'Referral Letter'
-                : letterType === 'records' ? 'Medical Records Request'
-                : 'Free Text Letter'}
-            </span>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={handleLetterPDF}
-                className="text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-[var(--r)] motion-safe:active:scale-95 motion-safe:transition-transform">
-                Download PDF
-              </button>
-              <button
-                onClick={handleLetterEmail}
-                className="text-xs bg-[#10b981] text-white font-semibold px-3 py-1.5 rounded-[var(--r)] motion-safe:active:scale-95 motion-safe:transition-transform">
-                Email
-              </button>
-              <button
-                onClick={() => setToolbarCollapsed(c => !c)}
-                className="text-white/70 hover:text-white px-1.5 text-base leading-none motion-safe:transition-transform"
-                aria-label={toolbarCollapsed ? 'Show layout controls' : 'Hide layout controls'}>
-                {toolbarCollapsed ? '▾' : '▴'}
-              </button>
-            </div>
-          </div>
-
-          {/* Layout controls row — collapsible */}
-          {!toolbarCollapsed && (
-            <div className="flex items-center gap-2 flex-wrap px-4 pb-2 border-t border-white/10">
-              <LayoutField label="Font" suffix="pt" value={fontSizeDraft} min={8} max={14} step={0.5}
-                onChange={v => { setFontSizeDraft(v); layoutTouchedRef.current = true }} />
-              <LayoutField label="Spacing" value={lineSpacingDraft} min={1} max={2} step={0.05}
-                onChange={v => { setLineSpacingDraft(v); layoutTouchedRef.current = true }} />
-              <LayoutField label="Margin" suffix="mm" value={marginDraft} min={8} max={35} step={1}
-                onChange={v => { setMarginDraft(v); layoutTouchedRef.current = true }} />
-              {profile?.signatureUrl && (
-                <LayoutField label="Sig" suffix="%" value={sigScaleDraft} min={40} max={250} step={5}
-                  onChange={v => { setSigScaleDraft(v); layoutTouchedRef.current = true }} />
-              )}
-              {layoutDirty && (
-                <button
-                  onClick={handleSaveLetterLayout}
-                  disabled={savingLayout}
-                  className="text-xs border border-white/50 text-white px-2.5 py-1 rounded-md font-medium
-                             hover:bg-white/10 disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-colors">
-                  {savingLayout ? 'Saving…' : 'Save'}
-                </button>
-              )}
-            </div>
+        <div className="flex items-center gap-2 px-3 py-2 bg-[var(--blue)] text-white text-sm shrink-0 flex-wrap">
+          <span className="font-medium text-sm shrink-0 mr-1">
+            {letterType === 'referral' ? 'Referral Letter'
+              : letterType === 'records' ? 'Records Request'
+              : 'Free Text Letter'}
+          </span>
+          <LayoutField label="Font" suffix="pt" value={fontSizeDraft} min={8} max={14} step={0.5}
+            onChange={v => { setFontSizeDraft(v); layoutTouchedRef.current = true }} />
+          <LayoutField label="Spacing" value={lineSpacingDraft} min={1} max={2} step={0.05}
+            onChange={v => { setLineSpacingDraft(v); layoutTouchedRef.current = true }} />
+          <LayoutField label="Margin" suffix="mm" value={marginDraft} min={8} max={35} step={1}
+            onChange={v => { setMarginDraft(v); layoutTouchedRef.current = true }} />
+          {profile?.signatureUrl && (
+            <LayoutField label="Sig" suffix="%" value={sigScaleDraft} min={40} max={250} step={5}
+              onChange={v => { setSigScaleDraft(v); layoutTouchedRef.current = true }} />
           )}
+          {layoutDirty && (
+            <button
+              onClick={handleSaveLetterLayout}
+              disabled={savingLayout}
+              className="text-xs border border-white/50 text-white px-2 py-1 rounded-md font-medium
+                         hover:bg-white/10 disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-colors shrink-0">
+              {savingLayout ? 'Saving…' : 'Save'}
+            </button>
+          )}
+          <div className="flex items-center gap-2 ml-auto shrink-0">
+            <button
+              onClick={handleLetterPDF}
+              className="text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-[var(--r)] motion-safe:active:scale-95 motion-safe:transition-transform">
+              Download PDF
+            </button>
+            <button
+              onClick={handleLetterEmail}
+              className="text-xs bg-[#10b981] text-white font-semibold px-3 py-1.5 rounded-[var(--r)] motion-safe:active:scale-95 motion-safe:transition-transform">
+              Email
+            </button>
+          </div>
         </div>
       )}
 
