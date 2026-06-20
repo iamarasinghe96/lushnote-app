@@ -36,6 +36,13 @@ function formatDuration(secs: number): string {
   return `${m}m ${s}s`
 }
 
+function autoFormatDate(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8)
+  if (digits.length <= 2) return digits
+  if (digits.length <= 4) return digits.slice(0, 2) + '/' + digits.slice(2)
+  return digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4)
+}
+
 function parseGeneratedContent(content: string): Partial<Note> {
   const out: Partial<Note> = {}
 
@@ -228,26 +235,26 @@ function EditContent() {
 
   // Letter layout (font size, line spacing, signature size) - adjusted live
   // against the real letter preview, then saved to the profile on confirm
-  const [sigScaleDraft, setSigScaleDraft] = useState<number>(profile?.signatureScale ?? 100)
+  const [sigScaleDraft, setSigScaleDraft] = useState<number>(profile?.signatureScale ?? 60)
   const [fontSizeDraft, setFontSizeDraft] = useState<number>(profile?.letterFontSize ?? 11)
-  const [lineSpacingDraft, setLineSpacingDraft] = useState<number>(profile?.letterLineSpacing ?? 1.4)
-  const [marginDraft, setMarginDraft] = useState<number>(profile?.letterMargin ?? 20)
+  const [lineSpacingDraft, setLineSpacingDraft] = useState<number>(profile?.letterLineSpacing ?? 1)
+  const [marginDraft, setMarginDraft] = useState<number>(profile?.letterMargin ?? 12)
   const [savingLayout, setSavingLayout] = useState(false)
   const layoutTouchedRef = useRef(false)
 
   useEffect(() => {
     if (layoutTouchedRef.current) return
-    setSigScaleDraft(profile?.signatureScale ?? 100)
+    setSigScaleDraft(profile?.signatureScale ?? 60)
     setFontSizeDraft(profile?.letterFontSize ?? 11)
-    setLineSpacingDraft(profile?.letterLineSpacing ?? 1.4)
-    setMarginDraft(profile?.letterMargin ?? 20)
+    setLineSpacingDraft(profile?.letterLineSpacing ?? 1)
+    setMarginDraft(profile?.letterMargin ?? 12)
   }, [profile?.signatureScale, profile?.letterFontSize, profile?.letterLineSpacing, profile?.letterMargin])
 
   const layoutDirty =
-    sigScaleDraft !== (profile?.signatureScale ?? 100) ||
+    sigScaleDraft !== (profile?.signatureScale ?? 60) ||
     fontSizeDraft !== (profile?.letterFontSize ?? 11) ||
-    lineSpacingDraft !== (profile?.letterLineSpacing ?? 1.4) ||
-    marginDraft !== (profile?.letterMargin ?? 20)
+    lineSpacingDraft !== (profile?.letterLineSpacing ?? 1) ||
+    marginDraft !== (profile?.letterMargin ?? 12)
 
   async function handleSaveLetterLayout() {
     if (!user) return
@@ -864,11 +871,16 @@ function EditContent() {
       const img = new Image()
       img.crossOrigin = 'anonymous'
       img.onload = () => {
+        const MAX_W = 1240
+        const scale = img.naturalWidth > MAX_W ? MAX_W / img.naturalWidth : 1
         const canvas = document.createElement('canvas')
-        canvas.width = img.naturalWidth
-        canvas.height = img.naturalHeight
-        canvas.getContext('2d')!.drawImage(img, 0, 0)
-        resolve({ dataUrl: canvas.toDataURL('image/png'), w: img.naturalWidth, h: img.naturalHeight })
+        canvas.width = Math.round(img.naturalWidth * scale)
+        canvas.height = Math.round(img.naturalHeight * scale)
+        const ctx = canvas.getContext('2d')!
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve({ dataUrl: canvas.toDataURL('image/jpeg', 0.85), w: img.naturalWidth, h: img.naturalHeight })
       }
       img.onerror = reject
       img.src = url
@@ -945,8 +957,8 @@ function EditContent() {
     const maxY = footerImg ? footerY - 4 : PH - 15
 
     const stampLetterhead = () => {
-      if (headerImg) doc.addImage(headerImg.dataUrl, 'PNG', 0, 0, PW, headerH)
-      if (footerImg) doc.addImage(footerImg.dataUrl, 'PNG', 0, footerY, PW, footerH)
+      if (headerImg) doc.addImage(headerImg.dataUrl, 'JPEG', 0, 0, PW, headerH)
+      if (footerImg) doc.addImage(footerImg.dataUrl, 'JPEG', 0, footerY, PW, footerH)
     }
 
     let y = contentTop
@@ -1035,7 +1047,7 @@ function EditContent() {
 
     const cx = PW / 2
     if (sigDataUrl) {
-      try { doc.addImage(sigDataUrl, 'PNG', cx - (40 * sigF) / 2, sy, 40 * sigF, 14 * sigF) } catch {}
+      try { doc.addImage(sigDataUrl, 'JPEG', cx - (40 * sigF) / 2, sy, 40 * sigF, 14 * sigF) } catch {}
       sy += 14 * sigF + 3
     }
     for (const line of sigLines) {
@@ -1699,7 +1711,7 @@ function EditContent() {
                       label="Date of birth (DD/MM/YYYY)"
                       className="mt-3"
                       value={letterCommonFields.dob}
-                      onChange={e => store.setLetterCommonFields({ dob: e.target.value })}
+                      onChange={e => store.setLetterCommonFields({ dob: autoFormatDate(e.target.value) })}
                       placeholder="DD/MM/YYYY"
                     />
                   )}
@@ -1844,13 +1856,13 @@ function EditContent() {
                       <Input
                         label="Admission date start (DD/MM/YYYY)"
                         value={referralFields.admissionDateStart}
-                        onChange={e => store.setReferralFields({ admissionDateStart: e.target.value })}
+                        onChange={e => store.setReferralFields({ admissionDateStart: autoFormatDate(e.target.value) })}
                         placeholder="DD/MM/YYYY"
                       />
                       <Input
                         label="Admission date end (DD/MM/YYYY)"
                         value={referralFields.admissionDateEnd}
-                        onChange={e => store.setReferralFields({ admissionDateEnd: e.target.value })}
+                        onChange={e => store.setReferralFields({ admissionDateEnd: autoFormatDate(e.target.value) })}
                         placeholder="DD/MM/YYYY"
                       />
                     </div>
@@ -2279,8 +2291,9 @@ function EditContent() {
   )
 }
 
-// Compact number stepper used in the letter-mode toolbar. Free typing while
-// editing; clamps to range on blur.
+// Compact number stepper used in the letter-mode toolbar.
+// Uses local string state while typing; commits on blur or ±click so the layout
+// never jumps. Custom +/− buttons replace the invisible native spinner arrows.
 function LayoutField({
   label, value, min, max, step, suffix, onChange,
 }: {
@@ -2292,20 +2305,67 @@ function LayoutField({
   suffix?: string
   onChange: (v: number) => void
 }) {
+  const decimals = step < 1 ? (String(step).split('.')[1]?.length ?? 0) : 0
+  const fmt = (n: number) => decimals > 0 ? n.toFixed(decimals) : String(n)
+
+  const [localVal, setLocalVal] = useState(() => fmt(value))
+  const prevExtRef = useRef(value)
+
+  useEffect(() => {
+    if (value !== prevExtRef.current) {
+      prevExtRef.current = value
+      setLocalVal(fmt(value))
+    }
+  }, [value]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function commit(raw: string) {
+    let v = parseFloat(raw)
+    if (Number.isNaN(v)) v = value
+    v = parseFloat(Math.min(max, Math.max(min, v)).toFixed(decimals))
+    prevExtRef.current = v
+    setLocalVal(fmt(v))
+    onChange(v)
+  }
+
+  function nudge(dir: 1 | -1) {
+    const v = parseFloat((Math.min(max, Math.max(min, value + dir * step))).toFixed(decimals))
+    prevExtRef.current = v
+    setLocalVal(fmt(v))
+    onChange(v)
+  }
+
   return (
-    <label className="flex items-center gap-1 text-[11px] text-white/90">
+    <label className="flex items-center gap-1 text-[11px] text-white/90 select-none">
       <span className="whitespace-nowrap">{label}</span>
-      <input
-        type="number"
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        onChange={e => { const v = Number(e.target.value); if (e.target.value !== '' && !Number.isNaN(v)) onChange(v) }}
-        onBlur={e => { let v = Number(e.target.value); if (Number.isNaN(v)) v = min; onChange(Math.min(max, Math.max(min, v))) }}
-        className="w-14 rounded-md border border-white/30 bg-white text-[var(--text)] text-xs px-1.5 py-1
-                   outline-none focus:ring-2 focus:ring-white/40"
-      />
+      <div className="flex items-center rounded-xl border border-white/40 overflow-hidden">
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => nudge(-1)}
+          className="px-1.5 py-0.5 bg-white/15 hover:bg-white/25 text-white text-sm font-bold leading-none motion-safe:active:scale-95 motion-safe:transition-transform shrink-0"
+          aria-label={`Decrease ${label}`}
+        >−</button>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={localVal}
+          onChange={e => setLocalVal(e.target.value)}
+          onBlur={e => commit(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { e.currentTarget.blur(); commit(e.currentTarget.value) }
+            if (e.key === 'ArrowUp') { e.preventDefault(); nudge(1) }
+            if (e.key === 'ArrowDown') { e.preventDefault(); nudge(-1) }
+          }}
+          className="w-9 bg-white text-[var(--text)] text-xs text-center px-0.5 py-1 outline-none border-0 focus:ring-0"
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => nudge(1)}
+          className="px-1.5 py-0.5 bg-white/15 hover:bg-white/25 text-white text-sm font-bold leading-none motion-safe:active:scale-95 motion-safe:transition-transform shrink-0"
+          aria-label={`Increase ${label}`}
+        >+</button>
+      </div>
       {suffix && <span className="text-white/70">{suffix}</span>}
     </label>
   )
