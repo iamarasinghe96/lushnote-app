@@ -411,6 +411,10 @@ function EditContent() {
 
     const PX_PER_MM = 96 / 25.4
     const pageHeightPx = 297 * PX_PER_MM
+    // Tolerance = 1 text line at current settings. A letter that exactly fills
+    // the page may measure a few px over 297mm due to sub-pixel font rendering;
+    // this slack absorbs that without creating false "2 pages" warnings.
+    const linePx = Math.round(fontSizeDraft * (96 / 72) * lineSpacingDraft)
     el.innerHTML = previewHtml
     const child = el.firstElementChild as HTMLElement | null
     if (child) child.style.minHeight = '0px'
@@ -422,7 +426,7 @@ function EditContent() {
       const h = child ? child.scrollHeight : el.scrollHeight
       // 8px slack absorbs sub-pixel rounding so a letter that just fills the
       // sheet stays at 1 page.
-      setLetterPageCount(h <= pageHeightPx + 100 ? 1 : Math.ceil(h / pageHeightPx))
+      setLetterPageCount(h <= pageHeightPx + linePx ? 1 : Math.ceil(h / pageHeightPx))
       el.innerHTML = ''
     }
 
