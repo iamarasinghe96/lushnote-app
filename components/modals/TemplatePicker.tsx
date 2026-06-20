@@ -192,7 +192,7 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
     onSelect(defaultTemplate, noteLength)
   }
 
-  function renderCard(t: AnyTemplate) {
+  function renderCard(t: AnyTemplate, showCategory = false) {
     const isFav = favIds.includes(t.id)
     const isRecent = recentIds.includes(t.id)
     return (
@@ -205,6 +205,9 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
+              {showCategory && t.category && (
+                <p className="text-[10px] font-semibold text-[var(--blue)] uppercase tracking-wide mb-0.5">{t.category}</p>
+              )}
               <p className="text-sm font-medium text-[var(--text)] truncate">{t.title}</p>
               {t.description && (
                 <p className="text-xs text-[var(--text2)] mt-0.5 line-clamp-1">{t.description}</p>
@@ -345,19 +348,20 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
                 searchFiltered.length === 0 ? (
                   <div className="py-10 text-center text-sm text-[var(--text3)]">No templates match your search</div>
                 ) : (
-                  <ul className="space-y-1 pb-2">{searchFiltered.map(renderCard)}</ul>
+                  <ul className="space-y-1 pb-2">{searchFiltered.map(t => renderCard(t, true))}</ul>
                 )
               ) : (
                 <div className="pb-2">
                   {renderChipGroup('Favourites', favTemplates)}
                   {renderChipGroup('Recently Used', recentTemplates)}
-                  {categoryGroups.map(g => (
-                    <div key={g.label} className="pt-3">
-                      <p className="text-[11px] font-semibold text-[var(--text3)] uppercase tracking-wide mb-1 px-1">
-                        {g.label}
-                        <span className="ml-1.5 text-[var(--text3)]/70 normal-case font-normal">{g.items.length}</span>
-                      </p>
-                      <ul className="space-y-1">{g.items.map(renderCard)}</ul>
+                  {categoryGroups.map((g, i) => (
+                    <div key={g.label} className={i === 0 && favTemplates.length === 0 && recentTemplates.length === 0 ? 'pt-1' : 'pt-3'}>
+                      <div className="flex items-center gap-2 mb-1 px-1">
+                        <span className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wide">{g.label}</span>
+                        <span className="text-[11px] text-[var(--text3)]">{g.items.length}</span>
+                        <div className="flex-1 h-px bg-[var(--border)]" />
+                      </div>
+                      <ul className="space-y-0.5">{g.items.map(t => renderCard(t, false))}</ul>
                     </div>
                   ))}
                 </div>
