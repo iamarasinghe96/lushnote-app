@@ -153,7 +153,7 @@ export default function EditPage() {
 function EditContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const store = useNoteStore()
 
   const [fields, setFields] = useState<Partial<Note>>(() => {
@@ -220,6 +220,31 @@ function EditContent() {
   const freetextFields = store.freetextFields
   const [isGeneratingLetter, setIsGeneratingLetter] = useState(false)
   const [letterToast, setLetterToast] = useState<string | null>(null)
+
+  // Signature size is adjusted live against the real letter preview, then saved
+  const [sigScaleDraft, setSigScaleDraft] = useState<number>(profile?.signatureScale ?? 100)
+  const [savingSigScale, setSavingSigScale] = useState(false)
+  const sigScaleTouchedRef = useRef(false)
+
+  useEffect(() => {
+    if (sigScaleTouchedRef.current) return
+    setSigScaleDraft(profile?.signatureScale ?? 100)
+  }, [profile?.signatureScale])
+
+  async function handleSaveSignatureScale() {
+    if (!user) return
+    setSavingSigScale(true)
+    try {
+      await updateProfile(user.uid, { signatureScale: sigScaleDraft })
+      await refreshProfile()
+      sigScaleTouchedRef.current = false
+      setLetterToast('Signature size saved')
+    } catch {
+      setLetterToast('Failed to save signature size')
+    } finally {
+      setSavingSigScale(false)
+    }
+  }
 
   useEffect(() => { return () => { mountedRef.current = false } }, [])
 
@@ -324,7 +349,7 @@ function EditContent() {
         letterheadHeaderUrl: store.activeLetterhead?.headerUrl ?? null,
         letterheadFooterUrl: store.activeLetterhead?.footerUrl ?? null,
         signatureUrl: profile?.signatureUrl ?? null,
-        signatureScale: profile?.signatureScale,
+        signatureScale: sigScaleDraft,
         clinicianName: profile?.displayName,
         credentials: profile?.credentials,
         providerNumber: profile?.providerNumber,
@@ -335,7 +360,7 @@ function EditContent() {
       setPreviewHtml(html)
     }, 200)
     return () => clearTimeout(timer)
-  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile, store.activeLetterhead])
+  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile, store.activeLetterhead, sigScaleDraft])
 
   useEffect(() => {
     if (!letterToast) return
@@ -897,7 +922,7 @@ function EditContent() {
     if (profile?.signatureUrl) {
       try {
         const { dataUrl } = await loadImageAsDataURL(profile.signatureUrl)
-        const f = (profile.signatureScale && profile.signatureScale > 0 ? profile.signatureScale : 100) / 100
+        const f = (sigScaleDraft > 0 ? sigScaleDraft : 100) / 100
         const sigW = 40 * f, sigH = 14 * f
         if (y + sigH + 4 > maxY) { doc.addPage(); y = 20 }
         doc.addImage(dataUrl, 'PNG', ML, y, sigW, sigH)
@@ -1721,6 +1746,41 @@ function EditContent() {
                     className="w-full text-xs bg-[var(--blue)] text-white rounded-[var(--r)] py-2.5 font-medium disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform">
                     {isGeneratingLetter ? 'Generating…' : '✦ Generate from transcript'}
                   </button>
+                )}
+
+                {/* Signature size - live-previews against the actual letter on the right */}
+                {profile?.signatureUrl && (
+                  <div className="p-3 rounded-[var(--r-lg)]"
+                    style={{
+                      background: 'rgba(255,255,255,0.75)',
+                      backdropFilter: 'blur(12px)',
+                      boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                    }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-sm font-medium text-[var(--text)]">Signature size</label>
+                      <span className="text-xs text-[var(--text3)] tabular-nums">{sigScaleDraft}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={50}
+                      max={200}
+                      step={5}
+                      value={sigScaleDraft}
+                      onChange={e => { setSigScaleDraft(Number(e.target.value)); sigScaleTouchedRef.current = true }}
+                      className="w-full accent-[var(--blue)]"
+                      aria-label="Signature size"
+                    />
+                    <p className="text-xs text-[var(--text3)] mt-1">Drag to resize the signature in the preview, then save.</p>
+                    {sigScaleDraft !== (profile.signatureScale ?? 100) && (
+                      <button
+                        onClick={handleSaveSignatureScale}
+                        disabled={savingSigScale}
+                        className="mt-2 text-xs bg-[var(--blue)] text-white rounded-[var(--r)] px-3 py-1.5
+                                   font-medium disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform">
+                        {savingSigScale ? 'Saving…' : 'Save signature size'}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}

@@ -6,7 +6,9 @@ import { signOut } from 'firebase/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { auth } from '@/lib/firebase'
 import { createProfile, updateProfile } from '@/lib/firestore/profiles'
+import { uploadSignatureSVG } from '@/lib/storage'
 import { detectIdPattern } from '@/lib/utils'
+import SignatureUploader from '@/components/ui/SignatureUploader'
 import type { WorkplaceType, Workplace } from '@/types'
 
 const WORKPLACE_TYPES: WorkplaceType[] = [
@@ -23,7 +25,7 @@ const EMAIL_PRESETS: readonly string[] = [
   'I am writing to update you on the progress of our mutual patient.',
 ]
 
-type Step = 1 | 2 | 3 | 4 | 5
+type Step = 1 | 2 | 3 | 4 | 5 | 6
 
 interface PatternPreview {
   regex: string
@@ -46,6 +48,7 @@ export default function OnboardingPage() {
   const [selectedPreset, setSelectedPreset] = useState<0 | 1 | 2 | 3>(0)
   const [emailPretext, setEmailPretext] = useState<string>(EMAIL_PRESETS[0])
   const [geminiApiKey, setGeminiApiKey] = useState('')
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -89,7 +92,7 @@ export default function OnboardingPage() {
   }
 
   function nextStep() {
-    if (step < 5) setStep((s) => (s + 1) as Step)
+    if (step < 6) setStep((s) => (s + 1) as Step)
   }
 
   function prevStep() {
@@ -131,6 +134,7 @@ export default function OnboardingPage() {
         customTemplates: [],
         status: 'active',
         tier: 'free',
+        ...(signatureUrl ? { signatureUrl } : {}),
       })
 
       if (geminiApiKey.trim()) {
@@ -166,7 +170,7 @@ export default function OnboardingPage() {
 
         {/* Progress dots */}
         <div className="flex items-center gap-2 mb-8">
-          {([1, 2, 3, 4, 5] as const).map((s) => (
+          {([1, 2, 3, 4, 5, 6] as const).map((s) => (
             <div
               key={s}
               className={`h-2 rounded-full transition-all ${
@@ -219,6 +223,14 @@ export default function OnboardingPage() {
             />
           )}
           {step === 5 && (
+            <StepSignature
+              uid={user.uid}
+              signatureUrl={signatureUrl}
+              onUploaded={setSignatureUrl}
+              onSkip={nextStep}
+            />
+          )}
+          {step === 6 && (
             <Step5
               displayName={displayName}
               credentials={credentials}
@@ -236,13 +248,13 @@ export default function OnboardingPage() {
             >
               Back
             </button>
-            {step < 5 ? (
+            {step < 6 ? (
               <button
                 onClick={nextStep}
                 disabled={!canAdvance()}
                 className="rounded-xl bg-[#10b981] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50 active:scale-95 transition"
               >
-                {step === 4 ? 'Next' : 'Continue'}
+                {step === 4 || step === 5 ? 'Next' : 'Continue'}
               </button>
             ) : (
               <button
@@ -533,6 +545,54 @@ function Step5({
         </div>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
+    </div>
+  )
+}
+
+function StepSignature({
+  uid,
+  signatureUrl,
+  onUploaded,
+  onSkip,
+}: {
+  uid: string
+  signatureUrl: string | null
+  onUploaded: (url: string) => void
+  onSkip: () => void
+}) {
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave(svgDataUrl: string) {
+    setSaving(true)
+    try {
+      const url = await uploadSignatureSVG(uid, svgDataUrl)
+      onUploaded(url)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold text-[#0f172a]">Your signature</h2>
+      <p className="text-sm text-[#475569]">
+        Optional — upload a photo of your handwritten signature and we&apos;ll add it to your letters.
+        You can also do this later in Settings.
+      </p>
+      <SignatureUploader
+        existingUrl={signatureUrl}
+        onSave={handleSave}
+        saving={saving}
+      />
+      {signatureUrl && (
+        <p className="text-xs text-[#059669] font-medium">✓ Signature saved</p>
+      )}
+      <button
+        onClick={onSkip}
+        className="block w-full text-center text-sm text-[#94a3b8] mt-1"
+      >
+        Skip for now
+      </button>
     </div>
   )
 }
