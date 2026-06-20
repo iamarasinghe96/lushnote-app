@@ -178,6 +178,8 @@ function EditContent() {
   const isSavingRef = useRef(false)
   const [previewHtml, setPreviewHtml] = useState(() => buildPreviewHTML(store.currentNote))
   const [showMobilePreview, setShowMobilePreview] = useState(false)
+  const [letterPageCount, setLetterPageCount] = useState(1)
+  const pageMeasureRef = useRef<HTMLDivElement>(null)
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -395,6 +397,22 @@ function EditContent() {
     }, 200)
     return () => clearTimeout(timer)
   }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile, store.activeLetterhead, sigScaleDraft, fontSizeDraft, lineSpacingDraft, marginDraft])
+
+  // Estimate how many A4 pages the letter spans by measuring the rendered
+  // preview HTML at exact A4 width. Lets the user know when they're spilling
+  // onto a 2nd page so they can shrink font/spacing/margin to fit.
+  useEffect(() => {
+    if (!isLetterMode) { setLetterPageCount(1); return }
+    const el = pageMeasureRef.current
+    if (!el) return
+    const PX_PER_MM = 96 / 25.4
+    const pageHeightPx = 297 * PX_PER_MM
+    el.innerHTML = previewHtml
+    const measured = el.firstElementChild as HTMLElement | null
+    const h = measured ? measured.scrollHeight : el.scrollHeight
+    setLetterPageCount(Math.max(1, Math.ceil((h - 2) / pageHeightPx)))
+    el.innerHTML = ''
+  }, [isLetterMode, previewHtml])
 
   useEffect(() => {
     if (!letterToast) return
@@ -1898,18 +1916,21 @@ function EditContent() {
                     <Textarea
                       label="Presenting complaint"
                       rows={2}
+                      autoResize
                       value={referralFields.presentingComplaint}
                       onChange={e => store.setReferralFields({ presentingComplaint: e.target.value })}
                     />
                     <Textarea
                       label="Second paragraph (optional)"
                       rows={3}
+                      autoResize
                       value={referralFields.secondParagraph}
                       onChange={e => store.setReferralFields({ secondParagraph: e.target.value })}
                     />
                     <Textarea
                       label="Reason for referral"
                       rows={2}
+                      autoResize
                       value={referralFields.referralReason}
                       onChange={e => store.setReferralFields({ referralReason: e.target.value })}
                     />
@@ -1935,6 +1956,7 @@ function EditContent() {
                       <Textarea
                         label="Past Medical History"
                         rows={3}
+                        autoResize
                         value={referralFields.pastMedicalHistory}
                         onChange={e => store.setReferralFields({ pastMedicalHistory: e.target.value })}
                       />
@@ -1952,6 +1974,7 @@ function EditContent() {
                       <Textarea
                         label="Medication List"
                         rows={3}
+                        autoResize
                         value={referralFields.medicationList}
                         onChange={e => store.setReferralFields({ medicationList: e.target.value })}
                       />
@@ -1975,6 +1998,7 @@ function EditContent() {
                     <Textarea
                       label="Additional paragraph (optional)"
                       rows={3}
+                      autoResize
                       value={recordsFields.secondParagraphRecords}
                       onChange={e => store.setRecordsFields({ secondParagraphRecords: e.target.value })}
                     />
@@ -1992,6 +2016,7 @@ function EditContent() {
                     <Textarea
                       label="Letter body"
                       rows={12}
+                      autoResize
                       value={freetextFields.freeTextContent}
                       onChange={e => store.setFreetextFields({ freeTextContent: e.target.value })}
                       placeholder="Write your letter content here…"
@@ -2283,10 +2308,23 @@ function EditContent() {
           style={{ gridTemplateRows: 'auto 1fr', background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
         >
           <div
-            className="border-b border-[var(--border)] px-4 py-2"
+            className="border-b border-[var(--border)] px-4 py-2 flex items-center justify-between gap-2"
             style={{ background: 'rgba(255,255,255,0.80)', backdropFilter: 'blur(12px)' }}
           >
             <span className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wide">Preview</span>
+            {isLetterMode && (
+              letterPageCount > 1 ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  {letterPageCount} pages — shrink font/spacing to fit
+                </span>
+              ) : (
+                <span className="text-[11px] font-medium text-[var(--text3)]">1 page</span>
+              )
+            )}
           </div>
           <div
             ref={previewScrollRef}
@@ -2295,6 +2333,13 @@ function EditContent() {
           />
         </div>
       </div>
+
+      {/* Off-screen A4-width sandbox used only to measure letter page count */}
+      <div
+        ref={pageMeasureRef}
+        aria-hidden
+        style={{ position: 'fixed', left: -99999, top: 0, width: '210mm', visibility: 'hidden', pointerEvents: 'none' }}
+      />
 
       {/* Mobile preview toggle */}
       <button

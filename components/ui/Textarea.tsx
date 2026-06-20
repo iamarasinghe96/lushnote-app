@@ -17,8 +17,11 @@ export default function Textarea({ label, error, hint, autoResize, className = '
     if (!autoResize || !ref.current) return
     const el = ref.current
     el.style.height = 'auto'
-    el.style.height = el.scrollHeight + 'px'
-  }, [rest.value, autoResize])
+    // Keep at least `rows` worth of height so short fields don't collapse.
+    const lineHeight = 20 // text-sm line-height ≈ 20px
+    const minHeight = (typeof rows === 'number' ? rows : 4) * lineHeight + 20 // + py-2.5 padding
+    el.style.height = Math.max(el.scrollHeight, minHeight) + 'px'
+  }, [rest.value, autoResize, rows])
 
   return (
     <div className="w-full">
