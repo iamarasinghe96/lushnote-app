@@ -1557,33 +1557,40 @@ function EditContent() {
         </div>
       )}
 
-      {/* Letter mode bar — single row */}
+      {/* Letter mode bar — label | centred controls | actions */}
       {isLetterMode && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-[var(--blue)] text-white text-sm shrink-0 flex-wrap">
-          <span className="font-medium text-sm shrink-0 mr-1">
+        <div className="relative flex items-center px-3 py-2 bg-[var(--blue)] text-white text-sm shrink-0">
+          {/* Left: letter type label */}
+          <span className="font-medium text-sm shrink-0">
             {letterType === 'referral' ? 'Referral Letter'
               : letterType === 'records' ? 'Records Request'
               : 'Free Text Letter'}
           </span>
-          <LayoutField label="Font" suffix="pt" value={fontSizeDraft} min={8} max={14} step={0.5}
-            onChange={v => { setFontSizeDraft(v); layoutTouchedRef.current = true }} />
-          <LayoutField label="Spacing" value={lineSpacingDraft} min={1} max={2} step={0.05}
-            onChange={v => { setLineSpacingDraft(v); layoutTouchedRef.current = true }} />
-          <LayoutField label="Margin" suffix="mm" value={marginDraft} min={8} max={35} step={1}
-            onChange={v => { setMarginDraft(v); layoutTouchedRef.current = true }} />
-          {profile?.signatureUrl && (
-            <LayoutField label="Sig" suffix="%" value={sigScaleDraft} min={40} max={250} step={5}
-              onChange={v => { setSigScaleDraft(v); layoutTouchedRef.current = true }} />
-          )}
-          {layoutDirty && (
-            <button
-              onClick={handleSaveLetterLayout}
-              disabled={savingLayout}
-              className="text-xs border border-white/50 text-white px-2 py-1 rounded-md font-medium
-                         hover:bg-white/10 disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-colors shrink-0">
-              {savingLayout ? 'Saving…' : 'Save'}
-            </button>
-          )}
+
+          {/* Centre: layout controls — absolutely centred */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+            <LayoutField label="Font" suffix="pt" value={fontSizeDraft} min={8} max={14} step={0.5}
+              onChange={v => { setFontSizeDraft(v); layoutTouchedRef.current = true }} />
+            <LayoutField label="Spacing" value={lineSpacingDraft} min={1} max={2} step={0.05}
+              onChange={v => { setLineSpacingDraft(v); layoutTouchedRef.current = true }} />
+            <LayoutField label="Margin" suffix="mm" value={marginDraft} min={8} max={35} step={1}
+              onChange={v => { setMarginDraft(v); layoutTouchedRef.current = true }} />
+            {profile?.signatureUrl && (
+              <LayoutField label="Sig" suffix="%" value={sigScaleDraft} min={40} max={250} step={5}
+                onChange={v => { setSigScaleDraft(v); layoutTouchedRef.current = true }} />
+            )}
+            {layoutDirty && (
+              <button
+                onClick={handleSaveLetterLayout}
+                disabled={savingLayout}
+                className="text-xs border border-white/50 text-white px-2 py-1 rounded-md font-medium
+                           hover:bg-white/10 disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-colors">
+                {savingLayout ? 'Saving…' : 'Save'}
+              </button>
+            )}
+          </div>
+
+          {/* Right: action buttons */}
           <div className="flex items-center gap-2 ml-auto shrink-0">
             <button
               onClick={handleLetterPDF}
