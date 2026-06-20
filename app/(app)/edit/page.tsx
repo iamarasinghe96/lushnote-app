@@ -221,28 +221,42 @@ function EditContent() {
   const [isGeneratingLetter, setIsGeneratingLetter] = useState(false)
   const [letterToast, setLetterToast] = useState<string | null>(null)
 
-  // Signature size is adjusted live against the real letter preview, then saved
+  // Letter layout (font size, line spacing, signature size) - adjusted live
+  // against the real letter preview, then saved to the profile on confirm
   const [sigScaleDraft, setSigScaleDraft] = useState<number>(profile?.signatureScale ?? 100)
-  const [savingSigScale, setSavingSigScale] = useState(false)
-  const sigScaleTouchedRef = useRef(false)
+  const [fontSizeDraft, setFontSizeDraft] = useState<number>(profile?.letterFontSize ?? 11)
+  const [lineSpacingDraft, setLineSpacingDraft] = useState<number>(profile?.letterLineSpacing ?? 1.4)
+  const [savingLayout, setSavingLayout] = useState(false)
+  const layoutTouchedRef = useRef(false)
 
   useEffect(() => {
-    if (sigScaleTouchedRef.current) return
+    if (layoutTouchedRef.current) return
     setSigScaleDraft(profile?.signatureScale ?? 100)
-  }, [profile?.signatureScale])
+    setFontSizeDraft(profile?.letterFontSize ?? 11)
+    setLineSpacingDraft(profile?.letterLineSpacing ?? 1.4)
+  }, [profile?.signatureScale, profile?.letterFontSize, profile?.letterLineSpacing])
 
-  async function handleSaveSignatureScale() {
+  const layoutDirty =
+    sigScaleDraft !== (profile?.signatureScale ?? 100) ||
+    fontSizeDraft !== (profile?.letterFontSize ?? 11) ||
+    lineSpacingDraft !== (profile?.letterLineSpacing ?? 1.4)
+
+  async function handleSaveLetterLayout() {
     if (!user) return
-    setSavingSigScale(true)
+    setSavingLayout(true)
     try {
-      await updateProfile(user.uid, { signatureScale: sigScaleDraft })
+      await updateProfile(user.uid, {
+        signatureScale: sigScaleDraft,
+        letterFontSize: fontSizeDraft,
+        letterLineSpacing: lineSpacingDraft,
+      })
       await refreshProfile()
-      sigScaleTouchedRef.current = false
-      setLetterToast('Signature size saved')
+      layoutTouchedRef.current = false
+      setLetterToast('Letter layout saved')
     } catch {
-      setLetterToast('Failed to save signature size')
+      setLetterToast('Failed to save layout')
     } finally {
-      setSavingSigScale(false)
+      setSavingLayout(false)
     }
   }
 
@@ -350,6 +364,8 @@ function EditContent() {
         letterheadFooterUrl: store.activeLetterhead?.footerUrl ?? null,
         signatureUrl: profile?.signatureUrl ?? null,
         signatureScale: sigScaleDraft,
+        fontSize: fontSizeDraft,
+        lineHeight: lineSpacingDraft,
         clinicianName: profile?.displayName,
         credentials: profile?.credentials,
         providerNumber: profile?.providerNumber,
@@ -360,7 +376,7 @@ function EditContent() {
       setPreviewHtml(html)
     }, 200)
     return () => clearTimeout(timer)
-  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile, store.activeLetterhead, sigScaleDraft])
+  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile, store.activeLetterhead, sigScaleDraft, fontSizeDraft, lineSpacingDraft])
 
   useEffect(() => {
     if (!letterToast) return
@@ -849,6 +865,12 @@ function EditContent() {
     })
   }
 
+  // Load a storage image through the same-origin proxy so it can be drawn onto a
+  // canvas for PDF export without cross-origin tainting.
+  function loadPdfImage(url: string): Promise<{ dataUrl: string; w: number; h: number }> {
+    return loadImageAsDataURL('/api/proxy-image?url=' + encodeURIComponent(url))
+  }
+
   function handleSearchAddress() {
     const query = letterCommonFields.recipientName.trim() || letterCommonFields.recipientAddress.trim()
     if (!query) { setLetterToast('Enter a recipient name first'); return }
@@ -868,17 +890,39 @@ function EditContent() {
     const { jsPDF } = await import('jspdf')
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
     const PW = 210, PH = 297, ML = 20, MR = 20, CW = PW - ML - MR
-    const LH = 5.5, PS = 3.5
-    let y = 20
 
-    const footerH = 10
-    const maxY = PH - footerH - 5
+    const fs = fontSizeDraft > 0 ? fontSizeDraft : 11
+    const ls = lineSpacingDraft > 0 ? lineSpacingDraft : 1.4
+    const LH = fs * 0.3528 * ls          // line advance in mm (1pt ≈ 0.3528mm)
+    const PS = LH * 0.5                   // paragraph gap
+    const smallFs = Math.max(8, fs - 1)
 
-    const write = (text: string, bold = false, size = 11) => {
+    // Load the active letterhead images (via same-origin proxy to avoid canvas taint)
+    const lh = store.activeLetterhead
+    let headerImg: { dataUrl: string; w: number; h: number } | null = null
+    let footerImg: { dataUrl: string; w: number; h: number } | null = null
+    if (lh?.headerUrl) { try { headerImg = await loadPdfImage(lh.headerUrl) } catch { headerImg = null } }
+    if (lh?.footerUrl) { try { footerImg = await loadPdfImage(lh.footerUrl) } catch { footerImg = null } }
+
+    const headerH = headerImg ? (headerImg.h / headerImg.w) * PW : 0
+    const footerH = footerImg ? (footerImg.h / footerImg.w) * PW : 0
+    const contentTop = headerImg ? headerH + 8 : 20
+    const footerY = PH - footerH
+    const maxY = footerImg ? footerY - 4 : PH - 15
+
+    const stampLetterhead = () => {
+      if (headerImg) doc.addImage(headerImg.dataUrl, 'PNG', 0, 0, PW, headerH)
+      if (footerImg) doc.addImage(footerImg.dataUrl, 'PNG', 0, footerY, PW, footerH)
+    }
+
+    let y = contentTop
+    stampLetterhead()
+
+    const write = (text: string, bold = false, size = fs) => {
       doc.setFont('helvetica', bold ? 'bold' : 'normal')
       doc.setFontSize(size)
       doc.splitTextToSize(text, CW).forEach((line: string) => {
-        if (y + LH > maxY) { doc.addPage(); y = 20 }
+        if (y + LH > maxY) { doc.addPage(); stampLetterhead(); y = contentTop }
         doc.text(line, ML, y)
         y += LH
       })
@@ -930,30 +974,30 @@ function EditContent() {
       write(freetextFields.freeTextContent || '')
     }
 
-    // Signature block, pinned to the bottom of the page so the body uses the full letter length
+    // Signature block, pinned to the bottom of the page (above the footer)
     let sigDataUrl: string | null = null
     if (profile?.signatureUrl) {
-      try { sigDataUrl = (await loadImageAsDataURL(profile.signatureUrl)).dataUrl } catch { sigDataUrl = null }
+      try { sigDataUrl = (await loadPdfImage(profile.signatureUrl)).dataUrl } catch { sigDataUrl = null }
     }
     const sigF = (sigScaleDraft > 0 ? sigScaleDraft : 100) / 100
     const sigImgH = sigDataUrl ? 14 * sigF + 3 : 0
 
     const sigLines: { text: string; bold?: boolean; size?: number }[] = [{ text: 'Thank you and kind regards,' }]
     if (profile?.displayName) sigLines.push({ text: profile.displayName, bold: true })
-    if (profile?.credentials) sigLines.push({ text: profile.credentials, size: 10 })
+    if (profile?.credentials) sigLines.push({ text: profile.credentials, size: smallFs })
     const providerLine = [
       profile?.providerNumber ? `Provider No: ${profile.providerNumber}` : '',
       profile?.workPhone ? `Ph no: ${profile.workPhone}` : '',
     ].filter(Boolean).join(' | ')
-    if (providerLine) sigLines.push({ text: providerLine, size: 10 })
-    if (profile?.position) sigLines.push({ text: profile.position, size: 10 })
+    if (providerLine) sigLines.push({ text: providerLine, size: smallFs })
+    if (profile?.position) sigLines.push({ text: profile.position, size: smallFs })
     const wpName = profile?.workplaces?.find(w => w.id === profile?.activeWorkplaceId)?.name
-    if (wpName) sigLines.push({ text: wpName, size: 10 })
+    if (wpName) sigLines.push({ text: wpName, size: smallFs })
 
     const blockH = sigImgH + sigLines.length * LH
     let sy = maxY - blockH
-    if (sy < y + PS * 2) { doc.addPage(); sy = maxY - blockH }
-    if (sy < 20) sy = 20
+    if (sy < y + PS * 2) { doc.addPage(); stampLetterhead(); sy = maxY - blockH }
+    if (sy < contentTop) sy = contentTop
 
     if (sigDataUrl) {
       try { doc.addImage(sigDataUrl, 'PNG', ML, sy, 40 * sigF, 14 * sigF) } catch {}
@@ -961,7 +1005,7 @@ function EditContent() {
     }
     for (const line of sigLines) {
       doc.setFont('helvetica', line.bold ? 'bold' : 'normal')
-      doc.setFontSize(line.size ?? 11)
+      doc.setFontSize(line.size ?? fs)
       doc.text(line.text, ML, sy)
       sy += LH
     }
@@ -1818,40 +1862,66 @@ function EditContent() {
                   </button>
                 )}
 
-                {/* Signature size - live-previews against the actual letter on the right */}
-                {profile?.signatureUrl && (
-                  <div className="p-3 rounded-[var(--r-lg)]"
-                    style={{
-                      background: 'rgba(255,255,255,0.75)',
-                      backdropFilter: 'blur(12px)',
-                      boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
-                    }}>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-sm font-medium text-[var(--text)]">Signature size</label>
-                      <span className="text-xs text-[var(--text3)] tabular-nums">{sigScaleDraft}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={50}
-                      max={200}
-                      step={5}
-                      value={sigScaleDraft}
-                      onChange={e => { setSigScaleDraft(Number(e.target.value)); sigScaleTouchedRef.current = true }}
-                      className="w-full accent-[var(--blue)]"
-                      aria-label="Signature size"
-                    />
-                    <p className="text-xs text-[var(--text3)] mt-1">Drag to resize the signature in the preview, then save.</p>
-                    {sigScaleDraft !== (profile.signatureScale ?? 100) && (
-                      <button
-                        onClick={handleSaveSignatureScale}
-                        disabled={savingSigScale}
-                        className="mt-2 text-xs bg-[var(--blue)] text-white rounded-[var(--r)] px-3 py-1.5
-                                   font-medium disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform">
-                        {savingSigScale ? 'Saving…' : 'Save signature size'}
-                      </button>
-                    )}
+                {/* Letter layout - font size, line spacing, signature size; live-previews against the actual letter */}
+                <div className="p-3 rounded-[var(--r-lg)]"
+                  style={{
+                    background: 'rgba(255,255,255,0.75)',
+                    backdropFilter: 'blur(12px)',
+                    boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                  }}>
+                  <p className="text-sm font-medium text-[var(--text)] mb-2">Letter layout</p>
+                  <p className="text-xs text-[var(--text3)] mb-3">Adjust to fit everything onto one page. Changes preview live, then save.</p>
+
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-medium text-[var(--text2)]">Font size</label>
+                    <span className="text-xs text-[var(--text3)] tabular-nums">{fontSizeDraft} pt</span>
                   </div>
-                )}
+                  <input
+                    type="range" min={9} max={13} step={0.5}
+                    value={fontSizeDraft}
+                    onChange={e => { setFontSizeDraft(Number(e.target.value)); layoutTouchedRef.current = true }}
+                    className="w-full accent-[var(--blue)]"
+                    aria-label="Letter font size"
+                  />
+
+                  <div className="flex items-center justify-between mb-1 mt-3">
+                    <label className="text-xs font-medium text-[var(--text2)]">Line spacing</label>
+                    <span className="text-xs text-[var(--text3)] tabular-nums">{lineSpacingDraft.toFixed(2)}×</span>
+                  </div>
+                  <input
+                    type="range" min={1.2} max={1.8} step={0.05}
+                    value={lineSpacingDraft}
+                    onChange={e => { setLineSpacingDraft(Number(e.target.value)); layoutTouchedRef.current = true }}
+                    className="w-full accent-[var(--blue)]"
+                    aria-label="Letter line spacing"
+                  />
+
+                  {profile?.signatureUrl && (
+                    <>
+                      <div className="flex items-center justify-between mb-1 mt-3">
+                        <label className="text-xs font-medium text-[var(--text2)]">Signature size</label>
+                        <span className="text-xs text-[var(--text3)] tabular-nums">{sigScaleDraft}%</span>
+                      </div>
+                      <input
+                        type="range" min={50} max={200} step={5}
+                        value={sigScaleDraft}
+                        onChange={e => { setSigScaleDraft(Number(e.target.value)); layoutTouchedRef.current = true }}
+                        className="w-full accent-[var(--blue)]"
+                        aria-label="Signature size"
+                      />
+                    </>
+                  )}
+
+                  {layoutDirty && (
+                    <button
+                      onClick={handleSaveLetterLayout}
+                      disabled={savingLayout}
+                      className="mt-3 text-xs bg-[var(--blue)] text-white rounded-[var(--r)] px-3 py-1.5
+                                 font-medium disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform">
+                      {savingLayout ? 'Saving…' : 'Save layout'}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

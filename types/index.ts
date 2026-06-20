@@ -18,6 +18,8 @@ interface User {
   geminiApiKey?: string
   signatureUrl?: string
   signatureScale?: number      // percent, 50–200, default 100
+  letterFontSize?: number      // pt, 9–13, default 11
+  letterLineSpacing?: number   // line-height multiplier, 1.2–1.8, default 1.4
   providerNumber?: string
   workPhone?: string
   position?: string

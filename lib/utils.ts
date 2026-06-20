@@ -214,6 +214,8 @@ export function buildLetterPreviewHTML(params: {
   letterheadFooterUrl?: string | null
   signatureUrl?: string | null
   signatureScale?: number
+  fontSize?: number
+  lineHeight?: number
   clinicianName?: string
   credentials?: string
   providerNumber?: string
@@ -224,9 +226,13 @@ export function buildLetterPreviewHTML(params: {
   const {
     letterType, common, referral, records, freetext,
     letterheadHeaderUrl, letterheadFooterUrl,
-    signatureUrl, signatureScale, clinicianName, credentials,
+    signatureUrl, signatureScale, fontSize, lineHeight, clinicianName, credentials,
     providerNumber, workPhone, position, workplaceName,
   } = params
+
+  const baseFont = fontSize && fontSize > 0 ? fontSize : 11
+  const baseLine = lineHeight && lineHeight > 0 ? lineHeight : 1.4
+  const smallFont = Math.max(8, baseFont - 1)
 
   const headerHtml = letterheadHeaderUrl
     ? `<img src="${escapeHtml(letterheadHeaderUrl)}" style="width:100%;display:block;" alt="Header" />`
@@ -295,7 +301,7 @@ export function buildLetterPreviewHTML(params: {
   }
 
   return `
-    <div style="font-family:Arial,sans-serif;font-size:11pt;color:#000;background:#fff;min-height:297mm;display:flex;flex-direction:column;max-width:210mm;">
+    <div style="font-family:Arial,sans-serif;font-size:${baseFont}pt;line-height:${baseLine};color:#000;background:#fff;min-height:297mm;display:flex;flex-direction:column;max-width:210mm;">
       ${headerHtml}
       <div style="padding:15px 20mm;flex:1;display:flex;flex-direction:column;">
         <div>
@@ -307,10 +313,10 @@ export function buildLetterPreviewHTML(params: {
           ${signatureHtml}
           <p style="margin:0 0 2px;">Thank you and kind regards,</p>
           <p style="margin:0 0 2px;font-weight:700;">${escapeHtml(clinicianName || '')}</p>
-          ${credentials ? `<p style="margin:0 0 2px;font-size:10pt;">${escapeHtml(credentials)}</p>` : ''}
-          ${(providerNumber || workPhone) ? `<p style="margin:0 0 2px;font-size:10pt;">${providerNumber ? 'Provider No: ' + escapeHtml(providerNumber) : ''}${providerNumber && workPhone ? ' | ' : ''}${workPhone ? 'Ph no: ' + escapeHtml(workPhone) : ''}</p>` : ''}
-          ${position ? `<p style="margin:0 0 2px;font-size:10pt;">${escapeHtml(position)}</p>` : ''}
-          ${workplaceName ? `<p style="margin:0;font-size:10pt;">${escapeHtml(workplaceName)}</p>` : ''}
+          ${credentials ? `<p style="margin:0 0 2px;font-size:${smallFont}pt;">${escapeHtml(credentials)}</p>` : ''}
+          ${(providerNumber || workPhone) ? `<p style="margin:0 0 2px;font-size:${smallFont}pt;">${providerNumber ? 'Provider No: ' + escapeHtml(providerNumber) : ''}${providerNumber && workPhone ? ' | ' : ''}${workPhone ? 'Ph no: ' + escapeHtml(workPhone) : ''}</p>` : ''}
+          ${position ? `<p style="margin:0 0 2px;font-size:${smallFont}pt;">${escapeHtml(position)}</p>` : ''}
+          ${workplaceName ? `<p style="margin:0;font-size:${smallFont}pt;">${escapeHtml(workplaceName)}</p>` : ''}
         </div>
       </div>
       ${footerHtml}
