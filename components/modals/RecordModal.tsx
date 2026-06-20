@@ -81,7 +81,7 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
     setPermError(null)
     try {
       const stream = subMode === 'telehealth'
-        ? await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true })
+        ? await navigator.mediaDevices.getDisplayMedia({ audio: true, video: { displaySurface: 'browser' } })
         : await navigator.mediaDevices.getUserMedia({ audio: true })
 
       // For telehealth, the user must tick "Share tab audio" in the picker.
