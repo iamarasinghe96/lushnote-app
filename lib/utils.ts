@@ -244,8 +244,8 @@ export function buildLetterPreviewHTML(params: {
        </div>`
 
   const footerHtml = letterheadFooterUrl
-    ? `<img src="${escapeHtml(letterheadFooterUrl)}" style="width:100%;display:block;margin-top:auto;" alt="Footer" />`
-    : `<div style="padding:8px 24px;border-top:1px solid #e2e8f0;font-size:10px;color:#64748b;text-align:center;margin-top:auto;">
+    ? `<div style="margin-top:-14mm;position:relative;z-index:1;"><img src="${escapeHtml(letterheadFooterUrl)}" style="width:100%;display:block;" alt="Footer" /></div>`
+    : `<div style="padding:8px 24px;border-top:1px solid #e2e8f0;font-size:10px;color:#64748b;text-align:center;">
          ${escapeHtml(clinicianName || '')}${credentials ? ', ' + escapeHtml(credentials) : ''}
        </div>`
 
@@ -305,13 +305,13 @@ export function buildLetterPreviewHTML(params: {
   return `
     <div style="font-family:Arial,sans-serif;font-size:${baseFont}pt;line-height:${baseLine};color:#000;background:#fff;min-height:297mm;display:flex;flex-direction:column;max-width:210mm;">
       ${headerHtml}
-      <div style="padding:15px ${baseMargin}mm;flex:1;display:flex;flex-direction:column;">
+      <div style="padding:8mm ${baseMargin}mm 0;flex:1;display:flex;flex-direction:column;">
         <div>
           ${recipientBlock}
           ${reBlock}
           ${bodyHtml}
         </div>
-        <div style="margin-top:auto;padding-top:32px;text-align:center;">
+        <div style="margin-top:auto;padding-top:16px;text-align:center;position:relative;z-index:2;">
           ${signatureHtml}
           <p style="margin:0 0 2px;">Thank you and kind regards,</p>
           <p style="margin:0 0 2px;font-weight:700;">${escapeHtml(clinicianName || '')}</p>
