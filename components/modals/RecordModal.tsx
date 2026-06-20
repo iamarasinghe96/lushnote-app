@@ -81,8 +81,17 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
     setPermError(null)
     try {
       const stream = subMode === 'telehealth'
-        ? await navigator.mediaDevices.getDisplayMedia({ audio: true })
+        ? await navigator.mediaDevices.getDisplayMedia({ audio: true, video: true })
         : await navigator.mediaDevices.getUserMedia({ audio: true })
+
+      // For telehealth, the user must tick "Share tab audio" in the picker.
+      // If they didn't, the stream has no audio tracks — warn immediately.
+      if (subMode === 'telehealth' && stream.getAudioTracks().length === 0) {
+        stream.getTracks().forEach(t => t.stop())
+        setPermError('No audio detected. When sharing your tab, tick "Share tab audio" (Chrome) or "Share audio" (Edge) in the picker.')
+        return
+      }
+
       streamRef.current = stream
       localStorage.setItem('ln_recording_interrupted', '1')
       startRecording(stream)
@@ -92,7 +101,11 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
         stopRef.current?.()
       }, autoStopMinutes * 60 * 1000)
     } catch {
-      setPermError('Microphone access denied. Please allow access and try again.')
+      setPermError(
+        subMode === 'telehealth'
+          ? 'Screen share was cancelled or denied. Click "Start recording" and select the tab to share.'
+          : 'Microphone access denied. Please allow microphone access and try again.'
+      )
     }
   }
 
@@ -132,7 +145,7 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
             </div>
             <p className="text-sm text-[var(--text2)]">
               {subMode === 'telehealth'
-                ? 'Share your screen or browser tab with audio to capture a telehealth session.'
+                ? 'Share the browser tab your telehealth call is in. When the picker appears, select the tab and tick "Share tab audio".'
                 : 'Your microphone will be recorded.'}
             </p>
             <Button onClick={handleStart} variant="primary" className="w-full">
