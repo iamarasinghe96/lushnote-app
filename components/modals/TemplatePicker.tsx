@@ -239,9 +239,12 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
   function renderChipGroup(label: string, items: AnyTemplate[]) {
     if (items.length === 0) return null
     return (
-      <div className="pt-2">
-        <p className="text-[11px] font-semibold text-[var(--text3)] uppercase tracking-wide mb-1.5">{label}</p>
-        <div className="flex flex-wrap gap-1.5">
+      <div className="mb-1">
+        <div className="sticky top-0 z-10 -mx-5 px-5 py-1.5 flex items-center gap-2
+                        bg-[var(--bg)] border-y border-[var(--border)]">
+          <span className="text-[11px] font-bold text-[var(--text)] uppercase tracking-widest">{label}</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5 pt-2 pb-1">
           {items.map(t => (
             <button
               key={String(t.id)}
@@ -262,7 +265,7 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
       <div className="flex flex-col" style={{ maxHeight: '80vh' }}>
 
         {/* Tabs */}
-        <div className="flex gap-0 px-5 pt-1 border-b border-[var(--border)] overflow-x-auto scrollbar-none">
+        <div className="flex gap-0 px-5 pt-1 border-b border-[var(--border)] overflow-x-auto scrollbar-none shrink-0">
           {([
             { key: 'all' as Tab, label: 'All', count: all.length },
             { key: 'session' as Tab, label: 'Session', count: sessionCount },
@@ -324,7 +327,7 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
         ) : (
           <>
             {/* Search */}
-            <div className="px-5 pt-3 pb-2">
+            <div className="px-5 pt-3 pb-2 shrink-0">
               <input
                 type="search"
                 value={search}
@@ -355,13 +358,16 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
                   {renderChipGroup('Favourites', favTemplates)}
                   {renderChipGroup('Recently Used', recentTemplates)}
                   {categoryGroups.map((g, i) => (
-                    <div key={g.label} className={i === 0 && favTemplates.length === 0 && recentTemplates.length === 0 ? 'pt-1' : 'pt-3'}>
-                      <div className="flex items-center gap-2 mb-1 px-1">
-                        <span className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wide">{g.label}</span>
-                        <span className="text-[11px] text-[var(--text3)]">{g.items.length}</span>
-                        <div className="flex-1 h-px bg-[var(--border)]" />
+                    <div key={g.label} className={i === 0 && favTemplates.length === 0 && recentTemplates.length === 0 ? '' : 'mt-2'}>
+                      {/* Sticky section header — full bleed, high-contrast */}
+                      <div className="sticky top-0 z-10 -mx-5 px-5 py-1.5 flex items-center gap-2
+                                      bg-[var(--bg)] border-y border-[var(--border)]">
+                        <span className="text-[11px] font-bold text-[var(--text)] uppercase tracking-widest">
+                          {g.label}
+                        </span>
+                        <span className="text-[11px] text-[var(--text3)] font-normal">{g.items.length}</span>
                       </div>
-                      <ul className="space-y-0.5">{g.items.map(t => renderCard(t, false))}</ul>
+                      <ul className="space-y-0.5 pt-0.5">{g.items.map(t => renderCard(t, false))}</ul>
                     </div>
                   ))}
                 </div>
