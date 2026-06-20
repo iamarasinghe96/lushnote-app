@@ -33,36 +33,47 @@ function formatAddress(item: NominatimItem): { label: string; value: string } {
   return { label: item.display_name, value }
 }
 
-export async function GET(req: NextRequest) {
-  const q = req.nextUrl.searchParams.get('q')?.trim()
-  if (!q) return NextResponse.json({ results: [] })
-
+async function nominatimSearch(q: string): Promise<NominatimItem[]> {
   const url =
     'https://nominatim.openstreetmap.org/search'
     + '?format=jsonv2&addressdetails=1&limit=6&countrycodes=au&q='
     + encodeURIComponent(q)
-
-  let res: Response
   try {
-    res = await fetch(url, {
+    const res = await fetch(url, {
       headers: {
         'User-Agent': 'LushNote/1.0 (https://lushnote.com.au; clinical documentation app)',
         'Accept-Language': 'en-AU',
       },
     })
+    if (!res.ok) return []
+    const data = await res.json()
+    return Array.isArray(data) ? data : []
   } catch {
-    return NextResponse.json({ results: [] })
+    return []
+  }
+}
+
+export async function GET(req: NextRequest) {
+  const q = req.nextUrl.searchParams.get('q')?.trim()
+  if (!q) return NextResponse.json({ results: [] })
+
+  let data = await nominatimSearch(q)
+
+  // Many private clinics aren't indexed in OSM. If the full name returns nothing
+  // and the query has multiple words, retry with just the last word (usually the
+  // suburb/city) so the user at least gets a street-level starting point.
+  if (data.length === 0 && q.includes(' ')) {
+    const words = q.split(/\s+/).filter(Boolean)
+    // Try last two words first (e.g. "Wodonga VIC"), then last word alone
+    const fallbacks = words.length >= 2
+      ? [words.slice(-2).join(' '), words[words.length - 1]]
+      : [words[words.length - 1]]
+    for (const fb of fallbacks) {
+      data = await nominatimSearch(fb)
+      if (data.length > 0) break
+    }
   }
 
-  if (!res.ok) return NextResponse.json({ results: [] })
-
-  let data: NominatimItem[]
-  try {
-    data = await res.json()
-  } catch {
-    return NextResponse.json({ results: [] })
-  }
-
-  const results = Array.isArray(data) ? data.map(formatAddress) : []
+  const results = data.map(formatAddress)
   return NextResponse.json({ results })
 }

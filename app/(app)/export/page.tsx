@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { useAuth } from '@/hooks/useAuth'
-import { buildNoteText, buildCoverLetterEmail, buildPreviewHTML } from '@/lib/utils'
+import { buildNoteText, buildCoverLetterEmail, buildPreviewHTML, buildLetterPreviewHTML } from '@/lib/utils'
 import { downloadNotePDF } from '@/lib/pdf'
 import { getPatientProfiles } from '@/lib/firestore/patients'
-import type { PatientProfile } from '@/types'
+import type { PatientProfile, LetterType } from '@/types'
 
 export default function ExportPage() {
-  const { currentNote } = useNoteStore()
+  const store = useNoteStore()
+  const { currentNote } = store
   const { user, profile } = useAuth()
   const [patientProfiles, setPatientProfiles] = useState<Record<string, PatientProfile>>({})
 
@@ -21,9 +22,35 @@ export default function ExportPage() {
   const [toast, setToast] = useState<string | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const isEmpty = !currentNote.patient && !currentNote.content && !currentNote.summary
+  const letterType = store.letterType as LetterType | null
+  const isLetterMode = letterType !== null
 
-  const previewHtml = buildPreviewHTML(currentNote)
+  const isEmpty = isLetterMode
+    ? false
+    : !currentNote.patient && !currentNote.content && !currentNote.summary
+
+  const previewHtml = isLetterMode
+    ? buildLetterPreviewHTML({
+        letterType: letterType!,
+        common: store.letterCommonFields,
+        referral: store.referralFields,
+        records: store.recordsFields,
+        freetext: store.freetextFields,
+        letterheadHeaderUrl: store.activeLetterhead?.headerUrl ?? null,
+        letterheadFooterUrl: store.activeLetterhead?.footerUrl ?? null,
+        signatureUrl: profile?.signatureUrl ?? null,
+        signatureScale: profile?.signatureScale ?? 60,
+        fontSize: profile?.letterFontSize ?? 11,
+        lineHeight: profile?.letterLineSpacing ?? 1,
+        margin: profile?.letterMargin ?? 12,
+        clinicianName: profile?.displayName,
+        credentials: profile?.credentials,
+        providerNumber: profile?.providerNumber,
+        workPhone: profile?.workPhone,
+        position: profile?.position,
+        workplaceName: profile?.workplaces?.find(w => w.id === profile?.activeWorkplaceId)?.name,
+      })
+    : buildPreviewHTML(currentNote)
 
   useEffect(() => {
     if (!menuOpen) return
@@ -85,13 +112,15 @@ export default function ExportPage() {
     setMenuOpen(false)
   }
 
-  const menuItems = [
-    { label: 'Copy to Clipboard',  action: handleCopyClipboard },
-    { label: 'Download PDF',       action: handlePDF },
-    { label: 'Print',              action: handlePrint },
-    { label: 'Email to Colleague', action: handleEmail },
-    { label: 'Submit as Text',     action: handleSubmitAsText },
-  ]
+  const menuItems = isLetterMode
+    ? [] // Letter exports are handled from the Edit tab toolbar
+    : [
+        { label: 'Copy to Clipboard',  action: handleCopyClipboard },
+        { label: 'Download PDF',       action: handlePDF },
+        { label: 'Print',              action: handlePrint },
+        { label: 'Email to Colleague', action: handleEmail },
+        { label: 'Submit as Text',     action: handleSubmitAsText },
+      ]
 
   return (
     <div className="h-full relative overflow-hidden">
@@ -104,51 +133,62 @@ export default function ExportPage() {
           </div>
         ) : (
           <div
-            className="preview-pane max-w-2xl mx-auto"
+            className={isLetterMode ? 'max-w-2xl mx-auto' : 'preview-pane max-w-2xl mx-auto'}
             dangerouslySetInnerHTML={{ __html: previewHtml }}
           />
         )}
       </div>
 
-      {/* Floating Export button - top-right corner */}
-      <div ref={menuRef} className="absolute top-3 right-4 z-10 no-print">
-        <button
-          onClick={() => setMenuOpen(o => !o)}
-          disabled={isEmpty}
-          className="text-white text-xs font-semibold px-4 py-2 rounded-full
-                     flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none
-                     motion-safe:transition-colors motion-safe:active:scale-[0.97]"
-          style={{
-            background: 'rgba(14,159,110,0.90)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,0.25)',
-            boxShadow: '0 2px 8px rgba(14,159,110,0.30)',
-          }}
-        >
-          Export ▾
-        </button>
-
-        {menuOpen && (
-          <div
-            className="absolute right-0 top-full mt-1 w-52 bg-white border border-[var(--border)]
-                       rounded-[var(--r-lg)] z-50 overflow-hidden"
-            style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
+      {/* Floating Export button - top-right corner (hidden in letter mode) */}
+      {!isLetterMode && (
+        <div ref={menuRef} className="absolute top-3 right-4 z-10 no-print">
+          <button
+            onClick={() => setMenuOpen(o => !o)}
+            disabled={isEmpty}
+            className="text-white text-xs font-semibold px-4 py-2 rounded-full
+                       flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none
+                       motion-safe:transition-colors motion-safe:active:scale-[0.97]"
+            style={{
+              background: 'rgba(14,159,110,0.90)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,255,255,0.25)',
+              boxShadow: '0 2px 8px rgba(14,159,110,0.30)',
+            }}
           >
-            {menuItems.map(item => (
-              <button
-                key={item.label}
-                onClick={item.action}
-                className="w-full text-left px-4 py-2.5 text-sm text-[var(--text)]
-                           hover:bg-[var(--bg)] border-b border-[var(--border)] last:border-0
-                           active:scale-[0.98] transition-colors"
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+            Export ▾
+          </button>
+
+          {menuOpen && (
+            <div
+              className="absolute right-0 top-full mt-1 w-52 bg-white border border-[var(--border)]
+                         rounded-[var(--r-lg)] z-50 overflow-hidden"
+              style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
+            >
+              {menuItems.map(item => (
+                <button
+                  key={item.label}
+                  onClick={item.action}
+                  className="w-full text-left px-4 py-2.5 text-sm text-[var(--text)]
+                             hover:bg-[var(--bg)] border-b border-[var(--border)] last:border-0
+                             active:scale-[0.98] transition-colors"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* In letter mode, point user to Edit tab for exports */}
+      {isLetterMode && (
+        <div className="absolute top-3 right-4 z-10 no-print">
+          <span className="text-xs text-[var(--text3)] bg-white/80 px-3 py-1.5 rounded-full border border-[var(--border)]">
+            Use Edit tab to download PDF or email
+          </span>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (
