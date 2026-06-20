@@ -246,7 +246,11 @@ export default function OnboardingPage() {
             <Step5
               displayName={displayName}
               credentials={credentials}
+              position={position}
+              providerNumber={providerNumber}
+              workPhone={workPhone}
               workplaceName={workplaceName}
+              signatureUrl={signatureUrl}
               error={error}
             />
           )}
@@ -578,32 +582,41 @@ function Step4({
 function Step5({
   displayName,
   credentials,
+  position,
+  providerNumber,
+  workPhone,
   workplaceName,
+  signatureUrl,
   error,
 }: {
   displayName: string
   credentials: string
+  position: string
+  providerNumber: string
+  workPhone: string
   workplaceName: string
+  signatureUrl: string | null
   error: string
 }) {
+  const rows: { label: string; value: string }[] = [
+    { label: 'Name',         value: displayName },
+    ...(credentials    ? [{ label: 'Credentials',    value: credentials }]    : []),
+    ...(position       ? [{ label: 'Position',       value: position }]       : []),
+    ...(providerNumber ? [{ label: 'Provider No.',   value: providerNumber }] : []),
+    ...(workPhone      ? [{ label: 'Work phone',     value: workPhone }]      : []),
+    { label: 'Workplace',    value: workplaceName },
+    { label: 'Signature',    value: signatureUrl ? 'Uploaded' : 'Not added (you can add later in Settings)' },
+  ]
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-[#0f172a]">You&apos;re all set</h2>
       <div className="rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-4 space-y-2 text-sm">
-        <div className="flex gap-2">
-          <span className="text-[#94a3b8] w-24 flex-none">Name</span>
-          <span className="text-[#0f172a] font-medium">{displayName}</span>
-        </div>
-        {credentials && (
-          <div className="flex gap-2">
-            <span className="text-[#94a3b8] w-24 flex-none">Credentials</span>
-            <span className="text-[#0f172a]">{credentials}</span>
+        {rows.map(({ label, value }) => (
+          <div key={label} className="flex gap-2">
+            <span className="text-[#94a3b8] w-28 flex-none">{label}</span>
+            <span className={`text-[#0f172a] ${label === 'Name' ? 'font-medium' : ''} ${label === 'Signature' && !signatureUrl ? 'text-[#94a3b8] italic' : ''}`}>{value}</span>
           </div>
-        )}
-        <div className="flex gap-2">
-          <span className="text-[#94a3b8] w-24 flex-none">Workplace</span>
-          <span className="text-[#0f172a]">{workplaceName}</span>
-        </div>
+        ))}
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
