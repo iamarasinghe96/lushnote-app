@@ -221,6 +221,11 @@ function EditContent() {
   const [isGeneratingLetter, setIsGeneratingLetter] = useState(false)
   const [letterToast, setLetterToast] = useState<string | null>(null)
 
+  // Recipient address lookup (OpenStreetMap geocoder)
+  const [addrSuggestions, setAddrSuggestions] = useState<{ label: string; value: string }[]>([])
+  const [addrLoading, setAddrLoading] = useState(false)
+  const [addrOpen, setAddrOpen] = useState(false)
+
   // Letter layout (font size, line spacing, signature size) - adjusted live
   // against the real letter preview, then saved to the profile on confirm
   const [sigScaleDraft, setSigScaleDraft] = useState<number>(profile?.signatureScale ?? 100)
@@ -871,10 +876,32 @@ function EditContent() {
     return loadImageAsDataURL('/api/proxy-image?url=' + encodeURIComponent(url))
   }
 
-  function handleSearchAddress() {
+  async function handleSearchAddress() {
     const query = letterCommonFields.recipientName.trim() || letterCommonFields.recipientAddress.trim()
     if (!query) { setLetterToast('Enter a recipient name first'); return }
-    window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query), '_blank', 'noopener,noreferrer')
+    setAddrOpen(true)
+    setAddrLoading(true)
+    setAddrSuggestions([])
+    try {
+      const res = await fetch('/api/geocode?q=' + encodeURIComponent(query))
+      const data = await res.json() as { results?: { label: string; value: string }[] }
+      setAddrSuggestions(data.results ?? [])
+    } catch {
+      setLetterToast('Address lookup failed')
+    } finally {
+      setAddrLoading(false)
+    }
+  }
+
+  function selectAddress(value: string) {
+    store.setLetterCommonFields({ recipientAddress: value })
+    setAddrOpen(false)
+    setAddrSuggestions([])
+  }
+
+  function openInMaps() {
+    const query = letterCommonFields.recipientName.trim() || letterCommonFields.recipientAddress.trim()
+    if (query) window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query), '_blank', 'noopener,noreferrer')
   }
 
   async function handlePasteAddress() {
@@ -1666,16 +1693,24 @@ function EditContent() {
                         <button
                           type="button"
                           onClick={handleSearchAddress}
-                          title="Find on Google Maps"
-                          aria-label="Find on Google Maps"
+                          disabled={addrLoading}
+                          title="Look up address"
+                          aria-label="Look up address"
                           className="w-9 h-9 rounded-[var(--r)] border border-[var(--border)] bg-white flex items-center justify-center
-                                     text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)]
+                                     text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)] disabled:opacity-50
                                      motion-safe:transition-colors motion-safe:active:scale-95"
                         >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                            <circle cx="12" cy="10" r="3"/>
-                          </svg>
+                          {addrLoading ? (
+                            <svg width="16" height="16" viewBox="0 0 24 24" className="animate-spin" aria-hidden>
+                              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeOpacity="0.25"/>
+                              <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round"/>
+                            </svg>
+                          ) : (
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                              <circle cx="12" cy="10" r="3"/>
+                            </svg>
+                          )}
                         </button>
                         <button
                           type="button"
@@ -1693,6 +1728,45 @@ function EditContent() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Address suggestions */}
+                    {addrOpen && (
+                      <div className="mt-2 rounded-[var(--r)] border border-[var(--border)] bg-white overflow-hidden"
+                        style={{ boxShadow: '0 2px 8px rgba(15,23,42,.08)' }}>
+                        <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg)]">
+                          <span className="text-[11px] font-medium text-[var(--text3)]">
+                            {addrLoading ? 'Searching…' : 'Select an address'}
+                          </span>
+                          <button type="button" onClick={() => setAddrOpen(false)} aria-label="Close"
+                            className="text-[var(--text3)] hover:text-[var(--text)] text-xs">✕</button>
+                        </div>
+                        {addrLoading ? (
+                          <div className="px-3 py-3 text-xs text-[var(--text3)]">Looking up addresses…</div>
+                        ) : addrSuggestions.length > 0 ? (
+                          <ul className="max-h-56 overflow-y-auto">
+                            {addrSuggestions.map((s, i) => (
+                              <li key={i}>
+                                <button
+                                  type="button"
+                                  onClick={() => selectAddress(s.value)}
+                                  className="w-full text-left px-3 py-2 text-xs text-[var(--text)]
+                                             hover:bg-[var(--blue-lt)] motion-safe:transition-colors
+                                             border-b border-[var(--border)] last:border-0"
+                                >
+                                  {s.label}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="px-3 py-3 text-xs text-[var(--text3)]">
+                            No matches found.{' '}
+                            <button type="button" onClick={openInMaps} className="text-[var(--blue)] underline">Search Google Maps</button>
+                            {' '}or type it manually.
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
