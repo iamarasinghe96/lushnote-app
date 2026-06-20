@@ -80,11 +80,14 @@ export default function TranscriptConfirmModal({
   }, [transcript])
   const hasMore = transcript.trim().length > preview.length
 
-  const regPlaceholder = useMemo(() => {
+  const activeWorkplace = useMemo(() => {
     const wps = profile?.workplaces ?? []
-    const aw = wps.find(w => w.id === profile?.activeWorkplaceId) ?? wps[0]
-    return aw?.regTemplate ?? 'e.g. 100234'
+    return wps.find(w => w.id === profile?.activeWorkplaceId) ?? wps[0]
   }, [profile])
+  // 'none' (or unset) → app auto-mints YYYYMMDDNNN. 'existing' → clinician types
+  // the real hospital number, so we leave it blank for manual entry.
+  const autoReg = activeWorkplace?.regSystem !== 'existing'
+  const regPlaceholder = activeWorkplace?.regTemplate ?? 'e.g. 100234'
 
   const patientIndex = useMemo(() => {
     const seen = new Map<string, { name: string; reg: string }>()
@@ -113,19 +116,20 @@ export default function TranscriptConfirmModal({
 
   const isNewPatient = patientName.trim().length > 0 && exactMatch === null
 
+  // Returning patient reuses the reg already on their record. Otherwise, in
+  // auto mode, mint the next YYYYMMDDNNN — both for genuinely new patients and
+  // for returning patients who never got a reg (legacy notes in 'none' mode).
+  // In 'existing' mode a new patient is left blank for manual entry.
   const suggestedReg = useMemo(() => {
-    if (!isNewPatient) return ''
-    return suggestNextReg(allNotes)
-  }, [isNewPatient, allNotes])
+    if (!patientName.trim()) return ''
+    if (exactMatch?.reg) return exactMatch.reg
+    if (autoReg) return suggestNextReg(allNotes)
+    return ''
+  }, [patientName, exactMatch, autoReg, allNotes])
 
   useEffect(() => {
     if (suggestedReg && !regNumber) setRegNumber(suggestedReg)
   }, [suggestedReg]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Returning patient (exact name match) reuses their existing reg
-  useEffect(() => {
-    if (exactMatch?.reg && !regNumber) setRegNumber(exactMatch.reg)
-  }, [exactMatch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function updateDropdownPos() {
     if (inputRef.current) {
