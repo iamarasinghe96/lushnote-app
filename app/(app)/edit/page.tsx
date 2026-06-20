@@ -1759,6 +1759,7 @@ function EditContent() {
                     boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
                   }}>
                   <div className="text-xs font-medium text-[var(--text3)] mb-3">{letterCommonFields.letterDate}</div>
+                  <div className="space-y-3">
                   <Input
                     label={letterType === 'freetext' ? 'Subject' : 'Patient name'}
                     value={letterCommonFields.patientName}
@@ -1767,7 +1768,6 @@ function EditContent() {
                   {letterType !== 'freetext' && (
                     <Input
                       label="Date of birth (DD/MM/YYYY)"
-                      className="mt-3"
                       value={letterCommonFields.dob}
                       onChange={e => store.setLetterCommonFields({ dob: autoFormatDate(e.target.value) })}
                       placeholder="DD/MM/YYYY"
@@ -1775,11 +1775,10 @@ function EditContent() {
                   )}
                   <Input
                     label="To (recipient name or organisation)"
-                    className="mt-3"
                     value={letterCommonFields.recipientName}
                     onChange={e => store.setLetterCommonFields({ recipientName: e.target.value })}
                   />
-                  <div className="mt-3">
+                  <div>
                     <label className="block text-xs font-medium text-[var(--text)] mb-1">Recipient address (optional)</label>
                     <div className="flex gap-2 items-start">
                       <textarea
@@ -1885,6 +1884,7 @@ function EditContent() {
                         )}
                       </div>
                     )}
+                  </div>
                   </div>
                 </div>
 
