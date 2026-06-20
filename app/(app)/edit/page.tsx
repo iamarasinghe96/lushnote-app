@@ -191,6 +191,10 @@ function EditContent() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
   const autoSaveEnabledRef = useRef(true)
+  // Typewriter that fills the already-known header fields (patient, reg, date,
+  // clinician) while the AI generates the body. cancel() snaps them to full
+  // values; called when generation finishes or the component unmounts.
+  const metaAnimRef = useRef<{ cancel: () => void } | null>(null)
   const latestFieldsRef = useRef<Partial<Note>>(store.currentNote)
   const formScrollRef = useRef<HTMLDivElement>(null)
   const previewScrollRef = useRef<HTMLDivElement>(null)
@@ -275,7 +279,7 @@ function EditContent() {
     }
   }
 
-  useEffect(() => { return () => { mountedRef.current = false } }, [])
+  useEffect(() => { return () => { mountedRef.current = false; metaAnimRef.current?.cancel() } }, [])
 
   // Bidirectional scroll sync - mirrors scroll position proportionally between both panes
   useEffect(() => {
@@ -610,6 +614,60 @@ function EditContent() {
     doAutoSave(undefined)
   }
 
+  // Typewriter the already-known header fields in sequence while the AI works,
+  // so the form shows activity during the generation wait instead of sitting
+  // idle. Returns immediately; the AI body is still populated all at once by
+  // animateFields once the response lands. Honours prefers-reduced-motion.
+  function animateKnownFields(known: Array<[keyof Note, string]>) {
+    metaAnimRef.current?.cancel()
+
+    const finalize = () => {
+      const next = { ...latestFieldsRef.current }
+      for (const [k, v] of known) (next as Record<string, string>)[k] = v
+      latestFieldsRef.current = next
+      if (mountedRef.current) setFields(next)
+    }
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      finalize()
+      return
+    }
+
+    let cancelled = false
+    let interval: ReturnType<typeof setInterval> | null = null
+    const stop = () => { if (interval) { clearInterval(interval); interval = null } }
+    metaAnimRef.current = {
+      cancel: () => { if (cancelled) return; cancelled = true; stop(); finalize() },
+    }
+
+    // Blank the known fields up front so they type in from empty.
+    const blanked = { ...latestFieldsRef.current }
+    for (const [k] of known) (blanked as Record<string, string>)[k] = ''
+    latestFieldsRef.current = blanked
+    setFields(blanked)
+
+    let fieldIdx = 0
+    const animateOne = () => {
+      if (cancelled || !mountedRef.current || fieldIdx >= known.length) { stop(); return }
+      const [key, value] = known[fieldIdx]
+      let i = 0
+      interval = setInterval(() => {
+        if (cancelled || !mountedRef.current) { stop(); return }
+        i++
+        const slice = value.slice(0, i)
+        const next = { ...latestFieldsRef.current, [key]: slice }
+        latestFieldsRef.current = next
+        setFields(next)
+        if (i >= value.length) {
+          stop()
+          fieldIdx++
+          animateOne()
+        }
+      }, 30)
+    }
+    animateOne()
+  }
+
   function animateFields(noteFields: Partial<Note>) {
     // The typewriter reveal and per-field auto-scroll were deliberate delays.
     // They're removed: the generated note is populated all at once and shown
@@ -617,6 +675,10 @@ function EditContent() {
     autoSaveEnabledRef.current = false
     setIsGenerating(false)
     setGenerationStatus(null)
+    // Snap the header typewriter to its full values before merging the body in,
+    // so a still-running animation can't leave a partial name/date behind.
+    metaAnimRef.current?.cancel()
+    metaAnimRef.current = null
 
     const next = { ...latestFieldsRef.current, ...noteFields }
     latestFieldsRef.current = next
@@ -706,21 +768,24 @@ function EditContent() {
     const transcript = s.lastTranscript || ''
     if (!template || !user) return
 
-    // Auto-fill date and clinician immediately
+    // Auto-fill date and clinician, then typewriter the known header fields
+    // (patient, reg, date, clinician) to fill the generation wait with activity.
     const now = new Date()
     const dd = String(now.getDate()).padStart(2, '0')
     const mm = String(now.getMonth() + 1).padStart(2, '0')
     const yyyy = now.getFullYear()
     const dateStr = `${dd}/${mm}/${yyyy}`
 
-    setFields(prev => {
-      const next = { ...prev, date: dateStr, clinician: profile?.displayName ?? '' }
-      latestFieldsRef.current = next
-      return next
-    })
-
     autoSaveEnabledRef.current = false
     setIsGenerating(true)
+
+    const known = ([
+      ['patient',    latestFieldsRef.current.patient ?? ''],
+      ['reg_number', latestFieldsRef.current.reg_number ?? ''],
+      ['date',       dateStr],
+      ['clinician',  profile?.displayName ?? ''],
+    ] as Array<[keyof Note, string]>).filter(([, v]) => v)
+    animateKnownFields(known)
 
     const STATUS_SEQ: [string, number][] = [
       ['Analysing the consultation transcript',       1200],
@@ -801,6 +866,10 @@ function EditContent() {
 
     } catch (err) {
       statusTimers.forEach(clearTimeout)
+      // Snap the header fields to full values so a failed generation doesn't
+      // leave a half-typed name/date in the form.
+      metaAnimRef.current?.cancel()
+      metaAnimRef.current = null
       if (!mountedRef.current) return
       setIsGenerating(false)
       setGenerationStatus(null)
