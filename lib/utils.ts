@@ -314,8 +314,7 @@ export function buildLetterPreviewHTML(params: {
         <div style="margin-top:auto;padding-top:16px;text-align:center;position:relative;z-index:2;">
           ${signatureHtml}
           <p style="margin:0 0 2px;">Thank you and kind regards,</p>
-          <p style="margin:0 0 2px;font-weight:700;">${escapeHtml(clinicianName || '')}</p>
-          ${credentials ? `<p style="margin:0 0 2px;">${escapeHtml(credentials)}</p>` : ''}
+          <p style="margin:0 0 2px;font-weight:700;">${escapeHtml(clinicianName || '')}${credentials ? ` (${escapeHtml(credentials)})` : ''}</p>
           ${(providerNumber || workPhone) ? `<p style="margin:0 0 2px;">${providerNumber ? 'Provider No: ' + escapeHtml(providerNumber) : ''}${providerNumber && workPhone ? ' | ' : ''}${workPhone ? 'Ph no: ' + escapeHtml(workPhone) : ''}</p>` : ''}
           ${position ? `<p style="margin:0 0 2px;font-size:${Math.max(7, baseFont - 2)}pt;">${escapeHtml(position)}</p>` : ''}
           ${workplaceName ? `<p style="margin:0;font-size:${Math.max(7, baseFont - 2)}pt;">${escapeHtml(workplaceName)}</p>` : ''}
