@@ -231,6 +231,7 @@ function EditContent() {
   const [sigScaleDraft, setSigScaleDraft] = useState<number>(profile?.signatureScale ?? 100)
   const [fontSizeDraft, setFontSizeDraft] = useState<number>(profile?.letterFontSize ?? 11)
   const [lineSpacingDraft, setLineSpacingDraft] = useState<number>(profile?.letterLineSpacing ?? 1.4)
+  const [marginDraft, setMarginDraft] = useState<number>(profile?.letterMargin ?? 20)
   const [savingLayout, setSavingLayout] = useState(false)
   const layoutTouchedRef = useRef(false)
 
@@ -239,12 +240,14 @@ function EditContent() {
     setSigScaleDraft(profile?.signatureScale ?? 100)
     setFontSizeDraft(profile?.letterFontSize ?? 11)
     setLineSpacingDraft(profile?.letterLineSpacing ?? 1.4)
-  }, [profile?.signatureScale, profile?.letterFontSize, profile?.letterLineSpacing])
+    setMarginDraft(profile?.letterMargin ?? 20)
+  }, [profile?.signatureScale, profile?.letterFontSize, profile?.letterLineSpacing, profile?.letterMargin])
 
   const layoutDirty =
     sigScaleDraft !== (profile?.signatureScale ?? 100) ||
     fontSizeDraft !== (profile?.letterFontSize ?? 11) ||
-    lineSpacingDraft !== (profile?.letterLineSpacing ?? 1.4)
+    lineSpacingDraft !== (profile?.letterLineSpacing ?? 1.4) ||
+    marginDraft !== (profile?.letterMargin ?? 20)
 
   async function handleSaveLetterLayout() {
     if (!user) return
@@ -254,6 +257,7 @@ function EditContent() {
         signatureScale: sigScaleDraft,
         letterFontSize: fontSizeDraft,
         letterLineSpacing: lineSpacingDraft,
+        letterMargin: marginDraft,
       })
       await refreshProfile()
       layoutTouchedRef.current = false
@@ -371,6 +375,7 @@ function EditContent() {
         signatureScale: sigScaleDraft,
         fontSize: fontSizeDraft,
         lineHeight: lineSpacingDraft,
+        margin: marginDraft,
         clinicianName: profile?.displayName,
         credentials: profile?.credentials,
         providerNumber: profile?.providerNumber,
@@ -381,7 +386,7 @@ function EditContent() {
       setPreviewHtml(html)
     }, 200)
     return () => clearTimeout(timer)
-  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile, store.activeLetterhead, sigScaleDraft, fontSizeDraft, lineSpacingDraft])
+  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile, store.activeLetterhead, sigScaleDraft, fontSizeDraft, lineSpacingDraft, marginDraft])
 
   useEffect(() => {
     if (!letterToast) return
@@ -916,7 +921,9 @@ function EditContent() {
   async function handleLetterPDF() {
     const { jsPDF } = await import('jspdf')
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-    const PW = 210, PH = 297, ML = 20, MR = 20, CW = PW - ML - MR
+    const PW = 210, PH = 297
+    const ML = marginDraft > 0 ? marginDraft : 20
+    const MR = ML, CW = PW - ML - MR
 
     const fs = fontSizeDraft > 0 ? fontSizeDraft : 11
     const ls = lineSpacingDraft > 0 ? lineSpacingDraft : 1.4
@@ -1026,14 +1033,15 @@ function EditContent() {
     if (sy < y + PS * 2) { doc.addPage(); stampLetterhead(); sy = maxY - blockH }
     if (sy < contentTop) sy = contentTop
 
+    const cx = PW / 2
     if (sigDataUrl) {
-      try { doc.addImage(sigDataUrl, 'PNG', ML, sy, 40 * sigF, 14 * sigF) } catch {}
+      try { doc.addImage(sigDataUrl, 'PNG', cx - (40 * sigF) / 2, sy, 40 * sigF, 14 * sigF) } catch {}
       sy += 14 * sigF + 3
     }
     for (const line of sigLines) {
       doc.setFont('helvetica', line.bold ? 'bold' : 'normal')
       doc.setFontSize(line.size ?? fs)
-      doc.text(line.text, ML, sy)
+      doc.text(line.text, cx, sy, { align: 'center' })
       sy += LH
     }
 
@@ -1535,7 +1543,7 @@ function EditContent() {
 
       {/* Letter mode bar */}
       {isLetterMode && (
-        <div className="flex items-center justify-between px-4 py-2 bg-[var(--blue)] text-white text-sm shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 bg-[var(--blue)] text-white text-sm shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={() => { store.resetLetterMode(); router.push('/generate') }}
@@ -1549,6 +1557,30 @@ function EditContent() {
                 : 'Free Text Letter'}
             </span>
           </div>
+
+          {/* Layout controls */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <LayoutField label="Font" suffix="pt" value={fontSizeDraft} min={8} max={14} step={0.5}
+              onChange={v => { setFontSizeDraft(v); layoutTouchedRef.current = true }} />
+            <LayoutField label="Spacing" value={lineSpacingDraft} min={1} max={2} step={0.05}
+              onChange={v => { setLineSpacingDraft(v); layoutTouchedRef.current = true }} />
+            <LayoutField label="Margin" suffix="mm" value={marginDraft} min={8} max={35} step={1}
+              onChange={v => { setMarginDraft(v); layoutTouchedRef.current = true }} />
+            {profile?.signatureUrl && (
+              <LayoutField label="Sig" suffix="%" value={sigScaleDraft} min={40} max={250} step={5}
+                onChange={v => { setSigScaleDraft(v); layoutTouchedRef.current = true }} />
+            )}
+            {layoutDirty && (
+              <button
+                onClick={handleSaveLetterLayout}
+                disabled={savingLayout}
+                className="text-xs border border-white/50 text-white px-2.5 py-1 rounded-md font-medium
+                           hover:bg-white/10 disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-colors">
+                {savingLayout ? 'Saving…' : 'Save'}
+              </button>
+            )}
+          </div>
+
           <div className="flex items-center gap-2">
             <button
               onClick={handleLetterPDF}
@@ -1935,67 +1967,6 @@ function EditContent() {
                     {isGeneratingLetter ? 'Generating…' : '✦ Generate from transcript'}
                   </button>
                 )}
-
-                {/* Letter layout - font size, line spacing, signature size; live-previews against the actual letter */}
-                <div className="p-3 rounded-[var(--r-lg)]"
-                  style={{
-                    background: 'rgba(255,255,255,0.75)',
-                    backdropFilter: 'blur(12px)',
-                    boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
-                  }}>
-                  <p className="text-sm font-medium text-[var(--text)] mb-2">Letter layout</p>
-                  <p className="text-xs text-[var(--text3)] mb-3">Adjust to fit everything onto one page. Changes preview live, then save.</p>
-
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-medium text-[var(--text2)]">Font size</label>
-                    <span className="text-xs text-[var(--text3)] tabular-nums">{fontSizeDraft} pt</span>
-                  </div>
-                  <input
-                    type="range" min={9} max={13} step={0.5}
-                    value={fontSizeDraft}
-                    onChange={e => { setFontSizeDraft(Number(e.target.value)); layoutTouchedRef.current = true }}
-                    className="w-full accent-[var(--blue)]"
-                    aria-label="Letter font size"
-                  />
-
-                  <div className="flex items-center justify-between mb-1 mt-3">
-                    <label className="text-xs font-medium text-[var(--text2)]">Line spacing</label>
-                    <span className="text-xs text-[var(--text3)] tabular-nums">{lineSpacingDraft.toFixed(2)}×</span>
-                  </div>
-                  <input
-                    type="range" min={1.2} max={1.8} step={0.05}
-                    value={lineSpacingDraft}
-                    onChange={e => { setLineSpacingDraft(Number(e.target.value)); layoutTouchedRef.current = true }}
-                    className="w-full accent-[var(--blue)]"
-                    aria-label="Letter line spacing"
-                  />
-
-                  {profile?.signatureUrl && (
-                    <>
-                      <div className="flex items-center justify-between mb-1 mt-3">
-                        <label className="text-xs font-medium text-[var(--text2)]">Signature size</label>
-                        <span className="text-xs text-[var(--text3)] tabular-nums">{sigScaleDraft}%</span>
-                      </div>
-                      <input
-                        type="range" min={50} max={200} step={5}
-                        value={sigScaleDraft}
-                        onChange={e => { setSigScaleDraft(Number(e.target.value)); layoutTouchedRef.current = true }}
-                        className="w-full accent-[var(--blue)]"
-                        aria-label="Signature size"
-                      />
-                    </>
-                  )}
-
-                  {layoutDirty && (
-                    <button
-                      onClick={handleSaveLetterLayout}
-                      disabled={savingLayout}
-                      className="mt-3 text-xs bg-[var(--blue)] text-white rounded-[var(--r)] px-3 py-1.5
-                                 font-medium disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform">
-                      {savingLayout ? 'Saving…' : 'Save layout'}
-                    </button>
-                  )}
-                </div>
               </div>
             )}
 
@@ -2305,5 +2276,37 @@ function EditContent() {
         onClose={() => setReassignOpen(false)}
       />
     </div>
+  )
+}
+
+// Compact number stepper used in the letter-mode toolbar. Free typing while
+// editing; clamps to range on blur.
+function LayoutField({
+  label, value, min, max, step, suffix, onChange,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  suffix?: string
+  onChange: (v: number) => void
+}) {
+  return (
+    <label className="flex items-center gap-1 text-[11px] text-white/90">
+      <span className="whitespace-nowrap">{label}</span>
+      <input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={e => { const v = Number(e.target.value); if (e.target.value !== '' && !Number.isNaN(v)) onChange(v) }}
+        onBlur={e => { let v = Number(e.target.value); if (Number.isNaN(v)) v = min; onChange(Math.min(max, Math.max(min, v))) }}
+        className="w-14 rounded-md border border-white/30 bg-white text-[var(--text)] text-xs px-1.5 py-1
+                   outline-none focus:ring-2 focus:ring-white/40"
+      />
+      {suffix && <span className="text-white/70">{suffix}</span>}
+    </label>
   )
 }

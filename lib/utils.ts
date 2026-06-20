@@ -216,6 +216,7 @@ export function buildLetterPreviewHTML(params: {
   signatureScale?: number
   fontSize?: number
   lineHeight?: number
+  margin?: number
   clinicianName?: string
   credentials?: string
   providerNumber?: string
@@ -226,12 +227,13 @@ export function buildLetterPreviewHTML(params: {
   const {
     letterType, common, referral, records, freetext,
     letterheadHeaderUrl, letterheadFooterUrl,
-    signatureUrl, signatureScale, fontSize, lineHeight, clinicianName, credentials,
+    signatureUrl, signatureScale, fontSize, lineHeight, margin, clinicianName, credentials,
     providerNumber, workPhone, position, workplaceName,
   } = params
 
   const baseFont = fontSize && fontSize > 0 ? fontSize : 11
   const baseLine = lineHeight && lineHeight > 0 ? lineHeight : 1.4
+  const baseMargin = margin && margin > 0 ? margin : 20
   const smallFont = Math.max(8, baseFont - 1)
 
   const headerHtml = letterheadHeaderUrl
@@ -249,7 +251,7 @@ export function buildLetterPreviewHTML(params: {
 
   const sigHeight = Math.round(50 * ((signatureScale && signatureScale > 0 ? signatureScale : 100) / 100))
   const signatureHtml = signatureUrl
-    ? `<img src="${escapeHtml(signatureUrl)}" style="height:${sigHeight}px;object-fit:contain;display:block;margin-bottom:4px;" alt="Signature" />`
+    ? `<img src="${escapeHtml(signatureUrl)}" style="height:${sigHeight}px;object-fit:contain;display:block;margin:0 auto 4px;" alt="Signature" />`
     : ''
 
   const recipientBlock = `
@@ -303,13 +305,13 @@ export function buildLetterPreviewHTML(params: {
   return `
     <div style="font-family:Arial,sans-serif;font-size:${baseFont}pt;line-height:${baseLine};color:#000;background:#fff;min-height:297mm;display:flex;flex-direction:column;max-width:210mm;">
       ${headerHtml}
-      <div style="padding:15px 20mm;flex:1;display:flex;flex-direction:column;">
+      <div style="padding:15px ${baseMargin}mm;flex:1;display:flex;flex-direction:column;">
         <div>
           ${recipientBlock}
           ${reBlock}
           ${bodyHtml}
         </div>
-        <div style="margin-top:auto;padding-top:32px;">
+        <div style="margin-top:auto;padding-top:32px;text-align:center;">
           ${signatureHtml}
           <p style="margin:0 0 2px;">Thank you and kind regards,</p>
           <p style="margin:0 0 2px;font-weight:700;">${escapeHtml(clinicianName || '')}</p>

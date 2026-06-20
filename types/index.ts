@@ -20,6 +20,7 @@ interface User {
   signatureScale?: number      // percent, 50–200, default 100
   letterFontSize?: number      // pt, 9–13, default 11
   letterLineSpacing?: number   // line-height multiplier, 1.2–1.8, default 1.4
+  letterMargin?: number        // side margin in mm, 10–30, default 20
   providerNumber?: string
   workPhone?: string
   position?: string
