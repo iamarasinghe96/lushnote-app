@@ -8,9 +8,8 @@ import { NoteStoreProvider, useNoteStore } from '@/hooks/useNoteStore'
 import TabBar from '@/components/tabs/TabBar'
 import { FAB } from '@/components/FAB'
 import { RateLimitBanner } from '@/components/ui/RateLimitBanner'
-import { getInitials, applyWorkspaceTheme } from '@/lib/utils'
+import { getInitials, applyWorkspaceTheme, resolveThemePrimary } from '@/lib/utils'
 import { getLetterhead } from '@/lib/firestore/letterheads'
-import { WP_THEMES } from '@/types'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -72,7 +71,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!profile) return
     const wp = profile.workplaces?.find(w => w.id === profile.activeWorkplaceId)
-    applyWorkspaceTheme(wp?.themeIndex ?? 0)
+    applyWorkspaceTheme(wp?.themeIndex ?? 1, wp?.themeColor)
   }, [profile])
 
   // Load shared letterhead for active workplace into NoteStore
@@ -93,8 +92,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
   if (!user || !profile?.onboardingComplete) return null
 
   const activeWorkplace = profile?.workplaces?.find(w => w.id === profile.activeWorkplaceId)
-  const themeIndex = activeWorkplace?.themeIndex ?? 0
-  const avatarBg = WP_THEMES[themeIndex]?.primary ?? '#2563eb'
+  const avatarBg = resolveThemePrimary(activeWorkplace?.themeIndex ?? 1, activeWorkplace?.themeColor)
   const initials = getInitials(profile?.displayName || '')
 
   return (

@@ -135,7 +135,7 @@ function SettingsContent() {
   useEffect(() => {
     if (!profile) return
     const activeWp = profile.workplaces?.find(w => w.id === profile.activeWorkplaceId)
-    applyWorkspaceTheme(activeWp?.themeIndex ?? 0)
+    applyWorkspaceTheme(activeWp?.themeIndex ?? 1, activeWp?.themeColor)
   }, [profile])
 
   if (loading) {

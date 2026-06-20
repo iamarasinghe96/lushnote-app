@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
-import { detectIdPattern, applyWorkspaceTheme, toOrganizationKey } from '@/lib/utils'
+import { detectIdPattern, applyWorkspaceTheme, resolveThemePrimary, toOrganizationKey } from '@/lib/utils'
 import { WP_THEMES } from '@/types'
 import { getLetterhead, submitLetterheadRequest, type LetterheadDoc } from '@/lib/firestore/letterheads'
 import { uploadLetterheadRequestImage } from '@/lib/storage'
@@ -36,10 +36,11 @@ interface EditForm {
   regSystem: 'none' | 'existing'
   regFormat: string
   themeIndex: number
+  themeColor: string        // hex; only used when themeIndex === -1
 }
 
 function emptyForm(): EditForm {
-  return { name: '', type: 'Private Practice', regSystem: 'none', regFormat: '', themeIndex: 0 }
+  return { name: '', type: 'Private Practice', regSystem: 'none', regFormat: '', themeIndex: 1, themeColor: '#4361EE' }
 }
 
 function wpToForm(wp: Workplace): EditForm {
@@ -49,6 +50,7 @@ function wpToForm(wp: Workplace): EditForm {
     regSystem: wp.regSystem,
     regFormat: wp.regFormat ?? '',
     themeIndex: wp.themeIndex,
+    themeColor: wp.themeColor ?? '#4361EE',
   }
 }
 
@@ -121,6 +123,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
               regPattern: pattern?.regex,
               regTemplate: pattern?.template,
               themeIndex: form.themeIndex,
+              themeColor: form.themeIndex === -1 ? form.themeColor : undefined,
             }
           : wp
       )
@@ -150,6 +153,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
         regPattern: pattern?.regex,
         regTemplate: pattern?.template,
         themeIndex: form.themeIndex,
+        themeColor: form.themeIndex === -1 ? form.themeColor : undefined,
       }
       const updated = [...workplaces, newWp]
       await onSave(updated, activeId)
@@ -165,7 +169,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
   async function handleSetActive(id: string) {
     const workplace = workplaces.find(w => w.id === id)
     if (!workplace) return
-    applyWorkspaceTheme(workplace.themeIndex ?? 0)
+    applyWorkspaceTheme(workplace.themeIndex ?? 1, workplace.themeColor)
     setSaving(true)
     try {
       await onSave(workplaces, id)
@@ -280,18 +284,55 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
 
         <div>
           <label className="block text-sm font-medium text-[var(--text)] mb-2">Colour theme</label>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {WP_THEMES.map((theme, i) => (
               <button
                 key={i}
+                type="button"
                 onClick={() => setForm(f => ({ ...f, themeIndex: i }))}
-                className={`w-8 h-8 rounded-full transition-transform
-                  ${form.themeIndex === i ? 'scale-110 ring-2 ring-offset-2 ring-[var(--border)]' : ''}`}
+                className={`w-8 h-8 rounded-full motion-safe:transition-transform
+                  ${form.themeIndex === i ? 'scale-110 ring-2 ring-offset-2 ring-[var(--blue)]' : 'opacity-80 hover:opacity-100 hover:scale-105'}`}
                 style={{ backgroundColor: theme.primary }}
                 aria-label={`Theme ${i + 1}`}
               />
             ))}
+            {/* Custom colour swatch — shown when a custom colour is active */}
+            {form.themeIndex === -1 && (
+              <div
+                className="w-8 h-8 rounded-full scale-110 ring-2 ring-offset-2 ring-[var(--blue)]"
+                style={{ backgroundColor: form.themeColor }}
+              />
+            )}
+            {/* Native colour picker trigger */}
+            <label
+              className="w-8 h-8 rounded-full border-2 border-dashed border-[var(--border)]
+                         flex items-center justify-center cursor-pointer
+                         hover:border-[var(--blue)] motion-safe:transition-colors"
+              aria-label="Custom colour"
+              title="Custom colour"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2" className="text-[var(--text3)]" aria-hidden>
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 2a10 10 0 0 1 7.07 17.07"/>
+                <path d="M12 2a10 10 0 0 0-7.07 17.07"/>
+                <line x1="12" y1="2" x2="12" y2="22"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+              </svg>
+              <input
+                type="color"
+                className="sr-only"
+                value={form.themeIndex === -1 ? form.themeColor : '#4361EE'}
+                onChange={e => setForm(f => ({ ...f, themeIndex: -1, themeColor: e.target.value }))}
+                aria-label="Pick custom colour"
+              />
+            </label>
           </div>
+          {form.themeIndex === -1 && (
+            <p className="mt-1.5 text-xs text-[var(--text3)]">
+              Custom: <span className="font-mono text-[var(--text2)]">{form.themeColor}</span>
+            </p>
+          )}
         </div>
 
         <div className="flex gap-2">
@@ -311,7 +352,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
       {workplaces.map(wp => {
         const isActive = wp.id === activeId
         const isEditing = editingId === wp.id
-        const theme = WP_THEMES[wp.themeIndex] ?? WP_THEMES[0]
+        const dotColor = resolveThemePrimary(wp.themeIndex ?? 1, wp.themeColor)
         const lh = letterheads[wp.name]  // undefined = loading, null = not found, object = found
 
         return (
@@ -322,7 +363,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: theme.primary }} />
+                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-[var(--text)] truncate">{wp.name}</p>
                   <p className="text-xs text-[var(--text3)]">{wp.type}</p>

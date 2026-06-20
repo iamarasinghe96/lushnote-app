@@ -15,11 +15,45 @@ export function getInitials(displayName: string): string {
   return cleaned.slice(0, 2).toUpperCase()
 }
 
-export function applyWorkspaceTheme(themeIndex: number) {
-  const theme = WP_THEMES[themeIndex] || WP_THEMES[0]
-  document.documentElement.style.setProperty('--blue', theme.primary)
-  document.documentElement.style.setProperty('--blue-dk', theme.dk)
-  document.documentElement.style.setProperty('--blue-lt', theme.lt)
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.replace('#', ''), 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return '#' + [r, g, b]
+    .map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0'))
+    .join('')
+}
+
+export function darkenHex(hex: string, amount = 0.18): string {
+  const [r, g, b] = hexToRgb(hex)
+  return rgbToHex(r * (1 - amount), g * (1 - amount), b * (1 - amount))
+}
+
+export function lightenHex(hex: string, amount = 0.88): string {
+  const [r, g, b] = hexToRgb(hex)
+  return rgbToHex(r + (255 - r) * amount, g + (255 - g) * amount, b + (255 - b) * amount)
+}
+
+export function applyWorkspaceTheme(themeIndex: number, customColor?: string) {
+  let primary: string, dk: string, lt: string
+  if (themeIndex === -1 && customColor) {
+    primary = customColor
+    dk = darkenHex(customColor)
+    lt = lightenHex(customColor)
+  } else {
+    const theme = WP_THEMES[themeIndex] || WP_THEMES[1]
+    primary = theme.primary; dk = theme.dk; lt = theme.lt
+  }
+  document.documentElement.style.setProperty('--blue', primary)
+  document.documentElement.style.setProperty('--blue-dk', dk)
+  document.documentElement.style.setProperty('--blue-lt', lt)
+}
+
+export function resolveThemePrimary(themeIndex: number, themeColor?: string): string {
+  if (themeIndex === -1 && themeColor) return themeColor
+  return WP_THEMES[themeIndex]?.primary ?? WP_THEMES[1].primary
 }
 
 export function openSettings(tab: string): void {

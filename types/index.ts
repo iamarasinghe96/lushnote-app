@@ -75,7 +75,8 @@ interface Workplace {
   regFormat?: string        // raw example ID string entered by user
   regPattern?: string       // generated regex string e.g. "^\d{8}[A-Za-z]{2}$"
   regTemplate?: string      // display template e.g. "########AA"
-  themeIndex: number        // 0 = rose-red, 1 = amber-yellow, 2 = teal
+  themeIndex: number        // 0 = rose-red, 1 = indigo-blue, 2 = teal, -1 = custom
+  themeColor?: string       // hex string when themeIndex === -1
 }
 
 type WorkplaceType =

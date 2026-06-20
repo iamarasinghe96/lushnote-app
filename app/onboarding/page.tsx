@@ -121,7 +121,7 @@ export default function OnboardingPage() {
               regTemplate: patternPreview.template,
             }
           : {}),
-        themeIndex: 0,
+        themeIndex: 1,
       }
 
       await createProfile(user.uid, {
