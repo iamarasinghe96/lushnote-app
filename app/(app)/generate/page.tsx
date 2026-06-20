@@ -236,32 +236,71 @@ export default function GeneratePage() {
     setTranscriptConfirmOpen(true)
   }
 
-  async function handleAudioReady(blob: Blob, mimeType: string, duration: number) {
+  // Vercel serverless functions have a hard 4.5 MB request body limit.
+  // Long recordings (>~10 min at 48 kbps) exceed it, so split into segments.
+  // Chunk[0] from MediaRecorder contains the WebM stream header and must be
+  // prepended to every subsequent segment to produce a valid audio file.
+  const MAX_SEGMENT_BYTES = 3_500_000
+
+  async function transcribeSegment(segBlob: Blob, mimeType: string): Promise<string> {
+    const formData = new FormData()
+    formData.append('audio', segBlob, 'audio.webm')
+    formData.append('mimeType', mimeType)
+    formData.append('uid', user!.uid)
+    const headers: Record<string, string> = {}
+    const groqKey = sessionStorage.getItem('groq_api_key')
+    if (groqKey) headers['x-groq-key'] = groqKey
+    const res = await fetch('/api/transcribe', { method: 'POST', headers, body: formData })
+    if (!res.ok) {
+      const data = await res.json() as { error?: string }
+      throw new Error(data.error ?? 'Transcription failed')
+    }
+    return ((await res.json()) as { text: string }).text
+  }
+
+  async function transcribeAudio(blob: Blob, chunks: Blob[], mimeType: string): Promise<string> {
+    if (blob.size <= MAX_SEGMENT_BYTES || chunks.length === 0) {
+      return transcribeSegment(blob, mimeType)
+    }
+    const header = chunks[0]
+    const segments: Blob[] = []
+    let batch: Blob[] = []
+    let batchSize = 0
+    for (let i = 0; i < chunks.length; i++) {
+      const c = chunks[i]
+      const preamble = batch.length === 0 && segments.length > 0 ? header.size : 0
+      if (batch.length > 0 && batchSize + preamble + c.size > MAX_SEGMENT_BYTES) {
+        const parts = segments.length === 0 ? batch : [header, ...batch]
+        segments.push(new Blob(parts, { type: mimeType }))
+        batch = []
+        batchSize = 0
+      }
+      batch.push(c)
+      batchSize += c.size
+    }
+    if (batch.length > 0) {
+      const parts = segments.length === 0 ? batch : [header, ...batch]
+      segments.push(new Blob(parts, { type: mimeType }))
+    }
+    const texts: string[] = []
+    for (const seg of segments) {
+      texts.push(await transcribeSegment(seg, mimeType))
+    }
+    return texts.join(' ')
+  }
+
+  async function handleAudioReady(blob: Blob, mimeType: string, duration: number, chunks: Blob[]) {
     store.setLastRecordingDuration(duration)
     setPhase('transcribing')
     try {
-      const formData = new FormData()
-      formData.append('audio', blob, 'audio.webm')
-      formData.append('mimeType', mimeType)
-      formData.append('uid', user!.uid)
-
-      const headers: Record<string, string> = {}
-      const groqKey = sessionStorage.getItem('groq_api_key')
-      if (groqKey) headers['x-groq-key'] = groqKey
-
-      const res = await fetch('/api/transcribe', { method: 'POST', headers, body: formData })
-      if (!res.ok) {
-        const data = await res.json() as { error?: string }
-        throw new Error(data.error ?? 'Transcription failed')
-      }
-      const data = await res.json() as { text: string }
-      const validation = validateTranscript(data.text)
+      const text = await transcribeAudio(blob, chunks, mimeType)
+      const validation = validateTranscript(text)
       if (!validation.valid) {
         setError(validation.error!)
         setPhase('idle')
         return
       }
-      setPendingTranscript(data.text)
+      setPendingTranscript(text)
       setTranscriptConfirmOpen(true)
       setPhase('idle')
     } catch (err) {

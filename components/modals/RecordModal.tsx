@@ -9,7 +9,7 @@ import type { RecordingDefaults } from '@/types'
 interface RecordModalProps {
   open: boolean
   onClose: () => void
-  onAudioReady: (blob: Blob, mimeType: string, duration: number) => void
+  onAudioReady: (blob: Blob, mimeType: string, duration: number, chunks: Blob[]) => void
   recordingDefaults?: RecordingDefaults
 }
 
@@ -70,7 +70,7 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
       streamRef.current.getTracks().forEach(t => t.stop())
       streamRef.current = null
     }
-    onAudioReady(result.blob, result.mimeType, result.duration)
+    onAudioReady(result.blob, result.mimeType, result.duration, result.chunks)
     onClose()
   }
 

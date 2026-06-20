@@ -6,7 +6,7 @@ interface UseRecorderReturn {
   isRecording: boolean
   duration: number
   startRecording: (stream: MediaStream) => void
-  stopRecording: () => Promise<{ blob: Blob; mimeType: string; duration: number }>
+  stopRecording: () => Promise<{ blob: Blob; mimeType: string; duration: number; chunks: Blob[] }>
   error: string | null
 }
 
@@ -19,7 +19,7 @@ export function useRecorder(): UseRecorderReturn {
   const chunksRef = useRef<Blob[]>([])
   const startTimeRef = useRef<number>(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const resolveRef = useRef<((v: { blob: Blob; mimeType: string; duration: number }) => void) | null>(null)
+  const resolveRef = useRef<((v: { blob: Blob; mimeType: string; duration: number; chunks: Blob[] }) => void) | null>(null)
   const mimeTypeRef = useRef<string>('')
   const isRecordingRef = useRef(false)
 
@@ -60,10 +60,11 @@ export function useRecorder(): UseRecorderReturn {
     }
 
     recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current })
+      const chunks = [...chunksRef.current]
+      const blob = new Blob(chunks, { type: mimeTypeRef.current })
       const dur = Math.floor((Date.now() - startTimeRef.current) / 1000)
       if (resolveRef.current) {
-        resolveRef.current({ blob, mimeType: mimeTypeRef.current, duration: dur })
+        resolveRef.current({ blob, mimeType: mimeTypeRef.current, duration: dur, chunks })
         resolveRef.current = null
       }
       if (timerRef.current) {
@@ -92,13 +93,13 @@ export function useRecorder(): UseRecorderReturn {
     }, 1000)
   }, [])
 
-  const stopRecording = useCallback((): Promise<{ blob: Blob; mimeType: string; duration: number }> => {
+  const stopRecording = useCallback((): Promise<{ blob: Blob; mimeType: string; duration: number; chunks: Blob[] }> => {
     return new Promise((resolve) => {
       resolveRef.current = resolve
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop()
       } else {
-        resolve({ blob: new Blob(), mimeType: mimeTypeRef.current, duration: 0 })
+        resolve({ blob: new Blob(), mimeType: mimeTypeRef.current, duration: 0, chunks: [] })
       }
     })
   }, [])
