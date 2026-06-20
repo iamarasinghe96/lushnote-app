@@ -100,11 +100,12 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
         setAutoStopped(true)
         stopRef.current?.()
       }, autoStopMinutes * 60 * 1000)
-    } catch {
+    } catch (e) {
+      const err = e instanceof Error ? `${e.name}: ${e.message}` : String(e)
       setPermError(
         subMode === 'telehealth'
-          ? 'Screen share was cancelled or denied. Click "Start recording" and select the tab to share.'
-          : 'Microphone access denied. Please allow microphone access and try again.'
+          ? `Screen share failed — ${err}`
+          : `Microphone access denied — ${err}`
       )
     }
   }
