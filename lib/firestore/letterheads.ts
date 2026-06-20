@@ -34,15 +34,18 @@ export async function submitLetterheadRequest(params: {
   const key = toOrganizationKey(workplaceName)
 
   // Skip if a pending request already exists from this user for this org
-  const existing = await getDocs(
-    query(
-      collection(db, 'letterheadRequests'),
-      where('requestedBy', '==', uid),
-      where('organizationKey', '==', key),
-      where('status', '==', 'pending'),
+  // Wrapped in try-catch: if the read is denied by rules, fall through to create
+  try {
+    const existing = await getDocs(
+      query(
+        collection(db, 'letterheadRequests'),
+        where('requestedBy', '==', uid),
+        where('organizationKey', '==', key),
+        where('status', '==', 'pending'),
+      )
     )
-  )
-  if (!existing.empty) return
+    if (!existing.empty) return
+  } catch { /* rules may deny list; proceed to create */ }
 
   await addDoc(collection(db, 'letterheadRequests'), {
     organizationKey: key,
