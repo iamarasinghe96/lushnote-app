@@ -401,17 +401,44 @@ function EditContent() {
   // Estimate how many A4 pages the letter spans by measuring the rendered
   // preview HTML at exact A4 width. Lets the user know when they're spilling
   // onto a 2nd page so they can shrink font/spacing/margin to fit.
+  // We strip the container's min-height:297mm so we measure the *natural*
+  // content height, and wait for the letterhead images to load so their
+  // height is counted — otherwise a 1-page letter mis-reports as 2.
   useEffect(() => {
     if (!isLetterMode) { setLetterPageCount(1); return }
     const el = pageMeasureRef.current
     if (!el) return
+
     const PX_PER_MM = 96 / 25.4
     const pageHeightPx = 297 * PX_PER_MM
     el.innerHTML = previewHtml
-    const measured = el.firstElementChild as HTMLElement | null
-    const h = measured ? measured.scrollHeight : el.scrollHeight
-    setLetterPageCount(Math.max(1, Math.ceil((h - 2) / pageHeightPx)))
-    el.innerHTML = ''
+    const child = el.firstElementChild as HTMLElement | null
+    if (child) child.style.minHeight = '0px'
+
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
+      const h = child ? child.scrollHeight : el.scrollHeight
+      // 8px slack absorbs sub-pixel rounding so a letter that just fills the
+      // sheet stays at 1 page.
+      setLetterPageCount(h <= pageHeightPx + 8 ? 1 : Math.ceil(h / pageHeightPx))
+      el.innerHTML = ''
+    }
+
+    const pending = Array.from(el.querySelectorAll('img')).filter(img => !img.complete)
+    if (pending.length === 0) {
+      finish()
+      return
+    }
+    let remaining = pending.length
+    const onSettle = () => { if (--remaining <= 0) finish() }
+    pending.forEach(img => {
+      img.addEventListener('load', onSettle, { once: true })
+      img.addEventListener('error', onSettle, { once: true })
+    })
+    const safety = setTimeout(finish, 1500)
+    return () => { clearTimeout(safety); done = true }
   }, [isLetterMode, previewHtml])
 
   useEffect(() => {
