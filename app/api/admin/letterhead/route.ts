@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Internal error'
+    console.error('[admin/letterhead]', msg)
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
