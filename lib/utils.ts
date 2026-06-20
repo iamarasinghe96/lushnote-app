@@ -317,8 +317,8 @@ export function buildLetterPreviewHTML(params: {
           <p style="margin:0 0 2px;font-weight:700;">${escapeHtml(clinicianName || '')}</p>
           ${credentials ? `<p style="margin:0 0 2px;">${escapeHtml(credentials)}</p>` : ''}
           ${(providerNumber || workPhone) ? `<p style="margin:0 0 2px;">${providerNumber ? 'Provider No: ' + escapeHtml(providerNumber) : ''}${providerNumber && workPhone ? ' | ' : ''}${workPhone ? 'Ph no: ' + escapeHtml(workPhone) : ''}</p>` : ''}
-          ${position ? `<p style="margin:0 0 2px;">${escapeHtml(position)}</p>` : ''}
-          ${workplaceName ? `<p style="margin:0;">${escapeHtml(workplaceName)}</p>` : ''}
+          ${position ? `<p style="margin:0 0 2px;font-size:${Math.max(7, baseFont - 2)}pt;">${escapeHtml(position)}</p>` : ''}
+          ${workplaceName ? `<p style="margin:0;font-size:${Math.max(7, baseFont - 2)}pt;">${escapeHtml(workplaceName)}</p>` : ''}
         </div>
       </div>
       ${footerHtml}

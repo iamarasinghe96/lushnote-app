@@ -942,7 +942,7 @@ function EditContent() {
     const ls = lineSpacingDraft > 0 ? lineSpacingDraft : 1.4
     const LH = fs * 0.3528 * ls          // line advance in mm (1pt ≈ 0.3528mm)
     const PS = LH * 0.5                   // paragraph gap
-    const smallFs = Math.max(8, fs - 1)
+    const smallFs = Math.max(7, fs - 2)
 
     // Load the active letterhead images (via same-origin proxy to avoid canvas taint)
     const lh = store.activeLetterhead
@@ -1032,7 +1032,7 @@ function EditContent() {
     const sigF = (sigScaleDraft > 0 ? sigScaleDraft : 100) / 100
     const sigImgH = sigDataUrl ? 14 * sigF + 3 : 0
 
-    const sigLines: { text: string; bold?: boolean }[] = [{ text: 'Thank you and kind regards,' }]
+    const sigLines: { text: string; bold?: boolean; small?: boolean }[] = [{ text: 'Thank you and kind regards,' }]
     if (profile?.displayName) sigLines.push({ text: profile.displayName, bold: true })
     if (profile?.credentials) sigLines.push({ text: profile.credentials })
     const providerLine = [
@@ -1040,9 +1040,9 @@ function EditContent() {
       profile?.workPhone ? `Ph no: ${profile.workPhone}` : '',
     ].filter(Boolean).join(' | ')
     if (providerLine) sigLines.push({ text: providerLine })
-    if (profile?.position) sigLines.push({ text: profile.position })
+    if (profile?.position) sigLines.push({ text: profile.position, small: true })
     const wpName = profile?.workplaces?.find(w => w.id === profile?.activeWorkplaceId)?.name
-    if (wpName) sigLines.push({ text: wpName })
+    if (wpName) sigLines.push({ text: wpName, small: true })
 
     const blockH = sigImgH + sigLines.length * LH
     let sy = sigZoneBottom - blockH
@@ -1054,11 +1054,14 @@ function EditContent() {
       try { doc.addImage(sigDataUrl, 'JPEG', cx - (40 * sigF) / 2, sy, 40 * sigF, 14 * sigF) } catch {}
       sy += 14 * sigF + 3
     }
+    const smallLH = smallFs * 0.3528 * (lineSpacingDraft > 0 ? lineSpacingDraft : 1)
     for (const line of sigLines) {
+      const lineSize = line.small ? smallFs : fs
+      const lineAdvance = line.small ? smallLH : LH
       doc.setFont('helvetica', line.bold ? 'bold' : 'normal')
-      doc.setFontSize(fs)
+      doc.setFontSize(lineSize)
       doc.text(line.text, cx, sy, { align: 'center' })
-      sy += LH
+      sy += lineAdvance
     }
 
     const pname = (letterCommonFields.patientName || 'letter').replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-')
