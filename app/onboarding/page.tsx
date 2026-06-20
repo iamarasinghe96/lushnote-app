@@ -51,6 +51,7 @@ export default function OnboardingPage() {
   const [selectedPreset, setSelectedPreset] = useState<0 | 1 | 2 | 3>(0)
   const [emailPretext, setEmailPretext] = useState<string>(EMAIL_PRESETS[0])
   const [geminiApiKey, setGeminiApiKey] = useState('')
+  const [groqApiKey, setGroqApiKey] = useState('')
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -148,6 +149,11 @@ export default function OnboardingPage() {
         sessionStorage.setItem('gemini_api_key', geminiApiKey.trim())
       }
 
+      if (groqApiKey.trim()) {
+        await updateProfile(user.uid, { groqApiKey: groqApiKey.trim() })
+        sessionStorage.setItem('groq_api_key', groqApiKey.trim())
+      }
+
       await refreshProfile()
       router.push('/generate')
     } catch (err) {
@@ -230,7 +236,9 @@ export default function OnboardingPage() {
           {step === 4 && (
             <Step4
               geminiApiKey={geminiApiKey}
+              groqApiKey={groqApiKey}
               onGeminiApiKey={setGeminiApiKey}
+              onGroqApiKey={setGroqApiKey}
               onSkip={nextStep}
             />
           )}
@@ -251,6 +259,8 @@ export default function OnboardingPage() {
               workPhone={workPhone}
               workplaceName={workplaceName}
               signatureUrl={signatureUrl}
+              hasGemini={geminiApiKey.trim().length > 0}
+              hasGroq={groqApiKey.trim().length > 0}
               error={error}
             />
           )}
@@ -525,23 +535,28 @@ function Step3({
 
 function Step4({
   geminiApiKey,
+  groqApiKey,
   onGeminiApiKey,
+  onGroqApiKey,
   onSkip,
 }: {
   geminiApiKey: string
+  groqApiKey: string
   onGeminiApiKey: (v: string) => void
+  onGroqApiKey: (v: string) => void
   onSkip: () => void
 }) {
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-[#0f172a]">Gemini API key</h2>
+      <h2 className="text-lg font-semibold text-[#0f172a]">AI keys</h2>
       <p className="text-sm text-[#475569]">
         LushNote uses Google Gemini to generate notes. It&apos;s free - you just need a Google account.
+        Add a Groq key too for a faster fallback and higher daily limits.
       </p>
 
       {/* Step-by-step instructions */}
       <div className="rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-4 space-y-2">
-        <p className="text-xs font-semibold text-[#0f172a] mb-3">How to get your free API key:</p>
+        <p className="text-xs font-semibold text-[#0f172a] mb-3">How to get your free Gemini API key:</p>
         {[
           <>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-[#2563eb] underline font-medium">aistudio.google.com</a> and sign in with your Google account</>,
           <>Click <span className="font-semibold text-[#0f172a]">&quot;Create API key&quot;</span> in the top right corner</>,
@@ -559,7 +574,7 @@ function Step4({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-[#0f172a] mb-1">Paste your API key</label>
+        <label className="block text-sm font-medium text-[#0f172a] mb-1">Gemini API key</label>
         <input
           type="password"
           value={geminiApiKey}
@@ -567,6 +582,22 @@ function Step4({
           placeholder="AIza…"
           className="w-full rounded-xl border border-[#e2e8f0] px-3 py-2.5 text-sm text-[#0f172a] outline-none focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981] font-mono"
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-[#0f172a] mb-1">
+          Groq API key <span className="text-[#94a3b8] font-normal">(optional)</span>
+        </label>
+        <input
+          type="password"
+          value={groqApiKey}
+          onChange={(e) => onGroqApiKey(e.target.value)}
+          placeholder="gsk_…"
+          className="w-full rounded-xl border border-[#e2e8f0] px-3 py-2.5 text-sm text-[#0f172a] outline-none focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981] font-mono"
+        />
+        <p className="text-xs text-[#94a3b8] mt-1">
+          Free key from <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-[#2563eb] underline">console.groq.com/keys</a> — extends your daily limit.
+        </p>
       </div>
 
       <button
@@ -587,6 +618,8 @@ function Step5({
   workPhone,
   workplaceName,
   signatureUrl,
+  hasGemini,
+  hasGroq,
   error,
 }: {
   displayName: string
@@ -596,25 +629,32 @@ function Step5({
   workPhone: string
   workplaceName: string
   signatureUrl: string | null
+  hasGemini: boolean
+  hasGroq: boolean
   error: string
 }) {
-  const rows: { label: string; value: string }[] = [
-    { label: 'Name',         value: displayName },
+  const aiKeys = hasGemini && hasGroq ? 'Gemini · Groq'
+    : hasGemini ? 'Gemini'
+    : hasGroq ? 'Groq'
+    : 'None added (you can add later in Settings)'
+  const rows: { label: string; value: string; muted?: boolean; bold?: boolean }[] = [
+    { label: 'Name',         value: displayName, bold: true },
     ...(credentials    ? [{ label: 'Credentials',    value: credentials }]    : []),
     ...(position       ? [{ label: 'Position',       value: position }]       : []),
     ...(providerNumber ? [{ label: 'Provider No.',   value: providerNumber }] : []),
     ...(workPhone      ? [{ label: 'Work phone',     value: workPhone }]      : []),
     { label: 'Workplace',    value: workplaceName },
-    { label: 'Signature',    value: signatureUrl ? 'Uploaded' : 'Not added (you can add later in Settings)' },
+    { label: 'Signature',    value: signatureUrl ? 'Uploaded' : 'Not added (you can add later in Settings)', muted: !signatureUrl },
+    { label: 'AI keys',      value: aiKeys, muted: !hasGemini && !hasGroq },
   ]
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-[#0f172a]">You&apos;re all set</h2>
       <div className="rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-4 space-y-2 text-sm">
-        {rows.map(({ label, value }) => (
+        {rows.map(({ label, value, muted, bold }) => (
           <div key={label} className="flex gap-2">
             <span className="text-[#94a3b8] w-28 flex-none">{label}</span>
-            <span className={`text-[#0f172a] ${label === 'Name' ? 'font-medium' : ''} ${label === 'Signature' && !signatureUrl ? 'text-[#94a3b8] italic' : ''}`}>{value}</span>
+            <span className={`${muted ? 'text-[#94a3b8] italic' : 'text-[#0f172a]'} ${bold ? 'font-medium' : ''}`}>{value}</span>
           </div>
         ))}
       </div>

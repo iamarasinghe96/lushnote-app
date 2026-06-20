@@ -1,79 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { generateNote } from '@/lib/gemini'
 
-// Address lookup via OpenStreetMap Nominatim (free, no API key). Proxied
-// server-side so we can send a descriptive User-Agent per their usage policy
-// and keep requests to ~1/sec (this is only triggered by a user button press).
+// Address lookup powered by Gemini (server-side key — no per-user key needed).
+// OpenStreetMap/Nominatim was weak at named facilities (clinics, hospitals,
+// radiology centres) and its hard AU country filter returned nonsense for
+// overseas queries. Gemini has broad, current knowledge of real institutions
+// and their postal addresses, and honours any country named in the query.
+//
+// Addresses are a starting point the clinician reviews before sending, and the
+// UI always offers an "Open in Google Maps" button for verification, so an
+// occasional approximate result is acceptable — far better than wrong-country
+// matches.
 
-interface NominatimAddress {
-  house_number?: string
-  road?: string
-  suburb?: string
-  neighbourhood?: string
-  city?: string
-  town?: string
-  village?: string
-  municipality?: string
-  state?: string
-  postcode?: string
-}
-
-interface NominatimItem {
-  display_name: string
+interface AddressCandidate {
   name?: string
-  address?: NominatimAddress
+  address?: string
+  approximate?: boolean
 }
 
-function formatAddress(item: NominatimItem): { label: string; value: string } {
-  const a = item.address ?? {}
-  const name = item.name ?? ''
-  const street = [a.house_number, a.road].filter(Boolean).join(' ')
-  const locality = a.suburb || a.neighbourhood || a.city || a.town || a.village || a.municipality || ''
-  const cityLine = [locality, a.state, a.postcode].filter(Boolean).join(' ')
-  const value = [name, street, cityLine].filter(Boolean).join('\n') || item.display_name
-  return { label: item.display_name, value }
-}
+const SYSTEM_PROMPT =
+  'You are a precise address lookup assistant for an Australian medical app. ' +
+  'Given a clinic, hospital, organisation, doctor practice, or partial address, ' +
+  'return the most likely real-world postal address(es). Prefer Australian ' +
+  'results when the location is ambiguous, but always honour a country, state, ' +
+  'or city named in the query. Only return addresses you genuinely believe exist.'
 
-async function nominatimSearch(q: string): Promise<NominatimItem[]> {
-  const url =
-    'https://nominatim.openstreetmap.org/search'
-    + '?format=jsonv2&addressdetails=1&limit=6&countrycodes=au&q='
-    + encodeURIComponent(q)
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'LushNote/1.0 (https://lushnote.com.au; clinical documentation app)',
-        'Accept-Language': 'en-AU',
-      },
+function toResults(candidates: AddressCandidate[]): { label: string; value: string }[] {
+  return candidates
+    .filter(c => c && typeof c.address === 'string' && c.address.trim().length > 0)
+    .slice(0, 4)
+    .map(c => {
+      const address = (c.address as string).trim()
+      const oneLine = address.replace(/\s*\n+\s*/g, ', ')
+      const namePart = c.name ? `${c.name.trim()} — ` : ''
+      const approxPart = c.approximate ? ' (approx.)' : ''
+      return { label: `${namePart}${oneLine}${approxPart}`, value: address }
     })
-    if (!res.ok) return []
-    const data = await res.json()
-    return Array.isArray(data) ? data : []
-  } catch {
-    return []
-  }
 }
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')?.trim()
   if (!q) return NextResponse.json({ results: [] })
+  if (q.length > 300) return NextResponse.json({ results: [] })
+  if (!process.env.GEMINI_API_KEY) return NextResponse.json({ results: [] })
 
-  let data = await nominatimSearch(q)
+  const prompt =
+    `Find the postal address for: "${q}"\n\n` +
+    'Return ONLY valid JSON — an array of up to 4 candidate addresses, most likely first. ' +
+    'Each item must be: ' +
+    '{ "name": "official place name", "address": "street line\\ncity STATE postcode\\ncountry", "approximate": true|false }. ' +
+    'Put each part of the address on its own line using \\n. ' +
+    'Set "approximate" to true when you are not certain of the exact street number. ' +
+    'If you have no idea, return [].'
 
-  // Many private clinics aren't indexed in OSM. If the full name returns nothing
-  // and the query has multiple words, retry with just the last word (usually the
-  // suburb/city) so the user at least gets a street-level starting point.
-  if (data.length === 0 && q.includes(' ')) {
-    const words = q.split(/\s+/).filter(Boolean)
-    // Try last two words first (e.g. "Wodonga VIC"), then last word alone
-    const fallbacks = words.length >= 2
-      ? [words.slice(-2).join(' '), words[words.length - 1]]
-      : [words[words.length - 1]]
-    for (const fb of fallbacks) {
-      data = await nominatimSearch(fb)
-      if (data.length > 0) break
-    }
+  try {
+    const { text } = await generateNote(prompt, SYSTEM_PROMPT)
+    const match = text.match(/\[[\s\S]*\]/)
+    if (!match) return NextResponse.json({ results: [] })
+    const parsed = JSON.parse(match[0]) as unknown
+    if (!Array.isArray(parsed)) return NextResponse.json({ results: [] })
+    return NextResponse.json({ results: toResults(parsed as AddressCandidate[]) })
+  } catch {
+    return NextResponse.json({ results: [] })
   }
-
-  const results = data.map(formatAddress)
-  return NextResponse.json({ results })
 }
