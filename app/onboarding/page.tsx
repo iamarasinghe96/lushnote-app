@@ -40,6 +40,9 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>(1)
   const [displayName, setDisplayName] = useState('')
   const [credentials, setCredentials] = useState('')
+  const [position, setPosition] = useState('')
+  const [providerNumber, setProviderNumber] = useState('')
+  const [workPhone, setWorkPhone] = useState('')
   const [workplaceName, setWorkplaceName] = useState('')
   const [workplaceType, setWorkplaceType] = useState<WorkplaceType>('Private Practice')
   const [regSystem, setRegSystem] = useState<'none' | 'existing'>('none')
@@ -134,6 +137,9 @@ export default function OnboardingPage() {
         customTemplates: [],
         status: 'active',
         tier: 'free',
+        ...(position.trim() ? { position: position.trim() } : {}),
+        ...(providerNumber.trim() ? { providerNumber: providerNumber.trim() } : {}),
+        ...(workPhone.trim() ? { workPhone: workPhone.trim() } : {}),
         ...(signatureUrl ? { signatureUrl } : {}),
       })
 
@@ -190,8 +196,14 @@ export default function OnboardingPage() {
             <Step1
               displayName={displayName}
               credentials={credentials}
+              position={position}
+              providerNumber={providerNumber}
+              workPhone={workPhone}
               onDisplayName={setDisplayName}
               onCredentials={setCredentials}
+              onPosition={setPosition}
+              onProviderNumber={setProviderNumber}
+              onWorkPhone={setWorkPhone}
             />
           )}
           {step === 2 && (
@@ -278,14 +290,28 @@ export default function OnboardingPage() {
 function Step1({
   displayName,
   credentials,
+  position,
+  providerNumber,
+  workPhone,
   onDisplayName,
   onCredentials,
+  onPosition,
+  onProviderNumber,
+  onWorkPhone,
 }: {
   displayName: string
   credentials: string
+  position: string
+  providerNumber: string
+  workPhone: string
   onDisplayName: (v: string) => void
   onCredentials: (v: string) => void
+  onPosition: (v: string) => void
+  onProviderNumber: (v: string) => void
+  onWorkPhone: (v: string) => void
 }) {
+  const inputCls =
+    'w-full rounded-xl border border-[#e2e8f0] px-3 py-2.5 text-sm text-[#0f172a] outline-none focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981]'
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-[#0f172a]">Who are you?</h2>
@@ -298,7 +324,7 @@ function Step1({
           value={displayName}
           onChange={(e) => onDisplayName(e.target.value)}
           placeholder="Dr Jane Smith"
-          className="w-full rounded-xl border border-[#e2e8f0] px-3 py-2.5 text-sm text-[#0f172a] outline-none focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981]"
+          className={inputCls}
         />
       </div>
       <div>
@@ -308,9 +334,44 @@ function Step1({
           value={credentials}
           onChange={(e) => onCredentials(e.target.value)}
           placeholder="FRANZCP, MBChB"
-          className="w-full rounded-xl border border-[#e2e8f0] px-3 py-2.5 text-sm text-[#0f172a] outline-none focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981]"
+          className={inputCls}
         />
       </div>
+      <div>
+        <label className="block text-sm font-medium text-[#0f172a] mb-1">Position / Title</label>
+        <input
+          type="text"
+          value={position}
+          onChange={(e) => onPosition(e.target.value)}
+          placeholder="Consultant Psychiatrist"
+          className={inputCls}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-[#0f172a] mb-1">Provider No.</label>
+          <input
+            type="text"
+            value={providerNumber}
+            onChange={(e) => onProviderNumber(e.target.value)}
+            placeholder="2345678B"
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-[#0f172a] mb-1">Work phone</label>
+          <input
+            type="text"
+            value={workPhone}
+            onChange={(e) => onWorkPhone(e.target.value)}
+            placeholder="(02) 6058 4444"
+            className={inputCls}
+          />
+        </div>
+      </div>
+      <p className="text-xs text-[#94a3b8]">
+        Position, provider number and phone appear in your letter signatures. You can change these later in Settings.
+      </p>
     </div>
   )
 }

@@ -1802,10 +1802,26 @@ function EditContent() {
                           </ul>
                         ) : (
                           <div className="px-3 py-3 text-xs text-[var(--text3)]">
-                            No matches found.{' '}
-                            <button type="button" onClick={openInMaps} className="text-[var(--blue)] underline">Search Google Maps</button>
-                            {' '}or type it manually.
+                            No matches found. Many private clinics aren&apos;t listed — open Google Maps below to find the exact address.
                           </div>
+                        )}
+                        {/* Persistent Google Maps fallback — OSM often returns only a
+                            suburb-level result for private clinics, so always let the
+                            user jump to Maps for the precise street address. */}
+                        {!addrLoading && (
+                          <button
+                            type="button"
+                            onClick={openInMaps}
+                            className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-medium
+                                       text-[var(--blue)] bg-[var(--blue-lt)] border-t border-[var(--border)]
+                                       hover:brightness-95 motion-safe:transition-[filter] motion-safe:active:scale-[0.99]"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                              <circle cx="12" cy="10" r="3"/>
+                            </svg>
+                            Open in Google Maps
+                          </button>
                         )}
                       </div>
                     )}
