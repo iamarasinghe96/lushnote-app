@@ -1797,6 +1797,15 @@ function EditContent() {
                 <span className="font-medium truncate">
                   {fields.patient || 'No patient'} · {fields.date || '-'}
                 </span>
+                {sessionStats && (
+                  <div className="hidden sm:flex items-center gap-1.5 text-xs text-white/60 shrink-0 ml-1">
+                    <span>{formatDuration(sessionStats.durationSeconds)}</span>
+                    <span className="text-white/30">·</span>
+                    <span>{sessionStats.wordCount.toLocaleString()}w</span>
+                    <span className="text-white/30">·</span>
+                    <span>{sessionStats.wpm} wpm</span>
+                  </div>
+                )}
                 {isSaving && (
                   <span className="text-xs text-white/60 ml-2 shrink-0">Saving...</span>
                 )}
@@ -1827,23 +1836,6 @@ function EditContent() {
         </div>
       )}
 
-      {/* Session stats card */}
-      {!isLetterMode && sessionStats && !isGenerating && (
-        <div className="mx-4 mt-3 p-3 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--r)] flex items-center gap-6 shrink-0">
-          <div className="text-center">
-            <div className="text-lg font-bold text-[var(--text)]">{formatDuration(sessionStats.durationSeconds)}</div>
-            <div className="text-xs text-[var(--text3)]">Duration</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-[var(--text)]">{sessionStats.wordCount}</div>
-            <div className="text-xs text-[var(--text3)]">Words</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-[var(--text)]">{sessionStats.wpm}</div>
-            <div className="text-xs text-[var(--text3)]">WPM</div>
-          </div>
-        </div>
-      )}
 
       <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-[55%_45%] grid-rows-[1fr]">
 
