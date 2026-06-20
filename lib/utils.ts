@@ -213,6 +213,7 @@ export function buildLetterPreviewHTML(params: {
   letterheadHeaderUrl?: string | null
   letterheadFooterUrl?: string | null
   signatureUrl?: string | null
+  signatureScale?: number
   clinicianName?: string
   credentials?: string
   providerNumber?: string
@@ -223,7 +224,7 @@ export function buildLetterPreviewHTML(params: {
   const {
     letterType, common, referral, records, freetext,
     letterheadHeaderUrl, letterheadFooterUrl,
-    signatureUrl, clinicianName, credentials,
+    signatureUrl, signatureScale, clinicianName, credentials,
     providerNumber, workPhone, position, workplaceName,
   } = params
 
@@ -240,8 +241,9 @@ export function buildLetterPreviewHTML(params: {
          ${escapeHtml(clinicianName || '')}${credentials ? ', ' + escapeHtml(credentials) : ''}
        </div>`
 
+  const sigHeight = Math.round(50 * ((signatureScale && signatureScale > 0 ? signatureScale : 100) / 100))
   const signatureHtml = signatureUrl
-    ? `<img src="${escapeHtml(signatureUrl)}" style="height:50px;object-fit:contain;display:block;margin-bottom:4px;" alt="Signature" />`
+    ? `<img src="${escapeHtml(signatureUrl)}" style="height:${sigHeight}px;object-fit:contain;display:block;margin-bottom:4px;" alt="Signature" />`
     : ''
 
   const recipientBlock = `

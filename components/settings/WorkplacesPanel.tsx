@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
-import { detectIdPattern, applyWorkspaceTheme } from '@/lib/utils'
+import { detectIdPattern, applyWorkspaceTheme, toOrganizationKey } from '@/lib/utils'
 import { WP_THEMES } from '@/types'
 import { getLetterhead, submitLetterheadRequest, type LetterheadDoc } from '@/lib/firestore/letterheads'
+import { uploadLetterheadRequestImage } from '@/lib/storage'
 import { useAuth } from '@/hooks/useAuth'
 import type { User, Workplace, WorkplaceType } from '@/types'
 
@@ -68,6 +69,10 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
   const [requestNote, setRequestNote] = useState('')
   const [requestSent, setRequestSent] = useState<Set<string>>(new Set())
   const [requestLoading, setRequestLoading] = useState(false)
+  const [reqHeaderFile, setReqHeaderFile] = useState<File | null>(null)
+  const [reqHeaderPreview, setReqHeaderPreview] = useState<string | null>(null)
+  const [reqFooterFile, setReqFooterFile] = useState<File | null>(null)
+  const [reqFooterPreview, setReqFooterPreview] = useState<string | null>(null)
 
   const isFree = profile.tier === 'free'
   const canAdd = !isFree || workplaces.length < 1
@@ -185,6 +190,33 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
     } finally {
       setDeletingId(null)
     }
+  }
+
+  function startRequest(name: string) {
+    setRequestingFor(name)
+    setRequestNote('')
+    setReqHeaderFile(null)
+    setReqHeaderPreview(null)
+    setReqFooterFile(null)
+    setReqFooterPreview(null)
+  }
+
+  function cancelRequest() {
+    setRequestingFor(null)
+    setReqHeaderFile(null)
+    setReqHeaderPreview(null)
+    setReqFooterFile(null)
+    setReqFooterPreview(null)
+  }
+
+  function pickRequestImage(slot: 'header' | 'footer', file: File) {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const url = reader.result as string
+      if (slot === 'header') { setReqHeaderFile(file); setReqHeaderPreview(url) }
+      else { setReqFooterFile(file); setReqFooterPreview(url) }
+    }
+    reader.readAsDataURL(file)
   }
 
   const patternPreview = form.regSystem === 'existing' && form.regFormat
@@ -368,7 +400,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
                       )}
                     </div>
                     <button
-                      onClick={() => { setRequestingFor(wp.name); setRequestNote('') }}
+                      onClick={() => startRequest(wp.name)}
                       className="text-xs text-[var(--blue)] underline ml-auto"
                     >
                       Request update
@@ -385,7 +417,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
                       </p>
                     ) : (
                       <button
-                        onClick={() => { setRequestingFor(wp.name); setRequestNote('') }}
+                        onClick={() => startRequest(wp.name)}
                         className="text-xs bg-[var(--blue-lt)] text-[var(--blue)] border border-[var(--blue)]/30
                                    rounded-[var(--r)] px-3 py-1.5 font-medium"
                       >
@@ -402,9 +434,25 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
                       Request letterhead for <strong>{wp.name}</strong>
                     </p>
                     <p className="text-xs text-[var(--text3)]">
-                      The admin will upload your hospital&apos;s official header and footer images.
-                      You can attach a note with your request.
+                      Attach your hospital&apos;s letterhead (a scan, screenshot, or photo).
+                      The admin will clean it up and set it as your official header and footer.
                     </p>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <RequestImageSlot
+                        label="Header / top"
+                        preview={reqHeaderPreview}
+                        onPick={f => pickRequestImage('header', f)}
+                        onClear={() => { setReqHeaderFile(null); setReqHeaderPreview(null) }}
+                      />
+                      <RequestImageSlot
+                        label="Footer / bottom"
+                        preview={reqFooterPreview}
+                        onPick={f => pickRequestImage('footer', f)}
+                        onClear={() => { setReqFooterFile(null); setReqFooterPreview(null) }}
+                      />
+                    </div>
+
                     <Textarea
                       label="Message (optional)"
                       rows={3}
@@ -414,7 +462,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
                     />
                     <div className="flex gap-2">
                       <button
-                        onClick={() => setRequestingFor(null)}
+                        onClick={cancelRequest}
                         className="text-xs px-3 py-1.5 border border-[var(--border)] rounded-[var(--r)] text-[var(--text2)]"
                       >
                         Cancel
@@ -424,15 +472,22 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
                         onClick={async () => {
                           setRequestLoading(true)
                           try {
+                            const orgKey = toOrganizationKey(wp.name)
+                            let headerUrl: string | null = null
+                            let footerUrl: string | null = null
+                            if (reqHeaderFile) headerUrl = await uploadLetterheadRequestImage(user!.uid, orgKey, 'header', reqHeaderFile)
+                            if (reqFooterFile) footerUrl = await uploadLetterheadRequestImage(user!.uid, orgKey, 'footer', reqFooterFile)
                             await submitLetterheadRequest({
                               uid: user!.uid,
                               email: user!.email || '',
                               displayName: profile?.displayName || '',
                               workplaceName: wp.name,
                               note: requestNote,
+                              headerUrl,
+                              footerUrl,
                             })
                             setRequestSent(prev => new Set(Array.from(prev).concat(wp.name)))
-                            setRequestingFor(null)
+                            cancelRequest()
                             onToast("Request sent. We'll notify you when your letterhead is ready.")
                           } catch {
                             onToast('Failed to send request. Please try again.')
@@ -476,6 +531,56 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
           </p>
         )
       )}
+    </div>
+  )
+}
+
+function RequestImageSlot({
+  label,
+  preview,
+  onPick,
+  onClear,
+}: {
+  label: string
+  preview: string | null
+  onPick: (file: File) => void
+  onClear: () => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  return (
+    <div>
+      <p className="text-[11px] font-medium text-[var(--text2)] mb-1">{label}</p>
+      {preview ? (
+        <div className="relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={preview} alt={label} className="w-full h-16 rounded-[var(--r)] border border-[var(--border)] object-contain bg-white" />
+          <button
+            type="button"
+            onClick={onClear}
+            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-[#0f172a]/60 text-white text-xs flex items-center justify-center"
+            aria-label="Remove"
+          >
+            ✕
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="w-full h-16 rounded-[var(--r)] border-2 border-dashed border-[var(--border)]
+                     text-[11px] text-[var(--text3)] hover:border-[var(--blue)] hover:text-[var(--blue)]
+                     motion-safe:transition-colors flex items-center justify-center"
+        >
+          Choose image
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) onPick(f); e.target.value = '' }}
+      />
     </div>
   )
 }

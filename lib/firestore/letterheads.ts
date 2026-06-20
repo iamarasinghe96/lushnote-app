@@ -29,8 +29,10 @@ export async function submitLetterheadRequest(params: {
   displayName: string
   workplaceName: string
   note: string
+  headerUrl?: string | null
+  footerUrl?: string | null
 }): Promise<void> {
-  const { uid, email, displayName, workplaceName, note } = params
+  const { uid, email, displayName, workplaceName, note, headerUrl, footerUrl } = params
   const key = toOrganizationKey(workplaceName)
 
   // Skip if a pending request already exists from this user for this org
@@ -55,6 +57,8 @@ export async function submitLetterheadRequest(params: {
     requestedByName: displayName,
     workplaceName,
     note,
+    headerUrl: headerUrl ?? null,
+    footerUrl: footerUrl ?? null,
     status: 'pending',
     createdAt: serverTimestamp(),
   })

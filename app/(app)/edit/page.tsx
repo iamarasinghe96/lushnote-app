@@ -324,6 +324,7 @@ function EditContent() {
         letterheadHeaderUrl: store.activeLetterhead?.headerUrl ?? null,
         letterheadFooterUrl: store.activeLetterhead?.footerUrl ?? null,
         signatureUrl: profile?.signatureUrl ?? null,
+        signatureScale: profile?.signatureScale,
         clinicianName: profile?.displayName,
         credentials: profile?.credentials,
         providerNumber: profile?.providerNumber,
@@ -334,7 +335,7 @@ function EditContent() {
       setPreviewHtml(html)
     }, 200)
     return () => clearTimeout(timer)
-  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile])
+  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile, store.activeLetterhead])
 
   useEffect(() => {
     if (!letterToast) return
@@ -896,9 +897,11 @@ function EditContent() {
     if (profile?.signatureUrl) {
       try {
         const { dataUrl } = await loadImageAsDataURL(profile.signatureUrl)
-        if (y + 18 > maxY) { doc.addPage(); y = 20 }
-        doc.addImage(dataUrl, 'PNG', ML, y, 40, 14)
-        y += 16
+        const f = (profile.signatureScale && profile.signatureScale > 0 ? profile.signatureScale : 100) / 100
+        const sigW = 40 * f, sigH = 14 * f
+        if (y + sigH + 4 > maxY) { doc.addPage(); y = 20 }
+        doc.addImage(dataUrl, 'PNG', ML, y, sigW, sigH)
+        y += sigH + 2
       } catch { nl(2) }
     }
 

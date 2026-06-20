@@ -14,6 +14,8 @@ interface LetterheadRequest {
   requestedByEmail: string
   requestedByName: string
   note: string
+  headerUrl?: string | null
+  footerUrl?: string | null
   status: 'pending' | 'done'
   createdAt: { seconds: number } | null
 }
@@ -112,6 +114,13 @@ export default function AdminLetterheadsPage() {
     const dataUrl = await readFileAsDataUrl(file)
     if (slot === 'header') setHeaderPreview(dataUrl)
     else setFooterPreview(dataUrl)
+  }
+
+  function prefillFromRequest(org: string) {
+    setUploadOrg(org)
+    setTab('letterheads')
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+    setToast('Organisation name filled. Upload the cleaned-up images below.')
   }
 
   async function handleUpload() {
@@ -223,7 +232,7 @@ export default function AdminLetterheadsPage() {
                 <h2 className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-2">Pending</h2>
                 <div className="space-y-3">
                   {pendingRequests.map(r => (
-                    <RequestCard key={r.id} request={r} onMarkDone={markDone} />
+                    <RequestCard key={r.id} request={r} onMarkDone={markDone} onPrefill={prefillFromRequest} />
                   ))}
                 </div>
               </div>
@@ -233,7 +242,7 @@ export default function AdminLetterheadsPage() {
                 <h2 className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-2 mt-6">Done</h2>
                 <div className="space-y-3">
                   {doneRequests.map(r => (
-                    <RequestCard key={r.id} request={r} onMarkDone={markDone} />
+                    <RequestCard key={r.id} request={r} onMarkDone={markDone} onPrefill={prefillFromRequest} />
                   ))}
                 </div>
               </div>
@@ -328,9 +337,14 @@ export default function AdminLetterheadsPage() {
   )
 }
 
-function RequestCard({ request, onMarkDone }: { request: LetterheadRequest; onMarkDone: (id: string) => void }) {
+function RequestCard({ request, onMarkDone, onPrefill }: {
+  request: LetterheadRequest
+  onMarkDone: (id: string) => void
+  onPrefill: (org: string) => void
+}) {
   const [marking, setMarking] = useState(false)
   const date = request.createdAt ? new Date(request.createdAt.seconds * 1000).toLocaleDateString('en-AU') : ''
+  const hasAttachments = !!(request.headerUrl || request.footerUrl)
 
   async function handleMark() {
     setMarking(true)
@@ -355,16 +369,46 @@ function RequestCard({ request, onMarkDone }: { request: LetterheadRequest; onMa
       {request.note && (
         <p className="text-xs text-[#475569] bg-[#f8fafc] rounded-lg px-3 py-2">{request.note}</p>
       )}
-      {request.status === 'pending' && (
-        <button
-          onClick={handleMark}
-          disabled={marking}
-          className="text-xs text-[#2563eb] font-medium disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform"
-        >
-          {marking ? 'Updating…' : 'Mark as done'}
-        </button>
+
+      {hasAttachments && (
+        <div>
+          <p className="text-[11px] font-medium text-[#94a3b8] mb-1">Attached by user (download &amp; clean up)</p>
+          <div className="grid grid-cols-2 gap-2">
+            {request.headerUrl && <RequestAttachment label="Header / top" url={request.headerUrl} />}
+            {request.footerUrl && <RequestAttachment label="Footer / bottom" url={request.footerUrl} />}
+          </div>
+        </div>
       )}
+
+      <div className="flex items-center gap-4 pt-1">
+        <button
+          onClick={() => onPrefill(request.organizationName)}
+          className="text-xs text-[#2563eb] font-medium motion-safe:active:scale-95 motion-safe:transition-transform"
+        >
+          Prefill upload form →
+        </button>
+        {request.status === 'pending' && (
+          <button
+            onClick={handleMark}
+            disabled={marking}
+            className="text-xs text-[#475569] font-medium disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform"
+          >
+            {marking ? 'Updating…' : 'Mark as done'}
+          </button>
+        )}
+      </div>
     </div>
+  )
+}
+
+function RequestAttachment({ label, url }: { label: string; url: string }) {
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="block group">
+      <p className="text-[11px] text-[#475569] mb-1">{label}</p>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt={label} className="w-full h-16 rounded-lg border border-[var(--border)] object-contain bg-white group-hover:border-[#2563eb] motion-safe:transition-colors" />
+      <span className="text-[11px] text-[#2563eb] group-hover:underline">Open full size</span>
+    </a>
   )
 }
 

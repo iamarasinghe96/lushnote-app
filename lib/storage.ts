@@ -10,3 +10,17 @@ export async function uploadSignatureSVG(uid: string, svgDataUrl: string): Promi
   await uploadBytes(storageRef, blob, { contentType: 'image/svg+xml' })
   return getDownloadURL(storageRef)
 }
+
+// A user attaches their raw letterhead image to a setup request. The admin
+// downloads it, cleans it up, and uploads the polished version via the admin panel.
+export async function uploadLetterheadRequestImage(
+  uid: string,
+  orgKey: string,
+  slot: 'header' | 'footer',
+  file: File,
+): Promise<string> {
+  const ext = (file.type.split('/')[1] || 'png').replace('+xml', 'svg')
+  const storageRef = ref(storage, `letterhead-requests/${uid}/${orgKey}-${slot}.${ext}`)
+  await uploadBytes(storageRef, file, { contentType: file.type || 'image/png' })
+  return getDownloadURL(storageRef)
+}

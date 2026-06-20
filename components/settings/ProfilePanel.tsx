@@ -50,6 +50,8 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
   const [saving, setSaving] = useState(false)
   const [sigSaving, setSigSaving] = useState(false)
   const [localSignatureUrl, setLocalSignatureUrl] = useState<string | null>(profile.signatureUrl ?? null)
+  const [signatureScale, setSignatureScale] = useState<number>(profile.signatureScale ?? 100)
+  const [scaleSaving, setScaleSaving] = useState(false)
 
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [selectedReasons, setSelectedReasons] = useState<string[]>([])
@@ -86,6 +88,18 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
       onToast('Failed to save signature')
     } finally {
       setSigSaving(false)
+    }
+  }
+
+  async function handleSaveSignatureScale() {
+    setScaleSaving(true)
+    try {
+      await onSave({ signatureScale })
+      onToast('Signature size saved')
+    } catch {
+      onToast('Failed to save signature size')
+    } finally {
+      setScaleSaving(false)
     }
   }
 
@@ -241,6 +255,47 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
           onSave={handleSignatureSave}
           saving={sigSaving}
         />
+
+        {/* Signature size control - applies to letters */}
+        {localSignatureUrl && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm font-medium text-[var(--text)]">Signature size on letters</label>
+              <span className="text-xs text-[var(--text3)] tabular-nums">{signatureScale}%</span>
+            </div>
+            <input
+              type="range"
+              min={50}
+              max={200}
+              step={5}
+              value={signatureScale}
+              onChange={e => setSignatureScale(Number(e.target.value))}
+              className="w-full accent-[var(--blue)]"
+              aria-label="Signature size"
+            />
+            <div
+              className="mt-2 rounded-[var(--r)] border border-[var(--border)] p-2 flex items-center overflow-hidden"
+              style={{ background: 'repeating-conic-gradient(#e2e8f0 0% 25%, #fff 0% 50%) 0 0 / 16px 16px' }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={localSignatureUrl}
+                alt="Signature size preview"
+                style={{ height: 50 * signatureScale / 100, objectFit: 'contain' }}
+              />
+            </div>
+            {signatureScale !== (profile.signatureScale ?? 100) && (
+              <button
+                onClick={handleSaveSignatureScale}
+                disabled={scaleSaving}
+                className="mt-2 text-xs bg-[var(--blue)] text-white rounded-[var(--r)] px-3 py-1.5
+                           font-medium disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform"
+              >
+                {scaleSaving ? 'Saving…' : 'Save signature size'}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Delete account danger card */}

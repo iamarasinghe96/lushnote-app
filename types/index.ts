@@ -17,6 +17,7 @@ interface User {
   groqApiKey?: string
   geminiApiKey?: string
   signatureUrl?: string
+  signatureScale?: number      // percent, 50–200, default 100
   providerNumber?: string
   workPhone?: string
   position?: string
