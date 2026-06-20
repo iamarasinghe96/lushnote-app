@@ -1559,7 +1559,7 @@ function EditContent() {
 
       {/* Letter mode bar — label | centred controls | actions */}
       {isLetterMode && (
-        <div className="relative flex items-center px-3 py-2 bg-[var(--blue)] text-white text-sm shrink-0">
+        <div className="relative flex items-center px-3 py-2 bg-[var(--blue)] text-white text-sm shrink-0 mx-4 rounded-2xl">
           {/* Left: letter type label */}
           <span className="font-medium text-sm shrink-0">
             {letterType === 'referral' ? 'Referral Letter'
