@@ -239,7 +239,6 @@ export default function OnboardingPage() {
               groqApiKey={groqApiKey}
               onGeminiApiKey={setGeminiApiKey}
               onGroqApiKey={setGroqApiKey}
-              onSkip={nextStep}
             />
           )}
           {step === 5 && (
@@ -538,13 +537,11 @@ function Step4({
   groqApiKey,
   onGeminiApiKey,
   onGroqApiKey,
-  onSkip,
 }: {
   geminiApiKey: string
   groqApiKey: string
   onGeminiApiKey: (v: string) => void
   onGroqApiKey: (v: string) => void
-  onSkip: () => void
 }) {
   return (
     <div className="space-y-4">
@@ -613,12 +610,6 @@ function Step4({
         />
       </div>
 
-      <button
-        onClick={onSkip}
-        className="block w-full text-center text-sm text-[#94a3b8] mt-1"
-      >
-        Skip for now
-      </button>
     </div>
   )
 }
