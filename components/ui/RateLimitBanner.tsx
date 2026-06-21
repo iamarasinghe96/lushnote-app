@@ -11,6 +11,7 @@ interface RateLimitBannerProps {
 export function RateLimitBanner({ waitSeconds, onDismiss, onRetry }: RateLimitBannerProps) {
   const [remaining, setRemaining] = useState(Math.max(0, waitSeconds))
   const ready = remaining <= 0
+  const isLong = waitSeconds > 120
 
   useEffect(() => {
     if (remaining <= 0) return
@@ -18,9 +19,14 @@ export function RateLimitBanner({ waitSeconds, onDismiss, onRetry }: RateLimitBa
     return () => clearInterval(timer)
   }, [remaining <= 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const mins = Math.floor(remaining / 60)
+  const hrs  = Math.floor(remaining / 3600)
+  const mins = Math.floor((remaining % 3600) / 60)
   const secs = remaining % 60
-  const timeStr = `${mins}:${String(secs).padStart(2, '0')}`
+  const timeStr = hrs > 0
+    ? `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+    : `${mins}:${String(secs).padStart(2, '0')}`
+
+  const label = isLong ? 'Groq daily token limit' : 'Groq rate limit'
   const progress = Math.min(100, ((waitSeconds - remaining) / waitSeconds) * 100)
 
   return (
@@ -29,8 +35,8 @@ export function RateLimitBanner({ waitSeconds, onDismiss, onRetry }: RateLimitBa
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-amber-900">
             {ready
-              ? 'Groq rate limit — ready to retry'
-              : <>Groq rate limit — please try again in <span className="font-mono font-bold">{timeStr}</span></>
+              ? `${label} — ready to retry`
+              : <>{label} — please try again in <span className="font-mono font-bold">{timeStr}</span></>
             }
           </p>
           {!ready && (
