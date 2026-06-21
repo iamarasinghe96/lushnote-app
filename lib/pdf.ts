@@ -122,11 +122,10 @@ export function generateNotePDF(
       const trimmed = raw.trim()
       // Standalone subheading: entire line is "Label:" with nothing after
       const isStandalone = /^[A-Za-z][A-Za-z &\/\-()]{0,40}:\s*$/.test(trimmed)
-      // Inline subheading: "Label: rest of content..."
+      // Inline subheading: "Label: rest of content..." (only when line starts with a letter)
       const inlineMatch = !isStandalone && trimmed.match(/^([A-Za-z][A-Za-z ,&\/\-()]{0,50}):\s+(.+)/)
-
-      // Bullet / numbered list - always left-aligned
-      const isBullet = /^[\-•*]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed)
+      // Numbered list item: "1. text" or "10. text"
+      const numMatch = !isStandalone && !inlineMatch && trimmed.match(/^(\d+\.)\s+(.*)$/)
 
       if (isStandalone) {
         ensureSpace(5)
@@ -139,7 +138,6 @@ export function generateNotePDF(
       } else if (inlineMatch) {
         const label  = inlineMatch[1] + ':'
         const rest   = ' ' + inlineMatch[2]
-        // Measure label width in bold so the rest text starts at the correct offset
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(80)
         const labelW = doc.getTextWidth(label)
@@ -148,12 +146,26 @@ export function generateNotePDF(
         doc.text(label, MARGIN, y)
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(60)
-        // First piece starts after bold label - left-align (constrained width)
         doc.text(restLines[0], MARGIN + labelW, y)
         y += 4.5
         for (let ri = 1; ri < restLines.length; ri++) {
           ensureSpace(5)
-          doc.text(restLines[ri], MARGIN, y)
+          doc.text(restLines[ri], MARGIN + labelW, y)
+          y += 4.5
+        }
+      } else if (numMatch) {
+        // Hanging indent: number sits at MARGIN, wrapped lines align under the text
+        const prefix = numMatch[1] + ' '
+        const content = numMatch[2]
+        const prefixW = doc.getTextWidth(prefix)
+        const contentLines = doc.splitTextToSize(content, TEXT_W - prefixW) as string[]
+        ensureSpace(5)
+        doc.text(prefix, MARGIN, y)
+        if (contentLines[0]) doc.text(contentLines[0], MARGIN + prefixW, y)
+        y += 4.5
+        for (let ci = 1; ci < contentLines.length; ci++) {
+          ensureSpace(5)
+          doc.text(contentLines[ci], MARGIN + prefixW, y)
           y += 4.5
         }
       } else {
