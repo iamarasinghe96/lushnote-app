@@ -150,7 +150,7 @@ export function generateNotePDF(
         y += 4.5
         for (let ri = 1; ri < restLines.length; ri++) {
           ensureSpace(5)
-          doc.text(restLines[ri], MARGIN + labelW, y)
+          doc.text(restLines[ri], MARGIN, y)
           y += 4.5
         }
       } else if (numMatch) {
