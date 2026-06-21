@@ -872,7 +872,18 @@ function EditContent() {
       if (!mountedRef.current) return
 
       if (!res.ok) {
-        const data = await res.json() as { error?: string }
+        const data = await res.json() as { error?: string; waitSeconds?: number }
+        if (data.error === 'rate_limit' && data.waitSeconds) {
+          metaAnimRef.current?.cancel()
+          metaAnimRef.current = null
+          setIsGenerating(false)
+          setGenerationStatus(null)
+          autoSaveEnabledRef.current = true
+          window.dispatchEvent(new CustomEvent('groq-rate-limit', {
+            detail: { waitSeconds: data.waitSeconds, retry: () => runPendingGeneration() }
+          }))
+          return
+        }
         throw new Error(data.error ?? 'Generation failed')
       }
 
@@ -945,7 +956,16 @@ function EditContent() {
         body: JSON.stringify({ transcript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user!.uid }),
       })
       if (!res.ok) {
-        const data = await res.json() as { error?: string }
+        const data = await res.json() as { error?: string; waitSeconds?: number }
+        if (data.error === 'rate_limit' && data.waitSeconds) {
+          clearInterval(statusTimer)
+          setGenerationStatus(null)
+          setIsGenerating(false)
+          window.dispatchEvent(new CustomEvent('groq-rate-limit', {
+            detail: { waitSeconds: data.waitSeconds, retry: () => runGeneration(transcript, template) }
+          }))
+          return
+        }
         throw new Error(data.error ?? 'Generation failed')
       }
       const data = await res.json() as { content: string }

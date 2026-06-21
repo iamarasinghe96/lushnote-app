@@ -9,34 +9,55 @@ interface RateLimitBannerProps {
 }
 
 export function RateLimitBanner({ waitSeconds, onDismiss, onRetry }: RateLimitBannerProps) {
-  const [remaining, setRemaining] = useState(waitSeconds)
+  const [remaining, setRemaining] = useState(Math.max(0, waitSeconds))
+  const ready = remaining <= 0
 
   useEffect(() => {
-    if (remaining <= 0) { onRetry(); return }
-    const timer = setInterval(() => setRemaining(r => r - 1), 1000)
+    if (remaining <= 0) return
+    const timer = setInterval(() => setRemaining(r => Math.max(0, r - 1)), 1000)
     return () => clearInterval(timer)
-  }, [remaining])
+  }, [remaining <= 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const progress = ((waitSeconds - remaining) / waitSeconds) * 100
+  const mins = Math.floor(remaining / 60)
+  const secs = remaining % 60
+  const timeStr = `${mins}:${String(secs).padStart(2, '0')}`
+  const progress = Math.min(100, ((waitSeconds - remaining) / waitSeconds) * 100)
 
   return (
-    <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 shrink-0">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-medium text-amber-800">
-          Groq rate limit - retrying in {remaining}s
-        </span>
-        <button
-          onClick={onDismiss}
-          className="text-xs text-amber-500 hover:text-amber-700 motion-safe:transition-colors"
-        >
-          Dismiss
-        </button>
-      </div>
-      <div className="h-1 bg-amber-200 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-amber-500 rounded-full motion-safe:transition-[width] motion-safe:duration-1000"
-          style={{ width: `${progress}%` }}
-        />
+    <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 shrink-0">
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-amber-900">
+            {ready
+              ? 'Groq rate limit — ready to retry'
+              : <>Groq rate limit — please try again in <span className="font-mono font-bold">{timeStr}</span></>
+            }
+          </p>
+          {!ready && (
+            <div className="mt-2 h-1.5 bg-amber-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-amber-500 rounded-full motion-safe:transition-[width] motion-safe:duration-1000"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {ready && (
+            <button
+              onClick={onRetry}
+              className="text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 active:scale-95 px-3 py-1.5 rounded-lg motion-safe:transition-all"
+            >
+              Try again
+            </button>
+          )}
+          <button
+            onClick={onDismiss}
+            className="text-xs text-amber-600 hover:text-amber-800 motion-safe:transition-colors"
+          >
+            Dismiss
+          </button>
+        </div>
       </div>
     </div>
   )

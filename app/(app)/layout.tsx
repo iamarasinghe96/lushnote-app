@@ -57,11 +57,12 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     function handler(e: Event) {
-      const { waitSeconds } = (e as CustomEvent<{ waitSeconds: number }>).detail
-      if (waitSeconds > 120) {
+      const detail = (e as CustomEvent<{ waitSeconds: number; retry?: () => void }>).detail
+      if (detail.retry) setPendingRetry(() => detail.retry!)
+      if (detail.waitSeconds > 120) {
         setToast('Daily Groq limit reached. Resets at midnight UTC.')
       } else {
-        setRateLimitWait(waitSeconds)
+        setRateLimitWait(detail.waitSeconds)
       }
     }
     window.addEventListener('groq-rate-limit', handler)
