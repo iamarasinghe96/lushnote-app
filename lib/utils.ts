@@ -321,6 +321,36 @@ export function autoNumberLines(text: string): string {
   ).join('\n')
 }
 
+// Auto-fill the session Time field ("HH:MM – HH:MM") to match the TimePicker,
+// which only offers 5-minute slots between 07:00 and 21:00.
+//   - end   = when the session concluded (recording end, or submission time),
+//             rounded to the nearest 5-minute slot.
+//   - start = recording start (end − duration) when we have a duration; with no
+//             duration (pasted/typed notes) we assume the top of that hour.
+// Returns '' when either edge falls outside the picker's 07:00–21:00 range, so
+// out-of-hours sessions are simply left for manual entry.
+export function autoSessionTime(endMs: number, durationSec: number): string {
+  const toSlot = (d: Date): string | null => {
+    let h = d.getHours()
+    let m = Math.round(d.getMinutes() / 5) * 5
+    if (m === 60) { m = 0; h += 1 }
+    if (h < 7 || h > 21 || (h === 21 && m > 0)) return null
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  }
+  const end = new Date(endMs)
+  let start: Date
+  if (durationSec > 0) {
+    start = new Date(endMs - durationSec * 1000)
+  } else {
+    start = new Date(endMs)
+    start.setMinutes(0, 0, 0)
+  }
+  const s = toSlot(start)
+  const e = toSlot(end)
+  if (!s || !e || s === e) return ''
+  return `${s} – ${e}`
+}
+
 export function buildLetterPreviewHTML(params: {
   letterType: LetterType
   common: LetterCommonFields

@@ -7,7 +7,7 @@ import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildPreviewHTML, buildLetterPreviewHTML, buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel } from '@/lib/utils'
+import { buildPreviewHTML, buildLetterPreviewHTML, buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
@@ -312,9 +312,12 @@ function EditContent() {
     if (s.pendingAnimation) {
       // In-progress generation takes priority over any ?noteId= in the URL
       s.setPendingAnimation(false)
+      const cn = s.currentNote as Record<string, string>
       const known: Partial<Note> = {
-        patient: (s.currentNote as Record<string, string>)['patient'] || '',
-        reg_number: (s.currentNote as Record<string, string>)['reg_number'] || '',
+        patient: cn['patient'] || '',
+        reg_number: cn['reg_number'] || '',
+        session_number: cn['session_number'] || '',
+        attendance: cn['attendance'] || '',
       }
       latestFieldsRef.current = known
       setFields(known)
@@ -776,8 +779,22 @@ function EditContent() {
     const yyyy = now.getFullYear()
     const dateStr = `${dd}/${mm}/${yyyy}`
 
+    // Auto session Time: for recordings, derive from the captured end time and
+    // duration; for pasted/typed notes, assume the top of the current hour.
+    const recorded = s.lastTranscriptMode === 'conversation' || s.lastTranscriptMode === 'dictation'
+    const durationSec = recorded ? s.lastRecordingDuration : 0
+    const endMs = recorded && s.lastRecordingEndTime ? s.lastRecordingEndTime : now.getTime()
+    const timeStr = autoSessionTime(endMs, durationSec)
+
     autoSaveEnabledRef.current = false
     setIsGenerating(true)
+
+    // Set Time (a dropdown, not animated) directly; session_number and
+    // attendance were already carried in via the mount effect. animateKnownFields
+    // preserves all of these while it types the text header fields.
+    const base = { ...latestFieldsRef.current, time: timeStr }
+    latestFieldsRef.current = base
+    setFields(base)
 
     const known = ([
       ['patient',    latestFieldsRef.current.patient ?? ''],

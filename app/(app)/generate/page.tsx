@@ -123,7 +123,7 @@ export default function GeneratePage() {
   const [error, setError] = useState<string | null>(null)
   const [showBanner, setShowBanner] = useState(false)
   const [transcriptConfirmOpen, setTranscriptConfirmOpen] = useState(false)
-  const [prefillPatient, setPrefillPatient] = useState<{ patient: string; reg_number: string } | null>(null)
+  const [prefillPatient, setPrefillPatient] = useState<{ patient: string; reg_number: string; session_number: string; attendance: string } | null>(null)
   const [allNotes, setAllNotes] = useState<Note[]>([])
   const [letterPickerOpen, setLetterPickerOpen] = useState(false)
   const [clinicalNoteMode, setClinicalNoteMode] = useState(false)
@@ -295,6 +295,9 @@ export default function GeneratePage() {
 
   async function handleAudioReady(blob: Blob, mimeType: string, duration: number, chunks: Blob[]) {
     store.setLastRecordingDuration(duration)
+    // Capture the wall-clock end of the recording now, before the (possibly
+    // multi-minute) transcription runs, so the auto session End time is accurate.
+    store.setLastRecordingEndTime(Date.now())
     setTranscribeProgress(null)
     setPhase('transcribing')
     try {
@@ -323,9 +326,11 @@ export default function GeneratePage() {
     dob: string,
     gender: 'male' | 'female' | '',
     isNewPatient: boolean,
+    sessionNumber: string,
+    attendance: string,
   ) {
     setTranscriptConfirmOpen(false)
-    setPrefillPatient({ patient, reg_number: regNumber })
+    setPrefillPatient({ patient, reg_number: regNumber, session_number: sessionNumber, attendance })
     store.setLastTranscript(pendingTranscript)
     store.setLastTranscriptMode(creationMode)
     store.setPendingPatientProfile(isNewPatient ? { dob, gender } : null)
@@ -350,6 +355,8 @@ export default function GeneratePage() {
     store.setCurrentNote({
       patient: prefillPatient?.patient ?? '',
       reg_number: prefillPatient?.reg_number ?? '',
+      session_number: prefillPatient?.session_number ?? '',
+      attendance: prefillPatient?.attendance ?? '',
     })
     store.setCurrentNoteId(null)
     store.setLastChosenTemplate(template)

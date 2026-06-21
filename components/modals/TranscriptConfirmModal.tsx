@@ -12,7 +12,7 @@ interface TranscriptConfirmModalProps {
   open: boolean
   transcript: string
   allNotes: Note[]
-  onConfirm: (patient: string, regNumber: string, dob: string, gender: 'male' | 'female' | '', isNewPatient: boolean) => void
+  onConfirm: (patient: string, regNumber: string, dob: string, gender: 'male' | 'female' | '', isNewPatient: boolean, sessionNumber: string, attendance: string) => void
   onClose: () => void
 }
 
@@ -157,7 +157,18 @@ export default function TranscriptConfirmModal({
 
   function handleConfirm() {
     if (!patientName.trim()) return
-    onConfirm(patientName.trim(), regNumber, dob, gender, isNewPatient)
+    // Session number / attendance: returning patient continues from their last
+    // note (session + 1, same attendance); a first-time patient starts at 1 so
+    // these fields are never left blank.
+    const q = patientName.trim().toLowerCase()
+    const last = allNotes
+      .filter(n => n.patient?.toLowerCase() === q)
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]
+    const sessionNumber = last
+      ? String((parseInt(last.session_number || '0', 10) || 0) + 1)
+      : '1'
+    const attendance = (last?.attendance || '').trim() || '1'
+    onConfirm(patientName.trim(), regNumber, dob, gender, isNewPatient, sessionNumber, attendance)
   }
 
   const dropdown =

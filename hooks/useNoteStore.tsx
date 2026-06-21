@@ -22,6 +22,7 @@ interface NoteStore {
   lastTranscriptMode: NoteCreationMode
   lastChosenTemplate: AnyTemplate | null
   lastRecordingDuration: number
+  lastRecordingEndTime: number
   pendingAnimation: boolean
   overrideNoteLength: 'brief' | 'balanced' | 'detailed' | null
   pendingPatientProfile: { dob: string; gender: 'male' | 'female' | '' } | null
@@ -37,6 +38,7 @@ interface NoteStore {
   setLastTranscriptMode: (m: NoteCreationMode) => void
   setLastChosenTemplate: (t: AnyTemplate | null) => void
   setLastRecordingDuration: (s: number) => void
+  setLastRecordingEndTime: (t: number) => void
   setPendingAnimation: (v: boolean) => void
   setOverrideNoteLength: (v: 'brief' | 'balanced' | 'detailed' | null) => void
   setPendingPatientProfile: (v: { dob: string; gender: 'male' | 'female' | '' } | null) => void
@@ -59,6 +61,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   const [lastTranscriptMode, setLastTranscriptMode] = useState<NoteCreationMode>('paste')
   const [lastChosenTemplate, setLastChosenTemplate] = useState<AnyTemplate | null>(null)
   const [lastRecordingDuration, setLastRecordingDuration] = useState(0)
+  const [lastRecordingEndTime, setLastRecordingEndTime] = useState(0)
   const [pendingAnimation, setPendingAnimation] = useState(false)
   const [overrideNoteLength, setOverrideNoteLength] = useState<'brief' | 'balanced' | 'detailed' | null>(null)
   const [pendingPatientProfile, setPendingPatientProfile] = useState<{ dob: string; gender: 'male' | 'female' | '' } | null>(null)
@@ -76,6 +79,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
     setLastTranscriptMode('paste')
     setLastChosenTemplate(null)
     setLastRecordingDuration(0)
+    setLastRecordingEndTime(0)
     setPendingAnimation(false)
   }
 
@@ -95,6 +99,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       lastTranscriptMode,
       lastChosenTemplate,
       lastRecordingDuration,
+      lastRecordingEndTime,
       pendingAnimation,
       overrideNoteLength,
       setOverrideNoteLength,
@@ -113,6 +118,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       setLastTranscriptMode,
       setLastChosenTemplate,
       setLastRecordingDuration,
+      setLastRecordingEndTime,
       setPendingAnimation,
       setLetterType,
       setLetterCommonFields: (fields) => setLetterCommonFieldsState(prev => ({ ...prev, ...fields })),
