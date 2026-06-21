@@ -120,14 +120,26 @@ export function generateNotePDF(
     const rawLines = value.split('\n')
     for (const raw of rawLines) {
       const trimmed = raw.trim()
+      if (!trimmed) continue
+      // Markdown subheading: ## Goals or ### Interventions
+      const markdownHeading = trimmed.match(/^#{1,3}\s+(.+)$/)
       // Standalone subheading: entire line is "Label:" with nothing after
-      const isStandalone = /^[A-Za-z][A-Za-z &\/\-()]{0,40}:\s*$/.test(trimmed)
+      const isStandalone = !markdownHeading && /^[A-Za-z][A-Za-z &\/\-()]{0,40}:\s*$/.test(trimmed)
       // Inline subheading: "Label: rest of content..." (only when line starts with a letter)
-      const inlineMatch = !isStandalone && trimmed.match(/^([A-Za-z][A-Za-z ,&\/\-()]{0,50}):\s+(.+)/)
+      const inlineMatch = !markdownHeading && !isStandalone && trimmed.match(/^([A-Za-z][A-Za-z ,&\/\-()]{0,50}):\s+(.+)/)
       // Numbered list item: "1. text" or "10. text"
-      const numMatch = !isStandalone && !inlineMatch && trimmed.match(/^(\d+\.)\s+(.*)$/)
+      const numMatch = !markdownHeading && !isStandalone && !inlineMatch && trimmed.match(/^(\d+\.)\s+(.*)$/)
 
-      if (isStandalone) {
+      if (markdownHeading) {
+        ensureSpace(6)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(80)
+        const heading = markdownHeading[1].replace(/[:#*]+$/, '').trim()
+        doc.text(heading, MARGIN, y)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(60)
+        y += 5
+      } else if (isStandalone) {
         ensureSpace(5)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(80)

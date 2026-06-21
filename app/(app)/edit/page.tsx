@@ -85,7 +85,9 @@ function parseGeneratedContent(content: string): Partial<Note> {
     'nextsteps':    'nextsteps',
     'diagnosis':    'diagnosis',
   }
-  const bracketRx = /(?:^|\n)\[([a-z]{3,})\][^\n]*\n([\s\S]*?)(?=(?:^|\n)\[[a-z]{3,}\]|$)/g
+  // Primary: [key] bracket labels. Model sometimes wraps in **bold** (**[key]**) — allow 0-2 leading/trailing asterisks.
+  // Anchor to line-start; keys must be 3+ lowercase letters to exclude inline abbreviations like [SI] or [N/A].
+  const bracketRx = /(?:^|\n)\*{0,2}\[([a-z]{3,})\][^\n]*\n([\s\S]*?)(?=(?:^|\n)\*{0,2}\[[a-z]{3,}\]|$)/g
   let bm = bracketRx.exec(content)
   let bracketParsed = false
   while (bm !== null) {
