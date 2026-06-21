@@ -213,24 +213,29 @@ function applyInlineBold(line: string): string {
 
 function formatContent(text: string): string {
   const lines = escapeHtml(text).split('\n')
-  let html = '', inOl = false
+  let html = '', inList = false
+  const LI = 'style="display:flex;gap:0.3rem;margin-bottom:2px"'
+  const NUM = 'style="flex-shrink:0;min-width:1.5rem"'
+  const TXT = 'style="flex:1;min-width:0"'
   lines.forEach(line => {
     const subheading = line.match(/^#{1,3}\s+(.+)/)
+    const numMatch = line.match(/^(\d+\.)\s+(.*)$/)
+    const bulletMatch = !numMatch && line.match(/^[-•]\s+(.*)$/)
     if (subheading) {
-      if (inOl) { html += '</ol>'; inOl = false }
+      if (inList) { html += '</ul>'; inList = false }
       html += `<p style="font-weight:600;margin-top:0.75em;margin-bottom:0.15em;">${applyInlineBold(subheading[1])}</p>`
-    } else if (/^\d+\.\s/.test(line)) {
-      if (!inOl) { html += '<ol>'; inOl = true }
-      html += `<li>${applyInlineBold(line.replace(/^\d+\.\s/, ''))}</li>`
-    } else if (/^[-•]\s/.test(line)) {
-      if (!inOl) { html += '<ol>'; inOl = true }
-      html += `<li>${applyInlineBold(line.replace(/^[-•]\s/, ''))}</li>`
+    } else if (numMatch) {
+      if (!inList) { html += '<ul style="list-style:none;padding:0;margin:0 0 4px">'; inList = true }
+      html += `<li ${LI}><span ${NUM}>${numMatch[1]}</span><span ${TXT}>${applyInlineBold(numMatch[2])}</span></li>`
+    } else if (bulletMatch) {
+      if (!inList) { html += '<ul style="list-style:none;padding:0;margin:0 0 4px">'; inList = true }
+      html += `<li ${LI}><span ${NUM}>•</span><span ${TXT}>${applyInlineBold(bulletMatch[1])}</span></li>`
     } else {
-      if (inOl) { html += '</ol>'; inOl = false }
+      if (inList) { html += '</ul>'; inList = false }
       if (line.trim()) html += `<p>${applyInlineBold(line)}</p>`
     }
   })
-  if (inOl) html += '</ol>'
+  if (inList) html += '</ul>'
   return html
 }
 
