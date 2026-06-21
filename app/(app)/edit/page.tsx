@@ -861,6 +861,8 @@ function EditContent() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       const groqKey = sessionStorage.getItem('groq_api_key')
       if (groqKey) headers['x-groq-key'] = groqKey
+      const geminiKey = sessionStorage.getItem('gemini_api_key')
+      if (geminiKey) headers['x-gemini-key'] = geminiKey
 
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -950,6 +952,8 @@ function EditContent() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       const groqKey = sessionStorage.getItem('groq_api_key')
       if (groqKey) headers['x-groq-key'] = groqKey
+      const geminiKey = sessionStorage.getItem('gemini_api_key')
+      if (geminiKey) headers['x-gemini-key'] = geminiKey
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
@@ -1344,6 +1348,8 @@ function EditContent() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       const groqKey = sessionStorage.getItem('groq_api_key')
       if (groqKey) headers['x-groq-key'] = groqKey
+      const geminiKey = sessionStorage.getItem('gemini_api_key')
+      if (geminiKey) headers['x-gemini-key'] = geminiKey
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,

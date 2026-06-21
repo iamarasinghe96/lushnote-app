@@ -2,6 +2,7 @@ import type { GeminiUsage } from '@/types'
 import { quotaDate } from '@/lib/utils'
 
 export const GEMINI_RATE_LIMIT_ERROR = 'GEMINI_RATE_LIMIT'
+export const GEMINI_DAILY_LIMIT_ERROR = 'GEMINI_DAILY_LIMIT'
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 const PRIMARY_MODEL = 'gemini-2.5-flash'
@@ -12,9 +13,10 @@ export interface GeminiResult {
   totalTokens: number
 }
 
-async function geminiPost(model: string, body: object): Promise<GeminiResult> {
+async function geminiPost(model: string, body: object, apiKey?: string): Promise<GeminiResult> {
+  const key = apiKey || process.env.GEMINI_API_KEY
   const res = await fetch(
-    `${BASE_URL}/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    `${BASE_URL}/models/${model}:generateContent?key=${key}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -22,7 +24,12 @@ async function geminiPost(model: string, body: object): Promise<GeminiResult> {
     }
   )
   if (!res.ok) {
-    if (res.status === 429) throw new Error(GEMINI_RATE_LIMIT_ERROR)
+    if (res.status === 429) {
+      // Google returns 429 for both per-day (RPD) and per-minute (RPM/TPM)
+      // limits. Only a per-day exhaustion should lock the key out for the day.
+      const detail = await res.text()
+      throw new Error(/per\s*day/i.test(detail) ? GEMINI_DAILY_LIMIT_ERROR : GEMINI_RATE_LIMIT_ERROR)
+    }
     throw new Error(`Gemini API error ${res.status}: ${res.statusText}`)
   }
   const data = await res.json()
@@ -32,14 +39,14 @@ async function geminiPost(model: string, body: object): Promise<GeminiResult> {
   }
 }
 
-export async function generateNote(prompt: string, systemPrompt: string): Promise<GeminiResult> {
+export async function generateNote(prompt: string, systemPrompt: string, apiKey?: string): Promise<GeminiResult> {
   const body: Record<string, unknown> = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
   }
   if (systemPrompt.trim()) {
     body.systemInstruction = { parts: [{ text: systemPrompt }] }
   }
-  return geminiPost(PRIMARY_MODEL, body)
+  return geminiPost(PRIMARY_MODEL, body, apiKey)
 }
 
 export async function transcribeAudio(audioBase64: string, mimeType: string): Promise<GeminiResult> {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateNote, checkQuota, GEMINI_RATE_LIMIT_ERROR } from '@/lib/gemini'
+import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
 import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles'
 import { rateLimit } from '@/lib/rateLimit'
@@ -56,10 +56,11 @@ Dictation: ${transcript}`,
       if (!letterPrompt) return NextResponse.json({ error: 'Unknown letterType' }, { status: 400 })
 
       const groqKey = req.headers.get('x-groq-key')
+      const userGeminiKey = req.headers.get('x-gemini-key')
 
-      if (process.env.GEMINI_API_KEY) {
+      if (userGeminiKey || process.env.GEMINI_API_KEY) {
         try {
-          const { text: content } = await generateNote(letterPrompt, '')
+          const { text: content } = await generateNote(letterPrompt, '', userGeminiKey || undefined)
           if (letterType === 'freetext') {
             return NextResponse.json({ letterFields: { freeTextContent: content.trim() } })
           }
@@ -120,7 +121,19 @@ Dictation: ${transcript}`,
 
     const profile = await getProfile(uid).catch(() => null)
     const prompt = `${templatePrompt}\n\n${transcript}`
+    const userGeminiKey = req.headers.get('x-gemini-key')
 
+    // 1. User's own Gemini key (primary) — their Google account governs quota.
+    if (userGeminiKey) {
+      try {
+        const { text: content } = await generateNote(prompt, systemPrompt!, userGeminiKey)
+        return NextResponse.json({ content, provider: 'gemini' })
+      } catch {
+        // fall through to shared key / Groq
+      }
+    }
+
+    // 2. Shared server key, gated by the per-user 20/day counter.
     if (process.env.GEMINI_API_KEY) {
       const quota = profile?.geminiUsage ?? {}
       if (checkQuota(quota, 'gemini-2.5-flash')) {
@@ -129,10 +142,10 @@ Dictation: ${transcript}`,
           await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
           return NextResponse.json({ content, provider: 'gemini' })
         } catch (err) {
-          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR) {
+          if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
             await markGeminiLimitReached(uid, 'gemini-2.5-flash').catch(() => {})
           }
-          // fall through to Groq
+          // transient 429 or other error → fall through to Groq without pegging
         }
       }
     }
