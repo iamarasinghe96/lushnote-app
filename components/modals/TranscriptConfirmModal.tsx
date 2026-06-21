@@ -47,6 +47,7 @@ export default function TranscriptConfirmModal({
   const { profile } = useAuth()
   const [patientName, setPatientName] = useState('')
   const [regNumber, setRegNumber] = useState('')
+  const [regOverridden, setRegOverridden] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const [dob, setDob] = useState('')
   const [gender, setGender] = useState<'male' | 'female' | ''>('')
@@ -60,6 +61,7 @@ export default function TranscriptConfirmModal({
     if (open) {
       setPatientName('')
       setRegNumber('')
+      setRegOverridden(false)
       setShowDropdown(false)
       setDob('')
       setGender('')
@@ -128,8 +130,8 @@ export default function TranscriptConfirmModal({
   }, [patientName, exactMatch, autoReg, allNotes])
 
   useEffect(() => {
-    if (suggestedReg && !regNumber) setRegNumber(suggestedReg)
-  }, [suggestedReg]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!regOverridden) setRegNumber(suggestedReg)
+  }, [suggestedReg, regOverridden])
 
   function updateDropdownPos() {
     if (inputRef.current) {
@@ -140,7 +142,7 @@ export default function TranscriptConfirmModal({
 
   function handlePatientNameChange(value: string) {
     setPatientName(value)
-    setRegNumber('')
+    setRegOverridden(false)
     if (value.trim()) {
       updateDropdownPos()
       setShowDropdown(true)
@@ -152,6 +154,7 @@ export default function TranscriptConfirmModal({
   function handleSelectPatient(name: string, reg: string) {
     setPatientName(toTitleCase(name))
     setRegNumber(reg)
+    setRegOverridden(!!reg)
     setShowDropdown(false)
   }
 
@@ -269,7 +272,7 @@ export default function TranscriptConfirmModal({
                 <input
                   type="text"
                   value={regNumber}
-                  onChange={e => setRegNumber(e.target.value)}
+                  onChange={e => { setRegNumber(e.target.value); setRegOverridden(true) }}
                   placeholder={regPlaceholder}
                   className="w-full px-3 py-2 text-sm bg-white border border-[var(--border)] rounded-[var(--r-sm)] text-[var(--text)] placeholder:text-[var(--text3)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 motion-safe:transition-colors"
                 />

@@ -31,12 +31,35 @@ function autoFormatDate(raw: string): string {
   return digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4)
 }
 
+// Convert bullet-point lines (• item / - item) to numbered list lines (1. item).
+// Counter resets on blank lines so multiple separate lists each start at 1.
+function bulletsToNumbered(text: string): string {
+  const lines = text.split('\n')
+  const result: string[] = []
+  let counter = 0
+  for (const line of lines) {
+    const m = line.match(/^([-•*])\s+(.+)$/)
+    if (m) {
+      counter++
+      result.push(`${counter}. ${m[2]}`)
+    } else {
+      if (!line.trim()) counter = 0
+      result.push(line)
+    }
+  }
+  return result.join('\n')
+}
+
 // Remove any leading title the model echoed inside a section body, so the value
 // we store (and show in the textarea) doesn't duplicate the field's own header.
 function finalizeFields(out: Partial<Note>): Partial<Note> {
   for (const key of Object.keys(out) as (keyof Note)[]) {
     const v = (out as Record<string, string>)[key]
-    if (typeof v === 'string') (out as Record<string, string>)[key] = stripRedundantSectionLabel(key, v)
+    if (typeof v === 'string') {
+      let s = stripRedundantSectionLabel(key, v)
+      s = bulletsToNumbered(s)
+      ;(out as Record<string, string>)[key] = s
+    }
   }
   return out
 }
