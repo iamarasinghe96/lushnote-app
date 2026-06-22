@@ -491,16 +491,33 @@ export function formatDob(raw: string): string {
 
 // Builds the full generation prompt for a template, appending any saved
 // custom-field instructions so derived templates always include those sections.
+// Only the handful of templates that mark their sections with [fieldname]
+// brackets get the bracket-format instruction. Heading-based templates (the
+// large majority) carry their own ### headings and must not be told to use
+// brackets, or the two instructions conflict.
+const BRACKET_FIELD_RX = /\[(?:presentation|history|medications|mse|content|scales|risk|referrals|summary|nextsteps|diagnosis)\]/
+const BRACKET_FORMAT_INSTRUCTION = `Format:
+- Begin each section with the exact [fieldname] marker shown in the template (e.g. [presentation], [history], [mse], [content], [risk], [summary], [nextsteps]).
+- Do not use ## markdown headings or **bold text** as section dividers — use only the [fieldname] bracket markers.
+- Within a section you may use bold (**Label:**) for sub-headings (e.g. **Behaviour:** within MSE, **Session Content:** within content).`
+
 export function buildTemplatePrompt(template: AnyTemplate): string {
   const base = (template.prompt ?? '').trim()
-  if (!('customFields' in template) || !template.customFields?.length) return base
+  let prompt = base
 
-  const additions = template.customFields.map(f => {
-    const targetLabel = FIELD_LABELS[f.targetField] ?? f.targetField
-    return `\n\nADDITIONAL SECTION - "${f.label}" (incorporate this content within the ${targetLabel} section):\n${f.systemPrompt.trim()}`
-  }).join('')
+  if ('customFields' in template && template.customFields?.length) {
+    const additions = template.customFields.map(f => {
+      const targetLabel = FIELD_LABELS[f.targetField] ?? f.targetField
+      return `\n\nADDITIONAL SECTION - "${f.label}" (incorporate this content within the ${targetLabel} section):\n${f.systemPrompt.trim()}`
+    }).join('')
+    prompt = (base + additions).trim()
+  }
 
-  return (base + additions).trim()
+  if (BRACKET_FIELD_RX.test(prompt)) {
+    prompt = `${prompt}\n\n${BRACKET_FORMAT_INSTRUCTION}`
+  }
+
+  return prompt
 }
 
 export function buildPreviewHTML(f: Partial<Note>): string {

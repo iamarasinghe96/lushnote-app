@@ -8,11 +8,7 @@ Rules:
 - Capture ALL named individuals mentioned (name, role, relationship to client, what was discussed about them).
 - If a template section's sub-item is not evidenced in the transcript, omit it entirely — never write "not mentioned", "N/A", "Nil", "None reported", or "Not assessed".
 - Risk Assessment: include a risk item (Suicidal Ideation, Homicidal Ideation, Self-harm, etc.) ONLY when it was actually raised or assessed in the session. If Suicidal Ideation was never discussed, leave the line out completely — write "Denied" ONLY when the transcript shows it was explicitly asked about and denied.
-
-Format:
-- Begin each section of your response with the exact [fieldname] marker shown in the template (e.g. [presentation], [history], [mse], [content], [risk], [summary], [nextsteps]).
-- Do not use ## markdown headings or **bold text** as section dividers — use only the [fieldname] bracket markers.
-- Within a section you may use bold (**Label:**) for sub-headings (e.g. **Behaviour:** within MSE, **Session Content:** within content).`
+- Follow the section structure and headings exactly as laid out in the template below.`
 
 const LENGTH_INSTRUCTION: Record<NoteLength, string> = {
   brief: `Length: BRIEF — concise dot points and short phrases only.
