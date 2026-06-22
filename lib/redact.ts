@@ -55,7 +55,7 @@ export function privacyDirective(privacy: TranscriptPrivacy): string {
 
   if (privacy.redactNames) {
     lines.push(
-      'Do not include the personal name of the patient or of any third party anywhere in the note, even if a name appears in the transcript. Refer to the patient as "the client" (or "the patient"), and refer to other people by their role or relationship to the client (e.g. "the client\'s sister", "the client\'s ex-partner", "the treating GP") — never by name.'
+      'Do not include any personal name in the note — not the patient\'s and not any third party\'s — even when a name appears in the transcript. Refer to the patient as "the client" (or "the patient"). Refer to every other person by their role or relationship ALONE (e.g. "a coworker", "the client\'s sister", "the treating GP"). Critically, never attach a name to a role descriptor: write "their coworker" or "a coworker", NEVER "their coworker, Danny" or "a coworker named Danny". The same applies to dates, places, and contact details — describe them generically and omit the specific identifier.'
     )
   }
 
