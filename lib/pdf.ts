@@ -34,6 +34,23 @@ function calcAge(dob: string): number | null {
   return age >= 0 ? age : null
 }
 
+type RichSeg = { text: string; bold: boolean }
+
+// Split a line into normal/bold segments based on **bold** markdown markers.
+function parseBoldSegments(text: string): RichSeg[] {
+  const segs: RichSeg[] = []
+  const rx = /\*\*(.+?)\*\*/g
+  let last = 0
+  let m: RegExpExecArray | null
+  while ((m = rx.exec(text)) !== null) {
+    if (m.index > last) segs.push({ text: text.slice(last, m.index), bold: false })
+    segs.push({ text: m[1], bold: true })
+    last = m.index + m[0].length
+  }
+  if (last < text.length) segs.push({ text: text.slice(last), bold: false })
+  return segs
+}
+
 export function generateNotePDF(
   note: Partial<Note>,
   clinicianName?: string,
@@ -47,6 +64,47 @@ export function generateNotePDF(
       doc.addPage()
       y = MARGIN
     }
+  }
+
+  // Draws text containing **bold** markdown segments with word wrapping.
+  // The first line starts at startX; wrapped lines align to wrapX.
+  // Bold segments render in the sub-heading weight/colour; normal text in body
+  // colour. Advances y past the last line.
+  function drawRich(text: string, startX: number, wrapX: number) {
+    const segs = parseBoldSegments(text)
+    const tokens: { w: string; bold: boolean; space: boolean }[] = []
+    for (const s of segs) {
+      for (const part of s.text.split(/(\s+)/)) {
+        if (!part) continue
+        tokens.push({ w: part, bold: s.bold, space: /^\s+$/.test(part) })
+      }
+    }
+    const maxX = PAGE_W - MARGIN
+    let x = startX
+    let atLineStart = true
+    for (const tok of tokens) {
+      if (tok.space) {
+        if (atLineStart) continue
+        doc.setFont('helvetica', 'normal')
+        x += doc.getTextWidth(tok.w)
+        continue
+      }
+      doc.setFont('helvetica', tok.bold ? 'bold' : 'normal')
+      const tw = doc.getTextWidth(tok.w)
+      if (!atLineStart && x + tw > maxX) {
+        y += 4.5
+        ensureSpace(5)
+        x = wrapX
+        atLineStart = true
+      }
+      doc.setTextColor(tok.bold ? 80 : 60)
+      doc.text(tok.w, x, y)
+      x += tw
+      atLineStart = false
+    }
+    y += 4.5
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(60)
   }
 
   // ── Header ──────────────────────────────────────────────
@@ -121,18 +179,19 @@ export function generateNotePDF(
     for (const raw of rawLines) {
       const trimmed = raw.trim()
       if (!trimmed) continue
+
       // Markdown subheading: ## Goals or ### Interventions
       const markdownHeading = trimmed.match(/^#{1,3}\s+(.+)$/)
-      // Bold markdown inline subheading: **Label:** rest of content
-      const boldInlineMatch = !markdownHeading && trimmed.match(/^\*\*([A-Za-z][A-Za-z ,&\/\-()]{0,50}):\*\*\s+(.+)/)
-      // Bold markdown standalone subheading: **Label:** or **Label**
-      const boldStandaloneMatch = !markdownHeading && !boldInlineMatch && trimmed.match(/^\*\*([A-Za-z][A-Za-z &\/\-()]{0,40}):?\*\*\s*$/)
-      // Standalone subheading: entire line is "Label:" with nothing after
-      const isStandalone = !markdownHeading && !boldInlineMatch && !boldStandaloneMatch && /^[A-Za-z][A-Za-z &\/\-()]{0,40}:\s*$/.test(trimmed)
-      // Inline subheading: "Label: rest of content..." (only when line starts with a letter)
-      const inlineMatch = !markdownHeading && !boldInlineMatch && !boldStandaloneMatch && !isStandalone && trimmed.match(/^([A-Za-z][A-Za-z ,&\/\-()]{0,50}):\s+(.+)/)
+      // Whole-line bold heading: **Goals:** or **Obstacles, Setbacks and Progress:**
+      const boldHeading = !markdownHeading && trimmed.match(/^\*\*(.+?)\*\*:?\s*$/)
+      // Standalone plain subheading: entire line is "Label:" with nothing after
+      const isStandalone = !markdownHeading && !boldHeading && /^[A-Za-z][A-Za-z &\/\-()]{0,40}:\s*$/.test(trimmed)
       // Numbered list item: "1. text" or "10. text"
-      const numMatch = !markdownHeading && !boldInlineMatch && !boldStandaloneMatch && !isStandalone && !inlineMatch && trimmed.match(/^(\d+\.)\s+(.*)$/)
+      const numMatch = !markdownHeading && !boldHeading && !isStandalone && trimmed.match(/^(\d+\.)\s+(.*)$/)
+      // Bullet list item
+      const bulletMatch = !markdownHeading && !boldHeading && !isStandalone && !numMatch && trimmed.match(/^[-•]\s+(.*)$/)
+      // Inline plain subheading: "Label: rest of content..."
+      const inlineMatch = !markdownHeading && !boldHeading && !isStandalone && !numMatch && !bulletMatch && trimmed.match(/^([A-Za-z][A-Za-z ,&\/\-()]{0,50}):\s+(.+)/)
 
       if (markdownHeading) {
         ensureSpace(6)
@@ -143,29 +202,13 @@ export function generateNotePDF(
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(60)
         y += 5
-      } else if (boldInlineMatch) {
-        const lbl  = boldInlineMatch[1] + ':'
-        const rest = ' ' + boldInlineMatch[2]
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(80)
-        const labelW = doc.getTextWidth(lbl)
-        const restLines = doc.splitTextToSize(rest, TEXT_W - labelW) as string[]
-        ensureSpace(5)
-        doc.text(lbl, MARGIN, y)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(60)
-        doc.text(restLines[0], MARGIN + labelW, y)
-        y += 4.5
-        for (let ri = 1; ri < restLines.length; ri++) {
-          ensureSpace(5)
-          doc.text(restLines[ri], MARGIN, y)
-          y += 4.5
-        }
-      } else if (boldStandaloneMatch) {
+      } else if (boldHeading) {
         ensureSpace(5)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(80)
-        doc.text(boldStandaloneMatch[1] + ':', MARGIN, y)
+        let heading = boldHeading[1].replace(/\*+/g, '').trim()
+        if (/:\s*$/.test(trimmed) && !heading.endsWith(':')) heading += ':'
+        doc.text(heading, MARGIN, y)
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(60)
         y += 4.5
@@ -177,46 +220,34 @@ export function generateNotePDF(
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(60)
         y += 4.5
-      } else if (inlineMatch) {
-        const label  = inlineMatch[1] + ':'
-        const rest   = ' ' + inlineMatch[2]
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(80)
-        const labelW = doc.getTextWidth(label)
-        const restLines = doc.splitTextToSize(rest, TEXT_W - labelW) as string[]
-        ensureSpace(5)
-        doc.text(label, MARGIN, y)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(60)
-        doc.text(restLines[0], MARGIN + labelW, y)
-        y += 4.5
-        for (let ri = 1; ri < restLines.length; ri++) {
-          ensureSpace(5)
-          doc.text(restLines[ri], MARGIN, y)
-          y += 4.5
-        }
       } else if (numMatch) {
         // Hanging indent: number sits at MARGIN, wrapped lines align under the text
         const prefix = numMatch[1] + ' '
-        const content = numMatch[2]
         const prefixW = doc.getTextWidth(prefix)
-        const contentLines = doc.splitTextToSize(content, TEXT_W - prefixW) as string[]
         ensureSpace(5)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(60)
         doc.text(prefix, MARGIN, y)
-        if (contentLines[0]) doc.text(contentLines[0], MARGIN + prefixW, y)
-        y += 4.5
-        for (let ci = 1; ci < contentLines.length; ci++) {
-          ensureSpace(5)
-          doc.text(contentLines[ci], MARGIN + prefixW, y)
-          y += 4.5
-        }
+        drawRich(numMatch[2], MARGIN + prefixW, MARGIN + prefixW)
+      } else if (bulletMatch) {
+        const prefix = '•  '
+        const prefixW = doc.getTextWidth(prefix)
+        ensureSpace(5)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(60)
+        doc.text(prefix, MARGIN, y)
+        drawRich(bulletMatch[1], MARGIN + prefixW, MARGIN + prefixW)
+      } else if (inlineMatch) {
+        const label = inlineMatch[1] + ': '
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(80)
+        const labelW = doc.getTextWidth(label)
+        ensureSpace(5)
+        doc.text(label, MARGIN, y)
+        drawRich(inlineMatch[2], MARGIN + labelW, MARGIN)
       } else {
-        const wrapped = doc.splitTextToSize(raw, TEXT_W) as string[]
-        for (let wi = 0; wi < wrapped.length; wi++) {
-          ensureSpace(5)
-          doc.text(wrapped[wi], MARGIN, y)
-          y += 4.5
-        }
+        ensureSpace(5)
+        drawRich(trimmed, MARGIN, MARGIN)
       }
     }
 
