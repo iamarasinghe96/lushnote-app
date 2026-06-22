@@ -3,6 +3,7 @@ import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini
 import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles'
 import { rateLimit } from '@/lib/rateLimit'
+import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 
 export async function POST(req: NextRequest) {
   try {
@@ -120,13 +121,25 @@ Dictation: ${transcript}`,
     }
 
     const profile = await getProfile(uid).catch(() => null)
-    const prompt = `${templatePrompt}\n\n${transcript}`
+
+    // Redact identifiable information before the transcript reaches any AI model.
+    // Defaults to redact-all when the user has never configured privacy settings,
+    // matching the Settings panel defaults. The raw transcript is stored client-
+    // side for the clinician's reference; only the AI sees the redacted copy.
+    const privacy = profile?.transcriptPrivacy ?? DEFAULT_TRANSCRIPT_PRIVACY
+    const safeTranscript = applyTranscriptRedactions(transcript, privacy)
+    const directive = privacyDirective(privacy)
+    const effectiveSystemPrompt = directive
+      ? `${systemPrompt ?? ''}\n\n${directive}`.trim()
+      : (systemPrompt ?? '')
+
+    const prompt = `${templatePrompt}\n\n${safeTranscript}`
     const userGeminiKey = req.headers.get('x-gemini-key')
 
     // 1. User's own Gemini key (primary) — their Google account governs quota.
     if (userGeminiKey) {
       try {
-        const { text: content } = await generateNote(prompt, systemPrompt!, userGeminiKey)
+        const { text: content } = await generateNote(prompt, effectiveSystemPrompt, userGeminiKey)
         return NextResponse.json({ content, provider: 'gemini' })
       } catch {
         // fall through to shared key / Groq
@@ -138,7 +151,7 @@ Dictation: ${transcript}`,
       const quota = profile?.geminiUsage ?? {}
       if (checkQuota(quota, 'gemini-2.5-flash')) {
         try {
-          const { text: content, totalTokens } = await generateNote(prompt, systemPrompt!)
+          const { text: content, totalTokens } = await generateNote(prompt, effectiveSystemPrompt)
           await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
           return NextResponse.json({ content, provider: 'gemini' })
         } catch (err) {
@@ -156,7 +169,7 @@ Dictation: ${transcript}`,
     }
 
     try {
-      const { content, totalTokens } = await generateNoteGroq(prompt, systemPrompt!, groqKey)
+      const { content, totalTokens } = await generateNoteGroq(prompt, effectiveSystemPrompt, groqKey)
       return NextResponse.json({ content, provider: 'groq', groqTokensUsed: totalTokens })
     } catch (err) {
       if (err instanceof Error && err.message.startsWith('429:')) {

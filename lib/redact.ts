@@ -1,5 +1,13 @@
 import type { TranscriptPrivacy } from '@/types'
 
+// Matches the Settings panel defaults — applied when a profile has never had
+// its transcript-privacy settings configured, so redaction is on by default.
+export const DEFAULT_TRANSCRIPT_PRIVACY: TranscriptPrivacy = {
+  redactNames: true,
+  redactDOB: true,
+  redactOther: true,
+}
+
 export function applyTranscriptRedactions(
   text: string,
   privacy: TranscriptPrivacy
@@ -31,4 +39,25 @@ export function applyTranscriptRedactions(
   }
 
   return result
+}
+
+// The regex pass above only catches *titled* names (Dr/Mr/Mrs + Capitalised).
+// Conversational transcripts name people bare ("Danny", "my sister Sarah"),
+// which no safe regex can reliably detect without destroying clinical content.
+// This directive instructs the model to de-identify those names in its output —
+// the only reliable mechanism for names the regex pass cannot reach.
+export function privacyDirective(privacy: TranscriptPrivacy): string {
+  if (!privacy.redactNames && !privacy.redactDOB && !privacy.redactOther) return ''
+
+  const lines: string[] = [
+    'Privacy: identifying details in the transcript have been redacted to bracketed tokens (e.g. [NAME], [DOB], [ADDRESS], [EMAIL], [PHONE]). Never reproduce any of these placeholder tokens in the note — write the surrounding clinical content without them.',
+  ]
+
+  if (privacy.redactNames) {
+    lines.push(
+      'Do not include the personal name of the patient or of any third party anywhere in the note, even if a name appears in the transcript. Refer to the patient as "the client" (or "the patient"), and refer to other people by their role or relationship to the client (e.g. "the client\'s sister", "the client\'s ex-partner", "the treating GP") — never by name.'
+    )
+  }
+
+  return lines.join('\n')
 }
