@@ -187,7 +187,7 @@ export function stripRedundantSectionLabel(field: string, value: string): string
   const colonIdx = firstLine.search(/[:：]/)
   if (colonIdx !== -1) {
     const before = normaliseLabelLine(firstLine.slice(0, colonIdx + 1))
-    const after = firstLine.slice(colonIdx + 1).trim()
+    const after = firstLine.slice(colonIdx + 1).replace(/^\s*[*_`]+/, '').trim()
     if (after && labels.includes(before)) {
       return (after + (rest ? '\n' + rest : '')).replace(/^\n+/, '')
     }
