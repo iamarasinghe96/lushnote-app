@@ -121,6 +121,7 @@ export default function GeneratePage() {
   const [pendingTranscript, setPendingTranscript] = useState('')
   const [creationMode, setCreationMode] = useState<NoteCreationMode>('paste')
   const [error, setError] = useState<string | null>(null)
+  const [pasteModalError, setPasteModalError] = useState<string | null>(null)
   const [showBanner, setShowBanner] = useState(false)
   const [transcriptConfirmOpen, setTranscriptConfirmOpen] = useState(false)
   const [prefillPatient, setPrefillPatient] = useState<{ patient: string; reg_number: string; session_number: string; attendance: string } | null>(null)
@@ -198,20 +199,26 @@ export default function GeneratePage() {
     setCreationMode('paste')
     setError(null)
     setInputText('')
+    setPasteModalError(null)
     try {
       const text = await navigator.clipboard.readText()
       if (text.trim()) {
         const validation = validateTranscript(text.trim())
         if (!validation.valid) {
-          setError(validation.error!)
+          setPasteModalError(validation.error!)
+          setPhase('paste-input')
           return
         }
         setPendingTranscript(text.trim())
         setTranscriptConfirmOpen(true)
         return
       }
+      // clipboard accessible but empty
+      setPasteModalError('Your clipboard is empty — copy your transcript and try again.')
+      setPhase('paste-input')
+      return
     } catch {
-      // clipboard access denied or unavailable - fall through to textarea
+      // clipboard access denied or unavailable — show textarea for manual paste
     }
     setPhase('paste-input')
   }
@@ -221,6 +228,7 @@ export default function GeneratePage() {
     setInputText('')
     setPendingTranscript('')
     setError(null)
+    setPasteModalError(null)
     setTranscriptConfirmOpen(false)
     setPrefillPatient(null)
   }
@@ -228,13 +236,14 @@ export default function GeneratePage() {
   function handleTextConfirm() {
     if (!inputText.trim()) return
     const text = inputText.trim()
-    setInputText('')
-    setPhase('idle')
     const validation = validateTranscript(text)
     if (!validation.valid) {
-      setError(validation.error!)
+      setPasteModalError(validation.error!)
       return
     }
+    setInputText('')
+    setPasteModalError(null)
+    setPhase('idle')
     setPendingTranscript(text)
     setTranscriptConfirmOpen(true)
   }
@@ -429,17 +438,31 @@ export default function GeneratePage() {
       {/* Paste transcript modal */}
       <Modal open={phase === 'paste-input'} onClose={handleCancel} title="Paste Transcript" maxWidth="lg">
         <div className="px-5 pb-5 space-y-4">
-          <Textarea
-            value={inputText}
-            onChange={e => setInputText(e.target.value)}
-            rows={10}
-            placeholder="Paste your session transcript here…"
-            autoFocus
-          />
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={handleCancel} className="flex-1">Cancel</Button>
-            <Button variant="primary" onClick={handleTextConfirm} disabled={!inputText.trim()} className="flex-1">Continue</Button>
-          </div>
+          {pasteModalError ? (
+            <>
+              <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-[var(--danger)]">
+                {pasteModalError}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={handleCancel} className="flex-1">Close</Button>
+                <Button variant="ghost" onClick={() => setPasteModalError(null)} className="flex-1">Paste manually</Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Textarea
+                value={inputText}
+                onChange={e => setInputText(e.target.value)}
+                rows={10}
+                placeholder="Paste your session transcript here…"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={handleCancel} className="flex-1">Cancel</Button>
+                <Button variant="primary" onClick={handleTextConfirm} disabled={!inputText.trim()} className="flex-1">Continue</Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
 
