@@ -6,7 +6,12 @@ Rules:
 - Extract ONLY information explicitly stated or clearly demonstrated in the transcript. Do not infer, assume, or fabricate any clinical observation.
 - For MSE items: describe only what is directly observable or reported. Never infer mental state from conversational hesitation alone.
 - Capture ALL named individuals mentioned (name, role, relationship to client, what was discussed about them).
-- If a template section's sub-item is not evidenced in the transcript, omit it — do not write "not mentioned", "N/A", or "denied" unless the template explicitly instructs it (e.g. Risk's Suicidal Ideation only gets "Denied" if the client or clinician explicitly stated this in the session).`
+- If a template section's sub-item is not evidenced in the transcript, omit it — do not write "not mentioned", "N/A", or "denied" unless the template explicitly instructs it (e.g. Risk's Suicidal Ideation only gets "Denied" if the client or clinician explicitly stated this in the session).
+
+Format:
+- Begin each section of your response with the exact [fieldname] marker shown in the template (e.g. [presentation], [history], [mse], [content], [risk], [summary], [nextsteps]).
+- Do not use ## markdown headings or **bold text** as section dividers — use only the [fieldname] bracket markers.
+- Within a section you may use bold (**Label:**) for sub-headings (e.g. **Behaviour:** within MSE, **Session Content:** within content).`
 
 const LENGTH_INSTRUCTION: Record<NoteLength, string> = {
   brief: `Length: BRIEF — concise dot points and short phrases only.
