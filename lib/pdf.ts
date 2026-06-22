@@ -123,12 +123,16 @@ export function generateNotePDF(
       if (!trimmed) continue
       // Markdown subheading: ## Goals or ### Interventions
       const markdownHeading = trimmed.match(/^#{1,3}\s+(.+)$/)
+      // Bold markdown inline subheading: **Label:** rest of content
+      const boldInlineMatch = !markdownHeading && trimmed.match(/^\*\*([A-Za-z][A-Za-z ,&\/\-()]{0,50}):\*\*\s+(.+)/)
+      // Bold markdown standalone subheading: **Label:** or **Label**
+      const boldStandaloneMatch = !markdownHeading && !boldInlineMatch && trimmed.match(/^\*\*([A-Za-z][A-Za-z &\/\-()]{0,40}):?\*\*\s*$/)
       // Standalone subheading: entire line is "Label:" with nothing after
-      const isStandalone = !markdownHeading && /^[A-Za-z][A-Za-z &\/\-()]{0,40}:\s*$/.test(trimmed)
+      const isStandalone = !markdownHeading && !boldInlineMatch && !boldStandaloneMatch && /^[A-Za-z][A-Za-z &\/\-()]{0,40}:\s*$/.test(trimmed)
       // Inline subheading: "Label: rest of content..." (only when line starts with a letter)
-      const inlineMatch = !markdownHeading && !isStandalone && trimmed.match(/^([A-Za-z][A-Za-z ,&\/\-()]{0,50}):\s+(.+)/)
+      const inlineMatch = !markdownHeading && !boldInlineMatch && !boldStandaloneMatch && !isStandalone && trimmed.match(/^([A-Za-z][A-Za-z ,&\/\-()]{0,50}):\s+(.+)/)
       // Numbered list item: "1. text" or "10. text"
-      const numMatch = !markdownHeading && !isStandalone && !inlineMatch && trimmed.match(/^(\d+\.)\s+(.*)$/)
+      const numMatch = !markdownHeading && !boldInlineMatch && !boldStandaloneMatch && !isStandalone && !inlineMatch && trimmed.match(/^(\d+\.)\s+(.*)$/)
 
       if (markdownHeading) {
         ensureSpace(6)
@@ -139,6 +143,32 @@ export function generateNotePDF(
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(60)
         y += 5
+      } else if (boldInlineMatch) {
+        const lbl  = boldInlineMatch[1] + ':'
+        const rest = ' ' + boldInlineMatch[2]
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(80)
+        const labelW = doc.getTextWidth(lbl)
+        const restLines = doc.splitTextToSize(rest, TEXT_W - labelW) as string[]
+        ensureSpace(5)
+        doc.text(lbl, MARGIN, y)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(60)
+        doc.text(restLines[0], MARGIN + labelW, y)
+        y += 4.5
+        for (let ri = 1; ri < restLines.length; ri++) {
+          ensureSpace(5)
+          doc.text(restLines[ri], MARGIN, y)
+          y += 4.5
+        }
+      } else if (boldStandaloneMatch) {
+        ensureSpace(5)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(80)
+        doc.text(boldStandaloneMatch[1] + ':', MARGIN, y)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(60)
+        y += 4.5
       } else if (isStandalone) {
         ensureSpace(5)
         doc.setFont('helvetica', 'bold')
