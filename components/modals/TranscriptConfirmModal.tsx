@@ -133,22 +133,31 @@ export default function TranscriptConfirmModal({
     if (!regOverridden) setRegNumber(suggestedReg)
   }, [suggestedReg, regOverridden])
 
-  function updateDropdownPos() {
-    if (inputRef.current) {
-      const rect = inputRef.current.getBoundingClientRect()
-      setDropdownRect({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+  // Recalculate dropdown position after layout settles (modal may resize when
+  // the new-patient section appears, which shifts the vertically-centred modal).
+  useEffect(() => {
+    if (!showDropdown || !inputRef.current) return
+    let raf: number
+    function recalc() {
+      if (inputRef.current) {
+        const rect = inputRef.current.getBoundingClientRect()
+        setDropdownRect({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+      }
     }
-  }
+    raf = requestAnimationFrame(recalc)
+    window.addEventListener('resize', recalc)
+    window.addEventListener('scroll', recalc, true)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', recalc)
+      window.removeEventListener('scroll', recalc, true)
+    }
+  }, [showDropdown, isNewPatient])
 
   function handlePatientNameChange(value: string) {
     setPatientName(value)
     setRegOverridden(false)
-    if (value.trim()) {
-      updateDropdownPos()
-      setShowDropdown(true)
-    } else {
-      setShowDropdown(false)
-    }
+    setShowDropdown(value.trim().length > 0)
   }
 
   function handleSelectPatient(name: string, reg: string) {
@@ -254,7 +263,6 @@ export default function TranscriptConfirmModal({
                   onChange={e => handlePatientNameChange(e.target.value)}
                   onFocus={() => {
                     if (patientName.trim() && filteredPatients.length > 0) {
-                      updateDropdownPos()
                       setShowDropdown(true)
                     }
                   }}
