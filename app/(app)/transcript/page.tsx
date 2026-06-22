@@ -162,7 +162,7 @@ export default function TranscriptPage() {
     <div className="h-full flex flex-col overflow-hidden">
       {/* Raw transcript section */}
       <div
-        className="border-b border-[var(--border)] p-4 shrink-0"
+        className="border-b border-[var(--border)] p-4 flex-none"
         style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
       >
         <div className="flex items-center justify-between mb-2">
@@ -173,7 +173,7 @@ export default function TranscriptPage() {
         </div>
         <div
           className={`relative text-sm text-[var(--text2)] leading-relaxed whitespace-pre-wrap ${
-            !expanded ? 'max-h-28 overflow-hidden' : 'max-h-[38vh] overflow-y-auto'
+            !expanded ? 'max-h-28 overflow-hidden' : 'max-h-[22vh] overflow-y-auto'
           }`}
           ref={transcriptRef}
         >
