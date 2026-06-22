@@ -33,7 +33,7 @@ export default function DictateModal({ open, onClose, onAudioReady, recordingDef
 
   const autoStopMinutes = recordingDefaults?.autoStop === false
     ? null
-    : (recordingDefaults?.autoStopMinutes ?? 90)
+    : (recordingDefaults?.autoStopMinutes ?? 55)
 
   useEffect(() => {
     if (open && localStorage.getItem('ln_recording_interrupted') === '1') {

@@ -36,7 +36,7 @@ export default function TranscriptsPanel({ profile, onSave, onToast }: Transcrip
   })
   const [recording, setRecording] = useState<RecordingDefaults>({
     autoStop:        profile.recordingDefaults?.autoStop        ?? true,
-    autoStopMinutes: profile.recordingDefaults?.autoStopMinutes ?? 90,
+    autoStopMinutes: profile.recordingDefaults?.autoStopMinutes ?? 55,
   })
   const [saving, setSaving] = useState(false)
 

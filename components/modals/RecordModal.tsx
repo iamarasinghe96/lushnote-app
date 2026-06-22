@@ -36,7 +36,7 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
   // null means auto-stop is disabled; otherwise stop after this many minutes
   const autoStopMinutes = recordingDefaults?.autoStop === false
     ? null
-    : (recordingDefaults?.autoStopMinutes ?? 90)
+    : (recordingDefaults?.autoStopMinutes ?? 55)
 
   useEffect(() => {
     if (open && localStorage.getItem('ln_recording_interrupted') === '1') {
