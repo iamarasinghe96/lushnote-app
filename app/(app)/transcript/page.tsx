@@ -162,7 +162,7 @@ export default function TranscriptPage() {
     <div className="h-full flex flex-col overflow-hidden pb-tabbar">
       {/* Raw transcript section */}
       <div
-        className="border-b border-[var(--border)] p-4 flex-none"
+        className="border-b border-[var(--border)] px-4 pb-4 pt-header flex-none"
         style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
       >
         <div className="flex items-center justify-between mb-2">

@@ -1758,8 +1758,17 @@ function EditContent() {
     'Psychiatric Unit', 'ICU', 'Oncology Unit', 'Outpatient Clinic',
   ]
 
+  // Floating overlay geometry — bars sit above content, content scrolls behind them.
+  // HEADER_BOTTOM = safe-area + 8px gap + 52px header + 8px gap (matches .pt-header = 68px)
+  const HEADER_BOTTOM = 68
+  const BAR_H = 44 // approximate bar visual height + gap below it
+  const hasTopBar = isLetterMode || (!isLetterMode && (!!store.currentNoteId || isGenerating))
+  const barTop = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM}px)`
+  const contentPt = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM + (hasTopBar ? BAR_H : 0) + 16}px)`
+  const errorTop = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM + (hasTopBar ? BAR_H + 4 : 4)}px)`
+
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full overflow-hidden relative">
 
       {/* Letter toast */}
       {letterToast && (
@@ -1768,9 +1777,10 @@ function EditContent() {
         </div>
       )}
 
-      {/* Letter mode bar — label | centred controls | actions */}
+      {/* Letter mode bar — floats below the header */}
       {isLetterMode && (
-        <div className="relative flex items-center px-3 py-2 bg-[var(--blue)] text-white text-sm shrink-0 mx-4 rounded-2xl">
+        <div className="absolute left-4 right-4 z-20 flex items-center px-3 py-2 bg-[var(--blue)] text-white text-sm rounded-2xl"
+             style={{ top: barTop }}>
           {/* Left: letter type label + change action */}
           <div className="flex items-center gap-2 shrink-0">
             <span className="font-medium text-sm">
@@ -1824,14 +1834,14 @@ function EditContent() {
         </div>
       )}
 
-      {/* Current note bar */}
+      {/* Current note bar — floats below the header */}
       {!isLetterMode && (store.currentNoteId || isGenerating) && (
         <div
           data-glass
-          className={`ln-glass ln-glass-note flex items-center justify-between px-4 py-2 text-white text-sm shrink-0 mx-4 mb-1
+          className={`ln-glass ln-glass-note absolute left-4 right-4 z-20 flex items-center justify-between px-4 py-2 text-white text-sm
             ${isGenerating ? 'animate-pulse' : ''}`}
           style={{
-            zIndex: 1,
+            top: barTop,
             borderRadius: 20,
             boxShadow: '0 4px 16px rgba(14,159,110,0.25)',
           }}
@@ -1879,19 +1889,20 @@ function EditContent() {
         </div>
       )}
 
-      {/* Generation error */}
+      {/* Generation error — floats below bars */}
       {generationError && (
-        <div className="mx-4 mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-[var(--danger)] flex items-center justify-between shrink-0">
+        <div className="absolute left-4 right-4 z-20 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-[var(--danger)] flex items-center justify-between"
+             style={{ top: errorTop }}>
           <span>{generationError}</span>
           <button onClick={() => setGenerationError(null)} className="ml-2 text-xs underline shrink-0">Dismiss</button>
         </div>
       )}
 
 
-      <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-[55%_45%] grid-rows-[1fr]">
+      <div className="absolute inset-0 overflow-hidden grid grid-cols-1 md:grid-cols-[55%_45%] grid-rows-[1fr]">
 
-        {/* LEFT: form */}
-        <div ref={formScrollRef} className="overflow-y-auto p-4 pb-tabbar min-h-0">
+        {/* LEFT: form — starts at top:0, contentPt pushes first item below the floating bars */}
+        <div ref={formScrollRef} className="overflow-y-auto px-4 pb-tabbar min-h-0" style={{ paddingTop: contentPt }}>
           <div className="max-w-lg mx-auto space-y-4 pb-10">
 
             {/* Letter mode fields */}
@@ -2478,7 +2489,7 @@ function EditContent() {
         {/* RIGHT: live preview - hidden on mobile unless toggled */}
         <div
           className={`${showMobilePreview ? 'grid' : 'hidden'} md:grid min-h-0 border-l border-[var(--border)]`}
-          style={{ gridTemplateRows: 'auto 1fr', background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
+          style={{ gridTemplateRows: 'auto 1fr', paddingTop: contentPt, background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
         >
           <div
             className="border-b border-[var(--border)] px-4 py-2 flex items-center justify-between gap-2"

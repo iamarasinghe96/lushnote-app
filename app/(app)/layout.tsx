@@ -95,16 +95,14 @@ function AppContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex flex-col overflow-hidden bg-[var(--bg)]" style={{ height: '100dvh' }}>
 
-      {/* ── Header ── */}
-      {/* Safe-area spacer so the floating pill clears the notch/Dynamic Island */}
-      <div aria-hidden style={{ height: 'calc(env(safe-area-inset-top) + 8px)', flexShrink: 0 }} />
+      {/* ── Header — absolute pill, floats over page content ── */}
       <header
         data-header
         data-glass
-        className="ln-glass ln-glass-brand lg-frost-sm relative z-30 shrink-0 mx-4"
+        className="ln-glass ln-glass-brand lg-frost-sm absolute left-4 right-4 z-30"
         style={{
+          top: 'calc(env(safe-area-inset-top) + 8px)',
           height: 52,
-          marginBottom: 8,
           borderRadius: 20,
           boxShadow: '0 4px 20px rgba(37,99,235,0.22)',
           overflow: 'visible',
@@ -200,17 +198,18 @@ function AppContent({ children }: { children: React.ReactNode }) {
         </div>{/* end z-10 content wrapper */}
       </header>
 
-      {/* ── Rate limit banner ── */}
-      {rateLimitWait !== null && (
-        <RateLimitBanner
-          waitSeconds={rateLimitWait}
-          onDismiss={() => setRateLimitWait(null)}
-          onRetry={() => { setRateLimitWait(null); pendingRetry?.() }}
-        />
-      )}
-
-      {/* ── Content ── */}
+      {/* ── Content — fills entire 100dvh behind the absolute header ── */}
       <main className="flex-1 overflow-hidden relative">
+        {/* Rate limit banner sits below the header */}
+        {rateLimitWait !== null && (
+          <div className="absolute left-0 right-0 z-20" style={{ top: 'calc(env(safe-area-inset-top) + 68px)' }}>
+            <RateLimitBanner
+              waitSeconds={rateLimitWait}
+              onDismiss={() => setRateLimitWait(null)}
+              onRetry={() => { setRateLimitWait(null); pendingRetry?.() }}
+            />
+          </div>
+        )}
         <div key={pathname} className="animate-fade-in h-full" style={{ willChange: 'opacity' }}>
           {children}
         </div>

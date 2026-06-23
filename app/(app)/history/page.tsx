@@ -147,7 +147,7 @@ export default function HistoryPage() {
 
   const patientPanel = (
     <div className="flex flex-col h-full">
-      <div className="px-3 pt-4 pb-2 shrink-0">
+      <div className="px-3 pt-header pb-2 shrink-0">
         <input
           type="search"
           value={patientSearch}
@@ -223,7 +223,7 @@ export default function HistoryPage() {
   const notePanel = (
     <div className="flex flex-col h-full">
       {/* Mobile back button */}
-      <div className="sm:hidden px-4 pt-4 pb-2 shrink-0 flex items-center gap-2">
+      <div className="sm:hidden px-4 pt-header pb-2 shrink-0 flex items-center gap-2">
         <button
           onClick={() => setShowNoteList(false)}
           className="flex items-center gap-1.5 text-sm text-[var(--blue)]"
@@ -238,7 +238,7 @@ export default function HistoryPage() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3 sm:pt-4 pb-tabbar">
+      <div className="flex-1 overflow-y-auto px-4 py-3 sm:pt-header pb-tabbar">
         {loading ? (
           <div className="space-y-2">
             {[0, 1, 2, 3].map(i => <NoteCardSkeleton key={i} />)}

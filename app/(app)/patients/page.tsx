@@ -116,7 +116,7 @@ function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNo
 
       {/* Back button - right-aligned */}
       <div
-        className="shrink-0 px-4 py-2 border-b border-[var(--border)] flex items-center justify-end"
+        className="shrink-0 px-4 pb-2 pt-header border-b border-[var(--border)] flex items-center justify-end"
         style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
       >
         <button
@@ -435,7 +435,7 @@ export default function PatientsPage() {
     <div className="h-full flex flex-col overflow-hidden">
       {/* Filter bar */}
       <div
-        className="shrink-0 border-b border-[var(--border)] px-4 py-3 space-y-2"
+        className="shrink-0 border-b border-[var(--border)] px-4 pb-3 pt-header space-y-2"
         style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
       >
         <div className="flex items-center justify-between gap-2">

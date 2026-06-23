@@ -239,6 +239,14 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
    Tab bar ≈ 64px tall, sitting one safe-area inset above the screen bottom. */
 .pb-tabbar { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 
+/* Top clearance so scroll containers fill behind the floating header pill.
+   68px = 8px top gap + 52px header + 8px bottom gap, all after safe-area.
+   Unlayered so it wins over Tailwind's p-* padding-top. */
+.pt-header { padding-top: calc(env(safe-area-inset-top) + 68px); }
+@media (min-width: 640px) {
+  .sm\:pt-header { padding-top: calc(env(safe-area-inset-top) + 68px); }
+}
+
 /* Reduced motion - disables ALL transitions and animations */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
