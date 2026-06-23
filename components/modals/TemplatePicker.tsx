@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Modal from '@/components/ui/Modal'
 import { useAuth } from '@/hooks/useAuth'
+import { updateProfile } from '@/lib/firestore/profiles'
 import type { AnyTemplate, NoteLength, Template, LetterType } from '@/types'
 
 interface TemplatePickerProps {
@@ -15,12 +16,18 @@ interface TemplatePickerProps {
 
 const USAGE_KEY = 'lnTemplateUsage'
 const MAX_RECENT = 5
+// Comprehensive Psychology Note — the app's default template. Surfaced under
+// "Recently Used" for first-time users and used by "Skip, use default note".
+const DEFAULT_TEMPLATE_ID = 1
 
 function getRecentIds(): (string | number)[] {
   try {
-    return JSON.parse(localStorage.getItem(USAGE_KEY) ?? '[]') as (string | number)[]
+    const stored = localStorage.getItem(USAGE_KEY)
+    if (stored === null) return [DEFAULT_TEMPLATE_ID]
+    const parsed = JSON.parse(stored) as (string | number)[]
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : [DEFAULT_TEMPLATE_ID]
   } catch {
-    return []
+    return [DEFAULT_TEMPLATE_ID]
   }
 }
 
@@ -95,13 +102,15 @@ function matchesTab(t: AnyTemplate, tab: Tab, customIds: Set<string>): boolean {
 }
 
 export default function TemplatePicker({ open, onSelect, onCancel, onSelectLetter }: TemplatePickerProps) {
-  const { profile } = useAuth()
+  const { profile, user, refreshProfile } = useAuth()
   const [builtins, setBuiltins] = useState<Template[]>([])
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<Tab>('all')
   const [noteLength, setNoteLength] = useState<NoteLength>(
     (profile?.personalisation?.noteLength as NoteLength) ?? 'balanced'
   )
+  const [favIds, setFavIds] = useState<(string | number)[]>(profile?.favoriteTemplateIds ?? [])
+  const [savingFav, setSavingFav] = useState<string | number | null>(null)
   const loaded = useRef(false)
 
   useEffect(() => {
@@ -121,6 +130,11 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
     }
   }, [open, profile?.personalisation?.noteLength])
 
+  // Keep local favourites in sync with the profile (including after a toggle refresh)
+  useEffect(() => {
+    setFavIds(profile?.favoriteTemplateIds ?? [])
+  }, [profile?.favoriteTemplateIds])
+
   const custom: AnyTemplate[] = profile?.customTemplates ?? []
   const customIds = new Set(custom.map(t => String(t.id)))
   // Dedupe by id so a stale duplicate can never render twice
@@ -129,7 +143,6 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
   )
 
   const recentIds = getRecentIds()
-  const favIds: (string | number)[] = profile?.favoriteTemplateIds ?? []
 
   const tabFiltered = all.filter(t => matchesTab(t, tab, customIds))
 
@@ -179,8 +192,31 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
     onSelect(t, noteLength)
   }
 
+  async function toggleFav(id: string | number) {
+    if (!user) return
+    const prev = favIds
+    const next = favIds.includes(id) ? favIds.filter(x => x !== id) : [...favIds, id]
+    setFavIds(next)
+    setSavingFav(id)
+    try {
+      await updateProfile(user.uid, { favoriteTemplateIds: next })
+      await refreshProfile()
+    } catch {
+      setFavIds(prev)
+    } finally {
+      setSavingFav(null)
+    }
+  }
+
   function handleSkip() {
-    const defaultTemplate: AnyTemplate = {
+    // "Default note" is the Comprehensive Psychology Note. Use the real template
+    // once built-ins have loaded; fall back to a generic note if not yet ready.
+    const defaultTemplate = all.find(t => String(t.id) === String(DEFAULT_TEMPLATE_ID))
+    if (defaultTemplate) {
+      handleSelect(defaultTemplate)
+      return
+    }
+    const fallback: AnyTemplate = {
       id: 0,
       title: 'Default Progress Note',
       category: 'Progress Notes',
@@ -189,7 +225,7 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
       prompt: 'Generate a comprehensive clinical progress note based on the transcript.',
     } as AnyTemplate
     recordUsage(0)
-    onSelect(defaultTemplate, noteLength)
+    onSelect(fallback, noteLength)
   }
 
   function renderCard(t: AnyTemplate, showCategory = false) {
@@ -197,41 +233,51 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
     const isRecent = recentIds.includes(t.id)
     return (
       <li key={String(t.id)}>
-        <button
-          onClick={() => handleSelect(t)}
-          className="w-full text-left rounded-[var(--r)] px-3 py-2.5
-                     hover:bg-[var(--bg)] active:bg-[var(--blue-lt)]
-                     motion-safe:transition-colors"
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              {showCategory && t.category && (
-                <p className="text-[10px] font-semibold text-[var(--blue)] uppercase tracking-wide mb-0.5">{t.category}</p>
-              )}
-              <p className="text-sm font-medium text-[var(--text)] truncate">{t.title}</p>
-              {t.description && (
-                <p className="text-xs text-[var(--text2)] mt-0.5 line-clamp-1">{t.description}</p>
-              )}
+        <div className="flex items-stretch gap-1 rounded-[var(--r)] hover:bg-[var(--bg)] motion-safe:transition-colors">
+          <button
+            onClick={() => handleSelect(t)}
+            className="flex-1 min-w-0 text-left rounded-[var(--r)] px-3 py-2.5
+                       active:bg-[var(--blue-lt)] motion-safe:transition-colors"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                {showCategory && t.category && (
+                  <p className="text-[10px] font-semibold text-[var(--blue)] uppercase tracking-wide mb-0.5">{t.category}</p>
+                )}
+                <p className="text-sm font-medium text-[var(--text)] truncate">{t.title}</p>
+                {t.description && (
+                  <p className="text-xs text-[var(--text2)] mt-0.5 line-clamp-1">{t.description}</p>
+                )}
+              </div>
+              <div className="flex gap-1 shrink-0 mt-0.5">
+                {isRecent && !isFav && (
+                  <span className="text-[10px] bg-[var(--bg)] text-[var(--text3)] rounded-full px-1.5 py-0.5 border border-[var(--border)]">
+                    Recent
+                  </span>
+                )}
+                {'custom' in t && t.custom && (
+                  <span className="text-[10px] bg-[#ede9fe] text-[#5b21b6] rounded-full px-1.5 py-0.5 font-medium">
+                    Custom
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="flex gap-1 shrink-0 mt-0.5">
-              {isFav && (
-                <span className="text-[10px] bg-[var(--blue-lt)] text-[var(--blue)] rounded-full px-1.5 py-0.5 font-medium">
-                  Fav
-                </span>
-              )}
-              {isRecent && !isFav && (
-                <span className="text-[10px] bg-[var(--bg)] text-[var(--text3)] rounded-full px-1.5 py-0.5 border border-[var(--border)]">
-                  Recent
-                </span>
-              )}
-              {'custom' in t && t.custom && (
-                <span className="text-[10px] bg-[#ede9fe] text-[#5b21b6] rounded-full px-1.5 py-0.5 font-medium">
-                  Custom
-                </span>
-              )}
-            </div>
-          </div>
-        </button>
+          </button>
+          <button
+            onClick={() => toggleFav(t.id)}
+            disabled={savingFav === t.id}
+            aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
+            className="shrink-0 w-10 flex items-center justify-center rounded-[var(--r)]
+                       text-[var(--text3)] hover:text-amber-400 motion-safe:transition-colors disabled:opacity-40"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24"
+                 fill={isFav ? '#f59e0b' : 'none'}
+                 stroke={isFav ? '#f59e0b' : 'currentColor'}
+                 strokeWidth="2" aria-hidden>
+              <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+            </svg>
+          </button>
+        </div>
       </li>
     )
   }
@@ -410,7 +456,9 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
           {!isLettersTab && (
             <button
               onClick={handleSkip}
-              className="flex-1 py-2 text-sm text-[var(--text2)] border border-[var(--border)] rounded-[var(--r)] hover:bg-[var(--bg)] motion-safe:transition-colors"
+              className="flex-1 py-2 text-sm font-medium text-[var(--blue)] bg-[var(--blue-lt)]
+                         border border-[var(--blue)] rounded-[var(--r)]
+                         hover:bg-[var(--blue)] hover:text-white motion-safe:transition-colors"
             >
               Skip, use default note
             </button>
