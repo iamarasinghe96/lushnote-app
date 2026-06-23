@@ -99,7 +99,12 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
      ::after  — frosted + distorted view of whatever is behind the surface
      ::before — painted-glass tint + inner sheen
    The host must establish a stacking context (any integer z-index) so the
-   negative-z layers don't leak behind an ancestor's background. */
+   negative-z layers don't leak behind an ancestor's background.
+
+   Declared in the `components` layer so Tailwind utility classes (e.g. .fixed
+   on the landing nav) always win the cascade over .ln-glass's position. */
+@layer components {
+
 .ln-glass {
   position: relative;
   background-color: transparent;
@@ -184,6 +189,9 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
   --lg-border-color: rgba(255, 255, 255, 0.25);
   --lg-inner-glow:   rgba(255, 255, 255, 0.35);
 }
+
+}
+/* ───────────────────── end Liquid glass ───────────────────── */
 
 /* Reduced motion - disables ALL transitions and animations */
 @media (prefers-reduced-motion: reduce) {

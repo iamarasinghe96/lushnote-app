@@ -64,24 +64,24 @@ export default function Page() {
       <nav
         data-glass
         data-glass-adaptive
-        className="ln-glass ln-glass-light lg-frost-lg fixed left-4 right-4 z-40 flex items-center justify-between px-5 sm:px-8"
+        className="ln-glass ln-glass-light lg-frost-lg fixed left-4 right-4 z-40 flex items-center justify-between px-6 sm:px-10"
         style={{
-          top: 'calc(env(safe-area-inset-top) + 12px)',
-          height: 52,
-          borderRadius: 20,
-          boxShadow: '0 4px 24px rgba(15,23,42,.10), 0 1px 3px rgba(15,23,42,.06)',
+          top: 'calc(env(safe-area-inset-top) + 16px)',
+          height: 88,
+          borderRadius: 44,
+          boxShadow: '0 8px 30px rgba(15,23,42,.12), 0 2px 6px rgba(15,23,42,.06)',
         }}
       >
-        <div className="flex items-center gap-2 select-none">
-          <img src="/icon.svg" alt="" width={28} height={28} aria-hidden />
-          <span className="font-semibold text-[var(--text)] text-[15px]">LushNote</span>
+        <div className="flex items-center gap-3 select-none">
+          <img src="/icon.svg" alt="" width={40} height={40} aria-hidden />
+          <span className="font-semibold text-[var(--text)] text-xl">LushNote</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={handleSignIn}
             disabled={signing}
-            className="px-3 py-1.5 text-sm font-medium text-[var(--text2)] hover:text-[var(--text)]
-                       border border-white/70 rounded-[var(--r)] hover:border-white
+            className="px-5 py-2.5 text-[15px] font-medium text-[var(--text2)] hover:text-[var(--text)]
+                       border border-white/70 rounded-full hover:border-white
                        motion-safe:transition-colors disabled:opacity-50"
           >
             Sign In
@@ -89,7 +89,7 @@ export default function Page() {
           <button
             onClick={handleSignIn}
             disabled={signing}
-            className="px-4 py-1.5 text-sm font-medium text-white bg-[#10b981] rounded-[var(--r)]
+            className="px-6 py-2.5 text-[15px] font-semibold text-white bg-[#10b981] rounded-full
                        hover:bg-[#059669] motion-safe:transition-colors motion-safe:active:scale-[0.97]
                        motion-safe:transition-transform disabled:opacity-50"
           >
@@ -101,7 +101,7 @@ export default function Page() {
       {/* ── Hero ── */}
       <section
         className="relative flex flex-col items-center justify-center min-h-screen text-center px-4"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 80px)' }}
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 124px)' }}
       >
         <div className="max-w-2xl mx-auto space-y-6">
           <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold
