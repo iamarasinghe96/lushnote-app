@@ -183,6 +183,15 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
   --lg-inner-glow:   rgba(255, 255, 255, 0.3);
 }
 
+/* Tab bar surface — lighter frost than the landing nav so the glow layer
+   and page content stay visible for the lens to warp. */
+.ln-glass-tabbar {
+  --lg-frost-blur:   8px;
+  --lg-tint-color:   255, 255, 255;
+  --lg-tint-opacity: 0.68;
+  --lg-border-color: rgba(255, 255, 255, 0.5);
+}
+
 /* Tab bar active capsule — workspace primary tint via color-mix so any hex
    value from applyWorkspaceTheme works without needing an RGB triplet. */
 .ln-glass.ln-glass-pill {

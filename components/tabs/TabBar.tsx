@@ -70,7 +70,7 @@ export default function TabBar() {
       data-tab-bar
       data-glass
       data-glass-adaptive
-      className="ln-glass ln-glass-light lg-frost-lg relative shrink-0 mx-4 flex items-center px-2 z-30"
+      className="ln-glass ln-glass-tabbar relative shrink-0 mx-4 flex items-center px-2 z-30"
       style={{
         height: 64,
         marginTop: 4,
@@ -79,10 +79,36 @@ export default function TabBar() {
         boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
       }}
     >
-      {/* Tab labels — base layer. The lens (z-20) floats above these so its
-          backdrop-filter samples and refracts the text beneath it; as the lens
-          slides between tabs the displacement filter warps the labels at its
-          edges, exactly like the landing nav over page content. */}
+      {/* Glow layer (z-2) — primary-colour bloom that sits above the nav's own
+          frost/tint pseudo-layers (z -1/-2) but below the labels (z-10) and
+          lens (z-20). The bubble's backdrop-filter samples this coloured signal;
+          the SVG displacement map then bends it visibly at the bubble's edges,
+          creating the glass-lens refraction effect from the reference. */}
+      {activeIndex >= 0 && (
+        <div aria-hidden className="absolute pointer-events-none" style={{ top: 8, bottom: 8, left: 8, right: 8, zIndex: 2 }}>
+          <div
+            className="absolute top-0 bottom-0 motion-safe:transition-transform"
+            style={{
+              width: `${tabPct}%`,
+              transform: `translateX(${activeIndex * 100}%)`,
+              transitionDuration: '680ms',
+              transitionTimingFunction: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                inset: -8,
+                borderRadius: 30,
+                background: 'radial-gradient(ellipse 85% 100% at 50% 50%, color-mix(in srgb, var(--blue) 65%, transparent) 0%, transparent 70%)',
+                filter: 'blur(5px)',
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Tab labels — base layer. */}
       {tabs.map(({ href, label, icon }) => (
         <Link
           key={href}
