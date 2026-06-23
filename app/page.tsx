@@ -64,11 +64,16 @@ export default function Page() {
       <nav
         data-glass
         data-glass-adaptive
-        className="ln-glass ln-glass-light lg-frost-lg fixed left-2 right-2 z-40 flex items-center justify-between
-                   h-16 sm:h-[76px] rounded-full overflow-hidden px-4 sm:px-8"
+        className="ln-glass ln-glass-light lg-frost-lg fixed z-40 flex items-center justify-between
+                   h-16 sm:h-[76px] px-4 sm:px-8"
         style={{
           top: 'calc(env(safe-area-inset-top) + 10px)',
-          boxShadow: '0 8px 30px rgba(15,23,42,.12), 0 2px 6px rgba(15,23,42,.06)',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 'calc(100% - 16px)',
+          maxWidth: 1140,
+          borderRadius: 30,
+          boxShadow: '0px 6px 24px rgba(0, 0, 0, 0.2)',
         }}
       >
         <div className="flex items-center gap-2 sm:gap-3 select-none min-w-0">

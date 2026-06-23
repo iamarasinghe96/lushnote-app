@@ -25,14 +25,14 @@
   /* ── Liquid glass (SVG-distortion) tunables ──
      The refraction itself lives in the #glass-distortion SVG filter; these knobs
      tune the frost, tint and sheen that layer on top. Surfaces override per-use. */
-  --lg-frost-blur:    10px;
+  --lg-frost-blur:    5px;
   --lg-tint-color:    255, 255, 255;   /* rgb triplet; adaptive sampler may override */
-  --lg-tint-opacity:  0.5;
-  --lg-border-color:  rgba(255, 255, 255, 0.6);
+  --lg-tint-opacity:  0.4;
+  --lg-border-color:  rgba(255, 255, 255, 0.4);
   --lg-shadow-offset: 0px;
-  --lg-shadow-blur:   18px;
-  --lg-shadow-spread: -6px;
-  --lg-shadow-color:  rgba(255, 255, 255, 0.5);
+  --lg-shadow-blur:   20px;
+  --lg-shadow-spread: -15px;
+  --lg-shadow-color:  rgba(255, 255, 255, 0.8);
   --lg-inner-glow:    rgba(255, 255, 255, 0.65);
 }
 
@@ -139,8 +139,8 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 .lg-distort .ln-glass::after {
   filter: url(#glass-distortion);
   -webkit-filter: url("#glass-distortion");
-  backdrop-filter: blur(var(--lg-distort-blur, 2px)) saturate(1.5);
-  -webkit-backdrop-filter: blur(var(--lg-distort-blur, 2px)) saturate(1.5);
+  backdrop-filter: blur(var(--lg-distort-blur, 5px)) saturate(1.5);
+  -webkit-backdrop-filter: blur(var(--lg-distort-blur, 5px)) saturate(1.5);
 }
 
 /* Tint + sheen. */
@@ -155,8 +155,8 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 /* Frosted-white surfaces: tab bar, modals, landing nav/cards. */
 .ln-glass-light {
   --lg-tint-color:   255, 255, 255;
-  --lg-tint-opacity: 0.55;
-  --lg-border-color: rgba(255, 255, 255, 0.6);
+  --lg-tint-opacity: 0.35;
+  --lg-border-color: rgba(255, 255, 255, 0.4);
 }
 
 /* Per-surface frost strength. */
@@ -186,11 +186,11 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
    static modifiers above. */
 .ln-glass.light-glass {
   --lg-tint-color:   255, 255, 255;
-  --lg-tint-opacity: 0.34;
+  --lg-tint-opacity: 0.08;
 }
 .ln-glass.dark-glass {
   --lg-tint-color:   20, 28, 46;
-  --lg-tint-opacity: 0.3;
+  --lg-tint-opacity: 0.04;
   --lg-border-color: rgba(255, 255, 255, 0.25);
   --lg-inner-glow:   rgba(255, 255, 255, 0.35);
 }
