@@ -190,7 +190,6 @@ interface TranscriptionResponse {
 }
 
 interface Personalisation {
-  useClientInfo: boolean
   noteLength: NoteLength
   professionalIdentity: string  // max 936 chars
   treatmentApproaches: string   // max 1000 chars

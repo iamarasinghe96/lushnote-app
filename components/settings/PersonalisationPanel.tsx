@@ -39,7 +39,6 @@ const NOTE_LENGTHS: { value: NoteLength; label: string; desc: string }[] = [
 
 export default function PersonalisationPanel({ profile, onSave, onToast }: PersonalisationPanelProps) {
   const p = profile.personalisation
-  const [useClientInfo, setUseClientInfo]           = useState(p?.useClientInfo ?? true)
   const [noteLength, setNoteLength]                 = useState<NoteLength>(p?.noteLength ?? 'balanced')
   const [professionalIdentity, setProfessionalIdentity] = useState(p?.professionalIdentity ?? '')
   const [treatmentApproaches, setTreatmentApproaches]   = useState(p?.treatmentApproaches ?? '')
@@ -90,7 +89,6 @@ export default function PersonalisationPanel({ profile, onSave, onToast }: Perso
     setSaving(true)
     try {
       const next: Personalisation = {
-        useClientInfo,
         noteLength,
         professionalIdentity: professionalIdentity.slice(0, 936),
         treatmentApproaches: treatmentApproaches.slice(0, 1000),
@@ -114,19 +112,6 @@ export default function PersonalisationPanel({ profile, onSave, onToast }: Perso
 
   return (
     <div className="max-w-lg space-y-6">
-      {/* Use patient info */}
-      <section>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold text-[var(--text)]">Use patient information</p>
-            <p className="text-xs text-[var(--text2)] mt-0.5">
-              Include patient name and reg number in generated notes
-            </p>
-          </div>
-          <Toggle checked={useClientInfo} onChange={setUseClientInfo} />
-        </div>
-      </section>
-
       {/* Note length */}
       <section>
         <h3 className="text-sm font-semibold text-[var(--text)] mb-3">Note length</h3>
