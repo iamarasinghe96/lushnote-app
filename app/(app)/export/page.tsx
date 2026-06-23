@@ -126,7 +126,7 @@ export default function ExportPage() {
     <div className="h-full relative overflow-hidden">
 
       {/* Preview pane - full height */}
-      <div className="absolute inset-0 overflow-y-auto px-4 pt-header pb-tabbar">
+      <div className="absolute inset-0 overflow-y-auto scrollbar-none px-4 pt-header pb-tabbar">
         {isEmpty ? (
           <div className="flex items-center justify-center h-full text-[var(--text3)] text-sm">
             No note loaded. Generate or load a note to export.
@@ -141,7 +141,7 @@ export default function ExportPage() {
 
       {/* Floating Export button - top-right corner (hidden in letter mode) */}
       {!isLetterMode && (
-        <div ref={menuRef} className="absolute top-3 right-4 z-10 no-print">
+        <div ref={menuRef} className="absolute right-4 z-10 no-print" style={{ top: 'calc(env(safe-area-inset-top) + 72px)' }}>
           <button
             onClick={() => setMenuOpen(o => !o)}
             disabled={isEmpty}
@@ -183,7 +183,7 @@ export default function ExportPage() {
 
       {/* In letter mode, point user to Edit tab for exports */}
       {isLetterMode && (
-        <div className="absolute top-3 right-4 z-10 no-print">
+        <div className="absolute right-4 z-10 no-print" style={{ top: 'calc(env(safe-area-inset-top) + 72px)' }}>
           <span className="text-xs text-[var(--text3)] bg-white/80 px-3 py-1.5 rounded-full border border-[var(--border)]">
             Use Edit tab to download PDF or email
           </span>

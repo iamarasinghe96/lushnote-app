@@ -160,7 +160,7 @@ export default function HistoryPage() {
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-tabbar">
+      <div className="flex-1 overflow-y-auto scrollbar-none pb-tabbar">
         {/* All patients row */}
         <button
           onClick={() => selectPatient(null)}
@@ -238,7 +238,7 @@ export default function HistoryPage() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3 sm:pt-header pb-tabbar">
+      <div className="flex-1 overflow-y-auto scrollbar-none px-4 py-3 sm:pt-header pb-tabbar">
         {loading ? (
           <div className="space-y-2">
             {[0, 1, 2, 3].map(i => <NoteCardSkeleton key={i} />)}

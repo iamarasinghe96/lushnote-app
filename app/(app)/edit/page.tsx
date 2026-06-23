@@ -1902,7 +1902,7 @@ function EditContent() {
       <div className="absolute inset-0 overflow-hidden grid grid-cols-1 md:grid-cols-[55%_45%] grid-rows-[1fr]">
 
         {/* LEFT: form — starts at top:0, contentPt pushes first item below the floating bars */}
-        <div ref={formScrollRef} className="overflow-y-auto px-4 pb-tabbar min-h-0" style={{ paddingTop: contentPt }}>
+        <div ref={formScrollRef} className="overflow-y-auto scrollbar-none px-4 pb-tabbar min-h-0" style={{ paddingTop: contentPt }}>
           <div className="max-w-lg mx-auto space-y-4 pb-10">
 
             {/* Letter mode fields */}
@@ -2512,7 +2512,7 @@ function EditContent() {
           </div>
           <div
             ref={previewScrollRef}
-            className="overflow-y-auto p-4 pb-tabbar preview-pane min-h-0"
+            className="overflow-y-auto scrollbar-none p-4 pb-tabbar preview-pane min-h-0"
             dangerouslySetInnerHTML={{ __html: previewHtml }}
           />
         </div>

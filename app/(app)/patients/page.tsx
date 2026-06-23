@@ -130,7 +130,7 @@ function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNo
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-tabbar space-y-4">
+      <div className="flex-1 overflow-y-auto scrollbar-none px-4 pt-4 pb-tabbar space-y-4">
 
         {/* Patient info card */}
         <div
@@ -491,7 +491,7 @@ export default function PatientsPage() {
       </div>
 
       {/* Patient list */}
-      <div className="flex-1 overflow-y-auto pb-tabbar">
+      <div className="flex-1 overflow-y-auto scrollbar-none pb-tabbar">
         {loading ? (
           <div className="space-y-0">
             {[0, 1, 2, 3].map(i => (
