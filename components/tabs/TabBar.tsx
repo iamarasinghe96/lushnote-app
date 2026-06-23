@@ -79,11 +79,29 @@ export default function TabBar() {
         boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
       }}
     >
-      {/* Sliding liquid-glass selection capsule */}
+      {/* Tab labels — base layer. The lens (z-20) floats above these so its
+          backdrop-filter samples and refracts the text beneath it; as the lens
+          slides between tabs the displacement filter warps the labels at its
+          edges, exactly like the landing nav over page content. */}
+      {tabs.map(({ href, label, icon }) => (
+        <Link
+          key={href}
+          href={href}
+          className="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 text-[var(--text3)]"
+          style={{ minWidth: 0 }}
+        >
+          <span className="flex flex-col items-center gap-0.5 py-1">
+            {icon}
+            <span className="text-[9px] font-semibold tracking-wide">{label}</span>
+          </span>
+        </Link>
+      ))}
+
+      {/* Sliding liquid-glass lens + crisp active label, painted above the
+          labels. */}
       {activeIndex >= 0 && (
         <div
-          aria-hidden
-          className="absolute pointer-events-none"
+          className="absolute pointer-events-none z-20"
           style={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <div
@@ -98,6 +116,7 @@ export default function TabBar() {
             <span
               key={activeIndex}
               data-glass
+              aria-hidden
               className="absolute top-0 bottom-0 rounded-[22px] ln-tab-pill ln-glass ln-glass-pill"
               style={{
                 left: 4,
@@ -106,28 +125,18 @@ export default function TabBar() {
                 boxShadow: '0 4px 20px color-mix(in srgb, var(--blue) 38%, transparent)',
               }}
             />
+            {/* Crisp active label on top of the lens so it stays readable while
+                the refracted base label warps behind it. */}
+            <span
+              className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-white"
+              style={{ zIndex: 1, textShadow: '0 1px 2px rgba(0,0,0,0.22)' }}
+            >
+              {tabs[activeIndex].icon}
+              <span className="text-[9px] font-semibold tracking-wide">{tabs[activeIndex].label}</span>
+            </span>
           </div>
         </div>
       )}
-
-      {tabs.map(({ href, label, icon }) => {
-        const active = pathname === href || pathname.startsWith(href + '/')
-        return (
-          <Link
-            key={href}
-            href={href}
-            className="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5"
-            style={{ minWidth: 0 }}
-          >
-            <span className={`flex flex-col items-center gap-0.5 py-1 motion-safe:transition-colors duration-300
-              ${active ? 'text-white drop-shadow-sm' : 'text-[var(--text3)]'}`}
-            >
-              {icon}
-              <span className="text-[9px] font-semibold tracking-wide">{label}</span>
-            </span>
-          </Link>
-        )
-      })}
     </nav>
   )
 }

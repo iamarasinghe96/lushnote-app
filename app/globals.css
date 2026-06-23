@@ -187,12 +187,13 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
    value from applyWorkspaceTheme works without needing an RGB triplet. */
 .ln-glass.ln-glass-pill {
   --lg-frost-blur:   8px;
+  --lg-distort-blur: 3px;
   --lg-border-color: rgba(255, 255, 255, 0.5);
   --lg-shadow-color: rgba(255, 255, 255, 0.6);
   --lg-inner-glow:   rgba(255, 255, 255, 0.65);
 }
 .ln-glass.ln-glass-pill::before {
-  background-color: color-mix(in srgb, var(--blue) 52%, rgba(255, 255, 255, 0.18));
+  background-color: color-mix(in srgb, var(--blue) 42%, transparent);
 }
 
 /* Adaptive tint, toggled by the luminance sampler on [data-glass-adaptive]
