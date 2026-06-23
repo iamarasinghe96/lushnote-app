@@ -91,25 +91,19 @@ export default function TabBar() {
             style={{
               width: `${tabPct}%`,
               transform: `translateX(${activeIndex * 100}%)`,
-              transitionDuration: '460ms',
-              transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)',
+              transitionDuration: '680ms',
+              transitionTimingFunction: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
             }}
           >
             <span
               key={activeIndex}
-              className="absolute top-0 bottom-0 rounded-[22px] ln-tab-pill"
+              data-glass
+              className="absolute top-0 bottom-0 rounded-[22px] ln-tab-pill ln-glass ln-glass-pill"
               style={{
                 left: 4,
                 right: 4,
-                background: 'color-mix(in srgb, var(--blue) 85%, transparent)',
-                backdropFilter: 'blur(6px)',
-                WebkitBackdropFilter: 'blur(6px)',
-                boxShadow: [
-                  '0 4px 16px color-mix(in srgb, var(--blue) 45%, transparent)',
-                  'inset 0 1.5px 0 rgba(255,255,255,0.55)',
-                  'inset 0 -1px 0 rgba(0,0,0,0.08)',
-                ].join(', '),
-                border: '1px solid rgba(255,255,255,0.45)',
+                zIndex: 0,
+                boxShadow: '0 4px 20px color-mix(in srgb, var(--blue) 38%, transparent)',
               }}
             />
           </div>
@@ -126,8 +120,7 @@ export default function TabBar() {
             style={{ minWidth: 0 }}
           >
             <span className={`flex flex-col items-center gap-0.5 py-1 motion-safe:transition-colors duration-300
-              ${active ? 'text-white' : 'text-[var(--text3)]'}`}
-              style={active ? { textShadow: '0 1px 2px rgba(0,0,0,0.18)' } : undefined}
+              ${active ? 'text-white drop-shadow-sm' : 'text-[var(--text3)]'}`}
             >
               {icon}
               <span className="text-[9px] font-semibold tracking-wide">{label}</span>
