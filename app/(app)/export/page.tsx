@@ -126,7 +126,7 @@ export default function ExportPage() {
     <div className="h-full relative overflow-hidden">
 
       {/* Preview pane - full height */}
-      <div className="absolute inset-0 overflow-y-auto p-4">
+      <div className="absolute inset-0 overflow-y-auto p-4 pb-tabbar">
         {isEmpty ? (
           <div className="flex items-center justify-center h-full text-[var(--text3)] text-sm">
             No note loaded. Generate or load a note to export.

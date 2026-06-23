@@ -159,7 +159,7 @@ export default function TranscriptPage() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden pb-tabbar">
       {/* Raw transcript section */}
       <div
         className="border-b border-[var(--border)] p-4 flex-none"

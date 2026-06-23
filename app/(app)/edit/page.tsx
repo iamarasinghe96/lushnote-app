@@ -1827,15 +1827,13 @@ function EditContent() {
       {/* Current note bar */}
       {!isLetterMode && (store.currentNoteId || isGenerating) && (
         <div
-          className={`flex items-center justify-between px-4 py-2 text-white text-sm shrink-0 mx-4 mb-1
+          data-glass
+          className={`ln-glass ln-glass-note flex items-center justify-between px-4 py-2 text-white text-sm shrink-0 mx-4 mb-1
             ${isGenerating ? 'animate-pulse' : ''}`}
           style={{
+            zIndex: 1,
             borderRadius: 20,
-            background: 'rgba(14,159,110,0.90)',
-            backdropFilter: 'blur(8px) saturate(1.5)',
-            WebkitBackdropFilter: 'blur(8px) saturate(1.5)',
-            border: '1px solid rgba(255,255,255,0.25)',
-            boxShadow: '0 4px 16px rgba(14,159,110,0.25), inset 0 1px 0 rgba(255,255,255,0.20)',
+            boxShadow: '0 4px 16px rgba(14,159,110,0.25)',
           }}
         >
           <div className="flex items-center gap-2 min-w-0">
@@ -1893,7 +1891,7 @@ function EditContent() {
       <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-[55%_45%] grid-rows-[1fr]">
 
         {/* LEFT: form */}
-        <div ref={formScrollRef} className="overflow-y-auto p-4 min-h-0">
+        <div ref={formScrollRef} className="overflow-y-auto p-4 pb-tabbar min-h-0">
           <div className="max-w-lg mx-auto space-y-4 pb-10">
 
             {/* Letter mode fields */}
@@ -2503,7 +2501,7 @@ function EditContent() {
           </div>
           <div
             ref={previewScrollRef}
-            className="overflow-y-auto p-4 preview-pane min-h-0"
+            className="overflow-y-auto p-4 pb-tabbar preview-pane min-h-0"
             dangerouslySetInnerHTML={{ __html: previewHtml }}
           />
         </div>

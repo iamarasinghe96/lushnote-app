@@ -377,7 +377,7 @@ export default function GeneratePage() {
 
   return (
     <div
-      className="h-full overflow-y-auto"
+      className="h-full overflow-y-auto pb-tabbar"
     >
       {/* Interrupted session banner */}
       {showBanner && (

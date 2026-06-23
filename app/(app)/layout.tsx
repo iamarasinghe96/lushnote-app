@@ -93,7 +93,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
   const initials = getInitials(profile?.displayName || '')
 
   return (
-    <div className="flex flex-col overflow-hidden bg-[var(--bg)]" style={{ height: '100dvh' }}>
+    <div className="relative flex flex-col overflow-hidden bg-[var(--bg)]" style={{ height: '100dvh' }}>
 
       {/* ── Header ── */}
       {/* Safe-area spacer so the floating pill clears the notch/Dynamic Island */}

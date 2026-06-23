@@ -65,12 +65,14 @@ export default function TabBar() {
   const tabPct = 100 / tabs.length
 
   return (
-    // Flex item - no position:fixed - solves iOS PWA keyboard-jump bug
+    // Absolute within the 100dvh app container (NOT position:fixed, which
+    // re-introduces the iOS PWA keyboard-jump bug) so page content scrolls
+    // behind the frosted bar and the glass refracts it.
     <nav
       data-tab-bar
       data-glass
       data-glass-adaptive
-      className="ln-glass ln-glass-tabbar relative shrink-0 mx-4 flex items-center px-2 z-30"
+      className="ln-glass ln-glass-tabbar absolute bottom-0 inset-x-0 mx-4 flex items-center px-2 z-30"
       style={{
         height: 64,
         marginTop: 4,

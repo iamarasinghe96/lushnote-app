@@ -183,6 +183,17 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
   --lg-inner-glow:   rgba(255, 255, 255, 0.3);
 }
 
+/* Emerald surface: the Edit-tab current-note bar. Mirrors ln-glass-brand with
+   a green tint triplet; high opacity keeps the white bar text readable. */
+.ln-glass-note {
+  --lg-frost-blur:   8px;
+  --lg-tint-color:   14, 159, 110;
+  --lg-tint-opacity: 0.82;
+  --lg-border-color: rgba(255, 255, 255, 0.28);
+  --lg-shadow-color: rgba(255, 255, 255, 0.28);
+  --lg-inner-glow:   rgba(255, 255, 255, 0.3);
+}
+
 /* Tab bar surface — lighter frost than the landing nav so the glow layer
    and page content stay visible for the lens to warp. */
 .ln-glass-tabbar {
@@ -221,6 +232,12 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 
 }
 /* ───────────────────── end Liquid glass ───────────────────── */
+
+/* Bottom clearance so a page's scrollable content can flow fully BEHIND the
+   floating tab bar (revealing the glass refraction) while its last items still
+   scroll clear of it. Unlayered so it wins over Tailwind's p-* padding-bottom.
+   Tab bar ≈ 64px tall, sitting one safe-area inset above the screen bottom. */
+.pb-tabbar { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 
 /* Reduced motion - disables ALL transitions and animations */
 @media (prefers-reduced-motion: reduce) {
