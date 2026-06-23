@@ -62,15 +62,13 @@ export default function Page() {
 
       {/* ── Nav ── */}
       <nav
-        className="fixed left-4 right-4 z-40 flex items-center justify-between px-5 sm:px-8"
+        data-glass
+        data-glass-adaptive
+        className="ln-glass ln-glass-light lg-frost-lg fixed left-4 right-4 z-40 flex items-center justify-between px-5 sm:px-8"
         style={{
           top: 'calc(env(safe-area-inset-top) + 12px)',
           height: 52,
           borderRadius: 20,
-          backdropFilter: 'blur(6px) saturate(1.4)',
-          WebkitBackdropFilter: 'blur(6px) saturate(1.4)',
-          background: 'transparent',
-          border: '1px solid rgba(255,255,255,0.0)',
           boxShadow: '0 4px 24px rgba(15,23,42,.10), 0 1px 3px rgba(15,23,42,.06)',
         }}
       >

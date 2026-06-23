@@ -68,17 +68,15 @@ export default function TabBar() {
     // Flex item - no position:fixed - solves iOS PWA keyboard-jump bug
     <nav
       data-tab-bar
-      className="relative shrink-0 mx-4 flex items-center px-2 z-30"
+      data-glass
+      data-glass-adaptive
+      className="ln-glass ln-glass-light lg-frost-lg relative shrink-0 mx-4 flex items-center px-2 z-30"
       style={{
         height: 64,
         marginTop: 4,
         marginBottom: 'env(safe-area-inset-bottom)',
         borderRadius: 32,
-        backdropFilter: 'blur(32px) saturate(1.6)',
-        WebkitBackdropFilter: 'blur(32px) saturate(1.6)',
-        background: 'rgba(255,255,255,0.45)',
-        border: '1px solid rgba(255,255,255,0.6)',
-        boxShadow: '0 8px 32px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.7)',
+        boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
       }}
     >
       {/* Sliding liquid-glass selection capsule */}

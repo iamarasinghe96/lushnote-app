@@ -100,25 +100,16 @@ function AppContent({ children }: { children: React.ReactNode }) {
       <div aria-hidden style={{ height: 'calc(env(safe-area-inset-top) + 8px)', flexShrink: 0 }} />
       <header
         data-header
-        className="relative z-30 shrink-0 mx-4"
+        data-glass
+        className="ln-glass ln-glass-brand lg-frost-sm relative z-30 shrink-0 mx-4"
         style={{
           height: 52,
           marginBottom: 8,
           borderRadius: 20,
-          background: 'rgba(37,99,235,0.92)',
-          border: '1px solid rgba(255,255,255,0.28)',
-          boxShadow: '0 4px 20px rgba(37,99,235,0.22), inset 0 1px 0 rgba(255,255,255,0.22)',
+          boxShadow: '0 4px 20px rgba(37,99,235,0.22)',
           overflow: 'visible',
         }}
       >
-        {/* Backdrop blur lives on its own child so iOS Safari's implicit
-            overflow:clip on backdrop-filter never clips the avatar button */}
-        <div aria-hidden style={{
-          position: 'absolute', inset: 0, borderRadius: 20, zIndex: 0, pointerEvents: 'none',
-          backdropFilter: 'blur(8px) saturate(1.5)',
-          WebkitBackdropFilter: 'blur(8px) saturate(1.5)',
-        }} />
-
         <div className="relative z-10 flex items-center justify-between px-4 h-full">
 
         {/* Left: LN circle + name/subtitle */}

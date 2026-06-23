@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/components/AuthProvider'
+import { LiquidGlass } from '@/components/LiquidGlass'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -50,6 +51,36 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={inter.className}>
       <body>
         <AuthProvider>{children}</AuthProvider>
+        <LiquidGlass />
+
+        {/* Liquid-glass refraction filter — fractal noise piped through a
+            displacement map bends whatever is behind a .ln-glass surface. */}
+        <svg
+          aria-hidden
+          width="0"
+          height="0"
+          style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}
+        >
+          <defs>
+            <filter id="glass-distortion" x="0%" y="0%" width="100%" height="100%">
+              <feTurbulence
+                type="fractalNoise"
+                baseFrequency="0.005 0.005"
+                numOctaves="2"
+                seed="92"
+                result="noise"
+              />
+              <feGaussianBlur in="noise" stdDeviation="2" result="blurred" />
+              <feDisplacementMap
+                in="SourceGraphic"
+                in2="blurred"
+                scale="30"
+                xChannelSelector="R"
+                yChannelSelector="G"
+              />
+            </filter>
+          </defs>
+        </svg>
       </body>
     </html>
   )

@@ -21,6 +21,19 @@
   --r-xl:    20px;
   --shadow-sm: 0 1px 3px rgba(15,23,42,.07), 0 1px 2px rgba(15,23,42,.04);
   --shadow-lg: 0 12px 40px rgba(15,23,42,.13);
+
+  /* ── Liquid glass (SVG-distortion) tunables ──
+     The refraction itself lives in the #glass-distortion SVG filter; these knobs
+     tune the frost, tint and sheen that layer on top. Surfaces override per-use. */
+  --lg-frost-blur:    10px;
+  --lg-tint-color:    255, 255, 255;   /* rgb triplet; adaptive sampler may override */
+  --lg-tint-opacity:  0.5;
+  --lg-border-color:  rgba(255, 255, 255, 0.6);
+  --lg-shadow-offset: 0px;
+  --lg-shadow-blur:   18px;
+  --lg-shadow-spread: -6px;
+  --lg-shadow-color:  rgba(255, 255, 255, 0.5);
+  --lg-inner-glow:    rgba(255, 255, 255, 0.65);
 }
 
 * { box-sizing: border-box; }
@@ -76,6 +89,100 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 .ln-tab-pill {
   transform-origin: center;
   animation: ln-tab-stretch 460ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ─────────────────────── Liquid glass ───────────────────────
+   Refraction is produced by piping the backdrop through the
+   #glass-distortion SVG displacement filter, exactly like the BYD nav.
+   Two pseudo-layers sit behind the host's content (which keeps its
+   default z-index and so renders on top):
+     ::after  — frosted + distorted view of whatever is behind the surface
+     ::before — painted-glass tint + inner sheen
+   The host must establish a stacking context (any integer z-index) so the
+   negative-z layers don't leak behind an ancestor's background. */
+.ln-glass {
+  position: relative;
+  background-color: transparent;
+  border: 1px solid var(--lg-border-color);
+}
+
+.ln-glass::before,
+.ln-glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Refraction + frost. isolation:isolate lives on this layer (not the host) so
+   the displacement filter composites correctly while the backdrop-filter still
+   samples the page behind the host. */
+.ln-glass::after {
+  z-index: -2;
+  isolation: isolate;
+  backdrop-filter: blur(var(--lg-frost-blur)) saturate(1.6);
+  -webkit-backdrop-filter: blur(var(--lg-frost-blur)) saturate(1.6);
+}
+
+/* The distortion is opt-in: enabled only on engines that render it cleanly
+   (the .lg-distort flag is set by the LiquidGlass controller). Everywhere else
+   the frost above is the graceful fallback. */
+.lg-distort .ln-glass::after {
+  filter: url(#glass-distortion);
+  -webkit-filter: url("#glass-distortion");
+}
+
+/* Tint + sheen. */
+.ln-glass::before {
+  z-index: -1;
+  background-color: rgba(var(--lg-tint-color), var(--lg-tint-opacity));
+  box-shadow:
+    inset var(--lg-shadow-offset) var(--lg-shadow-offset) var(--lg-shadow-blur) var(--lg-shadow-spread) var(--lg-shadow-color),
+    inset 0 1px 0 var(--lg-inner-glow);
+}
+
+/* Frosted-white surfaces: tab bar, modals, landing nav/cards. */
+.ln-glass-light {
+  --lg-tint-color:   255, 255, 255;
+  --lg-tint-opacity: 0.55;
+  --lg-border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Per-surface frost strength. */
+.lg-frost-sm { --lg-frost-blur: 6px; }
+.lg-frost-lg { --lg-frost-blur: 18px; }
+
+/* Modal sheet — more opaque tint so form content stays readable over the
+   dimmed page, while keeping the frosted/refracted edge. */
+.ln-glass-modal {
+  --lg-tint-color:   255, 255, 255;
+  --lg-tint-opacity: 0.82;
+  --lg-frost-blur:   16px;
+  --lg-border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Brand-blue surface: the app header. */
+.ln-glass-brand {
+  --lg-tint-color:   37, 99, 235;
+  --lg-tint-opacity: 0.78;
+  --lg-border-color: rgba(255, 255, 255, 0.28);
+  --lg-shadow-color: rgba(255, 255, 255, 0.28);
+  --lg-inner-glow:   rgba(255, 255, 255, 0.3);
+}
+
+/* Adaptive tint, toggled by the luminance sampler on [data-glass-adaptive]
+   surfaces. Two classes so the picked tint wins on specificity over the
+   static modifiers above. */
+.ln-glass.light-glass {
+  --lg-tint-color:   255, 255, 255;
+  --lg-tint-opacity: 0.55;
+}
+.ln-glass.dark-glass {
+  --lg-tint-color:   20, 28, 46;
+  --lg-tint-opacity: 0.4;
+  --lg-border-color: rgba(255, 255, 255, 0.25);
+  --lg-inner-glow:   rgba(255, 255, 255, 0.35);
 }
 
 /* Reduced motion - disables ALL transitions and animations */

@@ -41,14 +41,13 @@ export default function Modal({ open, onClose, title, maxWidth = 'md', children 
       aria-modal
     >
       <div
+        data-glass
         className={`
-          relative w-full ${maxWidthClasses[maxWidth]}
-          backdrop-blur-md bg-white/90
+          ln-glass ln-glass-modal relative w-full ${maxWidthClasses[maxWidth]}
           rounded-t-[20px] sm:rounded-[20px]
-          border border-white/45
           animate-modal-enter overflow-hidden
         `}
-        style={{ boxShadow: 'var(--shadow-lg)', willChange: 'transform, opacity' }}
+        style={{ boxShadow: 'var(--shadow-lg)', willChange: 'transform, opacity', zIndex: 0 }}
         onMouseDown={e => e.stopPropagation()}
       >
         {title && (
