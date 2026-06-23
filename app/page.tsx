@@ -64,25 +64,23 @@ export default function Page() {
       <nav
         data-glass
         data-glass-adaptive
-        className="ln-glass ln-glass-light lg-frost-lg fixed left-2 right-2 z-40 flex items-center justify-between px-6 sm:px-10"
+        className="ln-glass ln-glass-light lg-frost-lg fixed left-2 right-2 z-40 flex items-center justify-between
+                   h-16 sm:h-[76px] rounded-full overflow-hidden px-4 sm:px-8"
         style={{
           top: 'calc(env(safe-area-inset-top) + 10px)',
-          height: 76,
-          borderRadius: 34,
-          overflow: 'hidden',
           boxShadow: '0 8px 30px rgba(15,23,42,.12), 0 2px 6px rgba(15,23,42,.06)',
         }}
       >
-        <div className="flex items-center gap-3 select-none">
-          <img src="/icon.svg" alt="" width={40} height={40} aria-hidden />
-          <span className="font-semibold text-[var(--text)] text-xl">LushNote</span>
+        <div className="flex items-center gap-2 sm:gap-3 select-none min-w-0">
+          <img src="/icon.svg" alt="" width={40} height={40} className="w-9 h-9 sm:w-10 sm:h-10 shrink-0" aria-hidden />
+          <span className="hidden sm:inline font-semibold text-[var(--text)] text-xl">LushNote</span>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           <button
             onClick={handleSignIn}
             disabled={signing}
-            className="px-5 py-2.5 text-[15px] font-medium text-[var(--text2)] hover:text-[var(--text)]
-                       border border-white/70 rounded-full hover:border-white
+            className="px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] font-medium text-[var(--text2)] hover:text-[var(--text)]
+                       border border-white/70 rounded-full hover:border-white whitespace-nowrap
                        motion-safe:transition-colors disabled:opacity-50"
           >
             Sign In
@@ -90,8 +88,8 @@ export default function Page() {
           <button
             onClick={handleSignIn}
             disabled={signing}
-            className="px-6 py-2.5 text-[15px] font-semibold text-white bg-[#10b981] rounded-full
-                       hover:bg-[#059669] motion-safe:transition-colors motion-safe:active:scale-[0.97]
+            className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-[15px] font-semibold text-white bg-[#10b981] rounded-full
+                       hover:bg-[#059669] whitespace-nowrap motion-safe:transition-colors motion-safe:active:scale-[0.97]
                        motion-safe:transition-transform disabled:opacity-50"
           >
             {signing ? 'Signing in…' : 'Sign Up Free'}
