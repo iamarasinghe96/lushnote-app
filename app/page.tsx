@@ -64,11 +64,12 @@ export default function Page() {
       <nav
         data-glass
         data-glass-adaptive
-        className="ln-glass ln-glass-light lg-frost-lg fixed left-4 right-4 z-40 flex items-center justify-between px-6 sm:px-10"
+        className="ln-glass ln-glass-light lg-frost-lg fixed left-2 right-2 z-40 flex items-center justify-between px-6 sm:px-10"
         style={{
-          top: 'calc(env(safe-area-inset-top) + 16px)',
-          height: 88,
-          borderRadius: 44,
+          top: 'calc(env(safe-area-inset-top) + 10px)',
+          height: 76,
+          borderRadius: 34,
+          overflow: 'hidden',
           boxShadow: '0 8px 30px rgba(15,23,42,.12), 0 2px 6px rgba(15,23,42,.06)',
         }}
       >
@@ -101,7 +102,7 @@ export default function Page() {
       {/* ── Hero ── */}
       <section
         className="relative flex flex-col items-center justify-center min-h-screen text-center px-4"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 124px)' }}
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 110px)' }}
       >
         <div className="max-w-2xl mx-auto space-y-6">
           <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold

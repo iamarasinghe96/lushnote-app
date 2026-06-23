@@ -132,10 +132,15 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 
 /* The distortion is opt-in: enabled only on engines that render it cleanly
    (the .lg-distort flag is set by the LiquidGlass controller). Everywhere else
-   the frost above is the graceful fallback. */
+   the frost above is the graceful fallback.
+   When distortion IS active the displacement is what makes the glass, so the
+   backdrop blur is dropped to a sliver — a heavy blur would smear the warp away
+   (this is how the BYD nav keeps the refracted content legible). */
 .lg-distort .ln-glass::after {
   filter: url(#glass-distortion);
   -webkit-filter: url("#glass-distortion");
+  backdrop-filter: blur(var(--lg-distort-blur, 2px)) saturate(1.5);
+  -webkit-backdrop-filter: blur(var(--lg-distort-blur, 2px)) saturate(1.5);
 }
 
 /* Tint + sheen. */
@@ -181,11 +186,11 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
    static modifiers above. */
 .ln-glass.light-glass {
   --lg-tint-color:   255, 255, 255;
-  --lg-tint-opacity: 0.55;
+  --lg-tint-opacity: 0.34;
 }
 .ln-glass.dark-glass {
   --lg-tint-color:   20, 28, 46;
-  --lg-tint-opacity: 0.4;
+  --lg-tint-opacity: 0.3;
   --lg-border-color: rgba(255, 255, 255, 0.25);
   --lg-inner-glow:   rgba(255, 255, 255, 0.35);
 }
