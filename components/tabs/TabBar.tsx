@@ -100,7 +100,7 @@ export default function TabBar() {
                 position: 'absolute',
                 inset: -8,
                 borderRadius: 30,
-                background: 'radial-gradient(ellipse 85% 100% at 50% 50%, color-mix(in srgb, var(--blue) 65%, transparent) 0%, transparent 70%)',
+                background: 'radial-gradient(ellipse 85% 100% at 50% 50%, color-mix(in srgb, var(--blue) 45%, transparent) 0%, transparent 70%)',
                 filter: 'blur(5px)',
               }}
             />
@@ -108,20 +108,28 @@ export default function TabBar() {
         </div>
       )}
 
-      {/* Tab labels — base layer. */}
-      {tabs.map(({ href, label, icon }) => (
-        <Link
-          key={href}
-          href={href}
-          className="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 text-[var(--text3)]"
-          style={{ minWidth: 0 }}
-        >
-          <span className="flex flex-col items-center gap-0.5 py-1">
-            {icon}
-            <span className="text-[9px] font-semibold tracking-wide">{label}</span>
-          </span>
-        </Link>
-      ))}
+      {/* Tab labels — base layer. Active tab fades to opacity-0 so the white
+          overlay is the only visible label; the glass lens still warps the
+          adjacent inactive labels as it slides past them. */}
+      {tabs.map(({ href, label, icon }, i) => {
+        const active = i === activeIndex
+        return (
+          <Link
+            key={href}
+            href={href}
+            className="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 text-[var(--text3)]"
+            style={{ minWidth: 0 }}
+          >
+            <span
+              className="flex flex-col items-center gap-0.5 py-1 motion-safe:transition-opacity duration-200"
+              style={{ opacity: active ? 0 : 1 }}
+            >
+              {icon}
+              <span className="text-[9px] font-semibold tracking-wide">{label}</span>
+            </span>
+          </Link>
+        )
+      })}
 
       {/* Sliding liquid-glass lens + crisp active label, painted above the
           labels. */}
