@@ -347,9 +347,16 @@ function EditContent() {
       latestFieldsRef.current = known
       setFields(known)
       runPendingGeneration()
-    } else if (noteIdParam && noteIdParam !== s.currentNoteId) {
-      // Navigated here from History tab (or direct URL) with ?noteId=
-      loadNote(noteIdParam)
+    } else if (noteIdParam) {
+      // Opening a specific note always exits letter mode
+      if (s.letterType !== null) s.resetLetterMode()
+      if (noteIdParam !== s.currentNoteId) {
+        loadNote(noteIdParam)
+      } else {
+        latestFieldsRef.current = s.currentNote
+        setFields(s.currentNote)
+        setPreviewHtml(buildPreviewHTML(s.currentNote))
+      }
     } else {
       latestFieldsRef.current = s.currentNote
       setFields(s.currentNote)
