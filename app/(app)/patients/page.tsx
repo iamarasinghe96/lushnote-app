@@ -320,6 +320,7 @@ export default function PatientsPage() {
   }, [groupedPatients, search, sortBy, quickFilter])
 
   function loadNote(note: Note) {
+    store.resetLetterMode()
     store.setCurrentNoteId(note.id ?? null)
     store.setCurrentNote({
       patient: note.patient, reg_number: note.reg_number, date: note.date,
