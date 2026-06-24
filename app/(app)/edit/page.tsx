@@ -368,7 +368,6 @@ function EditContent() {
   async function loadNote(noteId: string) {
     const note = await getNote(noteId)
     if (!note || !mountedRef.current) return
-    store.resetLetterMode()
     const noteFields: Partial<Note> = {
       patient:        note.patient,
       reg_number:     note.reg_number,
