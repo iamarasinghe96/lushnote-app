@@ -1805,7 +1805,7 @@ function EditContent() {
             </span>
             <button
               onClick={handleChangeTemplate}
-              className="text-white/80 hover:text-white text-xs px-2 py-1 rounded hover:bg-white/10 motion-safe:transition-colors">
+              className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10 motion-safe:transition-colors">
               Change
             </button>
           </div>
@@ -1889,15 +1889,15 @@ function EditContent() {
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <button onClick={handleChangeTemplate} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded hover:bg-white/10">
+            <button onClick={handleChangeTemplate} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
               Change Template
             </button>
             {store.lastTranscript && (
-              <button onClick={() => router.push('/transcript')} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded hover:bg-white/10">
+              <button onClick={() => router.push('/transcript')} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
                 Transcript
               </button>
             )}
-            <button onClick={() => setReassignOpen(true)} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded hover:bg-white/10">
+            <button onClick={() => setReassignOpen(true)} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
               Reassign
             </button>
           </div>
