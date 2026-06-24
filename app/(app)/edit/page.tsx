@@ -208,6 +208,7 @@ function EditContent() {
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [changeTemplateOpen, setChangeTemplateOpen] = useState(false)
+  const [changeTemplateDefaultTab, setChangeTemplateDefaultTab] = useState<'all' | 'letters'>('all')
   const [reassignOpen, setReassignOpen] = useState(false)
   const [allNotes, setAllNotes] = useState<Note[]>([])
   const patientDobMap = useRef<Map<string, string>>(new Map())
@@ -759,7 +760,10 @@ function EditContent() {
     router.push('/generate')
   }
 
-  function handleChangeTemplate() { setChangeTemplateOpen(true) }
+  function handleChangeTemplate(defaultTab: 'all' | 'letters' = 'all') {
+    setChangeTemplateDefaultTab(defaultTab)
+    setChangeTemplateOpen(true)
+  }
 
   function handleTemplateChange(newTemplate: AnyTemplate, noteLength?: string) {
     setChangeTemplateOpen(false)
@@ -1804,7 +1808,7 @@ function EditContent() {
                 : 'Free Text Letter'}
             </span>
             <button
-              onClick={handleChangeTemplate}
+              onClick={() => handleChangeTemplate('letters')}
               className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10 motion-safe:transition-colors">
               Change
             </button>
@@ -1889,7 +1893,7 @@ function EditContent() {
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <button onClick={handleChangeTemplate} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
+            <button onClick={() => handleChangeTemplate()} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
               Change Template
             </button>
             {store.lastTranscript && (
@@ -2547,6 +2551,7 @@ function EditContent() {
         onSelect={handleTemplateChange}
         onSelectLetter={handleSelectLetterType}
         onCancel={() => setChangeTemplateOpen(false)}
+        defaultTab={changeTemplateDefaultTab}
       />
       <ReassignModal
         open={reassignOpen}

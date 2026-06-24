@@ -12,6 +12,8 @@ interface TemplatePickerProps {
   onCancel: () => void
   /** When provided, a "Letters" tab is shown so the user can switch into letter mode. */
   onSelectLetter?: (letterType: LetterType) => void
+  /** Tab to show when the picker opens. Defaults to 'all'. */
+  defaultTab?: Tab
 }
 
 const USAGE_KEY = 'lnTemplateUsage'
@@ -101,11 +103,11 @@ function matchesTab(t: AnyTemplate, tab: Tab, customIds: Set<string>): boolean {
   return true
 }
 
-export default function TemplatePicker({ open, onSelect, onCancel, onSelectLetter }: TemplatePickerProps) {
+export default function TemplatePicker({ open, onSelect, onCancel, onSelectLetter, defaultTab }: TemplatePickerProps) {
   const { profile, user, refreshProfile } = useAuth()
   const [builtins, setBuiltins] = useState<Template[]>([])
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<Tab>('all')
+  const [tab, setTab] = useState<Tab>(defaultTab ?? 'all')
   const [noteLength, setNoteLength] = useState<NoteLength>(
     (profile?.personalisation?.noteLength as NoteLength) ?? 'balanced'
   )
@@ -126,7 +128,7 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
     if (open) {
       setNoteLength((profile?.personalisation?.noteLength as NoteLength) ?? 'balanced')
       setSearch('')
-      setTab('all')
+      setTab(defaultTab ?? 'all')
     }
   }, [open, profile?.personalisation?.noteLength])
 
