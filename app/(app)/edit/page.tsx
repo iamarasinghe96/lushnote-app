@@ -306,13 +306,15 @@ function EditContent() {
 
   useEffect(() => { return () => { mountedRef.current = false; metaAnimRef.current?.cancel() } }, [])
 
-  // Bidirectional scroll sync - mirrors scroll position proportionally between both panes
+  // Bidirectional scroll sync - only for note mode (not letter mode, where form
+  // height >> letter height so proportional sync lands on the wrong section)
   useEffect(() => {
     const form = formScrollRef.current
     const preview = previewScrollRef.current
     if (!form || !preview) return
 
     function syncTo(source: HTMLDivElement, target: HTMLDivElement) {
+      if (storeRef.current.letterType !== null) return
       if (scrollSyncLockRef.current) return
       scrollSyncLockRef.current = true
       const pct = source.scrollTop / (source.scrollHeight - source.clientHeight) || 0
@@ -794,6 +796,9 @@ function EditContent() {
         patientName: name,
         dob: patientDobMap.current.get(name.trim().toLowerCase()) ?? '',
       })
+      // Scroll preview back to top so the letter starts visible, not at the
+      // proportional position the form was scrolled to before entering letter mode
+      if (previewScrollRef.current) previewScrollRef.current.scrollTop = 0
     }
   }
 
