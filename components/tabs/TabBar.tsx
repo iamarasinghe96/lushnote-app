@@ -101,7 +101,7 @@ export default function TabBar() {
                 position: 'absolute',
                 inset: -8,
                 borderRadius: 30,
-                background: 'radial-gradient(ellipse 85% 100% at 50% 50%, color-mix(in srgb, var(--blue) 45%, transparent) 0%, transparent 70%)',
+                background: 'radial-gradient(ellipse 85% 100% at 50% 50%, color-mix(in srgb, var(--blue) 70%, transparent) 0%, transparent 70%)',
                 filter: 'blur(5px)',
               }}
             />

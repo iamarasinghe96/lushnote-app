@@ -177,7 +177,7 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 /* Brand-blue surface: the app header. */
 .ln-glass-brand {
   --lg-tint-color:   37, 99, 235;
-  --lg-tint-opacity: 0.78;
+  --lg-tint-opacity: 0.92;
   --lg-border-color: rgba(255, 255, 255, 0.28);
   --lg-shadow-color: rgba(255, 255, 255, 0.28);
   --lg-inner-glow:   rgba(255, 255, 255, 0.3);
@@ -213,7 +213,7 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
   --lg-inner-glow:   rgba(255, 255, 255, 0.65);
 }
 .ln-glass.ln-glass-pill::before {
-  background-color: color-mix(in srgb, var(--blue) 42%, transparent);
+  background-color: color-mix(in srgb, var(--blue) 72%, transparent);
 }
 
 /* Adaptive tint, toggled by the luminance sampler on [data-glass-adaptive]
