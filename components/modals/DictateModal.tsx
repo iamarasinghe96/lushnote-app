@@ -4,16 +4,78 @@ import { useState, useEffect, useRef } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { useRecorder } from '@/hooks/useRecorder'
-import type { RecordingDefaults } from '@/types'
+import type { RecordingDefaults, LetterType } from '@/types'
 
 interface DictateModalProps {
   open: boolean
   onClose: () => void
-  onAudioReady: (blob: Blob, mimeType: string, duration: number, chunks: Blob[]) => void
+  onAudioReady: (blob: Blob, mimeType: string, duration: number, chunks: Blob[], letterType?: LetterType | null) => void
   recordingDefaults?: RecordingDefaults
 }
 
-type Phase = 'idle' | 'recording' | 'processing'
+type Phase = 'choice' | 'letter-type' | 'idle' | 'recording' | 'processing'
+
+const LETTER_OPTIONS: { type: LetterType; title: string; description: string; icon: React.ReactNode }[] = [
+  {
+    type: 'referral',
+    title: 'Referral Letter',
+    description: 'Refer a patient to a specialist, unit, or service',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
+    ),
+  },
+  {
+    type: 'records',
+    title: 'Request Medical Records',
+    description: 'Request clinical notes, investigations, or discharge summaries',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+      </svg>
+    ),
+  },
+  {
+    type: 'freetext',
+    title: 'Free Text Letter',
+    description: 'Dictate a custom letter with your own content',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <path d="M12 20h9"/>
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+      </svg>
+    ),
+  },
+]
+
+// Points the doctor should cover aloud while dictating, surfaced so the AI has
+// the information it needs to populate each letter type's fields.
+const LETTER_GUIDE: Record<LetterType, string[]> = {
+  referral: [
+    'Receiving doctor or specialist’s name',
+    'Patient’s age and gender',
+    'Admission unit and admission dates',
+    'Presenting complaint',
+    'Brief clinical course and relevant history',
+    'Reason for referral',
+    'Relevant past medical history',
+    'Current medications',
+  ],
+  records: [
+    'Previous provider or location holding the records',
+    'What you need — correspondence, investigations, discharge summaries',
+    'Any additional context or urgency',
+  ],
+  freetext: [
+    'Who the letter is addressed to',
+    'The purpose of the letter',
+    'The key points you want to convey',
+  ],
+}
 
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60)
@@ -22,7 +84,8 @@ function formatDuration(secs: number): string {
 }
 
 export default function DictateModal({ open, onClose, onAudioReady, recordingDefaults }: DictateModalProps) {
-  const [phase, setPhase] = useState<Phase>('idle')
+  const [phase, setPhase] = useState<Phase>('choice')
+  const [letterType, setLetterType] = useState<LetterType | null>(null)
   const [interrupted, setInterrupted] = useState(false)
   const [autoStopped, setAutoStopped] = useState(false)
   const [permError, setPermError] = useState<string | null>(null)
@@ -43,7 +106,8 @@ export default function DictateModal({ open, onClose, onAudioReady, recordingDef
 
   useEffect(() => {
     if (!open) {
-      setPhase('idle')
+      setPhase('choice')
+      setLetterType(null)
       setAutoStopped(false)
       setInterrupted(false)
       setPermError(null)
@@ -73,7 +137,7 @@ export default function DictateModal({ open, onClose, onAudioReady, recordingDef
     // Do NOT call onClose() here — the parent transitions to 'transcribing'
     // (closing this modal) and shows the transcribing overlay. onClose() would
     // reset the parent phase to 'idle' and hide that progress feedback.
-    onAudioReady(result.blob, result.mimeType, result.duration, result.chunks)
+    onAudioReady(result.blob, result.mimeType, result.duration, result.chunks, letterType)
   }
 
   stopRef.current = doStop
@@ -97,8 +161,10 @@ export default function DictateModal({ open, onClose, onAudioReady, recordingDef
     }
   }
 
+  const selectedLabel = letterType ? LETTER_OPTIONS.find(o => o.type === letterType)?.title : null
+
   return (
-    <Modal open={open} onClose={phase === 'recording' ? () => {} : onClose} title="Dictate Note">
+    <Modal open={open} onClose={phase === 'recording' ? () => {} : onClose} title="Dictate Note" maxWidth="md">
       <div className="px-5 pb-5 space-y-4">
         {interrupted && (
           <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
@@ -114,26 +180,143 @@ export default function DictateModal({ open, onClose, onAudioReady, recordingDef
           <p className="text-sm text-[var(--danger)]">{permError ?? recError}</p>
         )}
 
-        {phase === 'idle' && (
+        {/* Choice — psychiatrist note vs letter */}
+        {phase === 'choice' && (
           <>
             <p className="text-sm text-[var(--text2)]">
-              Narrate your note. Speak clearly and include all relevant clinical detail.
+              What would you like to dictate?
             </p>
+            <div className="space-y-2.5">
+              <button
+                onClick={() => { setLetterType(null); setPhase('idle') }}
+                className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[#10b981]/40
+                  text-left hover:border-[#10b981] hover:bg-[#10b981]/5
+                  motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
+              >
+                <span className="text-[#10b981] shrink-0">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="9" y1="13" x2="15" y2="13"/>
+                    <line x1="9" y1="17" x2="13" y2="17"/>
+                  </svg>
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[var(--text)]">Start a psychiatrist note</p>
+                  <p className="text-xs text-[var(--text3)] mt-0.5">Narrate the session, then pick a template</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setPhase('letter-type')}
+                className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[var(--border)]
+                  text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
+                  motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
+              >
+                <span className="text-[var(--blue)] shrink-0">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                  </svg>
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[var(--text)]">Dictate a letter</p>
+                  <p className="text-xs text-[var(--text3)] mt-0.5">Pick a letter type, then narrate it</p>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="1.8" className="text-[var(--text3)] shrink-0" aria-hidden>
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Letter type selection */}
+        {phase === 'letter-type' && (
+          <>
+            <p className="text-sm text-[var(--text2)]">Which letter would you like to dictate?</p>
+            <div className="space-y-2.5">
+              {LETTER_OPTIONS.map(opt => (
+                <button
+                  key={opt.type}
+                  onClick={() => { setLetterType(opt.type); setPhase('idle') }}
+                  className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[var(--border)]
+                    text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
+                    motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
+                >
+                  <span className="text-[var(--blue)] shrink-0">{opt.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[var(--text)]">{opt.title}</p>
+                    <p className="text-xs text-[var(--text3)] mt-0.5">{opt.description}</p>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="1.8" className="text-[var(--text3)] shrink-0" aria-hidden>
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setPhase('choice')} className="text-xs text-[var(--text3)] hover:text-[var(--text)] transition-colors">
+              ← Back
+            </button>
+          </>
+        )}
+
+        {phase === 'idle' && (
+          <>
+            {letterType ? (
+              <>
+                <p className="text-sm text-[var(--text2)]">
+                  Dictating a <span className="font-semibold text-[var(--text)]">{selectedLabel}</span>. Speak these points clearly so they appear in the letter:
+                </p>
+                <ul className="rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--bg)] px-4 py-3 space-y-1.5">
+                  {LETTER_GUIDE[letterType].map((pt, i) => (
+                    <li key={i} className="flex gap-2 text-sm text-[var(--text2)]">
+                      <span className="text-[var(--blue)] shrink-0">•</span>
+                      <span>{pt}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="text-sm text-[var(--text2)]">
+                Narrate your note. Speak clearly and include all relevant clinical detail.
+              </p>
+            )}
             <Button onClick={handleStart} variant="primary" className="w-full">
               Start dictating
             </Button>
+            <button
+              onClick={() => setPhase(letterType ? 'letter-type' : 'choice')}
+              className="text-xs text-[var(--text3)] hover:text-[var(--text)] transition-colors"
+            >
+              ← Back
+            </button>
           </>
         )}
 
         {phase === 'recording' && (
-          <div className="text-center py-4 space-y-4">
+          <div className="text-center py-2 space-y-4">
             <div className="flex items-center justify-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
               <span className="text-2xl font-mono font-semibold text-[var(--text)]">
                 {formatDuration(duration)}
               </span>
             </div>
-            <p className="text-sm text-[var(--text3)]">Dictating…</p>
+            <p className="text-sm text-[var(--text3)]">
+              {letterType ? `Dictating your ${selectedLabel?.toLowerCase()}…` : 'Dictating…'}
+            </p>
+            {letterType && (
+              <ul className="text-left rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--bg)] px-4 py-3 space-y-1.5">
+                {LETTER_GUIDE[letterType].map((pt, i) => (
+                  <li key={i} className="flex gap-2 text-xs text-[var(--text2)]">
+                    <span className="text-[var(--blue)] shrink-0">•</span>
+                    <span>{pt}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
             <Button onClick={doStop} variant="danger" className="w-full">
               Stop dictating
             </Button>

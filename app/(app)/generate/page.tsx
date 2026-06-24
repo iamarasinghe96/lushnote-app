@@ -302,7 +302,7 @@ export default function GeneratePage() {
     return texts.join(' ')
   }
 
-  async function handleAudioReady(blob: Blob, mimeType: string, duration: number, chunks: Blob[]) {
+  async function handleAudioReady(blob: Blob, mimeType: string, duration: number, chunks: Blob[], letterType?: LetterType | null) {
     store.setLastRecordingDuration(duration)
     // Capture the wall-clock end of the recording now, before the (possibly
     // multi-minute) transcription runs, so the auto session End time is accurate.
@@ -311,6 +311,31 @@ export default function GeneratePage() {
     setPhase('transcribing')
     try {
       const text = await transcribeAudio(blob, chunks, mimeType)
+
+      // Letter dictation: skip the patient-confirm + template steps. Land in the
+      // edit tab in letter mode with the transcript, and flag it to auto-generate.
+      if (letterType) {
+        if (!text.trim()) {
+          setError('Nothing was recorded. Please try again.')
+          setPhase('idle')
+          setTranscribeProgress(null)
+          return
+        }
+        const today = new Date()
+        const dd = String(today.getDate()).padStart(2, '0')
+        const mm = String(today.getMonth() + 1).padStart(2, '0')
+        const yyyy = today.getFullYear()
+        store.resetLetterMode()
+        store.setLastTranscript(text)
+        store.setLastTranscriptMode('dictation')
+        store.setLetterType(letterType)
+        store.setLetterCommonFields({ letterDate: `${dd}/${mm}/${yyyy}` })
+        store.setPendingLetterGeneration(true)
+        setTranscribeProgress(null)
+        router.push('/edit')
+        return
+      }
+
       const validation = validateTranscript(text)
       if (!validation.valid) {
         setError(validation.error!)

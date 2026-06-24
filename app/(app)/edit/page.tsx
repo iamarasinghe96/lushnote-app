@@ -456,6 +456,18 @@ function EditContent() {
     return () => clearTimeout(t)
   }, [letterToast])
 
+  // Auto-generate the letter from a dictated transcript (set by the Dictate-a-letter
+  // flow on the generate tab). Runs once when we land here in letter mode.
+  const autoGenLetterRef = useRef(false)
+  useEffect(() => {
+    if (autoGenLetterRef.current) return
+    if (store.pendingLetterGeneration && store.letterType && store.lastTranscript) {
+      autoGenLetterRef.current = true
+      store.setPendingLetterGeneration(false)
+      handleGenerateFromTranscript()
+    }
+  }, [store.pendingLetterGeneration, store.letterType, store.lastTranscript])
+
   useEffect(() => {
     if (!user) return
     listNotes(user.uid).then(setAllNotes).catch(() => {})

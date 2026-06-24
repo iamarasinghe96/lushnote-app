@@ -28,6 +28,7 @@ interface NoteStore {
   pendingPatientProfile: { dob: string; gender: 'male' | 'female' | '' } | null
   activeLetterhead: LetterheadDoc | null
   letterType: LetterType | null
+  pendingLetterGeneration: boolean
   letterCommonFields: LetterCommonFields
   referralFields: ReferralFields
   recordsFields: RecordsFields
@@ -44,6 +45,7 @@ interface NoteStore {
   setPendingPatientProfile: (v: { dob: string; gender: 'male' | 'female' | '' } | null) => void
   setActiveLetterhead: (lh: LetterheadDoc | null) => void
   setLetterType: (type: LetterType | null) => void
+  setPendingLetterGeneration: (v: boolean) => void
   setLetterCommonFields: (fields: Partial<LetterCommonFields>) => void
   setReferralFields: (fields: Partial<ReferralFields>) => void
   setRecordsFields: (fields: Partial<RecordsFields>) => void
@@ -67,6 +69,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   const [pendingPatientProfile, setPendingPatientProfile] = useState<{ dob: string; gender: 'male' | 'female' | '' } | null>(null)
   const [activeLetterhead, setActiveLetterhead] = useState<LetterheadDoc | null>(null)
   const [letterType, setLetterType] = useState<LetterType | null>(null)
+  const [pendingLetterGeneration, setPendingLetterGeneration] = useState(false)
   const [letterCommonFields, setLetterCommonFieldsState] = useState<LetterCommonFields>(DEFAULT_LETTER_COMMON)
   const [referralFields, setReferralFieldsState] = useState<ReferralFields>(DEFAULT_REFERRAL)
   const [recordsFields, setRecordsFieldsState] = useState<RecordsFields>(DEFAULT_RECORDS)
@@ -85,6 +88,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
 
   function resetLetterMode() {
     setLetterType(null)
+    setPendingLetterGeneration(false)
     setLetterCommonFieldsState(DEFAULT_LETTER_COMMON)
     setReferralFieldsState(DEFAULT_REFERRAL)
     setRecordsFieldsState(DEFAULT_RECORDS)
@@ -108,6 +112,8 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       activeLetterhead,
       setActiveLetterhead,
       letterType,
+      pendingLetterGeneration,
+      setPendingLetterGeneration,
       letterCommonFields,
       referralFields,
       recordsFields,
