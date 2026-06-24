@@ -1383,11 +1383,18 @@ function EditContent() {
         headers,
         body: JSON.stringify({ mode: 'letter', letterType, transcript: store.lastTranscript }),
       })
-      const data = await res.json() as { letterFields?: Record<string, string>; error?: string }
+      const data = await res.json() as { letterFields?: Record<string, unknown>; error?: string }
       if (data.letterFields) {
-        if (letterType === 'referral') store.setReferralFields(data.letterFields as Parameters<typeof store.setReferralFields>[0])
-        else if (letterType === 'records') store.setRecordsFields(data.letterFields as Parameters<typeof store.setRecordsFields>[0])
-        else if (letterType === 'freetext') store.setFreetextFields(data.letterFields as Parameters<typeof store.setFreetextFields>[0])
+        const { recipientName, recipientAddress, patientName, dob, ...typeFields } = data.letterFields
+        store.setLetterCommonFields({
+          ...(recipientName !== undefined && { recipientName: String(recipientName) }),
+          ...(recipientAddress !== undefined && { recipientAddress: String(recipientAddress) }),
+          ...(patientName !== undefined && { patientName: String(patientName) }),
+          ...(dob !== undefined && { dob: String(dob) }),
+        })
+        if (letterType === 'referral') store.setReferralFields(typeFields as Parameters<typeof store.setReferralFields>[0])
+        else if (letterType === 'records') store.setRecordsFields(typeFields as Parameters<typeof store.setRecordsFields>[0])
+        else if (letterType === 'freetext') store.setFreetextFields(typeFields as Parameters<typeof store.setFreetextFields>[0])
         setLetterToast('Fields populated from transcript')
       } else {
         setLetterToast(data.error || 'Generation failed. Fill fields manually.')

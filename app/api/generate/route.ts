@@ -18,70 +18,115 @@ export async function POST(req: NextRequest) {
 
     const { uid, transcript, templatePrompt, systemPrompt, mode, letterType } = body
 
-    // Letter AI generation - separate path, no uid/quota tracking
+    // Letter AI generation — Groq-only, transient, no uid/quota tracking
     if (mode === 'letter' && letterType && transcript) {
       if (typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 100000) {
         return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })
       }
 
+      const systemInstruction = `You are an expert medical scribe. Extract clinical information from a doctor's verbal dictation and map it accurately to letter fields. The doctor may speak in any order and use informal language — identify all entities and assign them to the correct field. Never fabricate information. Use empty string "" for anything not mentioned.`
+
       const letterPrompts: Record<string, string> = {
-        referral: `You are a medical assistant. Extract structured information from this clinical dictation to populate a referral letter.
-Return ONLY valid JSON matching this schema (empty string for anything not mentioned):
+        referral: `Extract ALL clinical information from this psychiatrist's dictation to populate a referral letter. Map entities to the correct field regardless of speaking order.
+
+FIELD GUIDE:
+- recipientName: Full name/title of the doctor or specialist this letter is being sent TO (e.g. "Dr Sarah Jones", "The Consultant Psychiatrist")
+- recipientAddress: Address, hospital name, or clinic of the recipient
+- patientName: Patient's full name (may be said as "my patient [name]" or just stated)
+- dob: Patient date of birth — format DD/MM/YYYY. If only age is given, leave empty.
+- gender: Exactly "male", "female", or "" — never any other value
+- doctorName: Admitting doctor name if explicitly different from recipient; otherwise leave ""
+- admissionUnit: Ward, unit, or service being referred to (e.g. "inpatient psychiatry", "acute mental health unit")
+- admissionDateStart: Proposed admission or start date — DD/MM/YYYY
+- admissionDateEnd: Proposed discharge or end date — DD/MM/YYYY
+- presentingComplaint: Current symptoms, chief complaint, and immediate reason for referral — 1–3 sentences in professional medical prose
+- referralReason: Specific clinical rationale for this referral — what is needed and why — 1–2 sentences
+- secondParagraph: Additional context including what was assessed today, current clinical status, relevant history summary, and any other pertinent information — 2–4 sentences
+- pastMedicalHistory: Relevant past medical, psychiatric, or surgical history if mentioned
+- showPastMedicalHistory: true if any past history is mentioned; false otherwise
+- medicationList: Current medications with doses and frequencies if mentioned (one per line)
+- showMedicationList: true if any medications are mentioned; false otherwise
+- dischargeSummaryAttached: true if the doctor says they are attaching or enclosing a discharge summary; false otherwise
+
+Return ONLY valid JSON — no markdown, no explanation, no extra text:
 {
+  "recipientName": "",
+  "recipientAddress": "",
+  "patientName": "",
+  "dob": "",
+  "gender": "",
   "doctorName": "",
   "admissionUnit": "",
+  "admissionDateStart": "",
+  "admissionDateEnd": "",
   "presentingComplaint": "",
+  "referralReason": "",
   "secondParagraph": "",
-  "referralReason": ""
+  "pastMedicalHistory": "",
+  "showPastMedicalHistory": false,
+  "medicationList": "",
+  "showMedicationList": false,
+  "dischargeSummaryAttached": false
 }
-Do not fabricate clinical information.
-Dictation: ${transcript}`,
 
-        records: `Extract information from this dictation for a medical records request letter.
-Return ONLY valid JSON:
+DICTATION:
+${transcript}`,
+
+        records: `Extract all relevant information from this doctor's dictation to populate a medical records request letter.
+
+FIELD GUIDE:
+- recipientName: Name of the person, hospital, practice, or records department being written TO
+- recipientAddress: Their address, hospital, or institution
+- patientName: Patient's full name
+- dob: Patient date of birth — DD/MM/YYYY. Leave "" if only age is mentioned.
+- recordsLocation: Name of the hospital, practice, clinic, or provider that HOLDS the records being requested
+- secondParagraphRecords: What specific records are needed, the time period covered, urgency, and purpose — 1–3 sentences in professional prose
+
+Return ONLY valid JSON — no markdown, no explanation, no extra text:
 {
+  "recipientName": "",
+  "recipientAddress": "",
+  "patientName": "",
+  "dob": "",
   "recordsLocation": "",
   "secondParagraphRecords": ""
 }
-Dictation: ${transcript}`,
 
-        freetext: `You are a medical professional's writing assistant.
-Based on this dictation, write a professional medical letter body in plain text.
-Do NOT include salutation, subject line, closing, or signature - only the main paragraphs.
-Use the exact words and intent from the dictation.
-Return ONLY the letter body as plain text.
-Dictation: ${transcript}`,
+DICTATION:
+${transcript}`,
+
+        freetext: `Extract recipient information and compose a professional letter body from this doctor's dictation.
+
+FIELD GUIDE:
+- recipientName: Full name/title of who this letter is addressed to
+- recipientAddress: Their address, hospital, or institution
+- patientName: Patient's full name if mentioned
+- dob: Patient date of birth DD/MM/YYYY — leave "" if not mentioned
+- freeTextContent: The complete letter body — main paragraphs ONLY. Do NOT include salutation ("Dear..."), subject line, closing ("Yours sincerely"), or signature. Write in formal medical English capturing all clinical content from the dictation. Preserve all clinical facts, names, and figures exactly as stated.
+
+Return ONLY valid JSON — no markdown, no explanation, no extra text:
+{
+  "recipientName": "",
+  "recipientAddress": "",
+  "patientName": "",
+  "dob": "",
+  "freeTextContent": ""
+}
+
+DICTATION:
+${transcript}`,
       }
 
       const letterPrompt = letterPrompts[letterType]
       if (!letterPrompt) return NextResponse.json({ error: 'Unknown letterType' }, { status: 400 })
 
       const groqKey = req.headers.get('x-groq-key')
-      const userGeminiKey = req.headers.get('x-gemini-key')
-
-      if (userGeminiKey || process.env.GEMINI_API_KEY) {
-        try {
-          const { text: content } = await generateNote(letterPrompt, '', userGeminiKey || undefined)
-          if (letterType === 'freetext') {
-            return NextResponse.json({ letterFields: { freeTextContent: content.trim() } })
-          }
-          const jsonMatch = content.match(/\{[\s\S]*\}/)
-          if (jsonMatch) {
-            const letterFields = JSON.parse(jsonMatch[0]) as Record<string, unknown>
-            return NextResponse.json({ letterFields })
-          }
-        } catch { /* fall through to Groq */ }
-      }
-
       if (!groqKey) {
-        return NextResponse.json({ error: 'No API key available for generation' }, { status: 401 })
+        return NextResponse.json({ error: 'A Groq API key is required for letter generation. Add one in Settings > API Keys.' }, { status: 401 })
       }
 
       try {
-        const { content } = await generateNoteGroq(letterPrompt, '', groqKey)
-        if (letterType === 'freetext') {
-          return NextResponse.json({ letterFields: { freeTextContent: content.trim() } })
-        }
+        const { content } = await generateNoteGroq(letterPrompt, systemInstruction, groqKey)
         const jsonMatch = content.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
           const letterFields = JSON.parse(jsonMatch[0]) as Record<string, unknown>
