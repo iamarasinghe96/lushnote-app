@@ -1842,7 +1842,7 @@ function EditContent() {
             </button>
             <button
               onClick={handleLetterEmail}
-              className="text-xs bg-[#10b981] text-white font-semibold px-3 py-1.5 rounded-[var(--r)] motion-safe:active:scale-95 motion-safe:transition-transform">
+              className="text-xs bg-[#10b981] text-white font-semibold px-3 py-1.5 rounded-[var(--r)] border border-white/50 motion-safe:active:scale-95 motion-safe:transition-transform">
               Email
             </button>
           </div>
