@@ -361,6 +361,7 @@ function EditContent() {
   async function loadNote(noteId: string) {
     const note = await getNote(noteId)
     if (!note || !mountedRef.current) return
+    store.resetLetterMode()
     const noteFields: Partial<Note> = {
       patient:        note.patient,
       reg_number:     note.reg_number,
@@ -1779,8 +1780,11 @@ function EditContent() {
 
       {/* Letter mode bar — floats below the header */}
       {isLetterMode && (
-        <div className="absolute left-4 right-4 z-20 flex items-center px-3 py-2 bg-[var(--blue)] text-white text-sm rounded-2xl"
-             style={{ top: barTop }}>
+        <div
+          data-glass
+          className="ln-glass ln-glass-note absolute left-4 right-4 z-20 flex items-center px-3 py-2 text-white text-sm"
+          style={{ top: barTop, borderRadius: 20, boxShadow: '0 4px 16px rgba(14,159,110,0.25)' }}
+        >
           {/* Left: letter type label + change action */}
           <div className="flex items-center gap-2 shrink-0">
             <span className="font-medium text-sm">
