@@ -167,12 +167,24 @@ export default function TranscriptPage() {
       >
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-semibold text-[var(--text)]">Transcript</span>
-          <span className="text-xs text-[var(--text3)] bg-[var(--bg)] border border-[var(--border)] rounded-full px-2 py-0.5">
-            {wordCount} words
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[var(--text3)] bg-[var(--bg)] border border-[var(--border)] rounded-full px-2 py-0.5">
+              {wordCount} words
+            </span>
+            <button
+              onClick={() => setExpanded(v => !v)}
+              aria-label={expanded ? 'Collapse transcript' : 'Expand transcript'}
+              className="w-7 h-7 flex items-center justify-center rounded-full bg-[var(--bg)] border border-[var(--border)] text-[var(--text3)] motion-safe:transition-transform"
+              style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', transitionDuration: '200ms' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div
-          className={`relative text-sm text-[var(--text2)] leading-relaxed whitespace-pre-wrap ${
+          className={`relative text-sm text-[var(--text2)] leading-relaxed whitespace-pre-wrap scrollbar-none ${
             !expanded ? 'max-h-28 overflow-hidden' : 'max-h-[22vh] overflow-y-auto'
           }`}
           ref={transcriptRef}
@@ -185,12 +197,6 @@ export default function TranscriptPage() {
             />
           )}
         </div>
-        <button
-          onClick={() => setExpanded(v => !v)}
-          className="text-xs text-[var(--blue)] font-medium mt-2"
-        >
-          {expanded ? 'Show less ↑' : 'Show more ↓'}
-        </button>
       </div>
 
       {/* AI Q&A messages */}
