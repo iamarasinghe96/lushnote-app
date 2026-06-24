@@ -236,15 +236,15 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 /* Bottom clearance so a page's scrollable content can flow fully BEHIND the
    floating tab bar (revealing the glass refraction) while its last items still
    scroll clear of it. Unlayered so it wins over Tailwind's p-* padding-bottom.
-   Tab bar ≈ 64px tall, sitting one safe-area inset above the screen bottom. */
-.pb-tabbar { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+   Tab bar = 60px tall, positioned at max(safe-area, 8px) → 68px total clearance. */
+.pb-tabbar { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
 
 /* Top clearance so scroll containers fill behind the floating header pill.
-   68px = 8px top gap + 52px header + 8px bottom gap, all after safe-area.
+   76px = 8px top gap + 60px header + 8px bottom gap, all after safe-area.
    Unlayered so it wins over Tailwind's p-* padding-top. */
-.pt-header { padding-top: calc(env(safe-area-inset-top) + 68px); }
+.pt-header { padding-top: calc(env(safe-area-inset-top) + 76px); }
 @media (min-width: 640px) {
-  .sm\:pt-header { padding-top: calc(env(safe-area-inset-top) + 68px); }
+  .sm\:pt-header { padding-top: calc(env(safe-area-inset-top) + 76px); }
 }
 
 /* Reduced motion - disables ALL transitions and animations */

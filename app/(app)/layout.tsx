@@ -102,8 +102,8 @@ function AppContent({ children }: { children: React.ReactNode }) {
         className="ln-glass ln-glass-brand lg-frost-sm absolute left-4 right-4 z-30"
         style={{
           top: 'calc(env(safe-area-inset-top) + 8px)',
-          height: 52,
-          borderRadius: 20,
+          height: 60,
+          borderRadius: 30,
           boxShadow: '0 4px 20px rgba(37,99,235,0.22)',
           overflow: 'visible',
         }}
@@ -202,7 +202,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
       <main className="flex-1 overflow-hidden relative">
         {/* Rate limit banner sits below the header */}
         {rateLimitWait !== null && (
-          <div className="absolute left-0 right-0 z-20" style={{ top: 'calc(env(safe-area-inset-top) + 68px)' }}>
+          <div className="absolute left-0 right-0 z-20" style={{ top: 'calc(env(safe-area-inset-top) + 76px)' }}>
             <RateLimitBanner
               waitSeconds={rateLimitWait}
               onDismiss={() => setRateLimitWait(null)}

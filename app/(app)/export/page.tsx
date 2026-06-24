@@ -141,7 +141,7 @@ export default function ExportPage() {
 
       {/* Floating Export button - top-right corner (hidden in letter mode) */}
       {!isLetterMode && (
-        <div ref={menuRef} className="absolute right-4 z-10 no-print" style={{ top: 'calc(env(safe-area-inset-top) + 72px)' }}>
+        <div ref={menuRef} className="absolute right-4 z-10 no-print" style={{ top: 'calc(env(safe-area-inset-top) + 80px)' }}>
           <button
             onClick={() => setMenuOpen(o => !o)}
             disabled={isEmpty}
@@ -183,7 +183,7 @@ export default function ExportPage() {
 
       {/* In letter mode, point user to Edit tab for exports */}
       {isLetterMode && (
-        <div className="absolute right-4 z-10 no-print" style={{ top: 'calc(env(safe-area-inset-top) + 72px)' }}>
+        <div className="absolute right-4 z-10 no-print" style={{ top: 'calc(env(safe-area-inset-top) + 80px)' }}>
           <span className="text-xs text-[var(--text3)] bg-white/80 px-3 py-1.5 rounded-full border border-[var(--border)]">
             Use Edit tab to download PDF or email
           </span>

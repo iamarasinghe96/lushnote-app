@@ -1759,8 +1759,8 @@ function EditContent() {
   ]
 
   // Floating overlay geometry — bars sit above content, content scrolls behind them.
-  // HEADER_BOTTOM = safe-area + 8px gap + 52px header + 8px gap (matches .pt-header = 68px)
-  const HEADER_BOTTOM = 68
+  // HEADER_BOTTOM = safe-area + 8px gap + 60px header + 8px gap (matches .pt-header = 76px)
+  const HEADER_BOTTOM = 76
   const BAR_H = 44 // approximate bar visual height + gap below it
   const hasTopBar = isLetterMode || (!isLetterMode && (!!store.currentNoteId || isGenerating))
   const barTop = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM}px)`
