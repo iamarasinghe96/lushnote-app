@@ -215,22 +215,6 @@ function AppContent({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      {/* ── Safe-area fill — position:fixed so it's always relative to the
-          physical screen regardless of 100dvh / container behaviour on iOS.
-          Fills the gap between the floating tab-bar pill and the screen edge. ── */}
-      <div
-        aria-hidden
-        style={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 'env(safe-area-inset-bottom)',
-          background: 'var(--bg)',
-          zIndex: 29,
-        }}
-      />
-
       {/* ── Tab bar ── */}
       <TabBar />
 

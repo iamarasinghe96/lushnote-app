@@ -74,7 +74,7 @@ export default function TabBar() {
       data-glass-adaptive
       className="ln-glass ln-glass-tabbar absolute inset-x-0 mx-4 flex items-center px-2 z-30"
       style={{
-        bottom: 'max(env(safe-area-inset-bottom), 8px)',
+        bottom: 8,
         height: 60,
         borderRadius: 30,
         boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
