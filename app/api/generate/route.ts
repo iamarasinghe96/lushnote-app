@@ -29,7 +29,15 @@ export async function POST(req: NextRequest) {
       const letterPrompts: Record<string, string> = {
         referral: `Extract ALL clinical information from this psychiatrist's dictation to populate a referral letter. Map entities to the correct field regardless of speaking order.
 
-FIELD GUIDE:
+IMPORTANT — understand how these fields are assembled into the final letter:
+The letter body is constructed as follows:
+  1. "Thank you for seeing [Mr/Ms] [patientName]. [FirstName] is a [age] [gender] who presented with [presentingComplaint]."
+  2. [secondParagraph] — rendered as its own paragraph
+  3. [referralReason] — rendered as its own paragraph
+  4. Optional: Past Medical History section
+  5. Optional: Medication List section
+
+FIELD GUIDE — read carefully before extracting:
 - recipientName: Full name/title of the doctor or specialist this letter is being sent TO (e.g. "Dr Sarah Jones", "The Consultant Psychiatrist")
 - recipientAddress: Address, hospital name, or clinic of the recipient
 - patientName: Patient's full name (may be said as "my patient [name]" or just stated)
@@ -39,10 +47,10 @@ FIELD GUIDE:
 - admissionUnit: Ward, unit, or service being referred to (e.g. "inpatient psychiatry", "acute mental health unit")
 - admissionDateStart: Proposed admission or start date — DD/MM/YYYY
 - admissionDateEnd: Proposed discharge or end date — DD/MM/YYYY
-- presentingComplaint: Current symptoms, chief complaint, and immediate reason for referral — 1–3 sentences in professional medical prose
-- referralReason: Specific clinical rationale for this referral — what is needed and why — 1–2 sentences
-- secondParagraph: Additional context including what was assessed today, current clinical status, relevant history summary, and any other pertinent information — 2–4 sentences
-- pastMedicalHistory: Relevant past medical, psychiatric, or surgical history if mentioned
+- presentingComplaint: FRAGMENT ONLY — the symptoms/complaint that follows "who presented with ___". Start directly with the symptoms (e.g. "acute confusion, agitation, and auditory hallucinations"). Do NOT start with the patient's name or "presented with". Do NOT write a full sentence.
+- referralReason: What the patient is being referred for and why — 1–2 complete sentences of plain prose. Do NOT include a salutation, greeting, or "I am writing to..." intro. E.g. "James is referred for ongoing psychiatric review and medication optimisation for his schizoaffective disorder."
+- secondParagraph: Additional clinical context — what happened during admission, current status, relevant background. 2–4 sentences of plain prose. CRITICAL: Do NOT include any salutation ("Dear...", "To Dr...", "I am writing"), subject line, or letter-style introduction. This text appears directly as a mid-letter paragraph.
+- pastMedicalHistory: Relevant past medical, psychiatric, or surgical history if mentioned (plain text or one item per line)
 - showPastMedicalHistory: true if any past history is mentioned; false otherwise
 - medicationList: Current medications with doses and frequencies if mentioned (one per line)
 - showMedicationList: true if any medications are mentioned; false otherwise
@@ -80,7 +88,7 @@ FIELD GUIDE:
 - patientName: Patient's full name
 - dob: Patient date of birth — DD/MM/YYYY. Leave "" if only age is mentioned.
 - recordsLocation: Name of the hospital, practice, clinic, or provider that HOLDS the records being requested
-- secondParagraphRecords: What specific records are needed, the time period covered, urgency, and purpose — 1–3 sentences in professional prose
+- secondParagraphRecords: What specific records are needed, the time period covered, urgency, and purpose — 1–3 sentences of plain professional prose. Do NOT include a salutation, greeting, or "I am writing to..." intro.
 
 Return ONLY valid JSON — no markdown, no explanation, no extra text:
 {
@@ -102,7 +110,7 @@ FIELD GUIDE:
 - recipientAddress: Their address, hospital, or institution
 - patientName: Patient's full name if mentioned
 - dob: Patient date of birth DD/MM/YYYY — leave "" if not mentioned
-- freeTextContent: The complete letter body — main paragraphs ONLY. Do NOT include salutation ("Dear..."), subject line, closing ("Yours sincerely"), or signature. Write in formal medical English capturing all clinical content from the dictation. Preserve all clinical facts, names, and figures exactly as stated.
+- freeTextContent: The complete letter body — main paragraphs ONLY. Do NOT include salutation ("Dear..."), subject line, closing ("Yours sincerely"), or signature — the letter template adds those automatically. Write in formal medical English capturing all clinical content from the dictation. Preserve all clinical facts, names, and figures exactly as stated.
 
 Return ONLY valid JSON — no markdown, no explanation, no extra text:
 {
