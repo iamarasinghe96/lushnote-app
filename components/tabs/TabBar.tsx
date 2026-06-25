@@ -65,14 +65,13 @@ export default function TabBar() {
   const tabPct = 100 / tabs.length
 
   return (
-    // Absolute within the 100dvh app container (NOT position:fixed, which
-    // re-introduces the iOS PWA keyboard-jump bug) so page content scrolls
-    // behind the frosted bar and the glass refracts it.
+    // Fixed so bottom:8px is always relative to the physical viewport edge,
+    // bypassing any 100dvh container constraints (same as BYD bottom widget).
     <nav
       data-tab-bar
       data-glass
       data-glass-adaptive
-      className="ln-glass ln-glass-tabbar absolute inset-x-0 mx-4 flex items-center px-2 z-30"
+      className="ln-glass ln-glass-tabbar fixed inset-x-0 mx-4 flex items-center px-2 z-30"
       style={{
         bottom: 8,
         height: 60,
