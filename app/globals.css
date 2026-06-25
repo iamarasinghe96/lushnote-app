@@ -176,19 +176,19 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 
 /* Brand-blue surface: the app header. */
 .ln-glass-brand {
+  --lg-frost-blur:   14px;
   --lg-tint-color:   37, 99, 235;
-  --lg-tint-opacity: 0.92;
+  --lg-tint-opacity: 0.68;
   --lg-border-color: rgba(255, 255, 255, 0.28);
   --lg-shadow-color: rgba(255, 255, 255, 0.28);
   --lg-inner-glow:   rgba(255, 255, 255, 0.3);
 }
 
-/* Emerald surface: the Edit-tab current-note bar. Mirrors ln-glass-brand with
-   a green tint triplet; high opacity keeps the white bar text readable. */
+/* Emerald surface: the Edit-tab current-note bar and letter mode bar. */
 .ln-glass-note {
-  --lg-frost-blur:   8px;
+  --lg-frost-blur:   14px;
   --lg-tint-color:   14, 159, 110;
-  --lg-tint-opacity: 0.82;
+  --lg-tint-opacity: 0.60;
   --lg-border-color: rgba(255, 255, 255, 0.28);
   --lg-shadow-color: rgba(255, 255, 255, 0.28);
   --lg-inner-glow:   rgba(255, 255, 255, 0.3);
