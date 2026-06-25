@@ -74,9 +74,8 @@ export default function TabBar() {
       data-glass-adaptive
       className="ln-glass ln-glass-tabbar absolute inset-x-0 mx-4 flex items-center px-2 z-30"
       style={{
-        bottom: 0,
-        height: 'calc(60px + max(env(safe-area-inset-bottom), 8px))',
-        paddingBottom: 'max(env(safe-area-inset-bottom), 8px)',
+        bottom: 'max(env(safe-area-inset-bottom), 8px)',
+        height: 60,
         borderRadius: 30,
         boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
       }}
@@ -87,7 +86,7 @@ export default function TabBar() {
           the SVG displacement map then bends it visibly at the bubble's edges,
           creating the glass-lens refraction effect from the reference. */}
       {activeIndex >= 0 && (
-        <div aria-hidden className="absolute pointer-events-none" style={{ top: 8, bottom: 'calc(max(env(safe-area-inset-bottom), 8px) + 8px)', left: 8, right: 8, zIndex: 2 }}>
+        <div aria-hidden className="absolute pointer-events-none" style={{ top: 8, bottom: 8, left: 8, right: 8, zIndex: 2 }}>
           <div
             className="absolute top-0 bottom-0 motion-safe:transition-transform"
             style={{
@@ -138,7 +137,7 @@ export default function TabBar() {
       {activeIndex >= 0 && (
         <div
           className="absolute pointer-events-none z-20"
-          style={{ top: 8, bottom: 'calc(max(env(safe-area-inset-bottom), 8px) + 8px)', left: 8, right: 8 }}
+          style={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <div
             className="absolute top-0 bottom-0 motion-safe:transition-transform"
