@@ -257,12 +257,6 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
   .quota-bar * { transition: none !important; }
 }
 
-@media (display-mode: standalone) {
-  [data-tab-bar] {
-    margin-bottom: env(safe-area-inset-bottom) !important;
-    margin-top: 4px !important;
-  }
-}
 
 @media print {
   [data-header],

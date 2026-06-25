@@ -222,12 +222,13 @@ function SettingsContent() {
   return (
     <div className="flex flex-col bg-[var(--bg)]" style={{ height: '100dvh' }}>
 
-      {/* Header */}
+      {/* Header — padded for iOS status bar */}
       <header
         className="relative z-30 flex items-center gap-3 px-4 shrink-0
                    backdrop-blur-lg bg-white/85 border-b border-white/50"
         style={{
-          height: 52,
+          paddingTop: 'env(safe-area-inset-top)',
+          height: 'calc(52px + env(safe-area-inset-top))',
           boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
         }}
       >
@@ -268,7 +269,7 @@ function SettingsContent() {
         </nav>
 
         {/* Mobile nav - horizontal scroll */}
-        <div className="sm:hidden absolute top-[52px] left-0 right-0 z-20 bg-white border-b border-[var(--border)] overflow-x-auto scrollbar-none">
+        <div className="sm:hidden absolute left-0 right-0 z-20 bg-white border-b border-[var(--border)] overflow-x-auto scrollbar-none" style={{ top: 'calc(52px + env(safe-area-inset-top))' }}>
           <div className="flex gap-1 px-3 py-2 min-w-max">
             {TABS.map(tab => {
               const active = tab.key === activeTab
