@@ -70,9 +70,13 @@ export default function TabBar() {
     // env(safe-area-inset-bottom) on iPhone (34px) and falls back to 8px elsewhere.
     // pointer-events-none on the wrapper so the safe-area gap below is passthrough.
     <div
-      className="fixed inset-x-0 z-30 pointer-events-none"
+      className="pointer-events-none"
       style={{
+        position: 'fixed',
         bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 99,
         paddingLeft: 16,
         paddingRight: 16,
         paddingBottom: 8,
