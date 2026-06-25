@@ -75,7 +75,7 @@ export default function TabBar() {
         bottom: 0,
         paddingLeft: 16,
         paddingRight: 16,
-        paddingBottom: 'max(env(safe-area-inset-bottom), 8px)',
+        paddingBottom: 8,
       }}
     >
       <nav
