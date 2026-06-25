@@ -93,7 +93,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
   const initials = getInitials(profile?.displayName || '')
 
   return (
-    <div className="relative flex flex-col overflow-hidden bg-[var(--bg)]" style={{ height: '100dvh' }}>
+    <div className="relative flex flex-col bg-[var(--bg)]" style={{ height: '100dvh' }}>
 
       {/* ── Header — absolute pill, floats over page content ── */}
       <header
