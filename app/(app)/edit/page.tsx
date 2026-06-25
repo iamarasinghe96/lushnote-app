@@ -1946,12 +1946,7 @@ function EditContent() {
             {isLetterMode && (
               <div className="space-y-4">
                 {/* Common fields */}
-                <div className="p-3 rounded-[var(--r-lg)]"
-                  style={{
-                    background: 'rgba(255,255,255,0.75)',
-                    backdropFilter: 'blur(12px)',
-                    boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
-                  }}>
+                <div className="space-y-3">
                   <div className="text-xs font-medium text-[var(--text3)] mb-3">{letterCommonFields.letterDate}</div>
                   <div className="space-y-3">
                   <Input
@@ -2084,12 +2079,7 @@ function EditContent() {
 
                 {/* Referral fields */}
                 {letterType === 'referral' && (
-                  <div className="p-3 rounded-[var(--r-lg)] space-y-3"
-                    style={{
-                      background: 'rgba(255,255,255,0.75)',
-                      backdropFilter: 'blur(12px)',
-                      boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
-                    }}>
+                  <div className="space-y-3">
                     <div>
                       <label className="block text-xs font-medium text-[var(--text)] mb-1">Admission unit</label>
                       <input
@@ -2205,12 +2195,7 @@ function EditContent() {
 
                 {/* Records fields */}
                 {letterType === 'records' && (
-                  <div className="p-3 rounded-[var(--r-lg)] space-y-3"
-                    style={{
-                      background: 'rgba(255,255,255,0.75)',
-                      backdropFilter: 'blur(12px)',
-                      boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
-                    }}>
+                  <div className="space-y-3">
                     <Input
                       label="Previous provider / location"
                       value={recordsFields.recordsLocation}
@@ -2228,12 +2213,7 @@ function EditContent() {
 
                 {/* Freetext fields */}
                 {letterType === 'freetext' && (
-                  <div className="p-3 rounded-[var(--r-lg)]"
-                    style={{
-                      background: 'rgba(255,255,255,0.75)',
-                      backdropFilter: 'blur(12px)',
-                      boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
-                    }}>
+                  <div>
                     <Textarea
                       label="Letter body"
                       rows={12}
