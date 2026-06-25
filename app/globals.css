@@ -236,8 +236,8 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 /* Bottom clearance so a page's scrollable content can flow fully BEHIND the
    floating tab bar (revealing the glass refraction) while its last items still
    scroll clear of it. Unlayered so it wins over Tailwind's p-* padding-bottom.
-   Tab bar = 60px tall, positioned at max(safe-area, 8px) → 68px total clearance. */
-.pb-tabbar { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+   Tab bar = 60px tall, anchored at bottom:0, height = 60 + max(safe-area, 8px). */
+.pb-tabbar { padding-bottom: calc(68px + max(env(safe-area-inset-bottom), 8px)); }
 
 /* Top clearance so scroll containers fill behind the floating header pill.
    76px = 8px top gap + 60px header + 8px bottom gap, all after safe-area.
