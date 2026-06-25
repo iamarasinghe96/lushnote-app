@@ -65,112 +65,114 @@ export default function TabBar() {
   const tabPct = 100 / tabs.length
 
   return (
-    // Fixed so bottom:8px is always relative to the physical viewport edge,
-    // bypassing any 100dvh container constraints (same as BYD bottom widget).
-    <nav
-      data-tab-bar
-      data-glass
-      data-glass-adaptive
-      className="ln-glass ln-glass-tabbar fixed inset-x-0 mx-4 flex items-center px-2 z-30"
+    // Transparent wrapper anchored at the true physical screen bottom (bottom:0).
+    // padding-bottom pushes the pill above the iOS home indicator — max() picks
+    // env(safe-area-inset-bottom) on iPhone (34px) and falls back to 8px elsewhere.
+    // pointer-events-none on the wrapper so the safe-area gap below is passthrough.
+    <div
+      className="fixed inset-x-0 z-30 pointer-events-none"
       style={{
-        bottom: 8,
-        height: 60,
-        borderRadius: 30,
-        boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
+        bottom: 0,
+        paddingLeft: 16,
+        paddingRight: 16,
+        paddingBottom: 'max(env(safe-area-inset-bottom), 8px)',
       }}
     >
-      {/* Glow layer (z-2) — primary-colour bloom that sits above the nav's own
-          frost/tint pseudo-layers (z -1/-2) but below the labels (z-10) and
-          lens (z-20). The bubble's backdrop-filter samples this coloured signal;
-          the SVG displacement map then bends it visibly at the bubble's edges,
-          creating the glass-lens refraction effect from the reference. */}
-      {activeIndex >= 0 && (
-        <div aria-hidden className="absolute pointer-events-none" style={{ top: 8, bottom: 8, left: 8, right: 8, zIndex: 2 }}>
+      <nav
+        data-tab-bar
+        data-glass
+        data-glass-adaptive
+        className="ln-glass ln-glass-tabbar flex items-center px-2 pointer-events-auto"
+        style={{
+          height: 60,
+          borderRadius: 30,
+          boxShadow: '0 8px 32px rgba(15,23,42,0.12)',
+        }}
+      >
+        {/* Glow layer */}
+        {activeIndex >= 0 && (
+          <div aria-hidden className="absolute pointer-events-none" style={{ top: 8, bottom: 8, left: 8, right: 8, zIndex: 2 }}>
+            <div
+              className="absolute top-0 bottom-0 motion-safe:transition-transform"
+              style={{
+                width: `${tabPct}%`,
+                transform: `translateX(${activeIndex * 100}%)`,
+                transitionDuration: '680ms',
+                transitionTimingFunction: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: -8,
+                  borderRadius: 30,
+                  background: 'radial-gradient(ellipse 85% 100% at 50% 50%, color-mix(in srgb, var(--blue) 70%, transparent) 0%, transparent 70%)',
+                  filter: 'blur(5px)',
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Tab labels — base layer */}
+        {tabs.map(({ href, label, icon }, i) => {
+          const active = i === activeIndex
+          return (
+            <Link
+              key={href}
+              href={href}
+              className="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 text-[var(--text3)]"
+              style={{ minWidth: 0 }}
+            >
+              <span
+                className="flex flex-col items-center gap-0.5 py-1 motion-safe:transition-opacity duration-200"
+                style={{ opacity: active ? 0 : 1 }}
+              >
+                {icon}
+                <span className="text-[9px] font-semibold tracking-wide">{label}</span>
+              </span>
+            </Link>
+          )
+        })}
+
+        {/* Sliding liquid-glass lens + crisp active label */}
+        {activeIndex >= 0 && (
           <div
-            className="absolute top-0 bottom-0 motion-safe:transition-transform"
-            style={{
-              width: `${tabPct}%`,
-              transform: `translateX(${activeIndex * 100}%)`,
-              transitionDuration: '680ms',
-              transitionTimingFunction: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
-            }}
+            className="absolute pointer-events-none z-20"
+            style={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <div
+              className="absolute top-0 bottom-0 motion-safe:transition-transform"
               style={{
-                position: 'absolute',
-                inset: -8,
-                borderRadius: 30,
-                background: 'radial-gradient(ellipse 85% 100% at 50% 50%, color-mix(in srgb, var(--blue) 70%, transparent) 0%, transparent 70%)',
-                filter: 'blur(5px)',
+                width: `${tabPct}%`,
+                transform: `translateX(${activeIndex * 100}%)`,
+                transitionDuration: '680ms',
+                transitionTimingFunction: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
               }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Tab labels — base layer. Active tab fades to opacity-0 so the white
-          overlay is the only visible label; the glass lens still warps the
-          adjacent inactive labels as it slides past them. */}
-      {tabs.map(({ href, label, icon }, i) => {
-        const active = i === activeIndex
-        return (
-          <Link
-            key={href}
-            href={href}
-            className="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 text-[var(--text3)]"
-            style={{ minWidth: 0 }}
-          >
-            <span
-              className="flex flex-col items-center gap-0.5 py-1 motion-safe:transition-opacity duration-200"
-              style={{ opacity: active ? 0 : 1 }}
             >
-              {icon}
-              <span className="text-[9px] font-semibold tracking-wide">{label}</span>
-            </span>
-          </Link>
-        )
-      })}
-
-      {/* Sliding liquid-glass lens + crisp active label, painted above the
-          labels. */}
-      {activeIndex >= 0 && (
-        <div
-          className="absolute pointer-events-none z-20"
-          style={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <div
-            className="absolute top-0 bottom-0 motion-safe:transition-transform"
-            style={{
-              width: `${tabPct}%`,
-              transform: `translateX(${activeIndex * 100}%)`,
-              transitionDuration: '680ms',
-              transitionTimingFunction: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
-            }}
-          >
-            <span
-              key={activeIndex}
-              data-glass
-              aria-hidden
-              className="absolute top-0 bottom-0 rounded-[22px] ln-tab-pill ln-glass ln-glass-pill"
-              style={{
-                left: 4,
-                right: 4,
-                zIndex: 0,
-                boxShadow: '0 4px 20px color-mix(in srgb, var(--blue) 38%, transparent)',
-              }}
-            />
-            {/* Crisp active label on top of the lens so it stays readable while
-                the refracted base label warps behind it. */}
-            <span
-              className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-white"
-              style={{ zIndex: 1, textShadow: '0 1px 2px rgba(0,0,0,0.22)' }}
-            >
-              {tabs[activeIndex].icon}
-              <span className="text-[9px] font-semibold tracking-wide">{tabs[activeIndex].label}</span>
-            </span>
+              <span
+                key={activeIndex}
+                data-glass
+                aria-hidden
+                className="absolute top-0 bottom-0 rounded-[22px] ln-tab-pill ln-glass ln-glass-pill"
+                style={{
+                  left: 4,
+                  right: 4,
+                  zIndex: 0,
+                  boxShadow: '0 4px 20px color-mix(in srgb, var(--blue) 38%, transparent)',
+                }}
+              />
+              <span
+                className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-white"
+                style={{ zIndex: 1, textShadow: '0 1px 2px rgba(0,0,0,0.22)' }}
+              >
+                {tabs[activeIndex].icon}
+                <span className="text-[9px] font-semibold tracking-wide">{tabs[activeIndex].label}</span>
+              </span>
+            </div>
           </div>
-        </div>
-      )}
-    </nav>
+        )}
+      </nav>
+    </div>
   )
 }
