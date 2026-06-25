@@ -1,0 +1,6727 @@
+[
+  {
+    "name": "A1 Dental Barton",
+    "state": "ACT",
+    "suburb": "Barton"
+  },
+  {
+    "name": "Abbotsford Private Hospital",
+    "state": "WA",
+    "suburb": "West Leederville"
+  },
+  {
+    "name": "Act Day Hospital",
+    "state": "ACT",
+    "suburb": "Deakin"
+  },
+  {
+    "name": "Act Endoscopy",
+    "state": "ACT",
+    "suburb": "Deakin"
+  },
+  {
+    "name": "Adelaide Ambulatory Day Surgery",
+    "state": "SA",
+    "suburb": "Adelaide"
+  },
+  {
+    "name": "Adelaide Day Surgery",
+    "state": "SA",
+    "suburb": "Adelaide"
+  },
+  {
+    "name": "Adelaide Surgicentre",
+    "state": "SA",
+    "suburb": "Kent Town"
+  },
+  {
+    "name": "Adeney Private Hospital",
+    "state": "VIC",
+    "suburb": "Kew"
+  },
+  {
+    "name": "Adolescent And Young Adult Hospice (Ayah)",
+    "state": "NSW",
+    "suburb": "Manly"
+  },
+  {
+    "name": "Adult Prevention & Recovery Care (A-Parc)",
+    "state": "VIC",
+    "suburb": "Frankston"
+  },
+  {
+    "name": "Advanced Oral And Maxillofacial Surgery",
+    "state": "SA",
+    "suburb": "Adelaide"
+  },
+  {
+    "name": "Aesthetic Day Surgery",
+    "state": "NSW",
+    "suburb": "Kogarah"
+  },
+  {
+    "name": "Albany Community Hospice",
+    "state": "WA",
+    "suburb": "Albany"
+  },
+  {
+    "name": "Albany Day Hospital",
+    "state": "WA",
+    "suburb": "Mira Mar"
+  },
+  {
+    "name": "Albany Hospital",
+    "state": "WA",
+    "suburb": "Albany"
+  },
+  {
+    "name": "Albury Day Surgery",
+    "state": "NSW",
+    "suburb": "Albury"
+  },
+  {
+    "name": "Albury Wodonga Health - Albury Campus",
+    "state": "NSW",
+    "suburb": "Albury"
+  },
+  {
+    "name": "Albury Wodonga Health - Wodonga Campus",
+    "state": "VIC",
+    "suburb": "Wodonga"
+  },
+  {
+    "name": "Albury Wodonga Private Hospital",
+    "state": "NSW",
+    "suburb": "Albury"
+  },
+  {
+    "name": "Alcohol And Drug Services",
+    "state": "TAS",
+    "suburb": "Newtown"
+  },
+  {
+    "name": "Alexandra District Hospital",
+    "state": "VIC",
+    "suburb": "Alexandra"
+  },
+  {
+    "name": "Alexandria Specialist Day Hospital",
+    "state": "NSW",
+    "suburb": "Alexandria"
+  },
+  {
+    "name": "Alice Springs Hospital",
+    "state": "NT",
+    "suburb": "Alice Springs"
+  },
+  {
+    "name": "Alpha Hospital",
+    "state": "QLD",
+    "suburb": "Alpha"
+  },
+  {
+    "name": "Alpine Health (Bright)",
+    "state": "VIC",
+    "suburb": "Bright"
+  },
+  {
+    "name": "Alpine Health (Mount Beauty)",
+    "state": "VIC",
+    "suburb": "Mt Beauty"
+  },
+  {
+    "name": "Alpine Health (Myrtleford)",
+    "state": "VIC",
+    "suburb": "Myrtleford"
+  },
+  {
+    "name": "Alwyn Rehabilitation Hospital",
+    "state": "NSW",
+    "suburb": "Strathfield"
+  },
+  {
+    "name": "Anam Cara House Geelong",
+    "state": "VIC",
+    "suburb": "Waurn Ponds"
+  },
+  {
+    "name": "Angaston Hospital",
+    "state": "SA",
+    "suburb": "Angaston"
+  },
+  {
+    "name": "Angliss Hospital",
+    "state": "VIC",
+    "suburb": "Upper Ferntree Gully"
+  },
+  {
+    "name": "Arcadia Pittwater Private Hospital",
+    "state": "NSW",
+    "suburb": "Warriewood"
+  },
+  {
+    "name": "Archer St Day Hospital",
+    "state": "SA",
+    "suburb": "North Adelaide"
+  },
+  {
+    "name": "Armadale Kelmscott Memorial Hospital",
+    "state": "WA",
+    "suburb": "Armadale"
+  },
+  {
+    "name": "Armidale Day Surgery",
+    "state": "NSW",
+    "suburb": "Armidale"
+  },
+  {
+    "name": "Armidale Private Hospital",
+    "state": "NSW",
+    "suburb": "Armidale"
+  },
+  {
+    "name": "Armidale Rural Referral Hospital",
+    "state": "NSW",
+    "suburb": "Armidale"
+  },
+  {
+    "name": "Arrow Health",
+    "state": "VIC",
+    "suburb": "Woodend"
+  },
+  {
+    "name": "Artarmon Day Surgery",
+    "state": "NSW",
+    "suburb": "Artarmon"
+  },
+  {
+    "name": "Ashford Hospital",
+    "state": "SA",
+    "suburb": "Ashford"
+  },
+  {
+    "name": "Atherton Hospital",
+    "state": "QLD",
+    "suburb": "Atherton"
+  },
+  {
+    "name": "Attadale Rehabilitation Hospital",
+    "state": "WA",
+    "suburb": "Attadale"
+  },
+  {
+    "name": "Auburn Hospital & Community Health Services",
+    "state": "NSW",
+    "suburb": "Auburn"
+  },
+  {
+    "name": "Augathella Hospital",
+    "state": "QLD",
+    "suburb": "Augathella"
+  },
+  {
+    "name": "Augusta Hospital",
+    "state": "WA",
+    "suburb": "Augusta"
+  },
+  {
+    "name": "Austin Health - Austin Hospital",
+    "state": "VIC",
+    "suburb": "Heidelberg"
+  },
+  {
+    "name": "Austin Health - Heidelberg Repatriation Hospital",
+    "state": "VIC",
+    "suburb": "Heidelberg West"
+  },
+  {
+    "name": "Avive Clinic Brisbane",
+    "state": "QLD",
+    "suburb": "Windsor"
+  },
+  {
+    "name": "Avive Clinic Mornington Peninsula",
+    "state": "VIC",
+    "suburb": "Mount Eliza"
+  },
+  {
+    "name": "Ayr Hospital",
+    "state": "QLD",
+    "suburb": "Ayr"
+  },
+  {
+    "name": "B.Braun Morayfield Renal Care Centre",
+    "state": "QLD",
+    "suburb": "Morayfield"
+  },
+  {
+    "name": "Babinda Hospital",
+    "state": "QLD",
+    "suburb": "Babinda"
+  },
+  {
+    "name": "Baillie Henderson Hospital",
+    "state": "QLD",
+    "suburb": "Toowoomba"
+  },
+  {
+    "name": "Bairnsdale Regional Health Service",
+    "state": "VIC",
+    "suburb": "Bairnsdale"
+  },
+  {
+    "name": "Balaklava Soldiers' Memorial District Hospital",
+    "state": "SA",
+    "suburb": "Balaklava"
+  },
+  {
+    "name": "Ballarat Day Procedure Centre",
+    "state": "VIC",
+    "suburb": "Wendouree"
+  },
+  {
+    "name": "Ballarat Health Services (Base Hospital)",
+    "state": "VIC",
+    "suburb": "Ballarat Central"
+  },
+  {
+    "name": "Ballarat Health Services - Queen Elizabeth Centre",
+    "state": "VIC",
+    "suburb": "Ballarat"
+  },
+  {
+    "name": "Ballarat Surgicentre",
+    "state": "VIC",
+    "suburb": "Soldiers Hill"
+  },
+  {
+    "name": "Ballina Day Surgery",
+    "state": "NSW",
+    "suburb": "Ballina"
+  },
+  {
+    "name": "Ballina District Hospital",
+    "state": "NSW",
+    "suburb": "Ballina"
+  },
+  {
+    "name": "Balmain Hospital",
+    "state": "NSW",
+    "suburb": "Balmain"
+  },
+  {
+    "name": "Balranald Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Balranald"
+  },
+  {
+    "name": "Bamaga Hospital",
+    "state": "QLD",
+    "suburb": "Bamaga"
+  },
+  {
+    "name": "Bankstown-Lidcombe Hospital",
+    "state": "NSW",
+    "suburb": "Bankstown"
+  },
+  {
+    "name": "Baradine Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Baradine"
+  },
+  {
+    "name": "Baralaba Hospital",
+    "state": "QLD",
+    "suburb": "Baralaba"
+  },
+  {
+    "name": "Barcaldine Hospital",
+    "state": "QLD",
+    "suburb": "Barcaldine"
+  },
+  {
+    "name": "Barham Koondrook Soldiers Memorial Hospital",
+    "state": "NSW",
+    "suburb": "Barham"
+  },
+  {
+    "name": "Baringa Private Hospital",
+    "state": "NSW",
+    "suburb": "Coffs Harbour"
+  },
+  {
+    "name": "Barmera Health Service",
+    "state": "SA",
+    "suburb": "Barmera"
+  },
+  {
+    "name": "Barraba Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Barraba"
+  },
+  {
+    "name": "Barton Private Hospital",
+    "state": "ACT",
+    "suburb": "Barton"
+  },
+  {
+    "name": "Barwon Health - Ashley Manor Campus",
+    "state": "VIC",
+    "suburb": "Belmont"
+  },
+  {
+    "name": "Barwon Health - Geelong Hospital Campus",
+    "state": "VIC",
+    "suburb": "Geelong"
+  },
+  {
+    "name": "Barwon Health - Mckellar Centre Campus",
+    "state": "VIC",
+    "suburb": "North Geelong"
+  },
+  {
+    "name": "Barwon Health - Newcomb Renal Unit Campus",
+    "state": "VIC",
+    "suburb": "Newcomb"
+  },
+  {
+    "name": "Barwon Health - South Geelong Renal Unit Campus",
+    "state": "VIC",
+    "suburb": "South Geelong"
+  },
+  {
+    "name": "Barwon Health North",
+    "state": "VIC",
+    "suburb": "Norlane"
+  },
+  {
+    "name": "Bass Coast Regional Health",
+    "state": "VIC",
+    "suburb": "Wonthaggi"
+  },
+  {
+    "name": "Batemans Bay Hospital",
+    "state": "NSW",
+    "suburb": "Batemans Bay"
+  },
+  {
+    "name": "Bathurst Base Hospital",
+    "state": "NSW",
+    "suburb": "Bathurst"
+  },
+  {
+    "name": "Bathurst Private Hospital",
+    "state": "NSW",
+    "suburb": "Bathurst"
+  },
+  {
+    "name": "Batlow/Adelong Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Batlow"
+  },
+  {
+    "name": "Bayside Day Procedure And Specialist Centre",
+    "state": "VIC",
+    "suburb": "Frankston"
+  },
+  {
+    "name": "Beaconsfield District Health Service",
+    "state": "TAS",
+    "suburb": "Beaconsfield"
+  },
+  {
+    "name": "Beaudesert Hospital",
+    "state": "QLD",
+    "suburb": "Beaudesert"
+  },
+  {
+    "name": "Beaufort & Skipton Health Services - Beaufort Campus",
+    "state": "VIC",
+    "suburb": "Beaufort"
+  },
+  {
+    "name": "Beaufort & Skipton Health Services - Skipton Campus",
+    "state": "VIC",
+    "suburb": "Skipton"
+  },
+  {
+    "name": "Bedford Day Surgery",
+    "state": "SA",
+    "suburb": "Clarence Gardens"
+  },
+  {
+    "name": "Beechworth Health Service",
+    "state": "VIC",
+    "suburb": "Beechworth"
+  },
+  {
+    "name": "Beleura Private Hospital",
+    "state": "VIC",
+    "suburb": "Mornington"
+  },
+  {
+    "name": "Bella Vista Day Hospital",
+    "state": "NSW",
+    "suburb": "Bella Vista"
+  },
+  {
+    "name": "Bellinger River District Hospital",
+    "state": "NSW",
+    "suburb": "Bellingen"
+  },
+  {
+    "name": "Belmont Hospital",
+    "state": "NSW",
+    "suburb": "Belmont"
+  },
+  {
+    "name": "Belmont Private Hospital",
+    "state": "QLD",
+    "suburb": "Carina"
+  },
+  {
+    "name": "Benalla Health",
+    "state": "VIC",
+    "suburb": "Benalla"
+  },
+  {
+    "name": "Bendigo Day Surgery",
+    "state": "VIC",
+    "suburb": "Bendigo"
+  },
+  {
+    "name": "Bendigo Health - Bendigo Hospital",
+    "state": "VIC",
+    "suburb": "Bendigo"
+  },
+  {
+    "name": "Bentleigh Surgicentre",
+    "state": "VIC",
+    "suburb": "Bentleigh"
+  },
+  {
+    "name": "Bentley Health Service",
+    "state": "WA",
+    "suburb": "Bentley"
+  },
+  {
+    "name": "Berkeley Vale Private Hospital",
+    "state": "NSW",
+    "suburb": "Berkeley Vale"
+  },
+  {
+    "name": "Berrigan War Memorial Hospital/Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Berrigan"
+  },
+  {
+    "name": "Bethesda Hospital",
+    "state": "WA",
+    "suburb": "Claremont"
+  },
+  {
+    "name": "Beverley Hospital",
+    "state": "WA",
+    "suburb": "Beverley"
+  },
+  {
+    "name": "Biggenden Multipurpose Health Service",
+    "state": "QLD",
+    "suburb": "Biggenden"
+  },
+  {
+    "name": "Biloela Hospital",
+    "state": "QLD",
+    "suburb": "Biloela"
+  },
+  {
+    "name": "Bingara Multipurpose Service",
+    "state": "NSW",
+    "suburb": "Bingara"
+  },
+  {
+    "name": "Blackall Hospital",
+    "state": "QLD",
+    "suburb": "Blackall"
+  },
+  {
+    "name": "Blacktown Hospital",
+    "state": "NSW",
+    "suburb": "Blacktown"
+  },
+  {
+    "name": "Blackwater Hospital",
+    "state": "QLD",
+    "suburb": "Blackwater"
+  },
+  {
+    "name": "Blayney Multipurpose Service",
+    "state": "NSW",
+    "suburb": "Blayney"
+  },
+  {
+    "name": "Blue Mountains District Anzac Memorial Hospital",
+    "state": "NSW",
+    "suburb": "Katoomba"
+  },
+  {
+    "name": "Boddington Hospital",
+    "state": "WA",
+    "suburb": "Boddington"
+  },
+  {
+    "name": "Boggabri Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Boggabri"
+  },
+  {
+    "name": "Bombala Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Bombala"
+  },
+  {
+    "name": "Bonalbo Hospital",
+    "state": "NSW",
+    "suburb": "Bonalbo"
+  },
+  {
+    "name": "Bond Day Hospital",
+    "state": "NSW",
+    "suburb": "Bella Vista"
+  },
+  {
+    "name": "Bondi Junction Endoscopy Centre",
+    "state": "NSW",
+    "suburb": "Woollahra"
+  },
+  {
+    "name": "Bondi Junction Private Hospital",
+    "state": "NSW",
+    "suburb": "Bondi Junction"
+  },
+  {
+    "name": "Booleroo Centre District Hospital & Health Services",
+    "state": "SA",
+    "suburb": "Booleroo Centre"
+  },
+  {
+    "name": "Boonah Hospital",
+    "state": "QLD",
+    "suburb": "Boonah"
+  },
+  {
+    "name": "Boorowa Multi Purpose Service Hospital",
+    "state": "NSW",
+    "suburb": "Boorowa"
+  },
+  {
+    "name": "Boort District Health",
+    "state": "VIC",
+    "suburb": "Boort"
+  },
+  {
+    "name": "Bordertown Memorial Hospital",
+    "state": "SA",
+    "suburb": "Bordertown"
+  },
+  {
+    "name": "Boroondara Day Surgery",
+    "state": "VIC",
+    "suburb": "Hawthorn"
+  },
+  {
+    "name": "Bourke Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Bourke"
+  },
+  {
+    "name": "Bourke Street Health Service Goulburn",
+    "state": "NSW",
+    "suburb": "Goulburn"
+  },
+  {
+    "name": "Bowen Hospital",
+    "state": "QLD",
+    "suburb": "Bowen"
+  },
+  {
+    "name": "Bowral Hospital",
+    "state": "NSW",
+    "suburb": "Bowral"
+  },
+  {
+    "name": "Box Hill Hospital",
+    "state": "VIC",
+    "suburb": "Box Hill"
+  },
+  {
+    "name": "Boyup Brook Soldiers Memorial Hospital",
+    "state": "WA",
+    "suburb": "Boyup Brook"
+  },
+  {
+    "name": "Braeside Hospital",
+    "state": "NSW",
+    "suburb": "Prairiewood"
+  },
+  {
+    "name": "Braidwood Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Braidwood"
+  },
+  {
+    "name": "Brewarrina Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Brewarrina"
+  },
+  {
+    "name": "Bridgetown Hospital",
+    "state": "WA",
+    "suburb": "Bridgetown"
+  },
+  {
+    "name": "Brighton Day Surgery",
+    "state": "SA",
+    "suburb": "Brighton"
+  },
+  {
+    "name": "Brighton Dialysis Clinic",
+    "state": "SA",
+    "suburb": "Hove"
+  },
+  {
+    "name": "Brighton Health Campus",
+    "state": "QLD",
+    "suburb": "Brighton"
+  },
+  {
+    "name": "Brindabella Endoscopy Centre",
+    "state": "ACT",
+    "suburb": "Garran"
+  },
+  {
+    "name": "Brisbane Day Surgery",
+    "state": "QLD",
+    "suburb": "Spring Hill"
+  },
+  {
+    "name": "Brisbane Endoscopy Service",
+    "state": "QLD",
+    "suburb": "Sunnybank"
+  },
+  {
+    "name": "Brisbane Private Hospital",
+    "state": "QLD",
+    "suburb": "Brisbane"
+  },
+  {
+    "name": "Brisbane Procedure Centre",
+    "state": "QLD",
+    "suburb": "Newstead"
+  },
+  {
+    "name": "Brisbane South Private Hospital",
+    "state": "QLD",
+    "suburb": "Springwood"
+  },
+  {
+    "name": "Brisbane Waters Private Hospital",
+    "state": "NSW",
+    "suburb": "Woy Woy"
+  },
+  {
+    "name": "Broadmeadows Health Service",
+    "state": "VIC",
+    "suburb": "Broadmeadows"
+  },
+  {
+    "name": "Broadwater Private Day Hospital",
+    "state": "QLD",
+    "suburb": "Southport"
+  },
+  {
+    "name": "Broken Hill Base Hospital",
+    "state": "NSW",
+    "suburb": "Broken Hill"
+  },
+  {
+    "name": "Broome Hospital",
+    "state": "WA",
+    "suburb": "Broome"
+  },
+  {
+    "name": "Broome Renal Health Centre",
+    "state": "WA",
+    "suburb": "Broome"
+  },
+  {
+    "name": "Bruce Rock Memorial Hospital",
+    "state": "WA",
+    "suburb": "Bruce Rock"
+  },
+  {
+    "name": "Brunswick Private Hospital",
+    "state": "VIC",
+    "suburb": "Brunswick"
+  },
+  {
+    "name": "Buderim Gastroenterology Centre",
+    "state": "QLD",
+    "suburb": "Maroochydore"
+  },
+  {
+    "name": "Buderim Private Hospital",
+    "state": "QLD",
+    "suburb": "Buderim"
+  },
+  {
+    "name": "Bulahdelah Community Hospital",
+    "state": "NSW",
+    "suburb": "Bulahdelah"
+  },
+  {
+    "name": "Bulli Hospital",
+    "state": "NSW",
+    "suburb": "Bulli"
+  },
+  {
+    "name": "Bunbury Day Hospital",
+    "state": "WA",
+    "suburb": "Bunbury"
+  },
+  {
+    "name": "Bunbury Hospital",
+    "state": "WA",
+    "suburb": "Bunbury"
+  },
+  {
+    "name": "Bundaberg Hospital",
+    "state": "QLD",
+    "suburb": "Bundaberg"
+  },
+  {
+    "name": "Bundaberg Private Day Hospital",
+    "state": "QLD",
+    "suburb": "Kensington"
+  },
+  {
+    "name": "Bundoora Extended Care Centre",
+    "state": "VIC",
+    "suburb": "Bundoora"
+  },
+  {
+    "name": "Burnside Day Surgery",
+    "state": "SA",
+    "suburb": "Hazelwood Park"
+  },
+  {
+    "name": "Burnside Hospital Stepney",
+    "state": "SA",
+    "suburb": "Stepney"
+  },
+  {
+    "name": "Burnside Hospital Toorak Gardens",
+    "state": "SA",
+    "suburb": "Toorak Gardens"
+  },
+  {
+    "name": "Burra Hospital",
+    "state": "SA",
+    "suburb": "Burra"
+  },
+  {
+    "name": "Busselton Hospital",
+    "state": "WA",
+    "suburb": "Busselton"
+  },
+  {
+    "name": "Byron Central Hospital",
+    "state": "NSW",
+    "suburb": "Ewingsdale"
+  },
+  {
+    "name": "Caboolture Hospital",
+    "state": "QLD",
+    "suburb": "Caboolture"
+  },
+  {
+    "name": "Caboolture Private Hospital",
+    "state": "QLD",
+    "suburb": "Caboolture"
+  },
+  {
+    "name": "Cabramatta Day Surgery",
+    "state": "NSW",
+    "suburb": "Cabramatta"
+  },
+  {
+    "name": "Cabrini Brighton",
+    "state": "VIC",
+    "suburb": "Brighton"
+  },
+  {
+    "name": "Cabrini Malvern",
+    "state": "VIC",
+    "suburb": "Malvern"
+  },
+  {
+    "name": "Cairns Base Hospital",
+    "state": "QLD",
+    "suburb": "Cairns"
+  },
+  {
+    "name": "Cairns Private Hospital",
+    "state": "QLD",
+    "suburb": "Cairns"
+  },
+  {
+    "name": "Caloundra Hospital",
+    "state": "QLD",
+    "suburb": "Caloundra"
+  },
+  {
+    "name": "Calvary - Lenah Valley Hospital",
+    "state": "TAS",
+    "suburb": "Lenah Valley"
+  },
+  {
+    "name": "Calvary - St John'S Hospital",
+    "state": "TAS",
+    "suburb": "South Hobart"
+  },
+  {
+    "name": "Calvary - St Luke'S Hospital",
+    "state": "TAS",
+    "suburb": "Launceston"
+  },
+  {
+    "name": "Calvary - St Vincent'S Hospital",
+    "state": "TAS",
+    "suburb": "Launceston"
+  },
+  {
+    "name": "Calvary Adelaide Hospital",
+    "state": "SA",
+    "suburb": "Adelaide"
+  },
+  {
+    "name": "Calvary Bruce Private Hospital",
+    "state": "ACT",
+    "suburb": "Bruce"
+  },
+  {
+    "name": "Calvary Central Districts Hospital",
+    "state": "SA",
+    "suburb": "Elizabeth Vale"
+  },
+  {
+    "name": "Calvary Connery Centre",
+    "state": "SA",
+    "suburb": "Elizabeth Vale"
+  },
+  {
+    "name": "Calvary Health Care Bethlehem",
+    "state": "VIC",
+    "suburb": "Caulfield"
+  },
+  {
+    "name": "Calvary Health Care Sydney Ltd",
+    "state": "NSW",
+    "suburb": "Kogarah"
+  },
+  {
+    "name": "Calvary John James Hospital",
+    "state": "ACT",
+    "suburb": "Deakin"
+  },
+  {
+    "name": "Calvary Mater Newcastle",
+    "state": "NSW",
+    "suburb": "Waratah"
+  },
+  {
+    "name": "Calvary North Adelaide Hospital",
+    "state": "SA",
+    "suburb": "North Adelaide"
+  },
+  {
+    "name": "Calvary Riverina Hospital",
+    "state": "NSW",
+    "suburb": "Wagga Wagga"
+  },
+  {
+    "name": "Calvary Riverina Surgicentre",
+    "state": "NSW",
+    "suburb": "Wagga Wagga"
+  },
+  {
+    "name": "Camberwell Day Surgery",
+    "state": "VIC",
+    "suburb": "Hawthorn East"
+  },
+  {
+    "name": "Cambridge Day Surgery",
+    "state": "WA",
+    "suburb": "Wembley"
+  },
+  {
+    "name": "Camden Hospital",
+    "state": "NSW",
+    "suburb": "Camden"
+  },
+  {
+    "name": "Camden Surgical Hospital",
+    "state": "NSW",
+    "suburb": "Elderslie"
+  },
+  {
+    "name": "Campbell Town Health And Community Service",
+    "state": "TAS",
+    "suburb": "Campbell Town"
+  },
+  {
+    "name": "Campbelltown Hospital",
+    "state": "NSW",
+    "suburb": "Campbelltown"
+  },
+  {
+    "name": "Campbelltown Private Hospital",
+    "state": "NSW",
+    "suburb": "Campbelltown"
+  },
+  {
+    "name": "Campsie Day Surgery",
+    "state": "NSW",
+    "suburb": "Campsie"
+  },
+  {
+    "name": "Canberra Imaging Group",
+    "state": "ACT",
+    "suburb": "Deakin"
+  },
+  {
+    "name": "Canberra Microsurgery",
+    "state": "ACT",
+    "suburb": "Phillip"
+  },
+  {
+    "name": "Canberra Private Hospital",
+    "state": "ACT",
+    "suburb": "Deakin"
+  },
+  {
+    "name": "Canberra Region Neurology And Pain Centre",
+    "state": "ACT",
+    "suburb": "Phillip"
+  },
+  {
+    "name": "Canberra Surgicentre",
+    "state": "ACT",
+    "suburb": "Braddon"
+  },
+  {
+    "name": "Cancer Care Griffith",
+    "state": "NSW",
+    "suburb": "Griffith"
+  },
+  {
+    "name": "Cancer Care Macarthur",
+    "state": "NSW",
+    "suburb": "Campbelltown"
+  },
+  {
+    "name": "Cancer Care Moreton Bay",
+    "state": "QLD",
+    "suburb": "Caboolture"
+  },
+  {
+    "name": "Cancer Care Noosa",
+    "state": "QLD",
+    "suburb": "Noosaville"
+  },
+  {
+    "name": "Cancer Care Northern Beaches",
+    "state": "NSW",
+    "suburb": "Frenchs Forest"
+  },
+  {
+    "name": "Cancer Care Wollongong",
+    "state": "NSW",
+    "suburb": "Wollongong"
+  },
+  {
+    "name": "Cannington Dialysis Clinic",
+    "state": "WA",
+    "suburb": "Cannington"
+  },
+  {
+    "name": "Canossa Private Hospital",
+    "state": "QLD",
+    "suburb": "Oxley"
+  },
+  {
+    "name": "Canowindra Soldiers Memorial Hospital",
+    "state": "NSW",
+    "suburb": "Canowindra"
+  },
+  {
+    "name": "Canterbury Hospital",
+    "state": "NSW",
+    "suburb": "Campsie"
+  },
+  {
+    "name": "Capricorn Coast Hospital And Health Service",
+    "state": "QLD",
+    "suburb": "Yeppoon"
+  },
+  {
+    "name": "Caritas Christi Hospice",
+    "state": "VIC",
+    "suburb": "Kew"
+  },
+  {
+    "name": "Carnarvon Hospital",
+    "state": "WA",
+    "suburb": "Carnarvon"
+  },
+  {
+    "name": "Casey Day Hospital",
+    "state": "VIC",
+    "suburb": "Narre Warren"
+  },
+  {
+    "name": "Casey Early Parenting Centre",
+    "state": "VIC",
+    "suburb": "Clyde North"
+  },
+  {
+    "name": "Casey Hospital",
+    "state": "VIC",
+    "suburb": "Berwick"
+  },
+  {
+    "name": "Casino And District Memorial Hospital",
+    "state": "NSW",
+    "suburb": "Casino"
+  },
+  {
+    "name": "Casterton Memorial Hospital",
+    "state": "VIC",
+    "suburb": "Casterton"
+  },
+  {
+    "name": "Castlecrag Private Hospital",
+    "state": "NSW",
+    "suburb": "Castlecrag"
+  },
+  {
+    "name": "Caulfield Hospital",
+    "state": "VIC",
+    "suburb": "Caulfield"
+  },
+  {
+    "name": "Ceduna Hospital",
+    "state": "SA",
+    "suburb": "Ceduna"
+  },
+  {
+    "name": "Central Coast Day Hospital - Erina",
+    "state": "NSW",
+    "suburb": "Erina"
+  },
+  {
+    "name": "Central Day Surgery",
+    "state": "SA",
+    "suburb": "Dulwich"
+  },
+  {
+    "name": "Central Gippsland Health Service (Maffra)",
+    "state": "VIC",
+    "suburb": "Maffra"
+  },
+  {
+    "name": "Central Gippsland Health Service (Sale)",
+    "state": "VIC",
+    "suburb": "Sale"
+  },
+  {
+    "name": "Central Highlands Rural Health - Creswick",
+    "state": "VIC",
+    "suburb": "Creswick"
+  },
+  {
+    "name": "Central Highlands Rural Health - Daylesford",
+    "state": "VIC",
+    "suburb": "Daylesford"
+  },
+  {
+    "name": "Central Highlands Rural Health - Kyneton",
+    "state": "VIC",
+    "suburb": "Kyneton"
+  },
+  {
+    "name": "Central Sydney Private Hospital",
+    "state": "NSW",
+    "suburb": "Sydney"
+  },
+  {
+    "name": "Central Yorke Peninsula Hospital (Maitland)",
+    "state": "SA",
+    "suburb": "Maitland"
+  },
+  {
+    "name": "Centre For Digestive Diseases",
+    "state": "NSW",
+    "suburb": "Five Dock"
+  },
+  {
+    "name": "Cessnock District Hospital",
+    "state": "NSW",
+    "suburb": "Cessnock"
+  },
+  {
+    "name": "Charlestown Private Hospital",
+    "state": "NSW",
+    "suburb": "Charlestown"
+  },
+  {
+    "name": "Charleville Hospital",
+    "state": "QLD",
+    "suburb": "Charleville"
+  },
+  {
+    "name": "Charters Towers Hospital",
+    "state": "QLD",
+    "suburb": "Charters Towers"
+  },
+  {
+    "name": "Chatswood Day Surgery",
+    "state": "NSW",
+    "suburb": "Chatswood"
+  },
+  {
+    "name": "Chatswood Private Hospital",
+    "state": "NSW",
+    "suburb": "Chatswood"
+  },
+  {
+    "name": "Chelsea Heights Day Surgery And Endoscopy",
+    "state": "VIC",
+    "suburb": "Chelsea Heights"
+  },
+  {
+    "name": "Cherbourg Hospital",
+    "state": "QLD",
+    "suburb": "Cherbourg"
+  },
+  {
+    "name": "Chermside Day Hospital",
+    "state": "QLD",
+    "suburb": "Chermside"
+  },
+  {
+    "name": "Chermside Dialysis Clinic",
+    "state": "QLD",
+    "suburb": "Chermside"
+  },
+  {
+    "name": "Chesterville Day Hospital",
+    "state": "VIC",
+    "suburb": "Cheltenham"
+  },
+  {
+    "name": "Childers Multipurpose Health Service",
+    "state": "QLD",
+    "suburb": "Childers"
+  },
+  {
+    "name": "Chinchilla Hospital",
+    "state": "QLD",
+    "suburb": "Chinchilla"
+  },
+  {
+    "name": "Chris O'Brien Lifehouse",
+    "state": "NSW",
+    "suburb": "Camperdown"
+  },
+  {
+    "name": "City West Specialist Day Hospital",
+    "state": "NSW",
+    "suburb": "Westmead"
+  },
+  {
+    "name": "Clare Hospital",
+    "state": "SA",
+    "suburb": "Clare"
+  },
+  {
+    "name": "Clermont Multi-Purpose Health Service",
+    "state": "QLD",
+    "suburb": "Clermont"
+  },
+  {
+    "name": "Cloncurry Multi-Purpose Health Service",
+    "state": "QLD",
+    "suburb": "Cloncurry"
+  },
+  {
+    "name": "Cobar District Hospital",
+    "state": "NSW",
+    "suburb": "Cobar"
+  },
+  {
+    "name": "Cobram District Health",
+    "state": "VIC",
+    "suburb": "Cobram"
+  },
+  {
+    "name": "Coburg Endoscopy Centre",
+    "state": "VIC",
+    "suburb": "Coburg"
+  },
+  {
+    "name": "Coffs Day Hospital",
+    "state": "NSW",
+    "suburb": "Coffs Harbour"
+  },
+  {
+    "name": "Coffs Harbour Base Hospital",
+    "state": "NSW",
+    "suburb": "Coffs Harbour"
+  },
+  {
+    "name": "Cohuna District Hospital",
+    "state": "VIC",
+    "suburb": "Cohuna"
+  },
+  {
+    "name": "Colac Area Health",
+    "state": "VIC",
+    "suburb": "Colac"
+  },
+  {
+    "name": "Coledale Hospital",
+    "state": "NSW",
+    "suburb": "Coledale"
+  },
+  {
+    "name": "Collarenebri Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Collarenebri"
+  },
+  {
+    "name": "Collie District Hospital",
+    "state": "WA",
+    "suburb": "Collie"
+  },
+  {
+    "name": "Collinsville Multi-Purpose Health Service",
+    "state": "QLD",
+    "suburb": "Collinsville"
+  },
+  {
+    "name": "Concept Day Hospital",
+    "state": "WA",
+    "suburb": "Subiaco"
+  },
+  {
+    "name": "Concord Repatriation Hospital",
+    "state": "NSW",
+    "suburb": "Concord"
+  },
+  {
+    "name": "Condobolin District Hospital",
+    "state": "NSW",
+    "suburb": "Condobolin"
+  },
+  {
+    "name": "Condobolin Retirement Village",
+    "state": "NSW",
+    "suburb": "Condobolin"
+  },
+  {
+    "name": "Cooktown Hospital",
+    "state": "QLD",
+    "suburb": "Cooktown"
+  },
+  {
+    "name": "Coolah Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Coolah"
+  },
+  {
+    "name": "Coolamon-Ganmain Multi Purpose Service Hospital",
+    "state": "NSW",
+    "suburb": "Coolamon"
+  },
+  {
+    "name": "Coolenberg Day Surgery",
+    "state": "NSW",
+    "suburb": "Port Macquarie"
+  },
+  {
+    "name": "Cooma Hospital & Health Service",
+    "state": "NSW",
+    "suburb": "Cooma"
+  },
+  {
+    "name": "Coonabarabran District Hospital",
+    "state": "NSW",
+    "suburb": "Coonabarabran"
+  },
+  {
+    "name": "Coonamble Health Service",
+    "state": "NSW",
+    "suburb": "Coonamble"
+  },
+  {
+    "name": "Cootamundra District Hospital",
+    "state": "NSW",
+    "suburb": "Cootamundra"
+  },
+  {
+    "name": "Corowa Health Service",
+    "state": "NSW",
+    "suburb": "Corowa"
+  },
+  {
+    "name": "Corrigin Hospital",
+    "state": "WA",
+    "suburb": "Corrigin"
+  },
+  {
+    "name": "Corymbia Day Hospital",
+    "state": "VIC",
+    "suburb": "Dandenong"
+  },
+  {
+    "name": "Cowra District Hospital",
+    "state": "NSW",
+    "suburb": "Cowra"
+  },
+  {
+    "name": "Craigie Day Surgery",
+    "state": "WA",
+    "suburb": "Craigie"
+  },
+  {
+    "name": "Craigieburn Community Hospital",
+    "state": "VIC",
+    "suburb": "Craigieburn"
+  },
+  {
+    "name": "Cranbourne Community Hospital",
+    "state": "VIC",
+    "suburb": "Cranbourne East"
+  },
+  {
+    "name": "Cranbourne Integrated Care Centre",
+    "state": "VIC",
+    "suburb": "Cranbourne"
+  },
+  {
+    "name": "Cremorne Private Day Surgery",
+    "state": "VIC",
+    "suburb": "Cremorne"
+  },
+  {
+    "name": "Crookwell District Hospital",
+    "state": "NSW",
+    "suburb": "Crookwell"
+  },
+  {
+    "name": "Crystal Brook And District Hospital",
+    "state": "SA",
+    "suburb": "Crystal Brook"
+  },
+  {
+    "name": "Culcairn Multi Purpose Service Hospital",
+    "state": "NSW",
+    "suburb": "Culcairn"
+  },
+  {
+    "name": "Cumberland Hospital",
+    "state": "NSW",
+    "suburb": "Westmead"
+  },
+  {
+    "name": "Cummins Hospital",
+    "state": "SA",
+    "suburb": "Cummins"
+  },
+  {
+    "name": "Cunderdin Health Service",
+    "state": "WA",
+    "suburb": "Cunderdin"
+  },
+  {
+    "name": "Cunnamulla Hospital",
+    "state": "QLD",
+    "suburb": "Cunnamulla"
+  },
+  {
+    "name": "Currumbin Clinic",
+    "state": "QLD",
+    "suburb": "Currumbin"
+  },
+  {
+    "name": "Dalby Hospital Health Service",
+    "state": "QLD",
+    "suburb": "Dalby"
+  },
+  {
+    "name": "Dalwallinu Hospital",
+    "state": "WA",
+    "suburb": "Dalwallinu"
+  },
+  {
+    "name": "Dandenong Hospital",
+    "state": "VIC",
+    "suburb": "Dandenong"
+  },
+  {
+    "name": "Darwin Day Surgery",
+    "state": "NT",
+    "suburb": "Wanguri"
+  },
+  {
+    "name": "Darwin Private Hospital",
+    "state": "NT",
+    "suburb": "Tiwi"
+  },
+  {
+    "name": "David Berry Hospital",
+    "state": "NSW",
+    "suburb": "Berry"
+  },
+  {
+    "name": "Dee Why Endoscopy Unit",
+    "state": "NSW",
+    "suburb": "Dee Why"
+  },
+  {
+    "name": "Delegate Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Delegate"
+  },
+  {
+    "name": "Delmar Private Hospital",
+    "state": "NSW",
+    "suburb": "Dee Why"
+  },
+  {
+    "name": "Delmont Private Hospital",
+    "state": "VIC",
+    "suburb": "Glen Iris"
+  },
+  {
+    "name": "Deloraine District Hospital And Community Health Services",
+    "state": "TAS",
+    "suburb": "Deloraine"
+  },
+  {
+    "name": "Deniliquin Hospital",
+    "state": "NSW",
+    "suburb": "Deniliquin"
+  },
+  {
+    "name": "Denman Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Denman"
+  },
+  {
+    "name": "Denmark Hospital",
+    "state": "WA",
+    "suburb": "Denmark"
+  },
+  {
+    "name": "Derby Hospital",
+    "state": "WA",
+    "suburb": "Derby"
+  },
+  {
+    "name": "Derby Renal Health Centre",
+    "state": "WA",
+    "suburb": "Derby"
+  },
+  {
+    "name": "Devonport Eye Hospital",
+    "state": "TAS",
+    "suburb": "Devonport"
+  },
+  {
+    "name": "Dextra Surgical",
+    "state": "SA",
+    "suburb": "Norwood"
+  },
+  {
+    "name": "Dhelkaya Health",
+    "state": "VIC",
+    "suburb": "Castlemaine"
+  },
+  {
+    "name": "Diagnostic Endoscopy Centre",
+    "state": "NSW",
+    "suburb": "Darlinghurst"
+  },
+  {
+    "name": "Diamond Valley Renal Care Centre",
+    "state": "VIC",
+    "suburb": "Greensborough"
+  },
+  {
+    "name": "Dirranbandi Hospital",
+    "state": "QLD",
+    "suburb": "Dirranbandi"
+  },
+  {
+    "name": "Doncaster Private Hospital",
+    "state": "VIC",
+    "suburb": "Doncaster"
+  },
+  {
+    "name": "Dongara Multi-Purpose Health Centre",
+    "state": "WA",
+    "suburb": "Dongara"
+  },
+  {
+    "name": "Donnybrook Hospital",
+    "state": "WA",
+    "suburb": "Donnybrook"
+  },
+  {
+    "name": "Donvale Rehabilitation Hospital",
+    "state": "VIC",
+    "suburb": "Donvale"
+  },
+  {
+    "name": "Doomadgee Hospital",
+    "state": "QLD",
+    "suburb": "Doomadgee"
+  },
+  {
+    "name": "Dorrigo Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Dorrigo"
+  },
+  {
+    "name": "Dorset Rehabilitation Centre",
+    "state": "VIC",
+    "suburb": "Pascoe Vale"
+  },
+  {
+    "name": "Double Bay Day Hospital",
+    "state": "NSW",
+    "suburb": "Double Bay"
+  },
+  {
+    "name": "Dr Scope",
+    "state": "VIC",
+    "suburb": "Sunshine"
+  },
+  {
+    "name": "Dubbo Base Hospital",
+    "state": "NSW",
+    "suburb": "Dubbo"
+  },
+  {
+    "name": "Dubbo Private Hospital",
+    "state": "NSW",
+    "suburb": "Dubbo"
+  },
+  {
+    "name": "Dudley Private Hospital",
+    "state": "NSW",
+    "suburb": "Orange"
+  },
+  {
+    "name": "Dumbleyung Memorial Hospital",
+    "state": "WA",
+    "suburb": "Dumbleyung"
+  },
+  {
+    "name": "Dunedoo Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Dunedoo"
+  },
+  {
+    "name": "Dungog Community Hospital",
+    "state": "NSW",
+    "suburb": "Dungog"
+  },
+  {
+    "name": "Dunmunkle Health Services",
+    "state": "VIC",
+    "suburb": "Rupanyup"
+  },
+  {
+    "name": "Dysart Hospital",
+    "state": "QLD",
+    "suburb": "Dysart"
+  },
+  {
+    "name": "East Brisbane Day Hospital",
+    "state": "QLD",
+    "suburb": "East Brisbane"
+  },
+  {
+    "name": "East Grampians Health Service - Ararat",
+    "state": "VIC",
+    "suburb": "Ararat"
+  },
+  {
+    "name": "East Grampians Health Service - Willaura Campus",
+    "state": "VIC",
+    "suburb": "Willaura"
+  },
+  {
+    "name": "East Side Recovery",
+    "state": "VIC",
+    "suburb": "Boronia"
+  },
+  {
+    "name": "East Sydney Private Hospital",
+    "state": "NSW",
+    "suburb": "East Sydney"
+  },
+  {
+    "name": "East Wimmera Health Service - Birchip",
+    "state": "VIC",
+    "suburb": "Birchip"
+  },
+  {
+    "name": "East Wimmera Health Service - Charlton",
+    "state": "VIC",
+    "suburb": "Charlton"
+  },
+  {
+    "name": "East Wimmera Health Service - Donald",
+    "state": "VIC",
+    "suburb": "Donald"
+  },
+  {
+    "name": "East Wimmera Health Service - St Arnaud",
+    "state": "VIC",
+    "suburb": "St Arnaud"
+  },
+  {
+    "name": "East Wimmera Health Service - Wycheproof",
+    "state": "VIC",
+    "suburb": "Wycheproof"
+  },
+  {
+    "name": "Eastern Endoscopy Centre",
+    "state": "QLD",
+    "suburb": "Birkdale"
+  },
+  {
+    "name": "Eastern Eyre Health And Aged Care - Cleve Campus",
+    "state": "SA",
+    "suburb": "Cleve"
+  },
+  {
+    "name": "Eastern Eyre Health And Aged Care - Cowell Campus",
+    "state": "SA",
+    "suburb": "Cowell"
+  },
+  {
+    "name": "Eastern Eyre Health And Aged Care - Kimba Campus",
+    "state": "SA",
+    "suburb": "Kimba"
+  },
+  {
+    "name": "Eastern Health Blackburn Public Surgical Centre",
+    "state": "VIC",
+    "suburb": "Blackburn"
+  },
+  {
+    "name": "Eastern Heart Clinic",
+    "state": "NSW",
+    "suburb": "Randwick"
+  },
+  {
+    "name": "Eastern Suburbs Private Hospital",
+    "state": "NSW",
+    "suburb": "Randwick"
+  },
+  {
+    "name": "Eastside Endoscopy Centre",
+    "state": "VIC",
+    "suburb": "Ringwood"
+  },
+  {
+    "name": "Eastwood Private Hospital",
+    "state": "SA",
+    "suburb": "Eastwood"
+  },
+  {
+    "name": "Echuca Regional Health",
+    "state": "VIC",
+    "suburb": "Echuca"
+  },
+  {
+    "name": "Eden Private Hospital",
+    "state": "QLD",
+    "suburb": "Cooroy"
+  },
+  {
+    "name": "Edenhope And District Memorial Hospital",
+    "state": "VIC",
+    "suburb": "Edenhope"
+  },
+  {
+    "name": "Eidsvold Multipurpose Health Service",
+    "state": "QLD",
+    "suburb": "Eidsvold"
+  },
+  {
+    "name": "Ellen Barron Family Centre",
+    "state": "QLD",
+    "suburb": "Chermside"
+  },
+  {
+    "name": "Elliston Hospital",
+    "state": "SA",
+    "suburb": "Elliston"
+  },
+  {
+    "name": "Emerald Hospital",
+    "state": "QLD",
+    "suburb": "Emerald"
+  },
+  {
+    "name": "Epping Surgery Centre",
+    "state": "NSW",
+    "suburb": "Epping"
+  },
+  {
+    "name": "Epworth Camberwell",
+    "state": "VIC",
+    "suburb": "Camberwell"
+  },
+  {
+    "name": "Epworth Eastern",
+    "state": "VIC",
+    "suburb": "Box Hill"
+  },
+  {
+    "name": "Epworth Freemasons",
+    "state": "VIC",
+    "suburb": "East Melbourne"
+  },
+  {
+    "name": "Epworth Geelong",
+    "state": "VIC",
+    "suburb": "Waurn Ponds"
+  },
+  {
+    "name": "Epworth Hawthorn",
+    "state": "VIC",
+    "suburb": "Hawthorn"
+  },
+  {
+    "name": "Epworth Richmond",
+    "state": "VIC",
+    "suburb": "Richmond"
+  },
+  {
+    "name": "Esk Hospital",
+    "state": "QLD",
+    "suburb": "Esk"
+  },
+  {
+    "name": "Esperance Hospital",
+    "state": "WA",
+    "suburb": "Esperance"
+  },
+  {
+    "name": "Esperance Multi Purpose Centre",
+    "state": "TAS",
+    "suburb": "Dover"
+  },
+  {
+    "name": "Essendon Day Procedure Centre",
+    "state": "VIC",
+    "suburb": "Moonee Ponds"
+  },
+  {
+    "name": "Essendon Private Clinic",
+    "state": "VIC",
+    "suburb": "Essendon West"
+  },
+  {
+    "name": "Esus Centre",
+    "state": "WA",
+    "suburb": "Subiaco"
+  },
+  {
+    "name": "Eudunda Hospital",
+    "state": "SA",
+    "suburb": "Eudunda"
+  },
+  {
+    "name": "Eugowra Memorial Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Eugowra"
+  },
+  {
+    "name": "Euroa Health",
+    "state": "VIC",
+    "suburb": "Euroa"
+  },
+  {
+    "name": "Excel Endoscopy Centre",
+    "state": "NSW",
+    "suburb": "Campsie"
+  },
+  {
+    "name": "Exmouth Hospital",
+    "state": "WA",
+    "suburb": "Exmouth"
+  },
+  {
+    "name": "Eye-Tech Day Surgeries",
+    "state": "QLD",
+    "suburb": "Spring Hill"
+  },
+  {
+    "name": "Eye-Tech Day Surgeries Southside",
+    "state": "QLD",
+    "suburb": "Upper Mount Gravatt"
+  },
+  {
+    "name": "Fairfield Hospital",
+    "state": "NSW",
+    "suburb": "Prairiewood"
+  },
+  {
+    "name": "Family Planning Nsw",
+    "state": "NSW",
+    "suburb": "Newington"
+  },
+  {
+    "name": "Far North Day Hospital",
+    "state": "QLD",
+    "suburb": "Cairns"
+  },
+  {
+    "name": "Far North Health Services",
+    "state": "SA",
+    "suburb": "Coober Pedy"
+  },
+  {
+    "name": "Fertility Control Clinic",
+    "state": "VIC",
+    "suburb": "East Melbourne"
+  },
+  {
+    "name": "Figtree Private Hospital",
+    "state": "NSW",
+    "suburb": "Figtree"
+  },
+  {
+    "name": "Finley Hospital & Community Health Care",
+    "state": "NSW",
+    "suburb": "Finley"
+  },
+  {
+    "name": "Fiona Stanley Hospital",
+    "state": "WA",
+    "suburb": "Murdoch"
+  },
+  {
+    "name": "Fitzroy Community Hospice",
+    "state": "QLD",
+    "suburb": "The Range"
+  },
+  {
+    "name": "Fitzroy Crossing Hospital",
+    "state": "WA",
+    "suburb": "Fitzroy Crossing"
+  },
+  {
+    "name": "Fitzroy Crossing Renal Health Centre",
+    "state": "WA",
+    "suburb": "Fitzroy Crossing"
+  },
+  {
+    "name": "Flinders Island Multi Purpose Centre",
+    "state": "TAS",
+    "suburb": "Whitemark"
+  },
+  {
+    "name": "Flinders Medical Centre",
+    "state": "SA",
+    "suburb": "Bedford Park"
+  },
+  {
+    "name": "Flinders Private Hospital",
+    "state": "SA",
+    "suburb": "Bedford Park"
+  },
+  {
+    "name": "Fmc Dialysis Clinic North Lakes",
+    "state": "QLD",
+    "suburb": "North Lakes"
+  },
+  {
+    "name": "Focus Eye Centre",
+    "state": "NSW",
+    "suburb": "Kingsford"
+  },
+  {
+    "name": "Footscray Day Surgery",
+    "state": "VIC",
+    "suburb": "Footscray"
+  },
+  {
+    "name": "Footscray Hospital",
+    "state": "VIC",
+    "suburb": "Footscray"
+  },
+  {
+    "name": "Forbes District Hospital",
+    "state": "NSW",
+    "suburb": "Forbes"
+  },
+  {
+    "name": "Forest Hill Dialysis Clinic",
+    "state": "VIC",
+    "suburb": "Forest Hill"
+  },
+  {
+    "name": "Forest Road Day Surgery",
+    "state": "NSW",
+    "suburb": "Hurstville"
+  },
+  {
+    "name": "Forster Private Hospital",
+    "state": "NSW",
+    "suburb": "Forster"
+  },
+  {
+    "name": "Frances Perry House",
+    "state": "VIC",
+    "suburb": "Parkville"
+  },
+  {
+    "name": "Francis Street Ophthalmic Day Procedure Centre",
+    "state": "NSW",
+    "suburb": "Richmond"
+  },
+  {
+    "name": "Frankston Hospital",
+    "state": "VIC",
+    "suburb": "Frankston"
+  },
+  {
+    "name": "Frankston Public Surgical Centre",
+    "state": "VIC",
+    "suburb": "Frankston"
+  },
+  {
+    "name": "Fraser Coast Hospice",
+    "state": "QLD",
+    "suburb": "Urraween"
+  },
+  {
+    "name": "Fremantle Hospital And Health Service",
+    "state": "WA",
+    "suburb": "Fremantle"
+  },
+  {
+    "name": "Fresenius Liverpool Private Dialysis Clinic",
+    "state": "NSW",
+    "suburb": "Liverpool"
+  },
+  {
+    "name": "Freshwater Day Surgery",
+    "state": "NSW",
+    "suburb": "Brookvale"
+  },
+  {
+    "name": "Friendly Society Private Hospital",
+    "state": "QLD",
+    "suburb": "Bundaberg West"
+  },
+  {
+    "name": "Fullarton Clinic",
+    "state": "VIC",
+    "suburb": "Epping"
+  },
+  {
+    "name": "Gateway Day Hospital",
+    "state": "NSW",
+    "suburb": "Sydney"
+  },
+  {
+    "name": "Gatton Hospital",
+    "state": "QLD",
+    "suburb": "Gatton"
+  },
+  {
+    "name": "Gawler Health Service",
+    "state": "SA",
+    "suburb": "Gawler East"
+  },
+  {
+    "name": "Gayndah Hospital",
+    "state": "QLD",
+    "suburb": "Gayndah"
+  },
+  {
+    "name": "Geelong Day Surgery",
+    "state": "VIC",
+    "suburb": "Norlane"
+  },
+  {
+    "name": "Genea Canberra",
+    "state": "ACT",
+    "suburb": "Deakin"
+  },
+  {
+    "name": "Genea Day Surgery",
+    "state": "NSW",
+    "suburb": "Sydney"
+  },
+  {
+    "name": "Genea Liverpool",
+    "state": "NSW",
+    "suburb": "Liverpool"
+  },
+  {
+    "name": "Genea Northwest",
+    "state": "NSW",
+    "suburb": "Bella Vista"
+  },
+  {
+    "name": "Genesis Care Radiation Oncology Centre Albury Wodonga",
+    "state": "NSW",
+    "suburb": "Albury"
+  },
+  {
+    "name": "Genesis Care Radiation Oncology Centre At Cabrini",
+    "state": "VIC",
+    "suburb": "Malvern"
+  },
+  {
+    "name": "Genesis Care Radiation Oncology Centre St Vincent'S Hospital Melbourne",
+    "state": "VIC",
+    "suburb": "Fitzroy"
+  },
+  {
+    "name": "Genesis Care Shenton House",
+    "state": "WA",
+    "suburb": "Joondalup"
+  },
+  {
+    "name": "Genesiscare Campbelltown",
+    "state": "NSW",
+    "suburb": "Campbelltown"
+  },
+  {
+    "name": "Genesiscare Frenchs Forest",
+    "state": "NSW",
+    "suburb": "Frenchs Forest"
+  },
+  {
+    "name": "Genesiscare Hurstville",
+    "state": "NSW",
+    "suburb": "Hurstville"
+  },
+  {
+    "name": "Genesiscare Kingswood",
+    "state": "NSW",
+    "suburb": "Kingswood"
+  },
+  {
+    "name": "Genesiscare Maitland",
+    "state": "NSW",
+    "suburb": "East Maitland"
+  },
+  {
+    "name": "Genesiscare Mandurah",
+    "state": "WA",
+    "suburb": "Mandurah"
+  },
+  {
+    "name": "Genesiscare North Shore",
+    "state": "NSW",
+    "suburb": "St Leonards"
+  },
+  {
+    "name": "Genesiscare Radiation Oncology Centre Shepparton",
+    "state": "VIC",
+    "suburb": "Shepparton"
+  },
+  {
+    "name": "Genesiscare Western Hospital",
+    "state": "SA",
+    "suburb": "Henley Beach"
+  },
+  {
+    "name": "George Town Hospital And Community Centre",
+    "state": "TAS",
+    "suburb": "George Town"
+  },
+  {
+    "name": "Geraldton Hospital",
+    "state": "WA",
+    "suburb": "Geraldton"
+  },
+  {
+    "name": "Gih Access Endoscopy",
+    "state": "VIC",
+    "suburb": "Officer"
+  },
+  {
+    "name": "Gilgandra Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Gilgandra"
+  },
+  {
+    "name": "Gin Gin Hospital",
+    "state": "QLD",
+    "suburb": "Gin Gin"
+  },
+  {
+    "name": "Gippsland Southern Health Service - Korumburra Campus",
+    "state": "VIC",
+    "suburb": "Korumburra"
+  },
+  {
+    "name": "Gippsland Southern Health Service - Leongatha Campus",
+    "state": "VIC",
+    "suburb": "Leongatha"
+  },
+  {
+    "name": "Gladstone Hospital",
+    "state": "QLD",
+    "suburb": "Gladstone"
+  },
+  {
+    "name": "Glen Eira Day Surgery",
+    "state": "VIC",
+    "suburb": "Caulfield South"
+  },
+  {
+    "name": "Glen Innes District Hospital",
+    "state": "NSW",
+    "suburb": "Glen Innes"
+  },
+  {
+    "name": "Glen Iris Private",
+    "state": "VIC",
+    "suburb": "Glen Iris"
+  },
+  {
+    "name": "Glen Osmond Surgicentre",
+    "state": "SA",
+    "suburb": "Eastwood"
+  },
+  {
+    "name": "Glenelg Community Hospital Inc",
+    "state": "SA",
+    "suburb": "Glenelg South"
+  },
+  {
+    "name": "Glenelg Day Surgery",
+    "state": "SA",
+    "suburb": "Glenelg"
+  },
+  {
+    "name": "Glengarry Private Hospital",
+    "state": "WA",
+    "suburb": "Duncraig"
+  },
+  {
+    "name": "Glenside Health Services",
+    "state": "SA",
+    "suburb": "Glenside"
+  },
+  {
+    "name": "Gloucester Soldiers Memorial Hospital",
+    "state": "NSW",
+    "suburb": "Gloucester"
+  },
+  {
+    "name": "Gnowangerup Hospital",
+    "state": "WA",
+    "suburb": "Gnowangerup"
+  },
+  {
+    "name": "Gold Coast Eye Hospital",
+    "state": "QLD",
+    "suburb": "Robina Town Centre"
+  },
+  {
+    "name": "Gold Coast Private Hospital",
+    "state": "QLD",
+    "suburb": "Southport"
+  },
+  {
+    "name": "Gold Coast University Hospital",
+    "state": "QLD",
+    "suburb": "Southport"
+  },
+  {
+    "name": "Golf Links Road Rehabilitation Centre",
+    "state": "VIC",
+    "suburb": "Frankston"
+  },
+  {
+    "name": "Goodooga Hospital",
+    "state": "NSW",
+    "suburb": "Goodooga"
+  },
+  {
+    "name": "Goomalling Hospital",
+    "state": "WA",
+    "suburb": "Goomalling"
+  },
+  {
+    "name": "Goonawarra Day Hospital",
+    "state": "VIC",
+    "suburb": "Sunbury"
+  },
+  {
+    "name": "Goondiwindi Hospital",
+    "state": "QLD",
+    "suburb": "Goondiwindi"
+  },
+  {
+    "name": "Gordon Private Hospital",
+    "state": "NSW",
+    "suburb": "Gordon"
+  },
+  {
+    "name": "Gordonvale Hospital",
+    "state": "QLD",
+    "suburb": "Gordonvale"
+  },
+  {
+    "name": "Gosford Hospital",
+    "state": "NSW",
+    "suburb": "Gosford"
+  },
+  {
+    "name": "Gosford Private Hospital",
+    "state": "NSW",
+    "suburb": "Gosford"
+  },
+  {
+    "name": "Gosford Specialist Day Hospital",
+    "state": "NSW",
+    "suburb": "Gosford"
+  },
+  {
+    "name": "Goulburn Base Hospital",
+    "state": "NSW",
+    "suburb": "Goulburn"
+  },
+  {
+    "name": "Goulburn Valley Health - Centre For Older Persons",
+    "state": "VIC",
+    "suburb": "Shepparton"
+  },
+  {
+    "name": "Goulburn Valley Health - Shepparton Campus",
+    "state": "VIC",
+    "suburb": "Shepparton"
+  },
+  {
+    "name": "Goulburn Valley Health - Tatura Campus",
+    "state": "VIC",
+    "suburb": "Tatura"
+  },
+  {
+    "name": "Goulburn Valley Health - Waranga Campus",
+    "state": "VIC",
+    "suburb": "Rushworth"
+  },
+  {
+    "name": "Gove District Hospital",
+    "state": "NT",
+    "suburb": "Nhulunbuy"
+  },
+  {
+    "name": "Gower Wilson Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Lord Howe Island"
+  },
+  {
+    "name": "Grafton Base Hospital",
+    "state": "NSW",
+    "suburb": "Grafton"
+  },
+  {
+    "name": "Graylands Selby-Lemnos & Special Care Hospital",
+    "state": "WA",
+    "suburb": "Mount Claremont"
+  },
+  {
+    "name": "Great Ocean Road Health - Lorne Community Hospital",
+    "state": "VIC",
+    "suburb": "Lorne"
+  },
+  {
+    "name": "Great Ocean Road Health - Otway Health",
+    "state": "VIC",
+    "suburb": "Apollo Bay"
+  },
+  {
+    "name": "Greenhill Dental Day Surgery",
+    "state": "SA",
+    "suburb": "Wayville"
+  },
+  {
+    "name": "Greensborough Day Surgery",
+    "state": "VIC",
+    "suburb": "Greensborough"
+  },
+  {
+    "name": "Greenslopes Private Hospital",
+    "state": "QLD",
+    "suburb": "Greenslopes"
+  },
+  {
+    "name": "Greenwich Hospital",
+    "state": "NSW",
+    "suburb": "Greenwich"
+  },
+  {
+    "name": "Gregory Hills Renal Care Centre",
+    "state": "NSW",
+    "suburb": "Gregory Hill"
+  },
+  {
+    "name": "Grenfell Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Grenfell"
+  },
+  {
+    "name": "Griffith Base Hospital",
+    "state": "NSW",
+    "suburb": "Griffith"
+  },
+  {
+    "name": "Griffith Rehabilitation Hospital",
+    "state": "SA",
+    "suburb": "Hove"
+  },
+  {
+    "name": "Gulargambone Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Gulargambone"
+  },
+  {
+    "name": "Gulgong Health Service",
+    "state": "NSW",
+    "suburb": "Gulgong"
+  },
+  {
+    "name": "Gumeracha Hospital",
+    "state": "SA",
+    "suburb": "Gumeracha"
+  },
+  {
+    "name": "Gundagai District Hospital",
+    "state": "NSW",
+    "suburb": "Gundagai"
+  },
+  {
+    "name": "Gunnedah District Hospital",
+    "state": "NSW",
+    "suburb": "Gunnedah"
+  },
+  {
+    "name": "Guyra Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Guyra"
+  },
+  {
+    "name": "Gympie Hospital",
+    "state": "QLD",
+    "suburb": "Gympie"
+  },
+  {
+    "name": "Habitat Therapeutics Private Hospital",
+    "state": "VIC",
+    "suburb": "Newcomb"
+  },
+  {
+    "name": "Hader Clinic Queensland Private",
+    "state": "QLD",
+    "suburb": "Gympie"
+  },
+  {
+    "name": "Halls Creek Hospital",
+    "state": "WA",
+    "suburb": "Halls Creek"
+  },
+  {
+    "name": "Hamilton House Day Surgery",
+    "state": "SA",
+    "suburb": "Cumberland Park"
+  },
+  {
+    "name": "Hampton Day Hospital",
+    "state": "VIC",
+    "suburb": "Hampton East"
+  },
+  {
+    "name": "Harley Day Surgery",
+    "state": "SA",
+    "suburb": "North Adelaide"
+  },
+  {
+    "name": "Harvey District Hospital",
+    "state": "WA",
+    "suburb": "Harvey"
+  },
+  {
+    "name": "Hawker Memorial Hospital",
+    "state": "SA",
+    "suburb": "Hawker"
+  },
+  {
+    "name": "Hawkesbury District Hospital",
+    "state": "NSW",
+    "suburb": "Windsor"
+  },
+  {
+    "name": "Hay District Hospital",
+    "state": "NSW",
+    "suburb": "Hay"
+  },
+  {
+    "name": "Healesville & District Hospital",
+    "state": "VIC",
+    "suburb": "Healesville"
+  },
+  {
+    "name": "Healthwoods Endoscopy Centre",
+    "state": "NSW",
+    "suburb": "Granville"
+  },
+  {
+    "name": "Heathcote Health",
+    "state": "VIC",
+    "suburb": "Heathcote"
+  },
+  {
+    "name": "Hedland Health Campus",
+    "state": "WA",
+    "suburb": "South Hedland"
+  },
+  {
+    "name": "Henty Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Henty"
+  },
+  {
+    "name": "Herberton Hospital",
+    "state": "QLD",
+    "suburb": "Herberton"
+  },
+  {
+    "name": "Herston Private Hospital",
+    "state": "QLD",
+    "suburb": "Bowen Hills"
+  },
+  {
+    "name": "Hervey Bay Hospital",
+    "state": "QLD",
+    "suburb": "Pialba"
+  },
+  {
+    "name": "Hervey Bay Surgical Hospital",
+    "state": "QLD",
+    "suburb": "Pialba"
+  },
+  {
+    "name": "Hesse Rural Health Service",
+    "state": "VIC",
+    "suburb": "Winchelsea"
+  },
+  {
+    "name": "Heyfield Hospital Inc",
+    "state": "VIC",
+    "suburb": "Heyfield"
+  },
+  {
+    "name": "Heywood Rural Health",
+    "state": "VIC",
+    "suburb": "Heywood"
+  },
+  {
+    "name": "Hillcrest - Rockhampton Private Hospital",
+    "state": "QLD",
+    "suburb": "Rockhampton"
+  },
+  {
+    "name": "Hillston District Hospital",
+    "state": "NSW",
+    "suburb": "Hillston"
+  },
+  {
+    "name": "Hobart Day Surgery",
+    "state": "TAS",
+    "suburb": "Hobart"
+  },
+  {
+    "name": "Hobart Eye Surgeons",
+    "state": "TAS",
+    "suburb": "Hobart"
+  },
+  {
+    "name": "Hobart Private Hospital",
+    "state": "TAS",
+    "suburb": "Hobart"
+  },
+  {
+    "name": "Hobart Specialist Day Hospital",
+    "state": "TAS",
+    "suburb": "Hobart"
+  },
+  {
+    "name": "Hobson Healthcare Sydenham",
+    "state": "VIC",
+    "suburb": "Sydenham"
+  },
+  {
+    "name": "Hobson Healthcare Werribee",
+    "state": "VIC",
+    "suburb": "Werribee"
+  },
+  {
+    "name": "Holbrook District Hospital",
+    "state": "NSW",
+    "suburb": "Holbrook"
+  },
+  {
+    "name": "Hollywood Private Hospital",
+    "state": "WA",
+    "suburb": "Nedlands"
+  },
+  {
+    "name": "Holmesglen Private Hospital",
+    "state": "VIC",
+    "suburb": "Moorabbin"
+  },
+  {
+    "name": "Holroyd Private Hospital",
+    "state": "NSW",
+    "suburb": "Guildford"
+  },
+  {
+    "name": "Home Hill Hospital",
+    "state": "QLD",
+    "suburb": "Home Hill"
+  },
+  {
+    "name": "Honeysuckle Day Hospital",
+    "state": "NSW",
+    "suburb": "Newcastle"
+  },
+  {
+    "name": "Hopewell Hospice",
+    "state": "QLD",
+    "suburb": "Arundel"
+  },
+  {
+    "name": "Hornsby Ku-Ring-Gai Hospital",
+    "state": "NSW",
+    "suburb": "Hornsby"
+  },
+  {
+    "name": "Hove Day Surgery",
+    "state": "SA",
+    "suburb": "Hove"
+  },
+  {
+    "name": "Hughenden Hospital",
+    "state": "QLD",
+    "suburb": "Hughenden"
+  },
+  {
+    "name": "Hummingbird House",
+    "state": "QLD",
+    "suburb": "Chermside"
+  },
+  {
+    "name": "Hunter New England Mental Health Service",
+    "state": "NSW",
+    "suburb": "Waratah"
+  },
+  {
+    "name": "Hunter Valley Private Hospital",
+    "state": "NSW",
+    "suburb": "Shortland"
+  },
+  {
+    "name": "Hunters Hill Private Hospital",
+    "state": "NSW",
+    "suburb": "Hunters Hill"
+  },
+  {
+    "name": "Huon Regional Care",
+    "state": "TAS",
+    "suburb": "Franklin"
+  },
+  {
+    "name": "Hurstville Private Hospital",
+    "state": "NSW",
+    "suburb": "Hurstville"
+  },
+  {
+    "name": "Icon Cancer Centre Adelaide",
+    "state": "SA",
+    "suburb": "Kurralta Park"
+  },
+  {
+    "name": "Icon Cancer Centre Canberra",
+    "state": "ACT",
+    "suburb": "Bruce"
+  },
+  {
+    "name": "Icon Cancer Centre Chermside",
+    "state": "QLD",
+    "suburb": "Chermside"
+  },
+  {
+    "name": "Icon Cancer Centre Geelong",
+    "state": "VIC",
+    "suburb": "Waurn Ponds"
+  },
+  {
+    "name": "Icon Cancer Centre Hobart",
+    "state": "TAS",
+    "suburb": "Hobart"
+  },
+  {
+    "name": "Icon Cancer Centre Mackay",
+    "state": "QLD",
+    "suburb": "Mackay"
+  },
+  {
+    "name": "Icon Cancer Centre Midland",
+    "state": "WA",
+    "suburb": "Midland"
+  },
+  {
+    "name": "Icon Cancer Centre Moreland",
+    "state": "VIC",
+    "suburb": "Coburg"
+  },
+  {
+    "name": "Icon Cancer Centre North Lakes",
+    "state": "QLD",
+    "suburb": "North Lakes"
+  },
+  {
+    "name": "Icon Cancer Centre Revesby",
+    "state": "NSW",
+    "suburb": "Revesby"
+  },
+  {
+    "name": "Icon Cancer Centre Rockingham",
+    "state": "WA",
+    "suburb": "Rockingham"
+  },
+  {
+    "name": "Icon Cancer Centre South Brisbane",
+    "state": "QLD",
+    "suburb": "South Brisbane"
+  },
+  {
+    "name": "Icon Cancer Centre Southport",
+    "state": "QLD",
+    "suburb": "Southport"
+  },
+  {
+    "name": "Icon Cancer Centre Townsville",
+    "state": "QLD",
+    "suburb": "Hyde Park"
+  },
+  {
+    "name": "Icon Cancer Centre Wesley",
+    "state": "QLD",
+    "suburb": "Auchenflower"
+  },
+  {
+    "name": "Icon Cancer Centre Windsor Gardens",
+    "state": "SA",
+    "suburb": "Windsor Gardens"
+  },
+  {
+    "name": "Illawarra Private Cancer Care Centre",
+    "state": "NSW",
+    "suburb": "Wollongong"
+  },
+  {
+    "name": "Imaging @ Olympic Park",
+    "state": "VIC",
+    "suburb": "Melbourne"
+  },
+  {
+    "name": "Imh Deakin Private Hospital",
+    "state": "ACT",
+    "suburb": "Deakin"
+  },
+  {
+    "name": "Imh Hirondelle Private Hospital",
+    "state": "NSW",
+    "suburb": "Chatswood"
+  },
+  {
+    "name": "Imh Nundah Private Hospital",
+    "state": "QLD",
+    "suburb": "Nundah"
+  },
+  {
+    "name": "Ingham Hospital",
+    "state": "QLD",
+    "suburb": "Ingham"
+  },
+  {
+    "name": "Inglewood And District Health Service",
+    "state": "VIC",
+    "suburb": "Inglewood"
+  },
+  {
+    "name": "Inglewood Multipurpose Health Service",
+    "state": "QLD",
+    "suburb": "Inglewood"
+  },
+  {
+    "name": "Injune Hospital",
+    "state": "QLD",
+    "suburb": "Injune"
+  },
+  {
+    "name": "Inner West Endoscopy Centre",
+    "state": "NSW",
+    "suburb": "Marrickville"
+  },
+  {
+    "name": "Innisfail Hospital",
+    "state": "QLD",
+    "suburb": "Innisfail"
+  },
+  {
+    "name": "Insight Private Hospital",
+    "state": "NSW",
+    "suburb": "Albury"
+  },
+  {
+    "name": "Inverell District Hospital",
+    "state": "NSW",
+    "suburb": "Inverell"
+  },
+  {
+    "name": "Ipswich Day Hospital",
+    "state": "QLD",
+    "suburb": "Ipswich"
+  },
+  {
+    "name": "Ipswich Hospice Care",
+    "state": "QLD",
+    "suburb": "Ipswich"
+  },
+  {
+    "name": "Ipswich Hospital",
+    "state": "QLD",
+    "suburb": "Ipswich"
+  },
+  {
+    "name": "Ivanhoe Endoscopy Centre",
+    "state": "VIC",
+    "suburb": "Ivanhoe"
+  },
+  {
+    "name": "Ivanhoe Health Service",
+    "state": "NSW",
+    "suburb": "Ivanhoe"
+  },
+  {
+    "name": "Jacaranda Place – Queensland Adolescent Extended Treatment Centre",
+    "state": "QLD",
+    "suburb": "Chermside"
+  },
+  {
+    "name": "James Nash House",
+    "state": "SA",
+    "suburb": "Oakden"
+  },
+  {
+    "name": "Jamestown Hospital And Health Service",
+    "state": "SA",
+    "suburb": "Jamestown"
+  },
+  {
+    "name": "Jamison Street Day Surgery",
+    "state": "NSW",
+    "suburb": "Sydney"
+  },
+  {
+    "name": "Jandowae Hospital",
+    "state": "QLD",
+    "suburb": "Jandowae"
+  },
+  {
+    "name": "Jerilderie Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Jerilderie"
+  },
+  {
+    "name": "Jessie Mcpherson Private Hospital",
+    "state": "VIC",
+    "suburb": "Clayton"
+  },
+  {
+    "name": "John Fawkner Private Hospital",
+    "state": "VIC",
+    "suburb": "Coburg"
+  },
+  {
+    "name": "John Flynn Private Hospital",
+    "state": "QLD",
+    "suburb": "Tugun"
+  },
+  {
+    "name": "John Hunter Hospital Royal Newcastle Centre",
+    "state": "NSW",
+    "suburb": "New Lambton"
+  },
+  {
+    "name": "Jolimont Day Hospital",
+    "state": "VIC",
+    "suburb": "East Melbourne"
+  },
+  {
+    "name": "Joondalup Health Campus",
+    "state": "WA",
+    "suburb": "Joondalup"
+  },
+  {
+    "name": "Joyce Palmer Health Service",
+    "state": "QLD",
+    "suburb": "Palm Island"
+  },
+  {
+    "name": "Julia Creek Multi-Purpose Heath Service",
+    "state": "QLD",
+    "suburb": "Julia Creek"
+  },
+  {
+    "name": "Junee Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Junee"
+  },
+  {
+    "name": "Kalamunda Hospital",
+    "state": "WA",
+    "suburb": "Kalamunda"
+  },
+  {
+    "name": "Kalbarri Health Service",
+    "state": "WA",
+    "suburb": "Kalbarri"
+  },
+  {
+    "name": "Kalgoorlie Health Campus",
+    "state": "WA",
+    "suburb": "Kalgoorlie"
+  },
+  {
+    "name": "Kangaroo Island Health Service",
+    "state": "SA",
+    "suburb": "Kingscote"
+  },
+  {
+    "name": "Kapunda Hospital",
+    "state": "SA",
+    "suburb": "Kapunda"
+  },
+  {
+    "name": "Kareena Private Hospital",
+    "state": "NSW",
+    "suburb": "Caringbah"
+  },
+  {
+    "name": "Karitane",
+    "state": "NSW",
+    "suburb": "Carramar"
+  },
+  {
+    "name": "Karoonda And District Soldiers' Memorial Hospital",
+    "state": "SA",
+    "suburb": "Karoonda"
+  },
+  {
+    "name": "Karratha Health Campus",
+    "state": "WA",
+    "suburb": "Karratha"
+  },
+  {
+    "name": "Katanning Hospital",
+    "state": "WA",
+    "suburb": "Katanning"
+  },
+  {
+    "name": "Katherine Hospital",
+    "state": "NT",
+    "suburb": "Katherine"
+  },
+  {
+    "name": "Kawana Private Hospital",
+    "state": "QLD",
+    "suburb": "Birtinya"
+  },
+  {
+    "name": "Keilor Private",
+    "state": "VIC",
+    "suburb": "Keilor"
+  },
+  {
+    "name": "Kellerberrin Memorial Hospital",
+    "state": "WA",
+    "suburb": "Kellerberrin"
+  },
+  {
+    "name": "Kellyville Private Hospital",
+    "state": "NSW",
+    "suburb": "Kellyville"
+  },
+  {
+    "name": "Kempsey District Hospital",
+    "state": "NSW",
+    "suburb": "Kempsey"
+  },
+  {
+    "name": "Kenmore Hospital",
+    "state": "NSW",
+    "suburb": "Goulburn"
+  },
+  {
+    "name": "Kent St Private Day Surgery",
+    "state": "NSW",
+    "suburb": "Sydney"
+  },
+  {
+    "name": "Kerang District Health",
+    "state": "VIC",
+    "suburb": "Kerang"
+  },
+  {
+    "name": "Kew Endoscopy Centre",
+    "state": "VIC",
+    "suburb": "Kew East"
+  },
+  {
+    "name": "Kilcoy Hospital",
+    "state": "QLD",
+    "suburb": "Kilcoy"
+  },
+  {
+    "name": "King Edward Memorial Hospital",
+    "state": "WA",
+    "suburb": "Subiaco"
+  },
+  {
+    "name": "King Island District Hospital And Health Centre",
+    "state": "TAS",
+    "suburb": "Currie"
+  },
+  {
+    "name": "King Street Private Hospital",
+    "state": "NSW",
+    "suburb": "Newcastle"
+  },
+  {
+    "name": "Kingaroy Hospital & Community Health Centre",
+    "state": "QLD",
+    "suburb": "Kingaroy"
+  },
+  {
+    "name": "Kings Park Day Hospital",
+    "state": "WA",
+    "suburb": "West Perth"
+  },
+  {
+    "name": "Kingsgrove Day Hospital",
+    "state": "NSW",
+    "suburb": "Kingsgrove"
+  },
+  {
+    "name": "Kingston Centre",
+    "state": "VIC",
+    "suburb": "Cheltenham"
+  },
+  {
+    "name": "Kingston Soldiers' Memorial Hospital",
+    "state": "SA",
+    "suburb": "Kingston"
+  },
+  {
+    "name": "Knox Day Hospital",
+    "state": "VIC",
+    "suburb": "Bayswater"
+  },
+  {
+    "name": "Knox Private Hospital",
+    "state": "VIC",
+    "suburb": "Wantirna"
+  },
+  {
+    "name": "Kogarah Private Hospital",
+    "state": "NSW",
+    "suburb": "Kogarah"
+  },
+  {
+    "name": "Kojonup Hospital",
+    "state": "WA",
+    "suburb": "Kojonup"
+  },
+  {
+    "name": "Kondinin Hospital",
+    "state": "WA",
+    "suburb": "Kondinin"
+  },
+  {
+    "name": "Kooweerup Regional Health Service",
+    "state": "VIC",
+    "suburb": "Koo Wee Rup"
+  },
+  {
+    "name": "Kununoppin Hospital",
+    "state": "WA",
+    "suburb": "Kununoppin"
+  },
+  {
+    "name": "Kununurra Hospital",
+    "state": "WA",
+    "suburb": "Kununurra"
+  },
+  {
+    "name": "Kununurra Renal Health Centre",
+    "state": "WA",
+    "suburb": "Kununurra"
+  },
+  {
+    "name": "Kurri Kurri District Hospital",
+    "state": "NSW",
+    "suburb": "Kurri Kurri"
+  },
+  {
+    "name": "Kyabram & District Health Services",
+    "state": "VIC",
+    "suburb": "Kyabram"
+  },
+  {
+    "name": "Kyogle Memorial Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Kyogle"
+  },
+  {
+    "name": "La Trobe Private Hospital",
+    "state": "VIC",
+    "suburb": "Bundoora"
+  },
+  {
+    "name": "Lady Bjelke-Petersen Community Hospital",
+    "state": "QLD",
+    "suburb": "Kingaroy"
+  },
+  {
+    "name": "Lady Davidson Private Hospital",
+    "state": "NSW",
+    "suburb": "North Turramurra"
+  },
+  {
+    "name": "Laidley Hospital",
+    "state": "QLD",
+    "suburb": "Laidley"
+  },
+  {
+    "name": "Lake Cargelligo Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Lake Cargelligo"
+  },
+  {
+    "name": "Lake Grace Hospital",
+    "state": "WA",
+    "suburb": "Lake Grace"
+  },
+  {
+    "name": "Lake Macquarie Private Hospital",
+    "state": "NSW",
+    "suburb": "Gateshead"
+  },
+  {
+    "name": "Lakeview Private Hospital",
+    "state": "NSW",
+    "suburb": "Norwest"
+  },
+  {
+    "name": "Lameroo District Hospital",
+    "state": "SA",
+    "suburb": "Lameroo"
+  },
+  {
+    "name": "Latrobe Regional Health",
+    "state": "VIC",
+    "suburb": "Traralgon"
+  },
+  {
+    "name": "Launceston General Hospital",
+    "state": "TAS",
+    "suburb": "Launceston"
+  },
+  {
+    "name": "Launceston Health Hub Day Procedure Unit",
+    "state": "TAS",
+    "suburb": "Launceston"
+  },
+  {
+    "name": "Laura And District Hospital",
+    "state": "SA",
+    "suburb": "Laura"
+  },
+  {
+    "name": "Laverton Hospital",
+    "state": "WA",
+    "suburb": "Laverton"
+  },
+  {
+    "name": "Leeton District Hospital",
+    "state": "NSW",
+    "suburb": "Leeton"
+  },
+  {
+    "name": "Leigh Creek Health Services",
+    "state": "SA",
+    "suburb": "Leigh Creek"
+  },
+  {
+    "name": "Leonora Hospital",
+    "state": "WA",
+    "suburb": "Leonora"
+  },
+  {
+    "name": "Levant Clinic Canberra",
+    "state": "ACT",
+    "suburb": "Bruce"
+  },
+  {
+    "name": "Levant Cosmetic Day Surgery Randwick",
+    "state": "NSW",
+    "suburb": "Randwick"
+  },
+  {
+    "name": "Levant Gold Coast Day Hospital",
+    "state": "QLD",
+    "suburb": "Southport"
+  },
+  {
+    "name": "Lift Cancer Care Services",
+    "state": "SA",
+    "suburb": "Kurralta Park"
+  },
+  {
+    "name": "Lightning Ridge Multipurpose Health Service",
+    "state": "NSW",
+    "suburb": "Lightning Ridge"
+  },
+  {
+    "name": "Linacre Private Hospital",
+    "state": "VIC",
+    "suburb": "Hampton"
+  },
+  {
+    "name": "Lindfield Renal Care Centre",
+    "state": "NSW",
+    "suburb": "Lindfield"
+  },
+  {
+    "name": "Lingard Private Hospital",
+    "state": "NSW",
+    "suburb": "Merewether"
+  },
+  {
+    "name": "Lions Eye Institute Day Surgery Centre",
+    "state": "WA",
+    "suburb": "Nedlands"
+  },
+  {
+    "name": "Lismore Base Hospital",
+    "state": "NSW",
+    "suburb": "Lismore"
+  },
+  {
+    "name": "Lismore Base Hospital - Riverlands Drug & Alcohol Service",
+    "state": "NSW",
+    "suburb": "Lismore"
+  },
+  {
+    "name": "Lithgow Community Private Hospital",
+    "state": "NSW",
+    "suburb": "Lithgow"
+  },
+  {
+    "name": "Lithgow Hospital",
+    "state": "NSW",
+    "suburb": "Lithgow"
+  },
+  {
+    "name": "Liverpool Day Surgery",
+    "state": "NSW",
+    "suburb": "Moorebank"
+  },
+  {
+    "name": "Liverpool Eye Surgery",
+    "state": "NSW",
+    "suburb": "Liverpool"
+  },
+  {
+    "name": "Liverpool Hospital",
+    "state": "NSW",
+    "suburb": "Liverpool"
+  },
+  {
+    "name": "Liverpool Procedure Centre",
+    "state": "NSW",
+    "suburb": "Liverpool"
+  },
+  {
+    "name": "Lockhart & District Hospital",
+    "state": "NSW",
+    "suburb": "Lockhart"
+  },
+  {
+    "name": "Logan Endoscopy Services",
+    "state": "QLD",
+    "suburb": "Browns Plains"
+  },
+  {
+    "name": "Logan Hospital",
+    "state": "QLD",
+    "suburb": "Meadowbrook"
+  },
+  {
+    "name": "Long Jetty Community Health Centre",
+    "state": "NSW",
+    "suburb": "Killarney Vale"
+  },
+  {
+    "name": "Longreach Hospital",
+    "state": "QLD",
+    "suburb": "Longreach"
+  },
+  {
+    "name": "Longueville Private Hospital",
+    "state": "NSW",
+    "suburb": "Longueville"
+  },
+  {
+    "name": "Lourdes Hospital & Community Services",
+    "state": "NSW",
+    "suburb": "Dubbo"
+  },
+  {
+    "name": "Loxton Hospital Complex",
+    "state": "SA",
+    "suburb": "Loxton"
+  },
+  {
+    "name": "Lyell Mcewin Hospital",
+    "state": "SA",
+    "suburb": "Elizabeth Vale"
+  },
+  {
+    "name": "Mackay Base Hospital",
+    "state": "QLD",
+    "suburb": "Mackay"
+  },
+  {
+    "name": "Mackay Private Hospital",
+    "state": "QLD",
+    "suburb": "Mount Pleasant"
+  },
+  {
+    "name": "Mackay Specialist Day Hospital",
+    "state": "QLD",
+    "suburb": "North Mackay"
+  },
+  {
+    "name": "Macksville District Hospital",
+    "state": "NSW",
+    "suburb": "North Macksville"
+  },
+  {
+    "name": "Maclean District Hospital",
+    "state": "NSW",
+    "suburb": "Maclean"
+  },
+  {
+    "name": "Macquarie Hospital",
+    "state": "NSW",
+    "suburb": "North Ryde"
+  },
+  {
+    "name": "Macquarie St Day Surgery",
+    "state": "NSW",
+    "suburb": "Sydney"
+  },
+  {
+    "name": "Macquarie University Hospital",
+    "state": "NSW",
+    "suburb": "Macquarie Park"
+  },
+  {
+    "name": "Madison Day Surgery",
+    "state": "NSW",
+    "suburb": "Hornsby"
+  },
+  {
+    "name": "Maitland Hospital (Nsw)",
+    "state": "NSW",
+    "suburb": "Metford"
+  },
+  {
+    "name": "Maitland Private Hospital",
+    "state": "NSW",
+    "suburb": "East Maitland"
+  },
+  {
+    "name": "Maldon Hospital",
+    "state": "VIC",
+    "suburb": "Maldon"
+  },
+  {
+    "name": "Maleny Hospital",
+    "state": "QLD",
+    "suburb": "Maleny"
+  },
+  {
+    "name": "Mallee Track Health And Community Service",
+    "state": "VIC",
+    "suburb": "Ouyen"
+  },
+  {
+    "name": "Malvern Dialysis Clinic",
+    "state": "VIC",
+    "suburb": "Malvern"
+  },
+  {
+    "name": "Malvern Private Hospital",
+    "state": "VIC",
+    "suburb": "Malvern East"
+  },
+  {
+    "name": "Manilla Health Service",
+    "state": "NSW",
+    "suburb": "Manilla"
+  },
+  {
+    "name": "Manly Waters Private Hospital",
+    "state": "NSW",
+    "suburb": "Manly"
+  },
+  {
+    "name": "Manning Rural Referral Hospital (Taree)",
+    "state": "NSW",
+    "suburb": "Taree"
+  },
+  {
+    "name": "Manningham Private Hospital",
+    "state": "VIC",
+    "suburb": "Templestowe Lower"
+  },
+  {
+    "name": "Mannum District Hospital",
+    "state": "SA",
+    "suburb": "Mannum"
+  },
+  {
+    "name": "Mansfield District Hospital",
+    "state": "VIC",
+    "suburb": "Mansfield"
+  },
+  {
+    "name": "Mareeba Hospital",
+    "state": "QLD",
+    "suburb": "Mareeba"
+  },
+  {
+    "name": "Margaret River Hospital",
+    "state": "WA",
+    "suburb": "Margaret River"
+  },
+  {
+    "name": "Marian Centre",
+    "state": "WA",
+    "suburb": "Wembley"
+  },
+  {
+    "name": "Maroochy Private Hospital",
+    "state": "QLD",
+    "suburb": "Maroochydore"
+  },
+  {
+    "name": "Maroondah Hospital",
+    "state": "VIC",
+    "suburb": "Ringwood East"
+  },
+  {
+    "name": "Marsden Eye Surgery Centre",
+    "state": "NSW",
+    "suburb": "Parramatta"
+  },
+  {
+    "name": "Maryborough District Health Service (Dunolly)",
+    "state": "VIC",
+    "suburb": "Dunolly"
+  },
+  {
+    "name": "Maryborough District Health Service (Maryborough)",
+    "state": "VIC",
+    "suburb": "Maryborough"
+  },
+  {
+    "name": "Maryborough Hospital",
+    "state": "QLD",
+    "suburb": "Maryborough"
+  },
+  {
+    "name": "Maryvale Private Hospital",
+    "state": "VIC",
+    "suburb": "Morwell"
+  },
+  {
+    "name": "Masada Private Hospital",
+    "state": "VIC",
+    "suburb": "East St Kilda"
+  },
+  {
+    "name": "Mater Adult Hospital",
+    "state": "QLD",
+    "suburb": "South Brisbane"
+  },
+  {
+    "name": "Mater Hospital Springfield",
+    "state": "QLD",
+    "suburb": "Springfield Central"
+  },
+  {
+    "name": "Mater Hospital Sydney",
+    "state": "NSW",
+    "suburb": "North Sydney"
+  },
+  {
+    "name": "Mater Mother'S Hospital",
+    "state": "QLD",
+    "suburb": "South Brisbane"
+  },
+  {
+    "name": "Mater Private Day Hospital Brookwater",
+    "state": "QLD",
+    "suburb": "Brookwater"
+  },
+  {
+    "name": "Mater Private Hospital (South Brisbane)",
+    "state": "QLD",
+    "suburb": "South Brisbane"
+  },
+  {
+    "name": "Mater Private Hospital Bundaberg",
+    "state": "QLD",
+    "suburb": "Bundaberg"
+  },
+  {
+    "name": "Mater Private Hospital Mackay",
+    "state": "QLD",
+    "suburb": "North Mackay"
+  },
+  {
+    "name": "Mater Private Hospital Mackay (Wellington Street Campus)",
+    "state": "QLD",
+    "suburb": "Mackay"
+  },
+  {
+    "name": "Mater Private Hospital Redland",
+    "state": "QLD",
+    "suburb": "Cleveland"
+  },
+  {
+    "name": "Mater Private Hospital Rockhampton",
+    "state": "QLD",
+    "suburb": "Rockhampton"
+  },
+  {
+    "name": "Mater Private Hospital Springfield",
+    "state": "QLD",
+    "suburb": "Springfield Central"
+  },
+  {
+    "name": "Mater Private Hospital Townsville",
+    "state": "QLD",
+    "suburb": "Pimlico"
+  },
+  {
+    "name": "Mater Private Hospital Townsville (Hyde Park Campus)",
+    "state": "QLD",
+    "suburb": "Hyde Park"
+  },
+  {
+    "name": "Mater Women'S & Children'S Private Health Services",
+    "state": "QLD",
+    "suburb": "South Brisbane"
+  },
+  {
+    "name": "Matilda Nepean Private Hospital",
+    "state": "NSW",
+    "suburb": "Kingswood"
+  },
+  {
+    "name": "Matrescence Birthing Centre Gold Coast",
+    "state": "QLD",
+    "suburb": "Southport"
+  },
+  {
+    "name": "May Shaw Health Centre",
+    "state": "TAS",
+    "suburb": "Swansea"
+  },
+  {
+    "name": "Mayo Private Hospital",
+    "state": "NSW",
+    "suburb": "Taree"
+  },
+  {
+    "name": "Mccourt Street Day Surgery",
+    "state": "WA",
+    "suburb": "West Leederville"
+  },
+  {
+    "name": "Meekatharra Hospital",
+    "state": "WA",
+    "suburb": "Meekatharra"
+  },
+  {
+    "name": "Melbourne Ivf Procedure Centre",
+    "state": "VIC",
+    "suburb": "Collingwood"
+  },
+  {
+    "name": "Melbourne Private Hospital",
+    "state": "VIC",
+    "suburb": "Parkville"
+  },
+  {
+    "name": "Memorial Hospital",
+    "state": "SA",
+    "suburb": "North Adelaide"
+  },
+  {
+    "name": "Meningie And Districts Memorial Hospital",
+    "state": "SA",
+    "suburb": "Meningie"
+  },
+  {
+    "name": "Mercy Care Hospital - Young",
+    "state": "NSW",
+    "suburb": "Young"
+  },
+  {
+    "name": "Mercy Health - O'Connell Family Centre Campus",
+    "state": "VIC",
+    "suburb": "Canterbury"
+  },
+  {
+    "name": "Mercy Health Service",
+    "state": "NSW",
+    "suburb": "Albury"
+  },
+  {
+    "name": "Mercy Hospital For Women",
+    "state": "VIC",
+    "suburb": "Heidelberg"
+  },
+  {
+    "name": "Mernda Community Hospital",
+    "state": "VIC",
+    "suburb": "Mernda"
+  },
+  {
+    "name": "Merredin Hospital",
+    "state": "WA",
+    "suburb": "Merredin"
+  },
+  {
+    "name": "Merriwa Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Merriwa"
+  },
+  {
+    "name": "Mersey Community Hospital",
+    "state": "TAS",
+    "suburb": "Latrobe"
+  },
+  {
+    "name": "Metwest Surgical",
+    "state": "NSW",
+    "suburb": "Blacktown"
+  },
+  {
+    "name": "Miami Private Hospital",
+    "state": "QLD",
+    "suburb": "Miami"
+  },
+  {
+    "name": "Midlands Multi Purpose Health Centre",
+    "state": "TAS",
+    "suburb": "Oatlands"
+  },
+  {
+    "name": "Mildura Base Public Hospital",
+    "state": "VIC",
+    "suburb": "Mildura"
+  },
+  {
+    "name": "Mildura Health Private Hospital",
+    "state": "VIC",
+    "suburb": "Mildura"
+  },
+  {
+    "name": "Miles Hospital",
+    "state": "QLD",
+    "suburb": "Miles"
+  },
+  {
+    "name": "Millicent And District Hospital And Health Services",
+    "state": "SA",
+    "suburb": "Millicent"
+  },
+  {
+    "name": "Millmerran Hospital",
+    "state": "QLD",
+    "suburb": "Millmerran"
+  },
+  {
+    "name": "Milton Ulladulla Hospital",
+    "state": "NSW",
+    "suburb": "Milton"
+  },
+  {
+    "name": "Minchinbury Community Private Hospital",
+    "state": "NSW",
+    "suburb": "Mount Druitt"
+  },
+  {
+    "name": "Miranda Day Surgery",
+    "state": "NSW",
+    "suburb": "Miranda"
+  },
+  {
+    "name": "Miranda Eye Surgical Centre",
+    "state": "NSW",
+    "suburb": "Miranda"
+  },
+  {
+    "name": "Mitcham Private Hospital",
+    "state": "VIC",
+    "suburb": "Mitcham"
+  },
+  {
+    "name": "Mitchell Hospital",
+    "state": "QLD",
+    "suburb": "Mitchell"
+  },
+  {
+    "name": "Modbury Hospital",
+    "state": "SA",
+    "suburb": "Modbury"
+  },
+  {
+    "name": "Molong Health Service",
+    "state": "NSW",
+    "suburb": "Molong"
+  },
+  {
+    "name": "Mona Vale Hospital",
+    "state": "NSW",
+    "suburb": "Mona Vale"
+  },
+  {
+    "name": "Monash Health Community",
+    "state": "VIC",
+    "suburb": "Dandenong"
+  },
+  {
+    "name": "Monash Health Women'S Sandringham",
+    "state": "VIC",
+    "suburb": "Sandringham"
+  },
+  {
+    "name": "Monash Heart Private Operated By Jessie Mcpherson Private Hospital",
+    "state": "VIC",
+    "suburb": "Clayton"
+  },
+  {
+    "name": "Monash House Private Hospital",
+    "state": "VIC",
+    "suburb": "Clayton"
+  },
+  {
+    "name": "Monash Medical Centre - Clayton Campus",
+    "state": "VIC",
+    "suburb": "Clayton"
+  },
+  {
+    "name": "Monash Medical Centre - Moorabbin Campus",
+    "state": "VIC",
+    "suburb": "Bentleigh East"
+  },
+  {
+    "name": "Monash Surgical Private Hospital",
+    "state": "VIC",
+    "suburb": "Clayton"
+  },
+  {
+    "name": "Monto Hospital",
+    "state": "QLD",
+    "suburb": "Monto"
+  },
+  {
+    "name": "Moora Hospital",
+    "state": "WA",
+    "suburb": "Moora"
+  },
+  {
+    "name": "Moranbah Hospital",
+    "state": "QLD",
+    "suburb": "Moranbah"
+  },
+  {
+    "name": "Morawa Hospital",
+    "state": "WA",
+    "suburb": "Morawa"
+  },
+  {
+    "name": "Moree District Hospital",
+    "state": "NSW",
+    "suburb": "Moree"
+  },
+  {
+    "name": "Moreton Day Hospital",
+    "state": "QLD",
+    "suburb": "North Lakes"
+  },
+  {
+    "name": "Morisset Psychiatric Hospital",
+    "state": "NSW",
+    "suburb": "Morisset"
+  },
+  {
+    "name": "Mornington Endoscopy Pty Ltd",
+    "state": "VIC",
+    "suburb": "Mornington"
+  },
+  {
+    "name": "Mornington Island Hospital",
+    "state": "QLD",
+    "suburb": "Mornington Island"
+  },
+  {
+    "name": "Moruya District Hospital",
+    "state": "NSW",
+    "suburb": "Moruya"
+  },
+  {
+    "name": "Mossman Hospital (Douglas Shire Multi Purpose Health Service)",
+    "state": "QLD",
+    "suburb": "Mossman"
+  },
+  {
+    "name": "Mount Barker District Soldiers Memorial Hospital",
+    "state": "SA",
+    "suburb": "Mount Barker"
+  },
+  {
+    "name": "Mount Druitt Hospital",
+    "state": "NSW",
+    "suburb": "Mount Druitt"
+  },
+  {
+    "name": "Mount Gambier And Districts Health Service",
+    "state": "SA",
+    "suburb": "Mount Gambier"
+  },
+  {
+    "name": "Mount Hawthorn Day Hospital",
+    "state": "WA",
+    "suburb": "Mount Hawthorn"
+  },
+  {
+    "name": "Mount Hospital",
+    "state": "WA",
+    "suburb": "Perth"
+  },
+  {
+    "name": "Mount Isa Hospital",
+    "state": "QLD",
+    "suburb": "Mount Isa"
+  },
+  {
+    "name": "Mount Morgan Hospital",
+    "state": "QLD",
+    "suburb": "Mount Morgan"
+  },
+  {
+    "name": "Mount Pleasant Hospital",
+    "state": "SA",
+    "suburb": "Mount Pleasant"
+  },
+  {
+    "name": "Moura Hospital",
+    "state": "QLD",
+    "suburb": "Moura"
+  },
+  {
+    "name": "Moyne Health Services",
+    "state": "VIC",
+    "suburb": "Port Fairy"
+  },
+  {
+    "name": "Msi Brisbane",
+    "state": "QLD",
+    "suburb": "Bowen Hills"
+  },
+  {
+    "name": "Msi Canberra",
+    "state": "ACT",
+    "suburb": "Canberra City"
+  },
+  {
+    "name": "Msi Melbourne",
+    "state": "VIC",
+    "suburb": "Elwood"
+  },
+  {
+    "name": "Msi Perth",
+    "state": "WA",
+    "suburb": "Midland"
+  },
+  {
+    "name": "Msi Sydney West",
+    "state": "NSW",
+    "suburb": "Westmead"
+  },
+  {
+    "name": "Mt Gravatt Private Hospital",
+    "state": "QLD",
+    "suburb": "Upper Mount Gravatt"
+  },
+  {
+    "name": "Mt Wilga Private Hospital",
+    "state": "NSW",
+    "suburb": "Hornsby"
+  },
+  {
+    "name": "Mudgee Health Service",
+    "state": "NSW",
+    "suburb": "Mudgee"
+  },
+  {
+    "name": "Mugga Wara Endoscopy Centre",
+    "state": "ACT",
+    "suburb": "Deakin"
+  },
+  {
+    "name": "Mulgrave Private Hospital",
+    "state": "VIC",
+    "suburb": "Mulgrave"
+  },
+  {
+    "name": "Mullewa Hospital",
+    "state": "WA",
+    "suburb": "Mullewa"
+  },
+  {
+    "name": "Mundubbera Multipurpose Health Service",
+    "state": "QLD",
+    "suburb": "Mundubbera"
+  },
+  {
+    "name": "Mungindi Hospital",
+    "state": "QLD",
+    "suburb": "Mungindi"
+  },
+  {
+    "name": "Murdoch Surgicentre",
+    "state": "WA",
+    "suburb": "Murdoch"
+  },
+  {
+    "name": "Murgon Hospital",
+    "state": "QLD",
+    "suburb": "Murgon"
+  },
+  {
+    "name": "Murray Bridge Soldiers' Memorial Hospital",
+    "state": "SA",
+    "suburb": "Murray Bridge"
+  },
+  {
+    "name": "Murray District Hospital",
+    "state": "WA",
+    "suburb": "Pinjarra"
+  },
+  {
+    "name": "Murrumbah-Harden Hospital",
+    "state": "NSW",
+    "suburb": "Harden"
+  },
+  {
+    "name": "Murwillumbah District Hospital",
+    "state": "NSW",
+    "suburb": "Murwillumbah"
+  },
+  {
+    "name": "Muswellbrook Hospital",
+    "state": "NSW",
+    "suburb": "Muswellbrook"
+  },
+  {
+    "name": "Nambour Day Surgery",
+    "state": "QLD",
+    "suburb": "Nambour"
+  },
+  {
+    "name": "Nambour General Hospital",
+    "state": "QLD",
+    "suburb": "Nambour"
+  },
+  {
+    "name": "Nambour Selangor Private Hospital",
+    "state": "QLD",
+    "suburb": "Nambour"
+  },
+  {
+    "name": "Nanango Hospital",
+    "state": "QLD",
+    "suburb": "Nanango"
+  },
+  {
+    "name": "Nannup Hospital",
+    "state": "WA",
+    "suburb": "Nannup"
+  },
+  {
+    "name": "Naracoorte Health Service",
+    "state": "SA",
+    "suburb": "Naracoorte"
+  },
+  {
+    "name": "Narembeen Hospital",
+    "state": "WA",
+    "suburb": "Narembeen"
+  },
+  {
+    "name": "Narrabri District Hospital",
+    "state": "NSW",
+    "suburb": "Narrabri"
+  },
+  {
+    "name": "Narrandera Hospital",
+    "state": "NSW",
+    "suburb": "Narrandera"
+  },
+  {
+    "name": "Narrogin Hospital",
+    "state": "WA",
+    "suburb": "Narrogin"
+  },
+  {
+    "name": "Narromine Hospital & Community Health",
+    "state": "NSW",
+    "suburb": "Narromine"
+  },
+  {
+    "name": "Nathalia District Hospital",
+    "state": "VIC",
+    "suburb": "Nathalia"
+  },
+  {
+    "name": "National Capital Private Hospital",
+    "state": "ACT",
+    "suburb": "Garran"
+  },
+  {
+    "name": "Neerim Health",
+    "state": "VIC",
+    "suburb": "Neerim South"
+  },
+  {
+    "name": "Nepean Hospital",
+    "state": "NSW",
+    "suburb": "Kingswood"
+  },
+  {
+    "name": "Nepean Private Hospital",
+    "state": "NSW",
+    "suburb": "Kingswood"
+  },
+  {
+    "name": "Nephrocare Midland Dialysis Clinic",
+    "state": "WA",
+    "suburb": "Midland"
+  },
+  {
+    "name": "Nephrocare Newcastle Dialysis Clinic",
+    "state": "NSW",
+    "suburb": "Newcastle"
+  },
+  {
+    "name": "Neringah Hospital",
+    "state": "NSW",
+    "suburb": "Wahroonga"
+  },
+  {
+    "name": "New Norfolk District Hospital",
+    "state": "TAS",
+    "suburb": "New Norfolk"
+  },
+  {
+    "name": "Newcastle Endoscopy Centre",
+    "state": "NSW",
+    "suburb": "Charlestown"
+  },
+  {
+    "name": "Newcastle Eye Hospital",
+    "state": "NSW",
+    "suburb": "Waratah"
+  },
+  {
+    "name": "Newcastle Private Hospital",
+    "state": "NSW",
+    "suburb": "New Lambton Heights"
+  },
+  {
+    "name": "Newman Hospital",
+    "state": "WA",
+    "suburb": "Newman"
+  },
+  {
+    "name": "Ngala Family Services",
+    "state": "WA",
+    "suburb": "Kensington"
+  },
+  {
+    "name": "Nimbin Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Nimbin"
+  },
+  {
+    "name": "Noarlunga Hospital",
+    "state": "SA",
+    "suburb": "Noarlunga Centre"
+  },
+  {
+    "name": "Noble Park Endoscopy Centre",
+    "state": "VIC",
+    "suburb": "Noble Park"
+  },
+  {
+    "name": "Noosa Hospital",
+    "state": "QLD",
+    "suburb": "Noosaville"
+  },
+  {
+    "name": "Noosa Surgical & Endoscopy Centre",
+    "state": "QLD",
+    "suburb": "Noosaville"
+  },
+  {
+    "name": "Normanton Hospital",
+    "state": "QLD",
+    "suburb": "Normanton"
+  },
+  {
+    "name": "Norseman Hospital",
+    "state": "WA",
+    "suburb": "Norseman"
+  },
+  {
+    "name": "North Adelaide Day Surgery Centre",
+    "state": "SA",
+    "suburb": "North Adelaide"
+  },
+  {
+    "name": "North Canberra Hospital",
+    "state": "ACT",
+    "suburb": "Bruce"
+  },
+  {
+    "name": "North Eastern Community Hospital",
+    "state": "SA",
+    "suburb": "Campbelltown"
+  },
+  {
+    "name": "North Eastern Rehabilitation Centre",
+    "state": "VIC",
+    "suburb": "Ivanhoe"
+  },
+  {
+    "name": "North Eastern Soldiers Memorial Hospital",
+    "state": "TAS",
+    "suburb": "Scottsdale"
+  },
+  {
+    "name": "North Lakes Day Hospital",
+    "state": "QLD",
+    "suburb": "North Lakes"
+  },
+  {
+    "name": "North Melbourne Renal Care Centre",
+    "state": "VIC",
+    "suburb": "North Melbourne"
+  },
+  {
+    "name": "North Midlands Hospital",
+    "state": "WA",
+    "suburb": "Three Springs"
+  },
+  {
+    "name": "North Queensland Day Surgical Centre",
+    "state": "QLD",
+    "suburb": "Pimlico"
+  },
+  {
+    "name": "North Shore Private Hospital",
+    "state": "NSW",
+    "suburb": "St Leonards"
+  },
+  {
+    "name": "North Shore Specialist Day Hospital",
+    "state": "NSW",
+    "suburb": "Greenwich"
+  },
+  {
+    "name": "North Tas Day Hospital",
+    "state": "TAS",
+    "suburb": "Launceston"
+  },
+  {
+    "name": "North West Day Hospital",
+    "state": "VIC",
+    "suburb": "Ascot Vale"
+  },
+  {
+    "name": "North West Private Hospital (Qld)",
+    "state": "QLD",
+    "suburb": "Everton Park"
+  },
+  {
+    "name": "North West Private Hospital (Tas)",
+    "state": "TAS",
+    "suburb": "Burnie"
+  },
+  {
+    "name": "North West Regional Hospital",
+    "state": "TAS",
+    "suburb": "Burnie"
+  },
+  {
+    "name": "Northam Hospital",
+    "state": "WA",
+    "suburb": "Northam"
+  },
+  {
+    "name": "Northampton Hospital",
+    "state": "WA",
+    "suburb": "Northampton"
+  },
+  {
+    "name": "Northeast Health Wangaratta",
+    "state": "VIC",
+    "suburb": "Wangaratta"
+  },
+  {
+    "name": "Northern Beaches Hospital",
+    "state": "NSW",
+    "suburb": "Frenchs Forest"
+  },
+  {
+    "name": "Northern Beaches Hospital",
+    "state": "NSW",
+    "suburb": "Frenchs Forest"
+  },
+  {
+    "name": "Northern Endoscopy Centre",
+    "state": "SA",
+    "suburb": "Salisbury South"
+  },
+  {
+    "name": "Northern Private Hospital",
+    "state": "VIC",
+    "suburb": "Epping"
+  },
+  {
+    "name": "Northern Sydney Eye Hospital",
+    "state": "NSW",
+    "suburb": "Crows Nest"
+  },
+  {
+    "name": "Northpark Private Hospital",
+    "state": "VIC",
+    "suburb": "Bundoora"
+  },
+  {
+    "name": "Norwest Private Hospital",
+    "state": "NSW",
+    "suburb": "Bella Vista"
+  },
+  {
+    "name": "Norwood Day Surgery",
+    "state": "SA",
+    "suburb": "Stepney"
+  },
+  {
+    "name": "Notting Hill City Health Day Hospital",
+    "state": "VIC",
+    "suburb": "Notting Hill"
+  },
+  {
+    "name": "Nowra Private Hospital",
+    "state": "NSW",
+    "suburb": "Nowra"
+  },
+  {
+    "name": "Nt Medical Specialist",
+    "state": "NT",
+    "suburb": "Wanguri"
+  },
+  {
+    "name": "Numurkah District Health Service",
+    "state": "VIC",
+    "suburb": "Numurkah"
+  },
+  {
+    "name": "Nyngan Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Nyngan"
+  },
+  {
+    "name": "Oakey Hospital",
+    "state": "QLD",
+    "suburb": "Oakey"
+  },
+  {
+    "name": "Oberon Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Oberon"
+  },
+  {
+    "name": "Omeo District Health",
+    "state": "VIC",
+    "suburb": "Omeo"
+  },
+  {
+    "name": "Onslow Health Service",
+    "state": "WA",
+    "suburb": "Onslow"
+  },
+  {
+    "name": "Oral Health Victoria",
+    "state": "VIC",
+    "suburb": "Carlton"
+  },
+  {
+    "name": "Orange Eye Centre",
+    "state": "NSW",
+    "suburb": "Orange"
+  },
+  {
+    "name": "Orange Health Service",
+    "state": "NSW",
+    "suburb": "Orange"
+  },
+  {
+    "name": "Orbost Regional Health",
+    "state": "VIC",
+    "suburb": "Orbost"
+  },
+  {
+    "name": "Oromax Day Surgery",
+    "state": "SA",
+    "suburb": "Kent Town"
+  },
+  {
+    "name": "Orroroo And District Health Services",
+    "state": "SA",
+    "suburb": "Orroroo"
+  },
+  {
+    "name": "Osborne Park Hospital",
+    "state": "WA",
+    "suburb": "Stirling"
+  },
+  {
+    "name": "Pacific Day Surgery Centre",
+    "state": "QLD",
+    "suburb": "Fortitude Valley"
+  },
+  {
+    "name": "Pacific Private Hospital",
+    "state": "QLD",
+    "suburb": "Southport"
+  },
+  {
+    "name": "Pakenham Health Centre",
+    "state": "VIC",
+    "suburb": "Pakenham"
+  },
+  {
+    "name": "Palmerston Regional Hospital",
+    "state": "NT",
+    "suburb": "Holtze"
+  },
+  {
+    "name": "Pambula District Hospital",
+    "state": "NSW",
+    "suburb": "Pambula"
+  },
+  {
+    "name": "Panch Day Surgery Centre",
+    "state": "VIC",
+    "suburb": "Preston"
+  },
+  {
+    "name": "Panch Health Service",
+    "state": "VIC",
+    "suburb": "Preston"
+  },
+  {
+    "name": "Paraburdoo Hospital",
+    "state": "WA",
+    "suburb": "Paraburdoo"
+  },
+  {
+    "name": "Parkes District Hospital",
+    "state": "NSW",
+    "suburb": "Parkes"
+  },
+  {
+    "name": "Parkview Day Surgery",
+    "state": "SA",
+    "suburb": "Eastwood"
+  },
+  {
+    "name": "Parkville Youth Mental Health And Wellbeing Service",
+    "state": "VIC",
+    "suburb": "Parkville"
+  },
+  {
+    "name": "Parramatta Eye Centre",
+    "state": "NSW",
+    "suburb": "Parramatta"
+  },
+  {
+    "name": "Paso Infusion Centre",
+    "state": "VIC",
+    "suburb": "Frankston"
+  },
+  {
+    "name": "Payneham Dialysis Clinic",
+    "state": "SA",
+    "suburb": "Payneham"
+  },
+  {
+    "name": "Peak Hill Health Service",
+    "state": "NSW",
+    "suburb": "Peak Hill"
+  },
+  {
+    "name": "Peel Health Campus - Public",
+    "state": "WA",
+    "suburb": "Mandurah"
+  },
+  {
+    "name": "Pemberton Hospital",
+    "state": "WA",
+    "suburb": "Pemberton"
+  },
+  {
+    "name": "Peninsula Private Hospital (Qld)",
+    "state": "QLD",
+    "suburb": "Kippa-Ring"
+  },
+  {
+    "name": "Peninsula Private Hospital (Vic)",
+    "state": "VIC",
+    "suburb": "Langwarrin"
+  },
+  {
+    "name": "Peninsula Sleep Clinic",
+    "state": "NSW",
+    "suburb": "Frenchs Forest"
+  },
+  {
+    "name": "Pennant Hills Day Surgery",
+    "state": "NSW",
+    "suburb": "Pennant Hills"
+  },
+  {
+    "name": "Penola War Memorial Hospital",
+    "state": "SA",
+    "suburb": "Penola"
+  },
+  {
+    "name": "Perth Children’S Hospital",
+    "state": "WA",
+    "suburb": "Nedlands"
+  },
+  {
+    "name": "Perth Clinic",
+    "state": "WA",
+    "suburb": "West Perth"
+  },
+  {
+    "name": "Perth Day Hospital",
+    "state": "WA",
+    "suburb": "Osborne Park"
+  },
+  {
+    "name": "Perth Dermatology Clinic",
+    "state": "WA",
+    "suburb": "Perth"
+  },
+  {
+    "name": "Perth Eye Hospital",
+    "state": "WA",
+    "suburb": "West Perth"
+  },
+  {
+    "name": "Peter James Centre",
+    "state": "VIC",
+    "suburb": "Forest Hill"
+  },
+  {
+    "name": "Peter Maccallum Cancer Centre",
+    "state": "VIC",
+    "suburb": "East Melbourne"
+  },
+  {
+    "name": "Peterborough Soldiers' Memorial Hospital And Health Service",
+    "state": "SA",
+    "suburb": "Peterborough"
+  },
+  {
+    "name": "Ph Prosthodontics Sa",
+    "state": "SA",
+    "suburb": "Joslin"
+  },
+  {
+    "name": "Pindara Day Procedure Centre",
+    "state": "QLD",
+    "suburb": "Benowa"
+  },
+  {
+    "name": "Pindara Private Hospital",
+    "state": "QLD",
+    "suburb": "Benowa"
+  },
+  {
+    "name": "Pine Rivers Private Hospital",
+    "state": "QLD",
+    "suburb": "Strathpine"
+  },
+  {
+    "name": "Pingelly Health Centre",
+    "state": "WA",
+    "suburb": "Pingelly"
+  },
+  {
+    "name": "Pinnaroo Soldiers' Memorial Hospital",
+    "state": "SA",
+    "suburb": "Pinnaroo"
+  },
+  {
+    "name": "Pittwater Day Surgery",
+    "state": "NSW",
+    "suburb": "Mona Vale"
+  },
+  {
+    "name": "Plantagenet Hospital",
+    "state": "WA",
+    "suburb": "Mount Barker"
+  },
+  {
+    "name": "Port Augusta Hospital & Regional Health Service",
+    "state": "SA",
+    "suburb": "Port Augusta"
+  },
+  {
+    "name": "Port Broughton District Hospital And Health Services",
+    "state": "SA",
+    "suburb": "Port Broughton"
+  },
+  {
+    "name": "Port Kembla Hospital",
+    "state": "NSW",
+    "suburb": "Warrawong"
+  },
+  {
+    "name": "Port Lincoln Health Services",
+    "state": "SA",
+    "suburb": "Port Lincoln"
+  },
+  {
+    "name": "Port Macquarie Base Hospital",
+    "state": "NSW",
+    "suburb": "Port Macquarie"
+  },
+  {
+    "name": "Port Macquarie Ophthalmic Surgery",
+    "state": "NSW",
+    "suburb": "Port Macquarie"
+  },
+  {
+    "name": "Port Macquarie Private Hospital",
+    "state": "NSW",
+    "suburb": "Port Macquarie"
+  },
+  {
+    "name": "Port Pirie Hospital",
+    "state": "SA",
+    "suburb": "Port Pirie"
+  },
+  {
+    "name": "Portland District Health",
+    "state": "VIC",
+    "suburb": "Portland"
+  },
+  {
+    "name": "Portland Tabulam Health Centre",
+    "state": "NSW",
+    "suburb": "Portland"
+  },
+  {
+    "name": "Pregnancy Advisory Centre",
+    "state": "SA",
+    "suburb": "Woodville"
+  },
+  {
+    "name": "President Private Hospital",
+    "state": "NSW",
+    "suburb": "Kirrawee"
+  },
+  {
+    "name": "Prince Albert Tenterfield",
+    "state": "NSW",
+    "suburb": "Tenterfield"
+  },
+  {
+    "name": "Prince Of Wales Hospital",
+    "state": "NSW",
+    "suburb": "Randwick"
+  },
+  {
+    "name": "Prince Of Wales Private Hospital",
+    "state": "NSW",
+    "suburb": "Randwick"
+  },
+  {
+    "name": "Princess Alexandra Hospital",
+    "state": "QLD",
+    "suburb": "Woolloongabba"
+  },
+  {
+    "name": "Proserpine Hospital",
+    "state": "QLD",
+    "suburb": "Proserpine"
+  },
+  {
+    "name": "Quairading Hospital",
+    "state": "WA",
+    "suburb": "Quairading"
+  },
+  {
+    "name": "Queanbeyan District Hospital",
+    "state": "NSW",
+    "suburb": "Queanbeyan"
+  },
+  {
+    "name": "Queen Elizabeth Ii Family Centre",
+    "state": "ACT",
+    "suburb": "Curtin"
+  },
+  {
+    "name": "Queen Elizabeth Ii Jubilee Hospital",
+    "state": "QLD",
+    "suburb": "Coopers Plains"
+  },
+  {
+    "name": "Queensland Children'S Hospital",
+    "state": "QLD",
+    "suburb": "South Brisbane"
+  },
+  {
+    "name": "Quilpie Hospital",
+    "state": "QLD",
+    "suburb": "Quilpie"
+  },
+  {
+    "name": "Quirindi Community Hospital",
+    "state": "NSW",
+    "suburb": "Quirindi"
+  },
+  {
+    "name": "Quorn Health Service",
+    "state": "SA",
+    "suburb": "Quorn"
+  },
+  {
+    "name": "Ramsay Clinic Adelaide",
+    "state": "SA",
+    "suburb": "Gilberton"
+  },
+  {
+    "name": "Ramsay Clinic Albert Road",
+    "state": "VIC",
+    "suburb": "Melbourne"
+  },
+  {
+    "name": "Ramsay Clinic Cairns",
+    "state": "QLD",
+    "suburb": "North Cairns"
+  },
+  {
+    "name": "Ramsay Clinic Caloundra",
+    "state": "QLD",
+    "suburb": "Caloundra"
+  },
+  {
+    "name": "Ramsay Clinic Cremorne",
+    "state": "NSW",
+    "suburb": "Cremorne"
+  },
+  {
+    "name": "Ramsay Clinic Macarthur",
+    "state": "NSW",
+    "suburb": "Campbelltown"
+  },
+  {
+    "name": "Ramsay Clinic New Farm",
+    "state": "QLD",
+    "suburb": "New Farm"
+  },
+  {
+    "name": "Ramsay Clinic Northside",
+    "state": "NSW",
+    "suburb": "St Leonards"
+  },
+  {
+    "name": "Ramsay Clinic Thirroul",
+    "state": "NSW",
+    "suburb": "Thirroul"
+  },
+  {
+    "name": "Ramsay Clinic Wentworthville",
+    "state": "NSW",
+    "suburb": "Wentworthville"
+  },
+  {
+    "name": "Ramsay Day Clinic Kahlyn",
+    "state": "SA",
+    "suburb": "Magill"
+  },
+  {
+    "name": "Ramsay Surgical Centre Cairns",
+    "state": "QLD",
+    "suburb": "Cairns"
+  },
+  {
+    "name": "Ramsay Surgical Centre Charlestown",
+    "state": "NSW",
+    "suburb": "Charlestown"
+  },
+  {
+    "name": "Ramsay Surgical Centre Coffs Harbour",
+    "state": "NSW",
+    "suburb": "Coffs Harbour"
+  },
+  {
+    "name": "Ramsay Surgical Centre Miranda",
+    "state": "NSW",
+    "suburb": "Miranda"
+  },
+  {
+    "name": "Ramsay Surgical Centre Orange",
+    "state": "NSW",
+    "suburb": "Orange"
+  },
+  {
+    "name": "Ravensthorpe Hospital",
+    "state": "WA",
+    "suburb": "Ravensthorpe"
+  },
+  {
+    "name": "Redcliffe Hospital",
+    "state": "QLD",
+    "suburb": "Redcliffe"
+  },
+  {
+    "name": "Redland Hospital",
+    "state": "QLD",
+    "suburb": "Cleveland"
+  },
+  {
+    "name": "Regional Imaging Cardiovascular Centre",
+    "state": "NSW",
+    "suburb": "Wagga Wagga"
+  },
+  {
+    "name": "Renmark Paringa District Hospital",
+    "state": "SA",
+    "suburb": "Renmark"
+  },
+  {
+    "name": "Repromed Day Surgery",
+    "state": "SA",
+    "suburb": "Dulwich"
+  },
+  {
+    "name": "Richmond Hospital",
+    "state": "QLD",
+    "suburb": "Richmond"
+  },
+  {
+    "name": "Ringwood Private Hospital",
+    "state": "VIC",
+    "suburb": "East Ringwood"
+  },
+  {
+    "name": "Ripley Specialised Inpatient Services",
+    "state": "QLD",
+    "suburb": "South Ripley"
+  },
+  {
+    "name": "Rivercity Private Hospital",
+    "state": "QLD",
+    "suburb": "Auchenflower"
+  },
+  {
+    "name": "Riverina Cancer Care Centre",
+    "state": "NSW",
+    "suburb": "Wagga Wagga"
+  },
+  {
+    "name": "Riverina Day Surgery",
+    "state": "NSW",
+    "suburb": "Wagga Wagga"
+  },
+  {
+    "name": "Riverland General Hospital",
+    "state": "SA",
+    "suburb": "Berri"
+  },
+  {
+    "name": "Riverton District Soldiers' Memorial Hospital",
+    "state": "SA",
+    "suburb": "Riverton"
+  },
+  {
+    "name": "Robina Hospital",
+    "state": "QLD",
+    "suburb": "Robina"
+  },
+  {
+    "name": "Robina Private Hospital",
+    "state": "QLD",
+    "suburb": "Robina"
+  },
+  {
+    "name": "Robinvale District Health Services - Manangatang Campus",
+    "state": "VIC",
+    "suburb": "Manangatang"
+  },
+  {
+    "name": "Robinvale District Health Services - Robinvale Campus",
+    "state": "VIC",
+    "suburb": "Robinvale"
+  },
+  {
+    "name": "Rochester And Elmore District Health Service",
+    "state": "VIC",
+    "suburb": "Rochester"
+  },
+  {
+    "name": "Rockhampton Base Hospital",
+    "state": "QLD",
+    "suburb": "Rockhampton"
+  },
+  {
+    "name": "Rockingham Dialysis Clinic",
+    "state": "WA",
+    "suburb": "Rockingham"
+  },
+  {
+    "name": "Rockingham General Hospital",
+    "state": "WA",
+    "suburb": "Cooloongup"
+  },
+  {
+    "name": "Roderick Street Day Surgery",
+    "state": "QLD",
+    "suburb": "Ipswich"
+  },
+  {
+    "name": "Roebourne Hospital",
+    "state": "WA",
+    "suburb": "Roebourne"
+  },
+  {
+    "name": "Roma Hospital",
+    "state": "QLD",
+    "suburb": "Roma"
+  },
+  {
+    "name": "Rosebery Day Surgery",
+    "state": "NSW",
+    "suburb": "Rosebery"
+  },
+  {
+    "name": "Rosebud Day Hospital",
+    "state": "VIC",
+    "suburb": "Rosebud"
+  },
+  {
+    "name": "Rosebud Endoscopy",
+    "state": "VIC",
+    "suburb": "Rosebud"
+  },
+  {
+    "name": "Rosebud Hospital",
+    "state": "VIC",
+    "suburb": "Rosebud"
+  },
+  {
+    "name": "Rosemont Endoscopy Centre",
+    "state": "NSW",
+    "suburb": "Wollongong"
+  },
+  {
+    "name": "Roxby Downs Health Service",
+    "state": "SA",
+    "suburb": "Roxby Downs"
+  },
+  {
+    "name": "Royal Adelaide Hospital",
+    "state": "SA",
+    "suburb": "Adelaide"
+  },
+  {
+    "name": "Royal Brisbane & Womens Hospital",
+    "state": "QLD",
+    "suburb": "Herston"
+  },
+  {
+    "name": "Royal Darwin Hospital",
+    "state": "NT",
+    "suburb": "Tiwi"
+  },
+  {
+    "name": "Royal Hobart Hospital",
+    "state": "TAS",
+    "suburb": "Hobart"
+  },
+  {
+    "name": "Royal Hospital For Women",
+    "state": "NSW",
+    "suburb": "Randwick"
+  },
+  {
+    "name": "Royal Melbourne Hospital - City Campus",
+    "state": "VIC",
+    "suburb": "Parkville"
+  },
+  {
+    "name": "Royal Melbourne Hospital - Royal Park Campus",
+    "state": "VIC",
+    "suburb": "Parkville"
+  },
+  {
+    "name": "Royal North Shore Hospital",
+    "state": "NSW",
+    "suburb": "St Leonards"
+  },
+  {
+    "name": "Royal Perth Hospital",
+    "state": "WA",
+    "suburb": "Perth"
+  },
+  {
+    "name": "Royal Prince Alfred Hospital",
+    "state": "NSW",
+    "suburb": "Camperdown"
+  },
+  {
+    "name": "Royal Rehab Private Petersham",
+    "state": "NSW",
+    "suburb": "Petersham"
+  },
+  {
+    "name": "Royal Rehab Private Ryde",
+    "state": "NSW",
+    "suburb": "Ryde"
+  },
+  {
+    "name": "Royal Rehabilitation Hospital - Coorabel/Moorong",
+    "state": "NSW",
+    "suburb": "Ryde"
+  },
+  {
+    "name": "Royal Talbot Rehabilitation Centre",
+    "state": "VIC",
+    "suburb": "Kew"
+  },
+  {
+    "name": "Rural Northwest Health - Hopetoun Campus",
+    "state": "VIC",
+    "suburb": "Hopetoun"
+  },
+  {
+    "name": "Rural Northwest Health - Warracknabeal Campus",
+    "state": "VIC",
+    "suburb": "Warracknabeal"
+  },
+  {
+    "name": "Ryde Hospital",
+    "state": "NSW",
+    "suburb": "Eastwood"
+  },
+  {
+    "name": "Rylstone District Hospital",
+    "state": "NSW",
+    "suburb": "Rylstone"
+  },
+  {
+    "name": "Sacred Heart Health Service",
+    "state": "NSW",
+    "suburb": "Darlinghurst"
+  },
+  {
+    "name": "Salveo Healthcare",
+    "state": "TAS",
+    "suburb": "Launceston"
+  },
+  {
+    "name": "Sandringham Hospital",
+    "state": "VIC",
+    "suburb": "Sandringham"
+  },
+  {
+    "name": "Sarina Hospital",
+    "state": "QLD",
+    "suburb": "Sarina"
+  },
+  {
+    "name": "Scott Memorial Hospital, Scone",
+    "state": "NSW",
+    "suburb": "Scone"
+  },
+  {
+    "name": "Sea Lake & District Hospital",
+    "state": "VIC",
+    "suburb": "Sea Lake"
+  },
+  {
+    "name": "Seaford Day Surgery",
+    "state": "SA",
+    "suburb": "Seaford Heights"
+  },
+  {
+    "name": "Selby Older Adult Mental Health Service",
+    "state": "WA",
+    "suburb": "Shenton Park"
+  },
+  {
+    "name": "Seymour Health",
+    "state": "VIC",
+    "suburb": "Seymour"
+  },
+  {
+    "name": "Shellharbour Hospital",
+    "state": "NSW",
+    "suburb": "Mount Warrigal"
+  },
+  {
+    "name": "Shellharbour Private Hospital",
+    "state": "NSW",
+    "suburb": "Barrack Heights"
+  },
+  {
+    "name": "Shepparton Private Hospital",
+    "state": "VIC",
+    "suburb": "Shepparton"
+  },
+  {
+    "name": "Shoalhaven District Memorial Hospital",
+    "state": "NSW",
+    "suburb": "Nowra"
+  },
+  {
+    "name": "Short Street Day Surgery",
+    "state": "QLD",
+    "suburb": "Southport"
+  },
+  {
+    "name": "Sight Foundation Theatre",
+    "state": "NSW",
+    "suburb": "Sydney"
+  },
+  {
+    "name": "Singleton District Hospital",
+    "state": "NSW",
+    "suburb": "Singleton"
+  },
+  {
+    "name": "Sir Charles Gairdner Hospital",
+    "state": "WA",
+    "suburb": "Nedlands"
+  },
+  {
+    "name": "Sir Charles Gairdner Hospital - Mental Health Unit",
+    "state": "WA",
+    "suburb": "Nedlands"
+  },
+  {
+    "name": "Sir John Monash Private Hospital",
+    "state": "VIC",
+    "suburb": "Clayton"
+  },
+  {
+    "name": "Skin Cancer Day Surgery",
+    "state": "VIC",
+    "suburb": "Ashwood"
+  },
+  {
+    "name": "Skin Health Institute",
+    "state": "VIC",
+    "suburb": "Carlton"
+  },
+  {
+    "name": "Sleepmed Healthcare",
+    "state": "WA",
+    "suburb": "Leeming"
+  },
+  {
+    "name": "Smithfield Endoscopy Centre",
+    "state": "NSW",
+    "suburb": "Smithfield"
+  },
+  {
+    "name": "Smithton District Hospital",
+    "state": "TAS",
+    "suburb": "Smithton"
+  },
+  {
+    "name": "Snowtown Hospital",
+    "state": "SA",
+    "suburb": "Snowtown"
+  },
+  {
+    "name": "Sole Vita Surgery",
+    "state": "ACT",
+    "suburb": "Deakin"
+  },
+  {
+    "name": "Somerset Private Hospital",
+    "state": "NSW",
+    "suburb": "Kingswood"
+  },
+  {
+    "name": "South Brisbane Day Hospital",
+    "state": "QLD",
+    "suburb": "Woolloongabba"
+  },
+  {
+    "name": "South Coast Private",
+    "state": "NSW",
+    "suburb": "Wollongong"
+  },
+  {
+    "name": "South East Regional Hospital",
+    "state": "NSW",
+    "suburb": "Bega"
+  },
+  {
+    "name": "South Eastern Private Hospital",
+    "state": "VIC",
+    "suburb": "Noble Park"
+  },
+  {
+    "name": "South Gippsland Hospital",
+    "state": "VIC",
+    "suburb": "Foster"
+  },
+  {
+    "name": "South Pacific Private Hospital",
+    "state": "NSW",
+    "suburb": "Curl Curl"
+  },
+  {
+    "name": "South Perth Hospital",
+    "state": "WA",
+    "suburb": "South Perth"
+  },
+  {
+    "name": "South West Healthcare - Camperdown",
+    "state": "VIC",
+    "suburb": "Camperdown"
+  },
+  {
+    "name": "South West Healthcare - Warrnambool Campus",
+    "state": "VIC",
+    "suburb": "Warrnambool"
+  },
+  {
+    "name": "South Western Endoscopy Centre",
+    "state": "NSW",
+    "suburb": "Liverpool"
+  },
+  {
+    "name": "South Yarra Day Surgery",
+    "state": "VIC",
+    "suburb": "South Yarra"
+  },
+  {
+    "name": "Southbank Day Surgery",
+    "state": "WA",
+    "suburb": "South Perth"
+  },
+  {
+    "name": "Southern Cross Hospital",
+    "state": "WA",
+    "suburb": "Southern Cross"
+  },
+  {
+    "name": "Southern Endoscopy Centre",
+    "state": "SA",
+    "suburb": "Somerton Park"
+  },
+  {
+    "name": "Southern Eye Centre Day Surgery",
+    "state": "VIC",
+    "suburb": "Frankston"
+  },
+  {
+    "name": "Southern Fleurieu Health Service",
+    "state": "SA",
+    "suburb": "Victor Harbor"
+  },
+  {
+    "name": "Southern Highlands Private Hospital",
+    "state": "NSW",
+    "suburb": "Bowral"
+  },
+  {
+    "name": "Southern Suburbs Day Procedure Centre",
+    "state": "NSW",
+    "suburb": "Kogarah"
+  },
+  {
+    "name": "Southern Sydney Private Hospital",
+    "state": "NSW",
+    "suburb": "Miranda"
+  },
+  {
+    "name": "Southern Yorke Peninsula Health Service (Yorketown)",
+    "state": "SA",
+    "suburb": "Yorketown"
+  },
+  {
+    "name": "Southport Day Hospital",
+    "state": "QLD",
+    "suburb": "Southport"
+  },
+  {
+    "name": "Southside Cancer Care Centre",
+    "state": "NSW",
+    "suburb": "Miranda"
+  },
+  {
+    "name": "Southside Endoscopy Centre",
+    "state": "QLD",
+    "suburb": "Springwood"
+  },
+  {
+    "name": "Southside Procedure Centre",
+    "state": "QLD",
+    "suburb": "Sunnybank"
+  },
+  {
+    "name": "Spearwood Haemodialysis Unit",
+    "state": "WA",
+    "suburb": "Spearwood"
+  },
+  {
+    "name": "Specialist Care Australia - Campbell Town",
+    "state": "TAS",
+    "suburb": "Campbell Town"
+  },
+  {
+    "name": "Specialist Care Australia Launceston",
+    "state": "TAS",
+    "suburb": "Launceston"
+  },
+  {
+    "name": "Specialist Care Australia Ulverstone",
+    "state": "TAS",
+    "suburb": "Ulverstone"
+  },
+  {
+    "name": "Specialist Surgicentre Docklands",
+    "state": "VIC",
+    "suburb": "Docklands"
+  },
+  {
+    "name": "Specialist Surgicentre Geelong",
+    "state": "VIC",
+    "suburb": "Geelong"
+  },
+  {
+    "name": "Spendelove Private Hospital",
+    "state": "QLD",
+    "suburb": "Southport"
+  },
+  {
+    "name": "Spring Hill Specialist Day Hospital",
+    "state": "QLD",
+    "suburb": "Spring Hill"
+  },
+  {
+    "name": "Springsure Hospital",
+    "state": "QLD",
+    "suburb": "Springsure"
+  },
+  {
+    "name": "Springvale Endoscopy Centre And Day Hospital",
+    "state": "VIC",
+    "suburb": "Springvale"
+  },
+  {
+    "name": "Springwood Day Surgery",
+    "state": "QLD",
+    "suburb": "Springwood"
+  },
+  {
+    "name": "Springwood Hospital",
+    "state": "NSW",
+    "suburb": "Springwood"
+  },
+  {
+    "name": "St Albans Endoscopy Centre",
+    "state": "VIC",
+    "suburb": "St Albans"
+  },
+  {
+    "name": "St Andrew'S Hospital Inc",
+    "state": "SA",
+    "suburb": "Adelaide"
+  },
+  {
+    "name": "St Andrew'S Ipswich Private Hospital",
+    "state": "QLD",
+    "suburb": "Ipswich"
+  },
+  {
+    "name": "St Andrew'S Toowoomba Hospital",
+    "state": "QLD",
+    "suburb": "Toowoomba"
+  },
+  {
+    "name": "St Andrew'S War Memorial Hospital",
+    "state": "QLD",
+    "suburb": "Spring Hill"
+  },
+  {
+    "name": "St George Hospital",
+    "state": "NSW",
+    "suburb": "Kogarah"
+  },
+  {
+    "name": "St George Hospital (Qld)",
+    "state": "QLD",
+    "suburb": "St George"
+  },
+  {
+    "name": "St George Private Hospital",
+    "state": "NSW",
+    "suburb": "Kogarah"
+  },
+  {
+    "name": "St George'S Health Service",
+    "state": "VIC",
+    "suburb": "Kew"
+  },
+  {
+    "name": "St Helens District Hospital",
+    "state": "TAS",
+    "suburb": "St Helens"
+  },
+  {
+    "name": "St John Of God Ballarat Hospital",
+    "state": "VIC",
+    "suburb": "Ballarat"
+  },
+  {
+    "name": "St John Of God Bendigo Hospital",
+    "state": "VIC",
+    "suburb": "Bendigo"
+  },
+  {
+    "name": "St John Of God Berwick Day Oncology Centre",
+    "state": "VIC",
+    "suburb": "Berwick"
+  },
+  {
+    "name": "St John Of God Berwick Hospital",
+    "state": "VIC",
+    "suburb": "Berwick"
+  },
+  {
+    "name": "St John Of God Bunbury Hospital",
+    "state": "WA",
+    "suburb": "Bunbury"
+  },
+  {
+    "name": "St John Of God Burwood Hospital",
+    "state": "NSW",
+    "suburb": "Burwood"
+  },
+  {
+    "name": "St John Of God Frankston Rehabilitation Hospital",
+    "state": "VIC",
+    "suburb": "Frankston"
+  },
+  {
+    "name": "St John Of God Geelong Hospital",
+    "state": "VIC",
+    "suburb": "Geelong"
+  },
+  {
+    "name": "St John Of God Geraldton Hospital",
+    "state": "WA",
+    "suburb": "Geraldton"
+  },
+  {
+    "name": "St John Of God Langmore Centre",
+    "state": "VIC",
+    "suburb": "Berwick"
+  },
+  {
+    "name": "St John Of God Midland Health Campus",
+    "state": "WA",
+    "suburb": "Midland"
+  },
+  {
+    "name": "St John Of God Mt Lawley Hospital",
+    "state": "WA",
+    "suburb": "Mount Lawley"
+  },
+  {
+    "name": "St John Of God Murdoch Hospital",
+    "state": "WA",
+    "suburb": "Murdoch"
+  },
+  {
+    "name": "St John Of God Richmond Hospital",
+    "state": "NSW",
+    "suburb": "North Richmond"
+  },
+  {
+    "name": "St John Of God Subiaco Eye Hospital",
+    "state": "WA",
+    "suburb": "Wembley"
+  },
+  {
+    "name": "St John Of God Subiaco Hospital",
+    "state": "WA",
+    "suburb": "Subiaco"
+  },
+  {
+    "name": "St John Of God Warrnambool Hospital",
+    "state": "VIC",
+    "suburb": "Warrnambool"
+  },
+  {
+    "name": "St Joseph'S Hospital",
+    "state": "NSW",
+    "suburb": "Auburn"
+  },
+  {
+    "name": "St Luke'S Hospital",
+    "state": "NSW",
+    "suburb": "Potts Point"
+  },
+  {
+    "name": "St Margarets Rehabilitation Hospital",
+    "state": "SA",
+    "suburb": "Semaphore South"
+  },
+  {
+    "name": "St Marys Community Health Centre",
+    "state": "TAS",
+    "suburb": "St Marys"
+  },
+  {
+    "name": "St Stephen'S Hospital Hervey Bay",
+    "state": "QLD",
+    "suburb": "Urraween"
+  },
+  {
+    "name": "St Vincent'S Hospital (Darlinghurst)",
+    "state": "NSW",
+    "suburb": "Darlinghurst"
+  },
+  {
+    "name": "St Vincent'S Hospital (Lismore)",
+    "state": "NSW",
+    "suburb": "Lismore"
+  },
+  {
+    "name": "St Vincent'S Hospital (Melbourne) Ltd",
+    "state": "VIC",
+    "suburb": "Fitzroy"
+  },
+  {
+    "name": "St Vincent'S Private Community Hospital Griffith",
+    "state": "NSW",
+    "suburb": "Griffith"
+  },
+  {
+    "name": "St Vincent'S Private Hospital (Darlinghurst)",
+    "state": "NSW",
+    "suburb": "Darlinghurst"
+  },
+  {
+    "name": "St Vincent'S Private Hospital Brisbane",
+    "state": "QLD",
+    "suburb": "Kangaroo Point"
+  },
+  {
+    "name": "St Vincent'S Private Hospital East Melbourne",
+    "state": "VIC",
+    "suburb": "East Melbourne"
+  },
+  {
+    "name": "St Vincent'S Private Hospital Fitzroy",
+    "state": "VIC",
+    "suburb": "Fitzroy"
+  },
+  {
+    "name": "St Vincent'S Private Hospital Kew",
+    "state": "VIC",
+    "suburb": "Kew"
+  },
+  {
+    "name": "St Vincent'S Private Hospital Lismore",
+    "state": "NSW",
+    "suburb": "Lismore"
+  },
+  {
+    "name": "St Vincent'S Private Hospital Northside",
+    "state": "QLD",
+    "suburb": "Chermside"
+  },
+  {
+    "name": "St Vincent'S Private Hospital Toowoomba",
+    "state": "QLD",
+    "suburb": "Toowoomba"
+  },
+  {
+    "name": "St Vincents Private Hospital Werribee",
+    "state": "VIC",
+    "suburb": "Werribee"
+  },
+  {
+    "name": "Stanthorpe Hospital",
+    "state": "QLD",
+    "suburb": "Stanthorpe"
+  },
+  {
+    "name": "Stawell Regional Health",
+    "state": "VIC",
+    "suburb": "Stawell"
+  },
+  {
+    "name": "Stirling Dialysis Clinic",
+    "state": "WA",
+    "suburb": "Stirling"
+  },
+  {
+    "name": "Stirling Hospital Inc",
+    "state": "SA",
+    "suburb": "Stirling"
+  },
+  {
+    "name": "Stonnington Day Surgery",
+    "state": "VIC",
+    "suburb": "Malvern"
+  },
+  {
+    "name": "Strathalbyn And District Health Services",
+    "state": "SA",
+    "suburb": "Strathalbyn"
+  },
+  {
+    "name": "Strathfield Private Hospital",
+    "state": "NSW",
+    "suburb": "Strathfield"
+  },
+  {
+    "name": "Streaky Bay Hospital",
+    "state": "SA",
+    "suburb": "Streaky Bay"
+  },
+  {
+    "name": "Subiaco Private Hospital",
+    "state": "WA",
+    "suburb": "Subiaco"
+  },
+  {
+    "name": "Sunbury Community Hospital",
+    "state": "VIC",
+    "suburb": "Sunbury"
+  },
+  {
+    "name": "Sundew Day Surgery",
+    "state": "WA",
+    "suburb": "Joondalup"
+  },
+  {
+    "name": "Sunnybank Private Hospital",
+    "state": "QLD",
+    "suburb": "Sunnybank"
+  },
+  {
+    "name": "Sunshine Clinic Private Hospital",
+    "state": "VIC",
+    "suburb": "St Albans"
+  },
+  {
+    "name": "Sunshine Coast Day Surgery",
+    "state": "QLD",
+    "suburb": "Maroochydore"
+  },
+  {
+    "name": "Sunshine Coast Haematology And Oncology Clinic",
+    "state": "QLD",
+    "suburb": "Buderim"
+  },
+  {
+    "name": "Sunshine Coast University Hospital",
+    "state": "QLD",
+    "suburb": "Birtinya"
+  },
+  {
+    "name": "Sunshine Coast University Private Hospital",
+    "state": "QLD",
+    "suburb": "Birtinya"
+  },
+  {
+    "name": "Sunshine Dialysis Clinic",
+    "state": "VIC",
+    "suburb": "St Albans"
+  },
+  {
+    "name": "Sunshine Hospital",
+    "state": "VIC",
+    "suburb": "St Albans"
+  },
+  {
+    "name": "Surat Hospital",
+    "state": "QLD",
+    "suburb": "Surat"
+  },
+  {
+    "name": "Surgical Treatment And Rehabilitation Service (Stars)",
+    "state": "QLD",
+    "suburb": "Herston"
+  },
+  {
+    "name": "Surry Hills Day Hospital",
+    "state": "NSW",
+    "suburb": "Surry Hills"
+  },
+  {
+    "name": "Sutherland Heart Clinic",
+    "state": "NSW",
+    "suburb": "Caringbah"
+  },
+  {
+    "name": "Swan Clinic For Plastic Surgery",
+    "state": "NSW",
+    "suburb": "Gymea"
+  },
+  {
+    "name": "Swan Hill District Health [Swan Hill]",
+    "state": "VIC",
+    "suburb": "Swan Hill"
+  },
+  {
+    "name": "Sydney Adventist Hospital",
+    "state": "NSW",
+    "suburb": "Wahroonga"
+  },
+  {
+    "name": "Sydney Children'S Hospital",
+    "state": "NSW",
+    "suburb": "Randwick"
+  },
+  {
+    "name": "Sydney Clinic For Gastrointestinal Diseases",
+    "state": "NSW",
+    "suburb": "Bondi Junction"
+  },
+  {
+    "name": "Sydney Day Hospital",
+    "state": "NSW",
+    "suburb": "Sydney"
+  },
+  {
+    "name": "Sydney Day Surgery",
+    "state": "NSW",
+    "suburb": "Darlinghurst"
+  },
+  {
+    "name": "Sydney Day Surgery - Prince Alfred",
+    "state": "NSW",
+    "suburb": "Newtown"
+  },
+  {
+    "name": "Sydney Dental Hospital",
+    "state": "NSW",
+    "suburb": "Surry Hills"
+  },
+  {
+    "name": "Sydney Hospital And Sydney Eye Hospital",
+    "state": "NSW",
+    "suburb": "Sydney"
+  },
+  {
+    "name": "Sydney Pain Day Surgery",
+    "state": "NSW",
+    "suburb": "Epping"
+  },
+  {
+    "name": "Sydney Retina Clinic & Day Surgery",
+    "state": "NSW",
+    "suburb": "Sydney"
+  },
+  {
+    "name": "Sydney Southwest Private Hospital",
+    "state": "NSW",
+    "suburb": "Liverpool"
+  },
+  {
+    "name": "Sydney Specialist Day Hospital",
+    "state": "NSW",
+    "suburb": "Chatswood"
+  },
+  {
+    "name": "Sydney Surgical Centre",
+    "state": "NSW",
+    "suburb": "Randwick"
+  },
+  {
+    "name": "Tailem Bend Hospital",
+    "state": "SA",
+    "suburb": "Tailem Bend"
+  },
+  {
+    "name": "Tallangatta Health Service",
+    "state": "VIC",
+    "suburb": "Tallangatta"
+  },
+  {
+    "name": "Tamara Private Hospital",
+    "state": "NSW",
+    "suburb": "Tamworth"
+  },
+  {
+    "name": "Tamworth Rural Referral Hospital",
+    "state": "NSW",
+    "suburb": "Tamworth"
+  },
+  {
+    "name": "Tanunda Hospital",
+    "state": "SA",
+    "suburb": "Tanunda"
+  },
+  {
+    "name": "Tara Hospital",
+    "state": "QLD",
+    "suburb": "Tara"
+  },
+  {
+    "name": "Taroom Hospital",
+    "state": "QLD",
+    "suburb": "Taroom"
+  },
+  {
+    "name": "Tasman Health Care Day Infusion Unit",
+    "state": "QLD",
+    "suburb": "Southport"
+  },
+  {
+    "name": "Tasman Multi-Purpose Centre",
+    "state": "TAS",
+    "suburb": "Nubeena"
+  },
+  {
+    "name": "Tasmanian Digestive Centre",
+    "state": "TAS",
+    "suburb": "Devonport"
+  },
+  {
+    "name": "Temora Hospital",
+    "state": "NSW",
+    "suburb": "Temora"
+  },
+  {
+    "name": "Templestowe Day Surgery",
+    "state": "VIC",
+    "suburb": "Templestowe"
+  },
+  {
+    "name": "Tennant Creek Hospital",
+    "state": "NT",
+    "suburb": "Tennant Creek"
+  },
+  {
+    "name": "Terang & Mortlake Health Service",
+    "state": "VIC",
+    "suburb": "Terang"
+  },
+  {
+    "name": "Texas Hospital Multipurpose Health Service",
+    "state": "QLD",
+    "suburb": "Texas"
+  },
+  {
+    "name": "The Alfred",
+    "state": "VIC",
+    "suburb": "Prahran"
+  },
+  {
+    "name": "The Avenue Private Hospital",
+    "state": "VIC",
+    "suburb": "Windsor"
+  },
+  {
+    "name": "The Bays Healthcare Group Inc",
+    "state": "VIC",
+    "suburb": "Mornington"
+  },
+  {
+    "name": "The Border Cancer Hospital",
+    "state": "NSW",
+    "suburb": "Albury"
+  },
+  {
+    "name": "The Canberra Hospital",
+    "state": "ACT",
+    "suburb": "Garran"
+  },
+  {
+    "name": "The Cataract Clinic (Aust)",
+    "state": "NSW",
+    "suburb": "North Sydney"
+  },
+  {
+    "name": "The Children'S Hospital At Westmead",
+    "state": "NSW",
+    "suburb": "Westmead"
+  },
+  {
+    "name": "The Digestive Health Centre",
+    "state": "VIC",
+    "suburb": "Dandenong"
+  },
+  {
+    "name": "The Eye Hospital",
+    "state": "TAS",
+    "suburb": "Launceston"
+  },
+  {
+    "name": "The Forensic Hospital",
+    "state": "NSW",
+    "suburb": "Malabar"
+  },
+  {
+    "name": "The Geelong Clinic",
+    "state": "VIC",
+    "suburb": "St Albans Park"
+  },
+  {
+    "name": "The George Centre",
+    "state": "NSW",
+    "suburb": "Gledswood Hills"
+  },
+  {
+    "name": "The Glen Endoscopy Centre",
+    "state": "VIC",
+    "suburb": "Glen Waverley"
+  },
+  {
+    "name": "The Hader Clinic",
+    "state": "VIC",
+    "suburb": "St Albans Park"
+  },
+  {
+    "name": "The Hills Private Hospital",
+    "state": "NSW",
+    "suburb": "Baulkham Hills"
+  },
+  {
+    "name": "The Hobart Clinic",
+    "state": "TAS",
+    "suburb": "Rokeby"
+  },
+  {
+    "name": "The Kilmore And District Hospital",
+    "state": "VIC",
+    "suburb": "Kilmore"
+  },
+  {
+    "name": "The Melbourne Clinic",
+    "state": "VIC",
+    "suburb": "Richmond"
+  },
+  {
+    "name": "The Melbourne Eastern Private Hospital",
+    "state": "VIC",
+    "suburb": "Boronia"
+  },
+  {
+    "name": "The Mornington Centre",
+    "state": "VIC",
+    "suburb": "Mornington"
+  },
+  {
+    "name": "The Northern Hospital",
+    "state": "VIC",
+    "suburb": "Epping"
+  },
+  {
+    "name": "The Park - Centre For Mental Health",
+    "state": "QLD",
+    "suburb": "Wacol"
+  },
+  {
+    "name": "The Park Private Hospital",
+    "state": "WA",
+    "suburb": "Mount Lawley"
+  },
+  {
+    "name": "The Prince Charles Hospital",
+    "state": "QLD",
+    "suburb": "Chermside"
+  },
+  {
+    "name": "The Queen Elizabeth Centre",
+    "state": "VIC",
+    "suburb": "Noble Park"
+  },
+  {
+    "name": "The Queen Elizabeth Hospital",
+    "state": "SA",
+    "suburb": "Woodville"
+  },
+  {
+    "name": "The Royal Childrens Hospital",
+    "state": "VIC",
+    "suburb": "Parkville"
+  },
+  {
+    "name": "The Royal Victorian Eye And Ear Hospital",
+    "state": "VIC",
+    "suburb": "East Melbourne"
+  },
+  {
+    "name": "The Royal Women'S Hospital",
+    "state": "VIC",
+    "suburb": "Parkville"
+  },
+  {
+    "name": "The San Day Surgery",
+    "state": "NSW",
+    "suburb": "Hornsby"
+  },
+  {
+    "name": "The Skin Hospital",
+    "state": "NSW",
+    "suburb": "Westmead"
+  },
+  {
+    "name": "The Skin Hospital (Darlinghurst)",
+    "state": "NSW",
+    "suburb": "Darlinghurst"
+  },
+  {
+    "name": "The Southport Private Hospital",
+    "state": "QLD",
+    "suburb": "Southport"
+  },
+  {
+    "name": "The Sutherland Hospital",
+    "state": "NSW",
+    "suburb": "Caringbah"
+  },
+  {
+    "name": "The Sydney Clinic",
+    "state": "NSW",
+    "suburb": "Bronte"
+  },
+  {
+    "name": "The Sydney Private Hospital",
+    "state": "NSW",
+    "suburb": "Ashfield"
+  },
+  {
+    "name": "The Tennyson Centre Day Hospital",
+    "state": "SA",
+    "suburb": "Kurralta Park"
+  },
+  {
+    "name": "The Victoria Clinic",
+    "state": "VIC",
+    "suburb": "Prahran"
+  },
+  {
+    "name": "The Victorian Rehabilitation Centre",
+    "state": "VIC",
+    "suburb": "Glen Waverley"
+  },
+  {
+    "name": "The Wesley Hospital",
+    "state": "QLD",
+    "suburb": "Auchenflower"
+  },
+  {
+    "name": "Theodore Hospital",
+    "state": "QLD",
+    "suburb": "Theodore"
+  },
+  {
+    "name": "Thomas Embling Hospital",
+    "state": "VIC",
+    "suburb": "Fairfield"
+  },
+  {
+    "name": "Thomas Walker Hospital - Rivendell",
+    "state": "NSW",
+    "suburb": "Concord West"
+  },
+  {
+    "name": "Thursday Island Hospital",
+    "state": "QLD",
+    "suburb": "Thursday Island"
+  },
+  {
+    "name": "Tibooburra Health Service",
+    "state": "NSW",
+    "suburb": "Tibooburra"
+  },
+  {
+    "name": "Timboon & District Healthcare Service",
+    "state": "VIC",
+    "suburb": "Timboon"
+  },
+  {
+    "name": "Tingha Multipurpose Service",
+    "state": "NSW",
+    "suburb": "Tingha"
+  },
+  {
+    "name": "Tocumwal Hospital",
+    "state": "NSW",
+    "suburb": "Tocumwal"
+  },
+  {
+    "name": "Tom Price Hospital",
+    "state": "WA",
+    "suburb": "Tom Price"
+  },
+  {
+    "name": "Tomaree Community Hospital",
+    "state": "NSW",
+    "suburb": "Nelson Bay"
+  },
+  {
+    "name": "Toosey Aged And Community Care",
+    "state": "TAS",
+    "suburb": "Longford"
+  },
+  {
+    "name": "Toowoomba Hospice",
+    "state": "QLD",
+    "suburb": "Toowoomba"
+  },
+  {
+    "name": "Toowoomba Hospital",
+    "state": "QLD",
+    "suburb": "Toowoomba"
+  },
+  {
+    "name": "Toowoomba Private Day Hospital",
+    "state": "QLD",
+    "suburb": "Toowoomba"
+  },
+  {
+    "name": "Toowoomba Surgicentre",
+    "state": "QLD",
+    "suburb": "Toowoomba"
+  },
+  {
+    "name": "Toronto Private Hospital",
+    "state": "NSW",
+    "suburb": "Toronto"
+  },
+  {
+    "name": "Tottenham Hospital",
+    "state": "NSW",
+    "suburb": "Tottenham"
+  },
+  {
+    "name": "Townsville Day Surgery",
+    "state": "QLD",
+    "suburb": "Townsville"
+  },
+  {
+    "name": "Townsville Private Clinic",
+    "state": "QLD",
+    "suburb": "Townsville City"
+  },
+  {
+    "name": "Townsville University Hospital",
+    "state": "QLD",
+    "suburb": "Douglas"
+  },
+  {
+    "name": "Trangie Multi Purpose Health Service",
+    "state": "NSW",
+    "suburb": "Trangie"
+  },
+  {
+    "name": "Tresillian Family Care Centre - Belmore",
+    "state": "NSW",
+    "suburb": "Belmore"
+  },
+  {
+    "name": "Tresillian Family Care Centre - Willoughby",
+    "state": "NSW",
+    "suburb": "Willoughby"
+  },
+  {
+    "name": "Tresillian Family Care Centre - Wollstonecraft",
+    "state": "NSW",
+    "suburb": "Wollstonecraft"
+  },
+  {
+    "name": "Trundle Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Trundle"
+  },
+  {
+    "name": "Tuggerah Lakes Private Hospital",
+    "state": "NSW",
+    "suburb": "Kanwal"
+  },
+  {
+    "name": "Tullamore Multi Purpose Health Service",
+    "state": "NSW",
+    "suburb": "Tullamore"
+  },
+  {
+    "name": "Tully Hospital",
+    "state": "QLD",
+    "suburb": "Tully"
+  },
+  {
+    "name": "Tumbarumba Multi Purpose Service",
+    "state": "NSW",
+    "suburb": "Tumbarumba"
+  },
+  {
+    "name": "Tumby Bay Hospital",
+    "state": "SA",
+    "suburb": "Tumby Bay"
+  },
+  {
+    "name": "Tumut District Hospital",
+    "state": "NSW",
+    "suburb": "Tumut"
+  },
+  {
+    "name": "Tweddle Child And Family Health Service",
+    "state": "VIC",
+    "suburb": "Footscray"
+  },
+  {
+    "name": "Tweed Day Surgery",
+    "state": "NSW",
+    "suburb": "Tweed Heads"
+  },
+  {
+    "name": "Tweed Valley Hospital",
+    "state": "NSW",
+    "suburb": "Cudgen"
+  },
+  {
+    "name": "Ulladulla Endoscopy & Medical Centre",
+    "state": "NSW",
+    "suburb": "Ulladulla"
+  },
+  {
+    "name": "University Of Canberra Hospital",
+    "state": "ACT",
+    "suburb": "Bruce"
+  },
+  {
+    "name": "Upper Murray Health And Community Services",
+    "state": "VIC",
+    "suburb": "Corryong"
+  },
+  {
+    "name": "Urana Health Service",
+    "state": "NSW",
+    "suburb": "Urana"
+  },
+  {
+    "name": "Urbenville Health Service",
+    "state": "NSW",
+    "suburb": "Urbenville"
+  },
+  {
+    "name": "Vegetable Creek Multi-Purpose Service",
+    "state": "NSW",
+    "suburb": "Emmaville"
+  },
+  {
+    "name": "Vermont Private Hospital",
+    "state": "VIC",
+    "suburb": "Vermont South"
+  },
+  {
+    "name": "Victoria Parade Surgery Centre",
+    "state": "VIC",
+    "suburb": "East Melbourne"
+  },
+  {
+    "name": "Victoria Street Private Hospital",
+    "state": "NSW",
+    "suburb": "Wollongong"
+  },
+  {
+    "name": "Victorian Centre For Mental Health",
+    "state": "VIC",
+    "suburb": "Officer"
+  },
+  {
+    "name": "Victorian Gut Centre Bundoora",
+    "state": "VIC",
+    "suburb": "Bundoora"
+  },
+  {
+    "name": "Victorian Heart Hospital",
+    "state": "VIC",
+    "suburb": "Clayton"
+  },
+  {
+    "name": "Vision Centre Day Surgery",
+    "state": "QLD",
+    "suburb": "Southport"
+  },
+  {
+    "name": "Vista Day Surgery",
+    "state": "SA",
+    "suburb": "Wayville"
+  },
+  {
+    "name": "Vsc Day Surgery",
+    "state": "VIC",
+    "suburb": "Templestowe Lower"
+  },
+  {
+    "name": "Wagga Wagga Rural Referral Hospital",
+    "state": "NSW",
+    "suburb": "Wagga Wagga"
+  },
+  {
+    "name": "Wagin Hospital",
+    "state": "WA",
+    "suburb": "Wagin"
+  },
+  {
+    "name": "Waikerie Health Service",
+    "state": "SA",
+    "suburb": "Waikerie"
+  },
+  {
+    "name": "Waikiki Private Hospital",
+    "state": "WA",
+    "suburb": "Waikiki"
+  },
+  {
+    "name": "Walcha Multipurpose Service",
+    "state": "NSW",
+    "suburb": "Walcha"
+  },
+  {
+    "name": "Walcott Street Surgical Centre",
+    "state": "WA",
+    "suburb": "Mount Lawley"
+  },
+  {
+    "name": "Walgett Health Service",
+    "state": "NSW",
+    "suburb": "Walgett"
+  },
+  {
+    "name": "Wallaroo Hospital And Health Service",
+    "state": "SA",
+    "suburb": "Wallaroo"
+  },
+  {
+    "name": "Wandi Nerida",
+    "state": "QLD",
+    "suburb": "Mooloolah Valley"
+  },
+  {
+    "name": "Wangaratta Private Hospital",
+    "state": "VIC",
+    "suburb": "Wangaratta"
+  },
+  {
+    "name": "Wantirna Health",
+    "state": "VIC",
+    "suburb": "Wantirna"
+  },
+  {
+    "name": "War Memorial Hospital",
+    "state": "NSW",
+    "suburb": "Waverley"
+  },
+  {
+    "name": "Waratah Private Hospital",
+    "state": "NSW",
+    "suburb": "Hurstville"
+  },
+  {
+    "name": "Warialda Multipurpose Service",
+    "state": "NSW",
+    "suburb": "Warialda"
+  },
+  {
+    "name": "Warners Bay Private Hospital",
+    "state": "NSW",
+    "suburb": "Warners Bay"
+  },
+  {
+    "name": "Warren Hospital",
+    "state": "WA",
+    "suburb": "Manjimup"
+  },
+  {
+    "name": "Warren Multi Purpose Health Service",
+    "state": "NSW",
+    "suburb": "Warren"
+  },
+  {
+    "name": "Warringal Private Hospital",
+    "state": "VIC",
+    "suburb": "Heidelberg"
+  },
+  {
+    "name": "Warwick Hospital",
+    "state": "QLD",
+    "suburb": "Warwick"
+  },
+  {
+    "name": "Wauchope District Memorial Hospital",
+    "state": "NSW",
+    "suburb": "Wauchope"
+  },
+  {
+    "name": "Waverley Endoscopy",
+    "state": "VIC",
+    "suburb": "Mount Waverley"
+  },
+  {
+    "name": "Waverley Private Hospital",
+    "state": "VIC",
+    "suburb": "Mount Waverley"
+  },
+  {
+    "name": "Wayipunga Bendigo Early Parenting Centre",
+    "state": "VIC",
+    "suburb": "Kennington"
+  },
+  {
+    "name": "Wee Waa Community Hospital",
+    "state": "NSW",
+    "suburb": "Wee Waa"
+  },
+  {
+    "name": "Weipa Hospital",
+    "state": "QLD",
+    "suburb": "Weipa"
+  },
+  {
+    "name": "Wellington Health Service",
+    "state": "NSW",
+    "suburb": "Wellington"
+  },
+  {
+    "name": "Wentworth District Hospital",
+    "state": "NSW",
+    "suburb": "Wentworth"
+  },
+  {
+    "name": "Werribee Mercy Hospital",
+    "state": "VIC",
+    "suburb": "Werribee"
+  },
+  {
+    "name": "Werribee Mercy Mental Health Program",
+    "state": "VIC",
+    "suburb": "Werribee"
+  },
+  {
+    "name": "Werris Creek Community Hospital",
+    "state": "NSW",
+    "suburb": "Werris Creek"
+  },
+  {
+    "name": "Wesley Hyperbaric",
+    "state": "QLD",
+    "suburb": "Auchenflower"
+  },
+  {
+    "name": "West Coast District Hospital",
+    "state": "TAS",
+    "suburb": "Queenstown"
+  },
+  {
+    "name": "West Coast Endoscopy Centre",
+    "state": "WA",
+    "suburb": "Joondalup"
+  },
+  {
+    "name": "West Gippsland Endoscopy Centre",
+    "state": "VIC",
+    "suburb": "Warragul"
+  },
+  {
+    "name": "West Gippsland Healthcare Group",
+    "state": "VIC",
+    "suburb": "Warragul"
+  },
+  {
+    "name": "West Leederville Private Hospital",
+    "state": "WA",
+    "suburb": "West Leederville"
+  },
+  {
+    "name": "West Wimmera Health Service - Jeparit",
+    "state": "VIC",
+    "suburb": "Jeparit"
+  },
+  {
+    "name": "West Wimmera Health Service - Kaniva",
+    "state": "VIC",
+    "suburb": "Kaniva"
+  },
+  {
+    "name": "West Wimmera Health Service - Nhill",
+    "state": "VIC",
+    "suburb": "Nhill"
+  },
+  {
+    "name": "West Wimmera Health Service - Rainbow",
+    "state": "VIC",
+    "suburb": "Rainbow"
+  },
+  {
+    "name": "Western District Health Service - Coleraine",
+    "state": "VIC",
+    "suburb": "Coleraine"
+  },
+  {
+    "name": "Western District Health Service - Hamilton",
+    "state": "VIC",
+    "suburb": "Hamilton"
+  },
+  {
+    "name": "Western District Health Service - Penshurst",
+    "state": "VIC",
+    "suburb": "Penshurst"
+  },
+  {
+    "name": "Western Gastroenterology Services",
+    "state": "VIC",
+    "suburb": "Footscray"
+  },
+  {
+    "name": "Western Haematology And Oncology Clinics",
+    "state": "WA",
+    "suburb": "West Perth"
+  },
+  {
+    "name": "Western Health - Bacchus Marsh",
+    "state": "VIC",
+    "suburb": "Bacchus Marsh"
+  },
+  {
+    "name": "Western Health - Melton Health",
+    "state": "VIC",
+    "suburb": "Melton West"
+  },
+  {
+    "name": "Western Hospital",
+    "state": "SA",
+    "suburb": "Henley Beach"
+  },
+  {
+    "name": "Western Hospital Orygen Inpatient Unit",
+    "state": "VIC",
+    "suburb": "Footscray"
+  },
+  {
+    "name": "Western Private Hospital",
+    "state": "VIC",
+    "suburb": "Footscray"
+  },
+  {
+    "name": "Western Sydney Private Oncology & Infusion Centre",
+    "state": "NSW",
+    "suburb": "Westmead"
+  },
+  {
+    "name": "Westmead Hospital",
+    "state": "NSW",
+    "suburb": "Westmead"
+  },
+  {
+    "name": "Westmead Private Hospital",
+    "state": "NSW",
+    "suburb": "Westmead"
+  },
+  {
+    "name": "Westmead Rehabilitation Hospital",
+    "state": "NSW",
+    "suburb": "Merrylands"
+  },
+  {
+    "name": "Westpoint Endoscopy Day Hospital",
+    "state": "VIC",
+    "suburb": "Werribee"
+  },
+  {
+    "name": "Westside Haematology And Oncology Clinic",
+    "state": "QLD",
+    "suburb": "Taringa"
+  },
+  {
+    "name": "Westside Private Hospital",
+    "state": "QLD",
+    "suburb": "Taringa"
+  },
+  {
+    "name": "Whitehorse Day Surgery",
+    "state": "VIC",
+    "suburb": "Box Hill"
+  },
+  {
+    "name": "Whyalla Hospital & Health Service",
+    "state": "SA",
+    "suburb": "Whyalla"
+  },
+  {
+    "name": "Wide Bay Private Day Hospital",
+    "state": "QLD",
+    "suburb": "Bundaberg West"
+  },
+  {
+    "name": "Wilcannia Health Service",
+    "state": "NSW",
+    "suburb": "Wilcannia"
+  },
+  {
+    "name": "Williamstown Hospital",
+    "state": "VIC",
+    "suburb": "Williamstown"
+  },
+  {
+    "name": "Wilson Memorial Community Hospital",
+    "state": "NSW",
+    "suburb": "Murrurundi"
+  },
+  {
+    "name": "Wimmera Health Care Group - Dimboola",
+    "state": "VIC",
+    "suburb": "Dimboola"
+  },
+  {
+    "name": "Wimmera Health Care Group - Horsham",
+    "state": "VIC",
+    "suburb": "Horsham"
+  },
+  {
+    "name": "Windsor Gardens Day Surgery",
+    "state": "SA",
+    "suburb": "Windsor Gardens"
+  },
+  {
+    "name": "Windsor Private Hospital",
+    "state": "VIC",
+    "suburb": "Windsor"
+  },
+  {
+    "name": "Wingham Community Hospital",
+    "state": "NSW",
+    "suburb": "Wingham"
+  },
+  {
+    "name": "Winton Hospital",
+    "state": "QLD",
+    "suburb": "Winton"
+  },
+  {
+    "name": "Wollongong Day Surgery",
+    "state": "NSW",
+    "suburb": "Wollongong"
+  },
+  {
+    "name": "Wollongong Hospital",
+    "state": "NSW",
+    "suburb": "Wollongong"
+  },
+  {
+    "name": "Wollongong Private Hospital",
+    "state": "NSW",
+    "suburb": "Wollongong"
+  },
+  {
+    "name": "Wolper Jewish Hospital",
+    "state": "NSW",
+    "suburb": "Woollahra"
+  },
+  {
+    "name": "Womens And Childrens Hospital",
+    "state": "SA",
+    "suburb": "North Adelaide"
+  },
+  {
+    "name": "Wondai Hospital",
+    "state": "QLD",
+    "suburb": "Wondai"
+  },
+  {
+    "name": "Wongan Hills Hospital",
+    "state": "WA",
+    "suburb": "Wongan Hills"
+  },
+  {
+    "name": "Woorabinda Hospital",
+    "state": "QLD",
+    "suburb": "Woorabinda"
+  },
+  {
+    "name": "Woy Woy Hospital",
+    "state": "NSW",
+    "suburb": "Woy Woy"
+  },
+  {
+    "name": "Wudinna Hospital",
+    "state": "SA",
+    "suburb": "Wudinna"
+  },
+  {
+    "name": "Wyalkatchem Hospital",
+    "state": "WA",
+    "suburb": "Wyalkatchem"
+  },
+  {
+    "name": "Wyalong Hospital",
+    "state": "NSW",
+    "suburb": "West Wyalong"
+  },
+  {
+    "name": "Wyndham Clinic Private Hospital",
+    "state": "VIC",
+    "suburb": "Werribee"
+  },
+  {
+    "name": "Wyndham Hospital",
+    "state": "WA",
+    "suburb": "Wyndham"
+  },
+  {
+    "name": "Wyong Hospital",
+    "state": "NSW",
+    "suburb": "Hamlyn Terrace"
+  },
+  {
+    "name": "Wyvern Private Hospital",
+    "state": "NSW",
+    "suburb": "Terrey Hills"
+  },
+  {
+    "name": "Yarra Ranges Health",
+    "state": "VIC",
+    "suburb": "Lilydale"
+  },
+  {
+    "name": "Yarram & District Health Service",
+    "state": "VIC",
+    "suburb": "Yarram"
+  },
+  {
+    "name": "Yarrawonga Health",
+    "state": "VIC",
+    "suburb": "Yarrawonga"
+  },
+  {
+    "name": "Yass District Hospital",
+    "state": "NSW",
+    "suburb": "Yass"
+  },
+  {
+    "name": "Yea And District Memorial Hospital",
+    "state": "VIC",
+    "suburb": "Yea"
+  },
+  {
+    "name": "York Hospital",
+    "state": "WA",
+    "suburb": "York"
+  },
+  {
+    "name": "Young District Hospital",
+    "state": "NSW",
+    "suburb": "Young"
+  },
+  {
+    "name": "Youth Prevention And Recovery Care (Y-Parc)",
+    "state": "VIC",
+    "suburb": "Frankston"
+  }
+]

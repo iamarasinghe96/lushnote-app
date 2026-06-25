@@ -9,6 +9,7 @@ import { createProfile, updateProfile } from '@/lib/firestore/profiles'
 import { uploadSignatureSVG } from '@/lib/storage'
 import { detectIdPattern } from '@/lib/utils'
 import SignatureUploader from '@/components/ui/SignatureUploader'
+import HospitalAutocomplete from '@/components/ui/HospitalAutocomplete'
 import type { WorkplaceType, Workplace } from '@/types'
 
 const WORKPLACE_TYPES: WorkplaceType[] = [
@@ -417,12 +418,11 @@ function Step2({
         <label className="block text-sm font-medium text-[#0f172a] mb-1">
           Workplace name <span className="text-red-500">*</span>
         </label>
-        <input
-          type="text"
+        <HospitalAutocomplete
           value={workplaceName}
-          onChange={(e) => onWorkplaceName(e.target.value)}
+          onChange={onWorkplaceName}
           placeholder="City Psychiatry Clinic"
-          className="w-full rounded-xl border border-[#e2e8f0] px-3 py-2.5 text-sm text-[#0f172a] outline-none focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981]"
+          inputClassName="w-full rounded-xl border border-[#e2e8f0] px-3 py-2.5 text-sm text-[#0f172a] outline-none focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981]"
         />
       </div>
       <div>

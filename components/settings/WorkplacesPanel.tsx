@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import HospitalAutocomplete from '@/components/ui/HospitalAutocomplete'
 import Textarea from '@/components/ui/Textarea'
 import { detectIdPattern, applyWorkspaceTheme, resolveThemePrimary, toOrganizationKey } from '@/lib/utils'
 import { WP_THEMES } from '@/types'
@@ -230,10 +231,10 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
   function InlineForm({ onSave: onFormSave }: { onSave: () => void }) {
     return (
       <div className="mt-3 pt-3 border-t border-[var(--border)] space-y-3">
-        <Input
+        <HospitalAutocomplete
           label="Workplace name"
           value={form.name}
-          onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+          onChange={name => setForm(f => ({ ...f, name }))}
           placeholder="e.g. City Psychiatry"
         />
 
