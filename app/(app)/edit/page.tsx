@@ -200,7 +200,6 @@ function EditContent() {
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isSavingRef = useRef(false)
   const [previewHtml, setPreviewHtml] = useState(() => buildPreviewHTML(store.currentNote))
-  const [showMobilePreview, setShowMobilePreview] = useState(false)
   const [letterPageCount, setLetterPageCount] = useState(1)
   const imageAspectCache = useRef<Map<string, number>>(new Map())
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
@@ -2524,9 +2523,9 @@ function EditContent() {
           </div>
         </div>
 
-        {/* RIGHT: live preview - hidden on mobile unless toggled */}
+        {/* RIGHT: live preview — desktop only */}
         <div
-          className={`${showMobilePreview ? 'grid' : 'hidden'} md:grid min-h-0 border-l border-[var(--border)]`}
+          className="hidden md:grid min-h-0 border-l border-[var(--border)]"
           style={{ gridTemplateRows: 'auto 1fr', paddingTop: contentPt, background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
         >
           <div
@@ -2556,14 +2555,6 @@ function EditContent() {
         </div>
       </div>
 
-      {/* Mobile preview toggle */}
-      <button
-        onClick={() => setShowMobilePreview(v => !v)}
-        className="md:hidden fixed bottom-20 right-4 z-40 bg-white border border-[var(--border)] rounded-full px-4 py-2 text-xs font-medium text-[var(--text2)] active:scale-95 transition-transform"
-        style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
-      >
-        {showMobilePreview ? 'Hide Preview' : 'Preview'}
-      </button>
 
       <TemplatePicker
         open={changeTemplateOpen}
