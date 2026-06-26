@@ -73,7 +73,7 @@ export default function TabBar() {
       className="pointer-events-none"
       style={{
         position: 'fixed',
-        bottom: 0,
+        bottom: 'calc(0.5rem + env(safe-area-inset-bottom))',
         left: 0,
         right: 0,
         zIndex: 99,
