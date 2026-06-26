@@ -104,7 +104,7 @@ export default function Page() {
 
       {/* ── Hero ── */}
       <section
-        className="relative flex flex-col items-center justify-center min-h-screen text-center px-4"
+        className="relative flex flex-col items-center justify-center min-h-dvh text-center px-4"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 96px)' }}
       >
         <div className="max-w-2xl mx-auto space-y-6">
