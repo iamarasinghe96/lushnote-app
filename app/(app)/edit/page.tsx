@@ -334,7 +334,8 @@ function EditContent() {
         const targetText = (activeLabel.textContent ?? '').trim().toUpperCase()
         const sections = Array.from(preview!.querySelectorAll<HTMLElement>('.preview-section h3'))
         for (const h3 of sections) {
-          if ((h3.textContent ?? '').trim().toUpperCase() === targetText) {
+          const h3Text = (h3.textContent ?? '').trim().toUpperCase()
+          if (h3Text === targetText || h3Text.startsWith(targetText)) {
             const section = h3.closest<HTMLElement>('.preview-section')
             if (section) {
               const offset = section.getBoundingClientRect().top
