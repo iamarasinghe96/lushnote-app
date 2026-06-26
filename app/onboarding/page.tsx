@@ -716,9 +716,6 @@ function StepSignature({
         onSave={handleSave}
         saving={saving}
       />
-      {signatureUrl && (
-        <p className="text-xs text-[#059669] font-medium">✓ Signature saved</p>
-      )}
       <button
         onClick={onSkip}
         className="block w-full text-center text-sm text-[#94a3b8] mt-1"
