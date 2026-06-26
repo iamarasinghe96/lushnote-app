@@ -5,10 +5,10 @@ const CONTACT_EMAIL = 'iamarasinghe96@gmail.com'
 
 export default function TermsPage() {
   return (
-    <div className="h-dvh overflow-y-auto bg-[#f8fafc] text-[#0f172a]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+    <div className="h-dvh overflow-y-auto print:h-auto print:overflow-visible bg-[#f8fafc] text-[#0f172a]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
 
       {/* Nav */}
-      <nav className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-[#e2e8f0] px-4 py-3 flex items-center justify-between">
+      <nav className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-[#e2e8f0] px-4 py-3 flex items-center justify-between print:hidden">
         <a href="/" className="flex items-center gap-2">
           <img src="/icon.svg" alt="" width={32} height={32} className="w-8 h-8" aria-hidden />
           <span className="font-semibold text-[#0f172a]">LushNote</span>
