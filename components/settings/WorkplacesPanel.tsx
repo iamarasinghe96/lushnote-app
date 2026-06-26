@@ -210,6 +210,8 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
   const isFree = profile.tier === 'free'
   const canAdd = !isFree || workplaces.length < 1
 
+  const wpNamesKey = workplaces.map(w => w.name).join('|')
+
   useEffect(() => {
     if (!profile?.workplaces) return
     profile.workplaces.forEach(async (wp) => {
@@ -217,7 +219,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
       setLetterheads(prev => ({ ...prev, [wp.name]: lh }))
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [wpNamesKey])
 
   function startEdit(wp: Workplace) {
     setAddingNew(false)
