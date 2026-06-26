@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export default function AccountDeletedPage() {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-[#f8fafc] px-4">
+    <main className="min-h-dvh flex flex-col items-center justify-center bg-[#f8fafc] px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-md text-center">
         <div className="flex items-center justify-center gap-2 mb-6">
           <img src="/icon.svg" alt="LushNote" width={40} height={40} />
