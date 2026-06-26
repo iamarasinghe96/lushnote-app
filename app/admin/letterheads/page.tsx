@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import HospitalAutocomplete from '@/components/ui/HospitalAutocomplete'
 
 const ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
 
@@ -257,16 +258,12 @@ export default function AdminLetterheadsPage() {
             <div className="rounded-2xl p-5 space-y-4" style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}>
               <h2 className="text-sm font-semibold text-[#0f172a]">Upload / Update Letterhead</h2>
 
-              <div>
-                <label className="block text-xs font-medium text-[#475569] mb-1">Organisation name</label>
-                <input
-                  type="text"
-                  value={uploadOrg}
-                  onChange={e => setUploadOrg(e.target.value)}
-                  placeholder="e.g. Royal Melbourne Hospital"
-                  className="w-full border border-[var(--border)] rounded-xl px-3 py-2 text-sm bg-white text-[#0f172a] outline-none focus:ring-2 focus:ring-[#2563eb]/30"
-                />
-              </div>
+              <HospitalAutocomplete
+                label="Organisation name"
+                value={uploadOrg}
+                onChange={setUploadOrg}
+                placeholder="e.g. Royal Melbourne Hospital"
+              />
 
               <div className="grid grid-cols-2 gap-3">
                 <ImageSlot
