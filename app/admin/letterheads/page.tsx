@@ -41,6 +41,8 @@ export default function AdminLetterheadsPage() {
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
 
+  const [deletingKey, setDeletingKey] = useState<string | null>(null)
+
   // Upload state
   const [uploadOrg, setUploadOrg] = useState('')
   const [headerPreview, setHeaderPreview] = useState<string | null>(null)
@@ -100,6 +102,30 @@ export default function AdminLetterheadsPage() {
     } catch (e) {
       setToast(e instanceof Error ? e.message : 'Error')
     }
+  }
+
+  async function deleteLetterhead(organizationKey: string, organizationName: string) {
+    if (!window.confirm(`Delete letterhead for "${organizationName}"? This cannot be undone.`)) return
+    setDeletingKey(organizationKey)
+    try {
+      await call({ action: 'deleteLetterhead', organizationKey })
+      setLetterheads(prev => prev.filter(lh => lh.organizationKey !== organizationKey))
+      setToast('Letterhead deleted')
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : 'Delete failed')
+    } finally {
+      setDeletingKey(null)
+    }
+  }
+
+  function replaceLetterhead(organizationName: string) {
+    setUploadOrg(organizationName)
+    setHeaderPreview(null)
+    setFooterPreview(null)
+    if (headerInputRef.current) headerInputRef.current.value = ''
+    if (footerInputRef.current) footerInputRef.current.value = ''
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+    setToast('Organisation prefilled — upload new images to replace.')
   }
 
   function readFileAsDataUrl(file: File): Promise<string> {
@@ -298,9 +324,26 @@ export default function AdminLetterheadsPage() {
             <div className="space-y-3">
               {letterheads.map(lh => (
                 <div key={lh.id} className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}>
-                  <div>
-                    <p className="text-sm font-semibold text-[#0f172a]">{lh.organizationName}</p>
-                    <p className="text-xs text-[#94a3b8]">{lh.organizationKey}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[#0f172a] truncate">{lh.organizationName}</p>
+                      <p className="text-xs text-[#94a3b8]">{lh.organizationKey}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => replaceLetterhead(lh.organizationName)}
+                        className="text-xs text-[#2563eb] font-medium px-2 py-1 rounded-lg hover:bg-[#eff6ff] motion-safe:transition-colors"
+                      >
+                        Replace
+                      </button>
+                      <button
+                        onClick={() => deleteLetterhead(lh.organizationKey, lh.organizationName)}
+                        disabled={deletingKey === lh.organizationKey}
+                        className="text-xs text-red-600 font-medium px-2 py-1 rounded-lg hover:bg-red-50 motion-safe:transition-colors disabled:opacity-40"
+                      >
+                        {deletingKey === lh.organizationKey ? 'Deleting…' : 'Delete'}
+                      </button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {lh.headerUrl ? (

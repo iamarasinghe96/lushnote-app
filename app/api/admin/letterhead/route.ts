@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
       uid: string
-      action: 'listRequests' | 'listLetterheads' | 'upload' | 'markDone'
+      action: 'listRequests' | 'listLetterheads' | 'upload' | 'markDone' | 'deleteLetterhead'
       requestId?: string
       organizationKey?: string
       organizationName?: string
@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     if (!uid || uid !== ADMIN_UID) return unauthorized()
 
     const db = adminDb()
+    const bucket = adminStorage().bucket()
 
     if (action === 'listRequests') {
       const snap = await db.collection('letterheadRequests').orderBy('createdAt', 'desc').limit(100).get()
@@ -38,12 +39,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ letterheads })
     }
 
+    if (action === 'deleteLetterhead') {
+      const { organizationKey } = body
+      if (!organizationKey) return NextResponse.json({ error: 'organizationKey required' }, { status: 400 })
+      await bucket.deleteFiles({ prefix: `letterheads/${organizationKey}/` }).catch(() => {})
+      await db.collection('letterheads').doc(organizationKey).delete()
+      return NextResponse.json({ success: true })
+    }
+
     if (action === 'upload') {
       const { organizationName, headerDataUrl, footerDataUrl } = body
       if (!organizationName) return NextResponse.json({ error: 'organizationName required' }, { status: 400 })
 
       const key = toOrganizationKey(organizationName)
-      const bucket = adminStorage().bucket()
       const urls: { headerUrl: string | null; footerUrl: string | null } = {
         headerUrl: null,
         footerUrl: null,
