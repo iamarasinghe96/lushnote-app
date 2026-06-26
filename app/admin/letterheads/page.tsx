@@ -42,6 +42,7 @@ export default function AdminLetterheadsPage() {
   const [toast, setToast] = useState<string | null>(null)
 
   const [deletingKey, setDeletingKey] = useState<string | null>(null)
+  const [showDone, setShowDone] = useState(false)
 
   // Upload state
   const [uploadOrg, setUploadOrg] = useState('')
@@ -192,7 +193,7 @@ export default function AdminLetterheadsPage() {
   const doneRequests = requests.filter(r => r.status === 'done')
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
+    <div className="h-dvh overflow-y-auto bg-[#f8fafc]">
       {/* Header */}
       <header
         className="flex items-center justify-between px-4"
@@ -265,13 +266,20 @@ export default function AdminLetterheadsPage() {
               </div>
             )}
             {doneRequests.length > 0 && (
-              <div>
-                <h2 className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-2 mt-6">Done</h2>
-                <div className="space-y-3">
-                  {doneRequests.map(r => (
-                    <RequestCard key={r.id} request={r} onMarkDone={markDone} onPrefill={prefillFromRequest} />
-                  ))}
-                </div>
+              <div className="mt-6">
+                <button
+                  onClick={() => setShowDone(v => !v)}
+                  className="text-xs text-[#94a3b8] hover:text-[#475569] font-medium motion-safe:transition-colors"
+                >
+                  {showDone ? '▾ Hide' : '▸ Show'} completed ({doneRequests.length})
+                </button>
+                {showDone && (
+                  <div className="space-y-3 mt-2">
+                    {doneRequests.map(r => (
+                      <RequestCard key={r.id} request={r} onMarkDone={markDone} onPrefill={prefillFromRequest} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
