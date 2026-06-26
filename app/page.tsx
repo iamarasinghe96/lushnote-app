@@ -40,7 +40,7 @@ export default function Page() {
   }
 
   return (
-    <div className="h-dvh overflow-y-auto text-[var(--text)] relative">
+    <div className="h-dvh overflow-y-auto text-[var(--text)] relative" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {/* Fixed full-viewport background so glass cards scroll over it */}
       <div
         aria-hidden

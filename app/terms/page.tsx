@@ -5,7 +5,7 @@ const CONTACT_EMAIL = 'iamarasinghe96@gmail.com'
 
 export default function TermsPage() {
   return (
-    <div className="h-dvh overflow-y-auto bg-[#f8fafc] text-[#0f172a]">
+    <div className="h-dvh overflow-y-auto bg-[#f8fafc] text-[#0f172a]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
 
       {/* Nav */}
       <nav className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-[#e2e8f0] px-4 py-3 flex items-center justify-between">
