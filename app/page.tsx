@@ -40,7 +40,7 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-screen text-[var(--text)] relative">
+    <div className="h-dvh overflow-y-auto text-[var(--text)] relative">
       {/* Fixed full-viewport background so glass cards scroll over it */}
       <div
         aria-hidden
