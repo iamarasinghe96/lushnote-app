@@ -142,6 +142,7 @@ export default function SignatureUploader({ existingUrl, onSave, saving }: Props
   const [svgDataUrl, setSvgDataUrl] = useState<string | null>(null)
   const [processing, setProcessing] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [imgError, setImgError] = useState(false)
 
   const processFile = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) return
@@ -155,6 +156,7 @@ export default function SignatureUploader({ existingUrl, onSave, saving }: Props
           const svg = imageToSVG(img)
           const encoded = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
           setSvgDataUrl(encoded)
+          setImgError(false)
           onSave(encoded)
         } finally {
           setProcessing(false)
@@ -180,11 +182,12 @@ export default function SignatureUploader({ existingUrl, onSave, saving }: Props
   }
 
   const displayUrl = svgDataUrl || existingUrl
+  const showUploadZone = !svgDataUrl && (!existingUrl || imgError)
 
   return (
     <div className="space-y-3">
       {/* Checkerboard preview */}
-      {displayUrl && (
+      {displayUrl && !imgError && (
         <div className="rounded-[var(--r)] overflow-hidden border border-[var(--border)]"
           style={{
             background: 'repeating-conic-gradient(#e2e8f0 0% 25%, #fff 0% 50%) 0 0 / 16px 16px',
@@ -193,12 +196,13 @@ export default function SignatureUploader({ existingUrl, onSave, saving }: Props
             src={displayUrl}
             alt="Signature preview"
             className="h-20 w-full object-contain p-2"
+            onError={() => setImgError(true)}
           />
         </div>
       )}
 
-      {/* Upload zone - shown when no extracted SVG yet */}
-      {!svgDataUrl && (
+      {/* Upload zone */}
+      {showUploadZone && (
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
           onDragLeave={() => setDragOver(false)}
@@ -221,8 +225,8 @@ export default function SignatureUploader({ existingUrl, onSave, saving }: Props
         </div>
       )}
 
-      {/* Re-upload button - shown once a signature is loaded */}
-      {(svgDataUrl || existingUrl) && (
+      {/* Re-upload button - shown once a signature is loaded and preview is valid */}
+      {(svgDataUrl || existingUrl) && !imgError && (
         <button
           onClick={() => { setSvgDataUrl(null); fileRef.current?.click() }}
           disabled={saving || processing}
