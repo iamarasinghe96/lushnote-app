@@ -264,8 +264,7 @@ export default function Page() {
             © 2025 LushNote. Built to save one more life.
           </p>
           <div className="flex items-center gap-4 text-xs text-[var(--text3)]">
-            <a href="#" className="hover:text-[var(--text)] motion-safe:transition-colors">Privacy</a>
-            <a href="#" className="hover:text-[var(--text)] motion-safe:transition-colors">Terms</a>
+            <a href="/terms" className="hover:text-[var(--text)] motion-safe:transition-colors">Privacy &amp; Terms</a>
             <a
               href="mailto:iamarasinghe96@gmail.com"
               className="hover:text-[var(--text)] motion-safe:transition-colors"
