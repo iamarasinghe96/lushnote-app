@@ -306,31 +306,52 @@ function EditContent() {
 
   useEffect(() => { return () => { mountedRef.current = false; metaAnimRef.current?.cancel() } }, [])
 
-  // Bidirectional scroll sync - only for note mode (not letter mode, where form
-  // height >> letter height so proportional sync lands on the wrong section)
+  // Section-name scroll sync: form → preview only (note mode only).
+  // Finds which field label is at the top of the form viewport, then scrolls
+  // the preview to the matching h3 heading. This is accurate regardless of
+  // how different the form and preview scrollHeights are.
   useEffect(() => {
     const form = formScrollRef.current
     const preview = previewScrollRef.current
     if (!form || !preview) return
 
-    function syncTo(source: HTMLDivElement, target: HTMLDivElement) {
+    function onFormScroll() {
       if (storeRef.current.letterType !== null) return
       if (scrollSyncLockRef.current) return
       scrollSyncLockRef.current = true
-      const pct = source.scrollTop / (source.scrollHeight - source.clientHeight) || 0
-      target.scrollTop = pct * (target.scrollHeight - target.clientHeight)
+
+      // Find the last label whose top edge is still within the visible form area
+      const formRect = form!.getBoundingClientRect()
+      const labels = Array.from(form!.querySelectorAll<HTMLLabelElement>('label'))
+      let activeLabel: HTMLLabelElement | null = null
+      for (const label of labels) {
+        const top = label.getBoundingClientRect().top - formRect.top
+        if (top <= 48) activeLabel = label
+        else break
+      }
+
+      if (activeLabel) {
+        const targetText = (activeLabel.textContent ?? '').trim().toUpperCase()
+        const sections = Array.from(preview!.querySelectorAll<HTMLElement>('.preview-section h3'))
+        for (const h3 of sections) {
+          if ((h3.textContent ?? '').trim().toUpperCase() === targetText) {
+            const section = h3.closest<HTMLElement>('.preview-section')
+            if (section) {
+              const offset = section.getBoundingClientRect().top
+                - preview!.getBoundingClientRect().top
+                + preview!.scrollTop
+              preview!.scrollTop = offset
+            }
+            break
+          }
+        }
+      }
+
       requestAnimationFrame(() => { scrollSyncLockRef.current = false })
     }
 
-    const onFormScroll = () => syncTo(form, preview)
-    const onPreviewScroll = () => syncTo(preview, form)
-
     form.addEventListener('scroll', onFormScroll, { passive: true })
-    preview.addEventListener('scroll', onPreviewScroll, { passive: true })
-    return () => {
-      form.removeEventListener('scroll', onFormScroll)
-      preview.removeEventListener('scroll', onPreviewScroll)
-    }
+    return () => { form.removeEventListener('scroll', onFormScroll) }
   }, [])
 
   useEffect(() => {
