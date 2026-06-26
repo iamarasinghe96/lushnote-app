@@ -155,6 +155,7 @@ export default function SignatureUploader({ existingUrl, onSave, saving }: Props
           const svg = imageToSVG(img)
           const encoded = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
           setSvgDataUrl(encoded)
+          onSave(encoded)
         } finally {
           setProcessing(false)
         }
@@ -163,7 +164,7 @@ export default function SignatureUploader({ existingUrl, onSave, saving }: Props
       img.src = url
     }
     reader.readAsDataURL(file)
-  }, [])
+  }, [onSave])
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
@@ -220,29 +221,13 @@ export default function SignatureUploader({ existingUrl, onSave, saving }: Props
         </div>
       )}
 
-      {/* Action buttons after extraction */}
-      {svgDataUrl && (
-        <div className="flex gap-2">
-          <button
-            onClick={() => { setSvgDataUrl(null) }}
-            className="flex-1 text-xs border border-[var(--border)] rounded-[var(--r)] py-2 text-[var(--text2)] hover:border-[var(--blue)]/50 motion-safe:transition-colors">
-            Re-upload
-          </button>
-          <button
-            onClick={() => onSave(svgDataUrl)}
-            disabled={saving}
-            className="flex-1 text-xs bg-[var(--blue)] text-white rounded-[var(--r)] py-2 font-medium disabled:opacity-50 motion-safe:transition-opacity">
-            {saving ? 'Saving…' : 'Save signature'}
-          </button>
-        </div>
-      )}
-
-      {/* Update button - shown when existing URL but no new extraction yet */}
-      {!svgDataUrl && existingUrl && (
+      {/* Re-upload button - shown once a signature is loaded */}
+      {(svgDataUrl || existingUrl) && (
         <button
-          onClick={() => fileRef.current?.click()}
-          className="w-full text-xs border border-[var(--border)] rounded-[var(--r)] py-2 text-[var(--text2)] hover:border-[var(--blue)]/50 motion-safe:transition-colors">
-          Update signature
+          onClick={() => { setSvgDataUrl(null); fileRef.current?.click() }}
+          disabled={saving || processing}
+          className="w-full text-xs border border-[var(--border)] rounded-[var(--r)] py-2 text-[var(--text2)] hover:border-[var(--blue)]/50 motion-safe:transition-colors disabled:opacity-50">
+          {saving ? 'Saving…' : processing ? 'Processing…' : 'Re-upload'}
         </button>
       )}
 
