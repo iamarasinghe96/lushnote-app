@@ -55,6 +55,136 @@ function wpToForm(wp: Workplace): EditForm {
   }
 }
 
+interface InlineWorkplaceFormProps {
+  form: EditForm
+  setForm: (updater: (f: EditForm) => EditForm) => void
+  saving: boolean
+  onSave: () => void
+  onCancel: () => void
+}
+
+function InlineWorkplaceForm({ form, setForm, saving, onSave, onCancel }: InlineWorkplaceFormProps) {
+  const patternPreview = form.regSystem === 'existing' && form.regFormat
+    ? detectIdPattern(form.regFormat)
+    : null
+
+  return (
+    <div className="mt-3 pt-3 border-t border-[var(--border)] space-y-3">
+      <HospitalAutocomplete
+        label="Workplace name"
+        value={form.name}
+        onChange={name => setForm(f => ({ ...f, name }))}
+        placeholder="e.g. City Psychiatry"
+      />
+
+      <div>
+        <label className="block text-sm font-medium text-[var(--text)] mb-1">Type</label>
+        <select
+          value={form.type}
+          onChange={e => setForm(f => ({ ...f, type: e.target.value as WorkplaceType }))}
+          className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white
+                     px-3 py-2.5 text-sm text-[var(--text)]
+                     outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
+                     transition-colors"
+        >
+          {WORKPLACE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-[var(--text)] mb-1">Registration system</label>
+        <select
+          value={form.regSystem}
+          onChange={e => setForm(f => ({ ...f, regSystem: e.target.value as 'none' | 'existing', regFormat: '' }))}
+          className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white
+                     px-3 py-2.5 text-sm text-[var(--text)]
+                     outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
+                     transition-colors"
+        >
+          {REG_SYSTEMS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+      </div>
+
+      {form.regSystem === 'existing' && (
+        <div>
+          <Input
+            label="Example patient ID"
+            value={form.regFormat}
+            onChange={e => setForm(f => ({ ...f, regFormat: e.target.value }))}
+            placeholder="e.g. 12345678AB"
+          />
+          {patternPreview && (
+            <p className="mt-1 text-xs text-[var(--text3)]">
+              Pattern: <span className="font-mono text-[var(--blue)]">{patternPreview.template}</span>
+              {' '}- {patternPreview.description}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-medium text-[var(--text)] mb-2">Colour theme</label>
+        <div className="flex items-center gap-2 flex-wrap">
+          {WP_THEMES.map((theme, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setForm(f => ({ ...f, themeIndex: i }))}
+              className={`w-8 h-8 rounded-full motion-safe:transition-transform
+                ${form.themeIndex === i ? 'scale-110 ring-2 ring-offset-2 ring-[var(--blue)]' : 'opacity-80 hover:opacity-100 hover:scale-105'}`}
+              style={{ backgroundColor: theme.primary }}
+              aria-label={`Theme ${i + 1}`}
+            />
+          ))}
+          {form.themeIndex === -1 && (
+            <div
+              className="w-8 h-8 rounded-full scale-110 ring-2 ring-offset-2 ring-[var(--blue)]"
+              style={{ backgroundColor: form.themeColor }}
+            />
+          )}
+          <label
+            className="w-8 h-8 rounded-full border-2 border-dashed border-[var(--border)]
+                       flex items-center justify-center cursor-pointer
+                       hover:border-[var(--blue)] motion-safe:transition-colors"
+            aria-label="Custom colour"
+            title="Custom colour"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" className="text-[var(--text3)]" aria-hidden>
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 2a10 10 0 0 1 7.07 17.07"/>
+              <path d="M12 2a10 10 0 0 0-7.07 17.07"/>
+              <line x1="12" y1="2" x2="12" y2="22"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+            </svg>
+            <input
+              type="color"
+              className="sr-only"
+              value={form.themeIndex === -1 ? form.themeColor : '#4361EE'}
+              onChange={e => setForm(f => ({ ...f, themeIndex: -1, themeColor: e.target.value }))}
+              aria-label="Pick custom colour"
+            />
+          </label>
+        </div>
+        {form.themeIndex === -1 && (
+          <p className="mt-1.5 text-xs text-[var(--text3)]">
+            Custom: <span className="font-mono text-[var(--text2)]">{form.themeColor}</span>
+          </p>
+        )}
+      </div>
+
+      <div className="flex gap-2">
+        <Button variant="ghost" onClick={onCancel} disabled={saving} className="flex-1" size="sm">
+          Cancel
+        </Button>
+        <Button variant="primary" onClick={onSave} loading={saving} className="flex-1" size="sm">
+          Save
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export default function WorkplacesPanel({ profile, onSave, onToast }: WorkplacesPanelProps) {
   const { user } = useAuth()
   const workplaces = profile.workplaces ?? []
@@ -224,130 +354,6 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
     reader.readAsDataURL(file)
   }
 
-  const patternPreview = form.regSystem === 'existing' && form.regFormat
-    ? detectIdPattern(form.regFormat)
-    : null
-
-  function InlineForm({ onSave: onFormSave }: { onSave: () => void }) {
-    return (
-      <div className="mt-3 pt-3 border-t border-[var(--border)] space-y-3">
-        <HospitalAutocomplete
-          label="Workplace name"
-          value={form.name}
-          onChange={name => setForm(f => ({ ...f, name }))}
-          placeholder="e.g. City Psychiatry"
-        />
-
-        <div>
-          <label className="block text-sm font-medium text-[var(--text)] mb-1">Type</label>
-          <select
-            value={form.type}
-            onChange={e => setForm(f => ({ ...f, type: e.target.value as WorkplaceType }))}
-            className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white
-                       px-3 py-2.5 text-sm text-[var(--text)]
-                       outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
-                       transition-colors"
-          >
-            {WORKPLACE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-[var(--text)] mb-1">Registration system</label>
-          <select
-            value={form.regSystem}
-            onChange={e => setForm(f => ({ ...f, regSystem: e.target.value as 'none' | 'existing', regFormat: '' }))}
-            className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white
-                       px-3 py-2.5 text-sm text-[var(--text)]
-                       outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
-                       transition-colors"
-          >
-            {REG_SYSTEMS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
-        </div>
-
-        {form.regSystem === 'existing' && (
-          <div>
-            <Input
-              label="Example patient ID"
-              value={form.regFormat}
-              onChange={e => setForm(f => ({ ...f, regFormat: e.target.value }))}
-              placeholder="e.g. 12345678AB"
-            />
-            {patternPreview && (
-              <p className="mt-1 text-xs text-[var(--text3)]">
-                Pattern: <span className="font-mono text-[var(--blue)]">{patternPreview.template}</span>
-                {' '}- {patternPreview.description}
-              </p>
-            )}
-          </div>
-        )}
-
-        <div>
-          <label className="block text-sm font-medium text-[var(--text)] mb-2">Colour theme</label>
-          <div className="flex items-center gap-2 flex-wrap">
-            {WP_THEMES.map((theme, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setForm(f => ({ ...f, themeIndex: i }))}
-                className={`w-8 h-8 rounded-full motion-safe:transition-transform
-                  ${form.themeIndex === i ? 'scale-110 ring-2 ring-offset-2 ring-[var(--blue)]' : 'opacity-80 hover:opacity-100 hover:scale-105'}`}
-                style={{ backgroundColor: theme.primary }}
-                aria-label={`Theme ${i + 1}`}
-              />
-            ))}
-            {/* Custom colour swatch — shown when a custom colour is active */}
-            {form.themeIndex === -1 && (
-              <div
-                className="w-8 h-8 rounded-full scale-110 ring-2 ring-offset-2 ring-[var(--blue)]"
-                style={{ backgroundColor: form.themeColor }}
-              />
-            )}
-            {/* Native colour picker trigger */}
-            <label
-              className="w-8 h-8 rounded-full border-2 border-dashed border-[var(--border)]
-                         flex items-center justify-center cursor-pointer
-                         hover:border-[var(--blue)] motion-safe:transition-colors"
-              aria-label="Custom colour"
-              title="Custom colour"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2" className="text-[var(--text3)]" aria-hidden>
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 2a10 10 0 0 1 7.07 17.07"/>
-                <path d="M12 2a10 10 0 0 0-7.07 17.07"/>
-                <line x1="12" y1="2" x2="12" y2="22"/>
-                <line x1="2" y1="12" x2="22" y2="12"/>
-              </svg>
-              <input
-                type="color"
-                className="sr-only"
-                value={form.themeIndex === -1 ? form.themeColor : '#4361EE'}
-                onChange={e => setForm(f => ({ ...f, themeIndex: -1, themeColor: e.target.value }))}
-                aria-label="Pick custom colour"
-              />
-            </label>
-          </div>
-          {form.themeIndex === -1 && (
-            <p className="mt-1.5 text-xs text-[var(--text3)]">
-              Custom: <span className="font-mono text-[var(--text2)]">{form.themeColor}</span>
-            </p>
-          )}
-        </div>
-
-        <div className="flex gap-2">
-          <Button variant="ghost" onClick={cancelEdit} disabled={saving} className="flex-1" size="sm">
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={onFormSave} loading={saving} className="flex-1" size="sm">
-            Save
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="max-w-lg space-y-4">
       {workplaces.map(wp => {
@@ -415,7 +421,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
               </div>
             </div>
 
-            {isEditing && <InlineForm onSave={saveEdit} />}
+            {isEditing && <InlineWorkplaceForm form={form} setForm={setForm} saving={saving} onSave={saveEdit} onCancel={cancelEdit} />}
 
             {/* Letterhead status - only when not editing */}
             {!isEditing && (
@@ -558,7 +564,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
           style={{ boxShadow: 'var(--shadow-sm)' }}
         >
           <p className="text-sm font-semibold text-[var(--text)] mb-1">New workplace</p>
-          <InlineForm onSave={saveNew} />
+          <InlineWorkplaceForm form={form} setForm={setForm} saving={saving} onSave={saveNew} onCancel={cancelEdit} />
         </div>
       )}
 
