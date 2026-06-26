@@ -6,6 +6,7 @@ import { signOut } from 'firebase/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { auth } from '@/lib/firebase'
 import { createProfile, updateProfile } from '@/lib/firestore/profiles'
+import { submitLetterheadRequest } from '@/lib/firestore/letterheads'
 import { uploadSignatureSVG } from '@/lib/storage'
 import { detectIdPattern } from '@/lib/utils'
 import SignatureUploader from '@/components/ui/SignatureUploader'
@@ -154,6 +155,17 @@ export default function OnboardingPage() {
         await updateProfile(user.uid, { groqApiKey: groqApiKey.trim() })
         sessionStorage.setItem('groq_api_key', groqApiKey.trim())
       }
+
+      // Best-effort: notify admin so they can source/upload the letterhead
+      try {
+        await submitLetterheadRequest({
+          uid: user.uid,
+          email: user.email ?? '',
+          displayName: displayName.trim(),
+          workplaceName: workplaceName.trim(),
+          note: 'Auto-requested during signup',
+        })
+      } catch { /* non-blocking */ }
 
       await refreshProfile()
       router.push('/generate')
