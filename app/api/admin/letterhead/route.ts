@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
       uid: string
-      action: 'listRequests' | 'listLetterheads' | 'upload' | 'markDone' | 'deleteLetterhead'
+      action: 'listRequests' | 'listLetterheads' | 'upload' | 'markDone' | 'deleteLetterhead' | 'deleteRequest'
       requestId?: string
       organizationKey?: string
       organizationName?: string
@@ -87,6 +87,13 @@ export async function POST(req: NextRequest) {
       const { requestId } = body
       if (!requestId) return NextResponse.json({ error: 'requestId required' }, { status: 400 })
       await db.collection('letterheadRequests').doc(requestId).update({ status: 'done' })
+      return NextResponse.json({ success: true })
+    }
+
+    if (action === 'deleteRequest') {
+      const { requestId } = body
+      if (!requestId) return NextResponse.json({ error: 'requestId required' }, { status: 400 })
+      await db.collection('letterheadRequests').doc(requestId).delete()
       return NextResponse.json({ success: true })
     }
 
