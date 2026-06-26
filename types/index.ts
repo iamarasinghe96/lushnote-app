@@ -28,6 +28,8 @@ interface User {
   recordingDefaults?: RecordingDefaults
   personalisation?: Personalisation
   geminiUsage?: GeminiUsage
+  termsAccepted?: boolean
+  termsAcceptedAt?: string
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
 }

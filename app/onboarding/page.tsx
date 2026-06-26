@@ -55,6 +55,7 @@ export default function OnboardingPage() {
   const [geminiApiKey, setGeminiApiKey] = useState('')
   const [groqApiKey, setGroqApiKey] = useState('')
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null)
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -94,6 +95,7 @@ export default function OnboardingPage() {
   function canAdvance(): boolean {
     if (step === 1) return displayName.trim().length > 0
     if (step === 2) return workplaceName.trim().length > 0
+    if (step === 6) return termsAccepted
     return true
   }
 
@@ -144,6 +146,8 @@ export default function OnboardingPage() {
         ...(providerNumber.trim() ? { providerNumber: providerNumber.trim() } : {}),
         ...(workPhone.trim() ? { workPhone: workPhone.trim() } : {}),
         ...(signatureUrl ? { signatureUrl } : {}),
+        termsAccepted: true,
+        termsAcceptedAt: new Date().toISOString(),
       })
 
       if (geminiApiKey.trim()) {
@@ -274,6 +278,8 @@ export default function OnboardingPage() {
               signatureUrl={signatureUrl}
               hasGemini={geminiApiKey.trim().length > 0}
               hasGroq={groqApiKey.trim().length > 0}
+              termsAccepted={termsAccepted}
+              onTermsAccepted={setTermsAccepted}
               error={error}
             />
           )}
@@ -298,7 +304,7 @@ export default function OnboardingPage() {
             ) : (
               <button
                 onClick={handleComplete}
-                disabled={submitting}
+                disabled={submitting || !termsAccepted}
                 className="rounded-xl bg-[#10b981] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50 active:scale-95 transition flex items-center gap-2"
               >
                 {submitting && <Spinner size={16} />}
@@ -638,6 +644,8 @@ function Step5({
   signatureUrl,
   hasGemini,
   hasGroq,
+  termsAccepted,
+  onTermsAccepted,
   error,
 }: {
   displayName: string
@@ -649,6 +657,8 @@ function Step5({
   signatureUrl: string | null
   hasGemini: boolean
   hasGroq: boolean
+  termsAccepted: boolean
+  onTermsAccepted: (v: boolean) => void
   error: string
 }) {
   const aiKeys = hasGemini && hasGroq ? 'Gemini · Groq'
@@ -676,6 +686,37 @@ function Step5({
           </div>
         ))}
       </div>
+
+      {/* Terms agreement */}
+      <label
+        className={`flex items-start gap-3 rounded-xl border-2 p-4 cursor-pointer transition-colors ${
+          termsAccepted
+            ? 'border-[#10b981] bg-[#f0fdf4]'
+            : 'border-[#e2e8f0] bg-white hover:border-[#10b981]/40'
+        }`}
+      >
+        <input
+          type="checkbox"
+          checked={termsAccepted}
+          onChange={(e) => onTermsAccepted(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded accent-[#10b981] shrink-0 cursor-pointer"
+        />
+        <span className="text-sm text-[#475569] leading-relaxed">
+          I have read and agree to LushNote&apos;s{' '}
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#2563eb] underline font-medium"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Terms of Service &amp; Privacy Policy
+          </a>
+          , including how patient data is stored, my rights under Australian privacy law,
+          and my obligations as a treating clinician.
+        </span>
+      </label>
+
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   )
