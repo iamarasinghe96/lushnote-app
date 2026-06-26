@@ -27,7 +27,7 @@ export default function TermsPage() {
         {/* Acknowledgment */}
         <div className="mb-10 p-5 rounded-2xl border border-[#d8f0e8] bg-[#f0fdf8]">
           <p className="text-sm font-semibold text-[#059669] mb-1">Acknowledgment of Country</p>
-          <p className="text-sm text-[#475569] leading-relaxed">
+          <p className="text-sm text-[#475569] leading-relaxed text-justify">
             LushNote acknowledges the Traditional Custodians of the lands on which we work and live,
             and pays respect to Elders past and present. We are committed to building healthcare
             tools that reduce the documentation burden on all clinicians, freeing up more time
@@ -345,7 +345,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section className="mb-10">
       <h2 className="text-lg font-bold text-[#0f172a] mb-3 pb-2 border-b border-[#e2e8f0]">{title}</h2>
-      <div className="space-y-3 text-[#475569] leading-relaxed text-sm">
+      <div className="space-y-3 text-[#475569] leading-relaxed text-sm text-justify">
         {children}
       </div>
     </section>
@@ -360,7 +360,7 @@ function FAQ({ q, children }: { q: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-[#e2e8f0] bg-white p-5">
       <p className="font-semibold text-[#0f172a] text-sm mb-2">{q}</p>
-      <p className="text-sm text-[#475569] leading-relaxed">{children}</p>
+      <p className="text-sm text-[#475569] leading-relaxed text-justify">{children}</p>
     </div>
   )
 }
