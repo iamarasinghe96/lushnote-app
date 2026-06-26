@@ -55,7 +55,8 @@ export default function Page() {
             'radial-gradient(ellipse 70% 38% at 6%  50%,  rgba(90,214,167,0.55) 0%, transparent 52%)',
             'radial-gradient(ellipse 65% 38% at 90% 70%,  rgba(37,99,235,0.55)  0%, transparent 52%)',
             'radial-gradient(ellipse 60% 30% at 18% 90%,  rgba(90,214,167,0.50) 0%, transparent 48%)',
-            '#f0f7ff',
+            'radial-gradient(ellipse 100% 45% at 50% 100%, rgba(90,214,167,0.55) 0%, transparent 60%)',
+            '#d8f0e8',
           ].join(', '),
         }}
       />
