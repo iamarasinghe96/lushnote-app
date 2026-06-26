@@ -105,6 +105,16 @@ export default function AdminLetterheadsPage() {
     }
   }
 
+  async function deleteRequest(requestId: string) {
+    try {
+      await call({ action: 'deleteRequest', requestId })
+      setRequests(prev => prev.filter(r => r.id !== requestId))
+      setToast('Request deleted')
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : 'Delete failed')
+    }
+  }
+
   async function deleteLetterhead(organizationKey: string, organizationName: string) {
     if (!window.confirm(`Delete letterhead for "${organizationName}"? This cannot be undone.`)) return
     setDeletingKey(organizationKey)
@@ -260,7 +270,7 @@ export default function AdminLetterheadsPage() {
                 <h2 className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wide mb-2">Pending</h2>
                 <div className="space-y-3">
                   {pendingRequests.map(r => (
-                    <RequestCard key={r.id} request={r} onMarkDone={markDone} onPrefill={prefillFromRequest} />
+                    <RequestCard key={r.id} request={r} onMarkDone={markDone} onPrefill={prefillFromRequest} onDelete={deleteRequest} />
                   ))}
                 </div>
               </div>
@@ -276,7 +286,7 @@ export default function AdminLetterheadsPage() {
                 {showDone && (
                   <div className="space-y-3 mt-2">
                     {doneRequests.map(r => (
-                      <RequestCard key={r.id} request={r} onMarkDone={markDone} onPrefill={prefillFromRequest} />
+                      <RequestCard key={r.id} request={r} onMarkDone={markDone} onPrefill={prefillFromRequest} onDelete={deleteRequest} />
                     ))}
                   </div>
                 )}
@@ -385,10 +395,11 @@ export default function AdminLetterheadsPage() {
   )
 }
 
-function RequestCard({ request, onMarkDone, onPrefill }: {
+function RequestCard({ request, onMarkDone, onPrefill, onDelete }: {
   request: LetterheadRequest
   onMarkDone: (id: string) => void
   onPrefill: (org: string) => void
+  onDelete: (id: string) => void
 }) {
   const [marking, setMarking] = useState(false)
   const date = request.createdAt ? new Date(request.createdAt.seconds * 1000).toLocaleDateString('en-AU') : ''
@@ -444,6 +455,12 @@ function RequestCard({ request, onMarkDone, onPrefill }: {
             {marking ? 'Updating…' : 'Mark as done'}
           </button>
         )}
+        <button
+          onClick={() => onDelete(request.id)}
+          className="text-xs text-red-500 font-medium ml-auto motion-safe:active:scale-95 motion-safe:transition-transform"
+        >
+          Delete
+        </button>
       </div>
     </div>
   )
