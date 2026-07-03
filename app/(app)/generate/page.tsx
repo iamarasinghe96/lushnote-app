@@ -256,7 +256,7 @@ export default function GeneratePage() {
   // prepended to every subsequent segment to produce a valid audio file.
   const MAX_SEGMENT_BYTES = 1_800_000
 
-  async function transcribeSegment(segBlob: Blob, mimeType: string): Promise<string> {
+  async function postSegment(segBlob: Blob, mimeType: string): Promise<string> {
     const formData = new FormData()
     formData.append('audio', segBlob, 'audio.webm')
     formData.append('mimeType', mimeType)
@@ -270,6 +270,22 @@ export default function GeneratePage() {
       throw new Error(data.error ?? 'Transcription failed')
     }
     return ((await res.json()) as { text: string }).text
+  }
+
+  // A single segment can transiently fail two ways on long recordings: a
+  // function-timeout spike near the 60s boundary, or a brief Gemini per-minute
+  // rate limit when segments are sent back-to-back. Both clear on their own, so
+  // retry with backoff rather than throwing away the whole transcription.
+  async function transcribeSegment(segBlob: Blob, mimeType: string): Promise<string> {
+    const delays = [4000, 10000]
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await postSegment(segBlob, mimeType)
+      } catch (err) {
+        if (attempt >= delays.length) throw err
+        await new Promise((r) => setTimeout(r, delays[attempt]))
+      }
+    }
   }
 
   async function transcribeAudio(blob: Blob, chunks: Blob[], mimeType: string): Promise<string> {
