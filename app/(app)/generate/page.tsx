@@ -248,11 +248,13 @@ export default function GeneratePage() {
     setTranscriptConfirmOpen(true)
   }
 
-  // Vercel serverless functions have a hard 4.5 MB request body limit.
-  // Long recordings (>~10 min at 48 kbps) exceed it, so split into segments.
+  // Vercel serverless functions have a hard 4.5 MB request body limit, and the
+  // Hobby-plan function timeout caps at 60s. Sizing each segment to ~5 min of
+  // audio (48 kbps → ~1.8 MB) keeps every transcription call well within that
+  // 60s window so long recordings don't time out.
   // Chunk[0] from MediaRecorder contains the WebM stream header and must be
   // prepended to every subsequent segment to produce a valid audio file.
-  const MAX_SEGMENT_BYTES = 3_500_000
+  const MAX_SEGMENT_BYTES = 1_800_000
 
   async function transcribeSegment(segBlob: Blob, mimeType: string): Promise<string> {
     const formData = new FormData()

@@ -4,6 +4,11 @@ import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles'
 import { rateLimit } from '@/lib/rateLimit'
 
+// Transcribing a multi-minute audio segment via Gemini takes far longer than
+// Vercel's 10s Hobby default. 60s is the Hobby-plan ceiling; segments are sized
+// (client-side) to finish within it.
+export const maxDuration = 60
+
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData()

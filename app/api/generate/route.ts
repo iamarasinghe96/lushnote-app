@@ -5,6 +5,10 @@ import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/fir
 import { rateLimit } from '@/lib/rateLimit'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 
+// Generating a note from a long transcript can exceed Vercel's 10s Hobby
+// default. 60s is the Hobby-plan ceiling.
+export const maxDuration = 60
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
