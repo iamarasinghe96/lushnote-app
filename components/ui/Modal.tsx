@@ -35,7 +35,7 @@ export default function Modal({ open, onClose, title, maxWidth = 'md', children 
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
       onMouseDown={onClose}
       role="dialog"
       aria-modal
@@ -67,7 +67,7 @@ export default function Modal({ open, onClose, title, maxWidth = 'md', children 
             </button>
           </div>
         )}
-        <div className="overflow-y-auto" style={{ maxHeight: '80vh' }}>
+        <div className="overflow-y-auto" style={{ maxHeight: '80dvh', paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {children}
         </div>
       </div>
