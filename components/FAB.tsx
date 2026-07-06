@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-
-const SLACK_WEBHOOK = 'https://hooks.slack.com' + '/services/T0B5HRCD3QT/B0B5X3GJYBW/wmD9BaIPKisWj0rQ67vWdmnQ'
+import { listNotes } from '@/lib/firestore/notes'
+import type { Note } from '@/types'
 
 const LUSHNOTE_KB = `LushNote is a clinical note builder for psychiatrists.
 Features: 116 clinical note templates, voice recording and transcription, AI note generation, patient management, PDF/clipboard/email export, custom templates.
@@ -19,23 +19,111 @@ Export: PDF (formatted A4), clipboard copy, email via mailto with professional c
 Custom templates: Create in Settings > Templates.
 Personalisation: Set your professional identity, treatment approaches, and document style in Settings > Personalisation.`
 
+const STOP_WORDS = new Set([
+  'the', 'who', 'what', 'when', 'where', 'which', 'that', 'this', 'with', 'from',
+  'had', 'has', 'have', 'was', 'were', 'did', 'does', 'and', 'for', 'are', 'is',
+  'his', 'her', 'their', 'they', 'she', 'him', 'you', 'your', 'about', 'tell',
+  'how', 'many', 'much', 'patient', 'patients', 'session', 'sessions', 'note',
+  'notes', 'one', 'any', 'all', 'name', 'there', 'been', 'kind', 'like',
+])
+
+const SNIPPET_FIELDS: (keyof Note)[] = [
+  'transcript', 'presentation', 'history', 'content', 'summary', 'mse', 'risk', 'nextsteps',
+]
+
+const CONTEXT_CHAR_CAP = 16000
+
+// Builds the clinical context the assistant answers from: every note gets a
+// header (patient/date/diagnosis) and summary, and notes whose text matches
+// the question's keywords also get excerpt windows around each match — this is
+// what lets the model answer transcript-detail questions ("the patient whose
+// friend...") without shipping whole transcripts to the AI.
+function buildNotesContext(question: string, notes: Note[]): string {
+  const keywords = question
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !STOP_WORDS.has(w))
+
+  const entries = notes.map(note => {
+    const diagnosis = (note.diagnosis ?? '').replace(/\s+/g, ' ').slice(0, 150)
+    const header = `Patient: ${note.patient ?? 'Unknown'} | Date: ${note.date ?? '?'}${diagnosis ? ` | Diagnosis: ${diagnosis}` : ''}`
+    const summary = ((note.summary || note.presentation || '') as string).replace(/\s+/g, ' ').slice(0, 200)
+
+    const snippets: string[] = []
+    for (const field of SNIPPET_FIELDS) {
+      if (snippets.length >= 4) break
+      const text = (note[field] as string) || ''
+      if (!text) continue
+      const lower = text.toLowerCase()
+      for (const word of keywords) {
+        if (snippets.length >= 4) break
+        let idx = lower.indexOf(word)
+        while (idx !== -1 && snippets.length < 4) {
+          const start = Math.max(0, idx - 120)
+          const end = Math.min(text.length, idx + word.length + 120)
+          snippets.push(text.slice(start, end).replace(/\s+/g, ' '))
+          idx = lower.indexOf(word, end)
+        }
+      }
+    }
+
+    const parts = [header]
+    if (summary) parts.push(`Summary: ${summary}`)
+    if (snippets.length) parts.push(`Excerpts: …${snippets.join('… | …')}…`)
+    return { hits: snippets.length, text: parts.join('\n') }
+  })
+
+  // Keyword-matched notes first so they survive the cap; ties keep recency order
+  entries.sort((a, b) => b.hits - a.hits)
+
+  const out: string[] = []
+  let total = 0
+  for (const e of entries) {
+    if (total + e.text.length > CONTEXT_CHAR_CAP) {
+      if (e.hits === 0) break
+      continue
+    }
+    out.push(e.text)
+    total += e.text.length
+  }
+  return out.join('\n---\n')
+}
+
+interface ChatMessage {
+  role: string
+  content: string
+}
+
+interface SupportMessage {
+  role: string
+  text: string
+  ts: string
+}
+
 export function FAB() {
   const pathname = usePathname()
   const [expanded, setExpanded] = useState(false)
   const [panel, setPanel] = useState<'ai' | 'support' | null>(null)
-  const [aiMessages, setAiMessages] = useState<{ role: string; content: string }[]>([])
+  const [aiMessages, setAiMessages] = useState<ChatMessage[]>([])
   const [aiInput, setAiInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
-  const [supportName, setSupportName] = useState('')
-  const [supportEmail, setSupportEmail] = useState('')
-  const [supportMessage, setSupportMessage] = useState('')
-  const [supportSent, setSupportSent] = useState(false)
-  const { user } = useAuth()
+  const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([])
+  const [supportInput, setSupportInput] = useState('')
+  const [supportSending, setSupportSending] = useState(false)
+  const [supportTwoWay, setSupportTwoWay] = useState<boolean | null>(null)
+  const { user, profile } = useAuth()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const supportEndRef = useRef<HTMLDivElement>(null)
+  const notesCacheRef = useRef<{ notes: Note[]; fetchedAt: number } | null>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [aiMessages, aiLoading])
+
+  useEffect(() => {
+    supportEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [supportMessages])
 
   // Close sub-buttons on outside click
   useEffect(() => {
@@ -49,19 +137,56 @@ export function FAB() {
     return () => document.removeEventListener('mousedown', onMouseDown)
   }, [expanded])
 
+  const pollSupport = useCallback(async () => {
+    if (!user) return
+    try {
+      const res = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'poll', uid: user.uid }),
+      })
+      const data = await res.json() as { twoWay: boolean; messages?: SupportMessage[] }
+      setSupportTwoWay(data.twoWay)
+      if (data.twoWay && data.messages) setSupportMessages(data.messages)
+    } catch {
+      // transient network failure - next poll retries
+    }
+  }, [user])
+
+  // Load the support thread when the panel opens, then poll for admin replies
+  useEffect(() => {
+    if (panel !== 'support' || !user) return
+    pollSupport()
+    const interval = setInterval(pollSupport, 5000)
+    return () => clearInterval(interval)
+  }, [panel, user, pollSupport])
+
   function openPanel(type: 'ai' | 'support') {
     setPanel(type)
     setExpanded(false)
+  }
+
+  async function getNotes(): Promise<Note[]> {
+    if (!user) return []
+    const cache = notesCacheRef.current
+    if (cache && Date.now() - cache.fetchedAt < 60000) return cache.notes
+    const notes = await listNotes(user.uid)
+    notesCacheRef.current = { notes, fetchedAt: Date.now() }
+    return notes
   }
 
   async function handleAiSend() {
     if (!aiInput.trim() || aiLoading) return
     const question = aiInput.trim()
     setAiInput('')
+    const history = aiMessages.slice(-8)
     setAiMessages(prev => [...prev, { role: 'user', content: question }])
     setAiLoading(true)
 
     try {
+      const notes = await getNotes().catch(() => [] as Note[])
+      const notesContext = buildNotesContext(question, notes)
+
       const groqKey = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('groq_api_key') : null
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (groqKey) headers['x-groq-key'] = groqKey
@@ -74,10 +199,12 @@ export function FAB() {
           question,
           kb: LUSHNOTE_KB,
           uid: user?.uid,
+          notesContext,
+          history,
         }),
       })
       const data = await response.json()
-      setAiMessages(prev => [...prev, { role: 'ai', content: data.answer || 'No response.' }])
+      setAiMessages(prev => [...prev, { role: 'ai', content: data.answer || data.error || 'No response.' }])
     } catch {
       setAiMessages(prev => [...prev, { role: 'ai', content: 'Could not reach AI. Check your API key in Settings.' }])
     } finally {
@@ -85,17 +212,45 @@ export function FAB() {
     }
   }
 
-  async function handleSupportSubmit() {
-    if (!supportMessage.trim()) return
-    const payload = {
-      text: `*LushNote Support Request*\n*From:* ${supportName || 'Anonymous'} (${supportEmail || user?.email || 'no email'})\n*Message:* ${supportMessage}`,
-    }
+  async function handleSupportSend() {
+    if (!supportInput.trim() || supportSending || !user) return
+    const message = supportInput.trim()
+    setSupportInput('')
+    setSupportSending(true)
+    setSupportMessages(prev => [...prev, { role: 'user', text: message, ts: `local-${Date.now()}` }])
+
     try {
-      await fetch(SLACK_WEBHOOK, { method: 'POST', body: JSON.stringify(payload), mode: 'no-cors' })
-      setSupportSent(true)
+      const res = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send',
+          uid: user.uid,
+          name: profile?.displayName ?? '',
+          email: user.email ?? '',
+          message,
+        }),
+      })
+      const data = await res.json() as { twoWay: boolean; error?: string }
+      if (data.error) throw new Error(data.error)
+      setSupportTwoWay(data.twoWay)
+      if (data.twoWay) {
+        pollSupport()
+      } else {
+        setSupportMessages(prev => [...prev, {
+          role: 'support',
+          text: "Message received. We'll get back to you by email shortly.",
+          ts: `local-${Date.now()}`,
+        }])
+      }
     } catch {
-      const body = encodeURIComponent(`From: ${supportName}\nEmail: ${supportEmail}\n\n${supportMessage}`)
-      window.location.href = `mailto:iamarasinghe96@gmail.com?subject=LushNote Support&body=${body}`
+      setSupportMessages(prev => [...prev, {
+        role: 'support',
+        text: 'Message could not be sent. Please email iamarasinghe96@gmail.com directly.',
+        ts: `local-${Date.now()}`,
+      }])
+    } finally {
+      setSupportSending(false)
     }
   }
 
@@ -151,7 +306,7 @@ export function FAB() {
 
       {/* AI Assistant panel */}
       {panel === 'ai' && (
-        <div className="fixed inset-0 z-[50] flex flex-col" style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(12px)' }}>
+        <div className="fixed inset-0 z-[110] flex flex-col" style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(12px)', paddingTop: 'env(safe-area-inset-top)' }}>
           <div
             className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] shrink-0"
             style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
@@ -170,9 +325,15 @@ export function FAB() {
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {aiMessages.length === 0 && (
-              <p className="text-sm text-[var(--text3)] text-center mt-8">
-                Ask me anything about LushNote, or ask about a patient.
-              </p>
+              <div className="text-center mt-8 space-y-2">
+                <p className="text-sm text-[var(--text3)]">
+                  Ask about LushNote, or ask about your patients.
+                </p>
+                <p className="text-xs text-[var(--text3)]">
+                  e.g. &quot;Who is the patient with PTSD from a car accident?&quot;<br />
+                  &quot;How many of my patients have anxiety?&quot;
+                </p>
+              </div>
             )}
             {aiMessages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -201,7 +362,7 @@ export function FAB() {
 
           <div
             className="border-t border-[var(--border)] p-3 flex gap-2 shrink-0"
-            style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
+            style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
           >
             <input
               type="text"
@@ -226,12 +387,17 @@ export function FAB() {
 
       {/* Live Support panel */}
       {panel === 'support' && (
-        <div className="fixed inset-0 z-[50] flex flex-col" style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(12px)' }}>
+        <div className="fixed inset-0 z-[110] flex flex-col" style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(12px)', paddingTop: 'env(safe-area-inset-top)' }}>
           <div
             className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] shrink-0"
             style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
           >
-            <span className="font-semibold text-[var(--text)]">Live Support</span>
+            <div>
+              <span className="font-semibold text-[var(--text)]">Live Support</span>
+              {supportTwoWay && (
+                <p className="text-[11px] text-[var(--text3)]">Replies appear here as they arrive</p>
+              )}
+            </div>
             <button
               onClick={() => setPanel(null)}
               className="text-[var(--text3)] hover:text-[var(--text)] w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--bg)] motion-safe:transition-colors"
@@ -243,53 +409,47 @@ export function FAB() {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
-            {supportSent ? (
-              <div className="text-center mt-16">
-                <div className="w-16 h-16 rounded-full bg-[#d1fae5] flex items-center justify-center mx-auto mb-4">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" aria-hidden>
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                </div>
-                <p className="font-semibold text-[var(--text)]">Message sent!</p>
-                <p className="text-sm text-[var(--text2)] mt-2">We&apos;ll get back to you shortly.</p>
-              </div>
-            ) : (
-              <div className="space-y-4 max-w-md mx-auto">
-                <p className="text-sm text-[var(--text2)]">Send us a message and we&apos;ll respond as soon as possible.</p>
-                <input
-                  placeholder="Your name"
-                  value={supportName}
-                  onChange={e => setSupportName(e.target.value)}
-                  className="w-full text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2 bg-white
-                             focus:outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
-                />
-                <input
-                  placeholder="Your email"
-                  type="email"
-                  value={supportEmail}
-                  onChange={e => setSupportEmail(e.target.value)}
-                  className="w-full text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2 bg-white
-                             focus:outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
-                />
-                <textarea
-                  placeholder="How can we help?"
-                  rows={6}
-                  value={supportMessage}
-                  onChange={e => setSupportMessage(e.target.value)}
-                  className="w-full text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2 bg-white resize-none
-                             focus:outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
-                />
-                <button
-                  onClick={handleSupportSubmit}
-                  disabled={!supportMessage.trim()}
-                  className="w-full bg-[var(--blue)] text-white text-sm font-medium py-3 rounded-[var(--r)] disabled:opacity-50
-                             motion-safe:transition-transform motion-safe:active:scale-[0.97]"
-                >
-                  Send Message
-                </button>
-              </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {supportMessages.length === 0 && (
+              <p className="text-sm text-[var(--text3)] text-center mt-8">
+                Need help? Send us a message and chat with the LushNote team.
+              </p>
             )}
+            {supportMessages.map((m) => (
+              <div key={m.ts} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] rounded-[var(--r-lg)] px-4 py-3 text-sm ${
+                  m.role === 'user'
+                    ? 'bg-[var(--blue)] text-white rounded-br-sm'
+                    : 'bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] rounded-bl-sm'
+                }`}>
+                  <p className="whitespace-pre-wrap">{m.text}</p>
+                </div>
+              </div>
+            ))}
+            <div ref={supportEndRef} />
+          </div>
+
+          <div
+            className="border-t border-[var(--border)] p-3 flex gap-2 shrink-0"
+            style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
+          >
+            <input
+              type="text"
+              value={supportInput}
+              onChange={e => setSupportInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSupportSend()}
+              placeholder="Type a message..."
+              className="flex-1 text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2 bg-white
+                         focus:outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
+            />
+            <button
+              onClick={handleSupportSend}
+              disabled={supportSending || !supportInput.trim()}
+              className="bg-[var(--blue)] text-white text-sm font-medium px-4 py-2 rounded-[var(--r)] disabled:opacity-50
+                         motion-safe:transition-transform motion-safe:active:scale-[0.97]"
+            >
+              Send
+            </button>
           </div>
         </div>
       )}

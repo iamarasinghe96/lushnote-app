@@ -5,10 +5,14 @@ const TRANSCRIPTION_MODEL = 'whisper-large-v3-turbo'
 export async function generateNoteGroq(
   prompt: string,
   systemPrompt: string,
-  apiKey: string
+  apiKey: string,
+  maxTokens?: number
 ): Promise<{ content: string; totalTokens: number }> {
+  // Groq's free-tier limiter counts estimated input + max_tokens against the
+  // per-minute token cap, so short-answer callers (chat) pass a small maxTokens
+  // to leave room for a large notes context in the input.
   const estimatedInputTokens = Math.ceil((systemPrompt.length + prompt.length) / 4)
-  const max_tokens = Math.max(512, 12000 - estimatedInputTokens - 200)
+  const max_tokens = maxTokens ?? Math.max(512, 12000 - estimatedInputTokens - 200)
 
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',

@@ -28,31 +28,69 @@ export async function POST(req: NextRequest) {
 
     // ── AI Assistant (FAB chat) ─────────────────────────────────────────────────
     if (type === 'assistant') {
-      const { question, kb, uid } = body as {
+      const { question, kb, uid, notesContext, history } = body as {
         question: string
         kb?: string
         uid?: string
+        notesContext?: string
+        history?: Array<{ role: string; content: string }>
       }
 
       if (!question || typeof question !== 'string' || question.length > 2000) {
         return NextResponse.json({ error: 'Invalid question' }, { status: 400 })
       }
 
-      const systemPrompt = `You are the LushNote AI assistant. Help users understand and use LushNote.
-Use the following knowledge base to answer questions accurately:
+      const safeNotes = typeof notesContext === 'string' ? notesContext.slice(0, 30000) : ''
 
+      const systemPrompt = `You are the LushNote AI assistant for a psychiatrist. You have two jobs:
+
+1. Help with the LushNote app itself, using this knowledge base:
 ${kb ?? ''}
 
-If the user asks about a specific patient or clinical scenario and there is no patient context provided,
-explain that you can search their notes if they share more details.
+2. Answer questions about the doctor's own patients using their clinical notes below. Each entry starts with the patient name, session date and diagnosis, followed by a summary and excerpts relevant to the question.
+
+Rules for patient questions:
+- Answer ONLY from the notes provided. Never fabricate clinical details.
+- Identify patients by name and session date in your answer.
+- If several patients match, list each of them.
+- For counting questions, count distinct patient names that match.
+- If the notes provided do not contain the answer, say so plainly.
+
+DOCTOR'S CLINICAL NOTES:
+${safeNotes || '(no notes available)'}
+
 Keep responses concise and practical.`
 
-      const messages: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }> = [
-        { role: 'user', parts: [{ text: question }] },
-      ]
+      const validHistory = Array.isArray(history)
+        ? history
+            .filter((h): h is { role: string; content: string } =>
+              !!h && typeof h.role === 'string' && typeof h.content === 'string')
+            .slice(-8)
+            .map(h => `${h.role === 'user' ? 'Doctor' : 'Assistant'}: ${h.content.slice(0, 1500)}`)
+            .join('\n')
+        : ''
+
+      const prompt = validHistory
+        ? `Previous conversation:\n${validHistory}\n\nDoctor's question: ${question}`
+        : question
+
+      // Groq first - assistant queries are lightweight and must not burn the
+      // shared Gemini quota that note generation depends on.
+      const groqKey = req.headers.get('x-groq-key')
+      if (groqKey) {
+        try {
+          const { content: answer } = await generateNoteGroq(prompt, systemPrompt, groqKey, 1024)
+          return NextResponse.json({ answer, provider: 'groq' })
+        } catch {
+          // fall through to Gemini
+        }
+      }
 
       if (process.env.GEMINI_API_KEY) {
         try {
+          const messages: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }> = [
+            { role: 'user', parts: [{ text: prompt }] },
+          ]
           const { text: answer, totalTokens } = await chatResponse(messages, systemPrompt)
           if (uid && typeof uid === 'string') {
             await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
@@ -62,16 +100,10 @@ Keep responses concise and practical.`
           if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR && typeof uid === 'string') {
             await markGeminiLimitReached(uid, 'chat').catch(() => {})
           }
-          // fall through to Groq
         }
       }
 
-      const groqKey = req.headers.get('x-groq-key')
-      if (!groqKey) {
-        return NextResponse.json({ error: 'No API key available' }, { status: 401 })
-      }
-      const { content: answer } = await generateNoteGroq(question, systemPrompt, groqKey)
-      return NextResponse.json({ answer, provider: 'groq' })
+      return NextResponse.json({ error: 'No API key available' }, { status: 401 })
     }
 
     // ── Transcript Q&A ──────────────────────────────────────────────────────────
