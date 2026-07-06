@@ -73,13 +73,13 @@ export default function TabBar() {
       className="pointer-events-none"
       style={{
         position: 'fixed',
-        bottom: 'calc(0.5rem + env(safe-area-inset-bottom))',
+        bottom: 0,
         left: 0,
         right: 0,
         zIndex: 99,
         paddingLeft: 16,
         paddingRight: 16,
-        paddingBottom: 8,
+        paddingBottom: 'max(env(safe-area-inset-bottom), 8px)',
       }}
     >
       <nav
