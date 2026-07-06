@@ -870,6 +870,12 @@ function EditContent() {
     latestFieldsRef.current = base
     setFields(base)
 
+    // Persist the note with its transcript BEFORE generation, so a failed
+    // generation can never lose the recorded session. Must run before
+    // animateKnownFields blanks the header fields for the typewriter effect.
+    // The post-generation save updates this same note with the AI content.
+    await doAutoSave()
+
     const known = ([
       ['patient',    latestFieldsRef.current.patient ?? ''],
       ['reg_number', latestFieldsRef.current.reg_number ?? ''],

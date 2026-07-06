@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { transcribeAudio, checkQuota, GEMINI_RATE_LIMIT_ERROR } from '@/lib/gemini'
+import { transcribeAudio, checkQuota, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
 import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles'
 import { rateLimit } from '@/lib/rateLimit'
@@ -45,7 +45,12 @@ export async function POST(req: NextRequest) {
           await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
           return NextResponse.json({ text, provider: 'gemini' })
         } catch (err) {
-          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR) {
+          // Only a per-DAY exhaustion locks the key out for the day. Segmented
+          // recordings fire several calls per minute, so a transient per-minute
+          // 429 here must NOT peg the daily counter — doing so starved the
+          // subsequent note generation of Gemini and forced long transcripts
+          // onto Groq, which cannot fit them within its per-minute token limit.
+          if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
             await markGeminiLimitReached(uid, 'gemini-2.5-flash').catch(() => {})
           }
           // fall through to Groq
