@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { useAuth } from '@/hooks/useAuth'
+import { getGroqKey } from '@/lib/utils'
 
 export default function TranscriptPage() {
   const { lastTranscript } = useNoteStore()
@@ -62,7 +63,7 @@ export default function TranscriptPage() {
     setLoading(true)
 
     try {
-      const groqKey = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('groq_api_key') : null
+      const groqKey = getGroqKey()
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (groqKey) headers['x-groq-key'] = groqKey
 

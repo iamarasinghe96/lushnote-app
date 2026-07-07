@@ -64,6 +64,27 @@ export function toOrganizationKey(workplaceName: string): string {
   return workplaceName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')
 }
 
+// API keys are ASCII with no internal whitespace. A key pasted with a wrapped
+// line-break keeps an interior newline that .trim() cannot remove, and that
+// invalid character makes fetch() throw "The string did not match the expected
+// pattern" when it is placed in a request header. Strip everything outside
+// printable-ASCII-non-space so a malformed paste can never break a request.
+export function sanitizeApiKey(raw: string | null | undefined): string {
+  return (raw || '').replace(/[^\x21-\x7E]/g, '')
+}
+
+export function getGroqKey(): string | null {
+  if (typeof sessionStorage === 'undefined') return null
+  const k = sanitizeApiKey(sessionStorage.getItem('groq_api_key'))
+  return k || null
+}
+
+export function getGeminiKey(): string | null {
+  if (typeof sessionStorage === 'undefined') return null
+  const k = sanitizeApiKey(sessionStorage.getItem('gemini_api_key'))
+  return k || null
+}
+
 export function detectIdPattern(example: string): {
   regex: string
   template: string

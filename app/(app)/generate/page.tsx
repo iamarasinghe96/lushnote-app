@@ -4,7 +4,7 @@ import { useState, useEffect, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { openSettings, quotaDate } from '@/lib/utils'
+import { openSettings, quotaDate, getGroqKey } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import Textarea from '@/components/ui/Textarea'
@@ -267,7 +267,7 @@ export default function GeneratePage() {
 
     setTranscribeStage('transcribing')
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    const groqKey = sessionStorage.getItem('groq_api_key')
+    const groqKey = getGroqKey()
     if (groqKey) headers['x-groq-key'] = groqKey
     const res = await fetch('/api/transcribe', {
       method: 'POST',

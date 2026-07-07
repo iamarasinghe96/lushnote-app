@@ -8,7 +8,7 @@ import { auth } from '@/lib/firebase'
 import { createProfile, updateProfile } from '@/lib/firestore/profiles'
 import { submitLetterheadRequest } from '@/lib/firestore/letterheads'
 import { uploadSignatureSVG } from '@/lib/storage'
-import { detectIdPattern } from '@/lib/utils'
+import { detectIdPattern, sanitizeApiKey } from '@/lib/utils'
 import SignatureUploader from '@/components/ui/SignatureUploader'
 import HospitalAutocomplete from '@/components/ui/HospitalAutocomplete'
 import type { WorkplaceType, Workplace } from '@/types'
@@ -151,13 +151,13 @@ export default function OnboardingPage() {
       })
 
       if (geminiApiKey.trim()) {
-        await updateProfile(user.uid, { geminiApiKey: geminiApiKey.trim() })
-        sessionStorage.setItem('gemini_api_key', geminiApiKey.trim())
+        await updateProfile(user.uid, { geminiApiKey: sanitizeApiKey(geminiApiKey) })
+        sessionStorage.setItem('gemini_api_key', sanitizeApiKey(geminiApiKey))
       }
 
       if (groqApiKey.trim()) {
-        await updateProfile(user.uid, { groqApiKey: groqApiKey.trim() })
-        sessionStorage.setItem('groq_api_key', groqApiKey.trim())
+        await updateProfile(user.uid, { groqApiKey: sanitizeApiKey(groqApiKey) })
+        sessionStorage.setItem('groq_api_key', sanitizeApiKey(groqApiKey))
       }
 
       // Best-effort: notify admin so they can source/upload the letterhead

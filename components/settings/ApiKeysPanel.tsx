@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Button from '@/components/ui/Button'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { quotaDate } from '@/lib/utils'
+import { quotaDate, sanitizeApiKey } from '@/lib/utils'
 import type { User } from '@/types'
 
 interface ApiKeysPanelProps {
@@ -42,7 +42,7 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
   const hasGroq = !!(profile.groqApiKey)
 
   async function saveGemini() {
-    const trimmed = geminiKey.trim()
+    const trimmed = sanitizeApiKey(geminiKey)
     if (!trimmed) return
     setGeminiSaving(true)
     try {
@@ -58,7 +58,7 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
   }
 
   async function saveGroq() {
-    const trimmed = groqKey.trim()
+    const trimmed = sanitizeApiKey(groqKey)
     if (!trimmed) return
     setGroqSaving(true)
     try {

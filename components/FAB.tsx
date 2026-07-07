@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { listNotes } from '@/lib/firestore/notes'
+import { getGroqKey } from '@/lib/utils'
 import type { Note } from '@/types'
 
 const LUSHNOTE_KB = `LushNote is a clinical note builder for psychiatrists.
@@ -187,7 +188,7 @@ export function FAB() {
       const notes = await getNotes().catch(() => [] as Note[])
       const notesContext = buildNotesContext(question, notes)
 
-      const groqKey = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('groq_api_key') : null
+      const groqKey = getGroqKey()
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (groqKey) headers['x-groq-key'] = groqKey
 

@@ -7,7 +7,7 @@ import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildPreviewHTML, buildLetterPreviewHTML, buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime } from '@/lib/utils'
+import { buildPreviewHTML, buildLetterPreviewHTML, buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
@@ -914,9 +914,9 @@ function EditContent() {
       s.setOverrideNoteLength(null)
       const systemPrompt = profile ? getPersonalisationPrefix(profile, noteLength) : ''
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const groqKey = sessionStorage.getItem('groq_api_key')
+      const groqKey = getGroqKey()
       if (groqKey) headers['x-groq-key'] = groqKey
-      const geminiKey = sessionStorage.getItem('gemini_api_key')
+      const geminiKey = getGeminiKey()
       if (geminiKey) headers['x-gemini-key'] = geminiKey
 
       const res = await fetch('/api/generate', {
@@ -1005,9 +1005,9 @@ function EditContent() {
       storeRef.current.setOverrideNoteLength(null)
       const systemPrompt = profile ? getPersonalisationPrefix(profile, noteLength) : ''
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const groqKey = sessionStorage.getItem('groq_api_key')
+      const groqKey = getGroqKey()
       if (groqKey) headers['x-groq-key'] = groqKey
-      const geminiKey = sessionStorage.getItem('gemini_api_key')
+      const geminiKey = getGeminiKey()
       if (geminiKey) headers['x-gemini-key'] = geminiKey
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -1401,9 +1401,9 @@ function EditContent() {
     setIsGeneratingLetter(true)
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const groqKey = sessionStorage.getItem('groq_api_key')
+      const groqKey = getGroqKey()
       if (groqKey) headers['x-groq-key'] = groqKey
-      const geminiKey = sessionStorage.getItem('gemini_api_key')
+      const geminiKey = getGeminiKey()
       if (geminiKey) headers['x-gemini-key'] = geminiKey
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -1479,7 +1479,7 @@ function EditContent() {
     setCustomEngineering(true)
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const groqKey = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('groq_api_key') : null
+      const groqKey = getGroqKey()
       if (groqKey) headers['x-groq-key'] = groqKey
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -1549,7 +1549,7 @@ function EditContent() {
     setCustomProcessed('')
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const groqKey = sessionStorage.getItem('groq_api_key')
+      const groqKey = getGroqKey()
       if (groqKey) headers['x-groq-key'] = groqKey
       const res = await fetch('/api/chat', {
         method: 'POST',

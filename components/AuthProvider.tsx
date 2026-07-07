@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { getProfile } from '@/lib/firestore/profiles'
+import { sanitizeApiKey } from '@/lib/utils'
 import type { User } from '@/types'
 
 export interface AuthContextValue {
@@ -39,10 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!cancelled) {
           setProfile(p)
           if (p?.groqApiKey && !sessionStorage.getItem('groq_api_key')) {
-            sessionStorage.setItem('groq_api_key', p.groqApiKey)
+            sessionStorage.setItem('groq_api_key', sanitizeApiKey(p.groqApiKey))
           }
           if (p?.geminiApiKey && !sessionStorage.getItem('gemini_api_key')) {
-            sessionStorage.setItem('gemini_api_key', p.geminiApiKey)
+            sessionStorage.setItem('gemini_api_key', sanitizeApiKey(p.geminiApiKey))
           }
         }
       } else {
