@@ -14,6 +14,7 @@ import TranscriptConfirmModal from '@/components/modals/TranscriptConfirmModal'
 import TemplatePicker from '@/components/modals/TemplatePicker'
 import LetterPickerModal from '@/components/modals/LetterPickerModal'
 import { listNotes } from '@/lib/firestore/notes'
+import { uploadRecording } from '@/lib/storage'
 import type { AnyTemplate, NoteCreationMode, Note, LetterType } from '@/types'
 
 const GEMINI_RPD = 20
@@ -114,9 +115,9 @@ export default function GeneratePage() {
   const store = useNoteStore()
 
   const [phase, setPhase] = useState<GenPhase>('idle')
-  // For long recordings transcribed in multiple segments — drives the overlay's
-  // "Part X of Y" progress so the user knows work is happening.
-  const [transcribeProgress, setTranscribeProgress] = useState<{ current: number; total: number } | null>(null)
+  // Drives the transcribing overlay: 'uploading' while the recording is sent to
+  // Storage, 'transcribing' while Gemini processes the whole file in one pass.
+  const [transcribeStage, setTranscribeStage] = useState<'uploading' | 'transcribing' | null>(null)
   const [inputText, setInputText] = useState('')
   const [pendingTranscript, setPendingTranscript] = useState('')
   const [creationMode, setCreationMode] = useState<NoteCreationMode>('paste')
@@ -248,87 +249,47 @@ export default function GeneratePage() {
     setTranscriptConfirmOpen(true)
   }
 
-  // Vercel serverless functions have a hard 4.5 MB request body limit, and the
-  // Hobby-plan function timeout caps at 60s. Sizing each segment to ~5 min of
-  // audio (48 kbps → ~1.8 MB) keeps every transcription call well within that
-  // 60s window so long recordings don't time out.
-  // Chunk[0] from MediaRecorder contains the WebM stream header and must be
-  // prepended to every subsequent segment to produce a valid audio file.
-  const MAX_SEGMENT_BYTES = 1_800_000
+  // The recorder hands us one complete audio file. We upload it to Storage
+  // (no request-body size limit) and the server transcribes the whole thing in
+  // a single Gemini call, then deletes the audio. This replaces the old
+  // client-side segmentation, which reassembled MediaRecorder chunks into
+  // sub-files — fragile on iOS (mp4 has no reusable header chunk) and slow
+  // (one round-trip and one quota unit per segment).
+  async function transcribeRecording(blob: Blob, mimeType: string): Promise<string> {
+    if (!user) throw new Error('You are signed out. Please sign in and try again.')
+    setTranscribeStage('uploading')
+    let storagePath: string
+    try {
+      storagePath = await uploadRecording(user.uid, blob, mimeType)
+    } catch {
+      throw new Error('Could not upload the recording. Check your connection and try again.')
+    }
 
-  async function postSegment(segBlob: Blob, mimeType: string): Promise<string> {
-    const formData = new FormData()
-    formData.append('audio', segBlob, 'audio.webm')
-    formData.append('mimeType', mimeType)
-    formData.append('uid', user!.uid)
-    const headers: Record<string, string> = {}
+    setTranscribeStage('transcribing')
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
     const groqKey = sessionStorage.getItem('groq_api_key')
     if (groqKey) headers['x-groq-key'] = groqKey
-    const res = await fetch('/api/transcribe', { method: 'POST', headers, body: formData })
+    const res = await fetch('/api/transcribe', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ uid: user.uid, storagePath, mimeType }),
+    })
     if (!res.ok) {
-      const data = await res.json() as { error?: string }
+      const data = await res.json().catch(() => ({})) as { error?: string }
       throw new Error(data.error ?? 'Transcription failed')
     }
     return ((await res.json()) as { text: string }).text
   }
 
-  // A single segment can transiently fail two ways on long recordings: a
-  // function-timeout spike near the 60s boundary, or a brief Gemini per-minute
-  // rate limit when segments are sent back-to-back. Both clear on their own, so
-  // retry with backoff rather than throwing away the whole transcription.
-  async function transcribeSegment(segBlob: Blob, mimeType: string): Promise<string> {
-    const delays = [4000, 10000]
-    for (let attempt = 0; ; attempt++) {
-      try {
-        return await postSegment(segBlob, mimeType)
-      } catch (err) {
-        if (attempt >= delays.length) throw err
-        await new Promise((r) => setTimeout(r, delays[attempt]))
-      }
-    }
-  }
-
-  async function transcribeAudio(blob: Blob, chunks: Blob[], mimeType: string): Promise<string> {
-    if (blob.size <= MAX_SEGMENT_BYTES || chunks.length === 0) {
-      return transcribeSegment(blob, mimeType)
-    }
-    const header = chunks[0]
-    const segments: Blob[] = []
-    let batch: Blob[] = []
-    let batchSize = 0
-    for (let i = 0; i < chunks.length; i++) {
-      const c = chunks[i]
-      const preamble = batch.length === 0 && segments.length > 0 ? header.size : 0
-      if (batch.length > 0 && batchSize + preamble + c.size > MAX_SEGMENT_BYTES) {
-        const parts = segments.length === 0 ? batch : [header, ...batch]
-        segments.push(new Blob(parts, { type: mimeType }))
-        batch = []
-        batchSize = 0
-      }
-      batch.push(c)
-      batchSize += c.size
-    }
-    if (batch.length > 0) {
-      const parts = segments.length === 0 ? batch : [header, ...batch]
-      segments.push(new Blob(parts, { type: mimeType }))
-    }
-    const texts: string[] = []
-    for (let i = 0; i < segments.length; i++) {
-      setTranscribeProgress({ current: i + 1, total: segments.length })
-      texts.push(await transcribeSegment(segments[i], mimeType))
-    }
-    return texts.join(' ')
-  }
-
-  async function handleAudioReady(blob: Blob, mimeType: string, duration: number, chunks: Blob[], letterType?: LetterType | null) {
+  async function handleAudioReady(blob: Blob, mimeType: string, duration: number, _chunks: Blob[], letterType?: LetterType | null) {
     store.setLastRecordingDuration(duration)
-    // Capture the wall-clock end of the recording now, before the (possibly
-    // multi-minute) transcription runs, so the auto session End time is accurate.
+    // Capture the wall-clock end of the recording now, before transcription
+    // runs, so the auto session End time is accurate.
     store.setLastRecordingEndTime(Date.now())
-    setTranscribeProgress(null)
+    setTranscribeStage(null)
     setPhase('transcribing')
     try {
-      const text = await transcribeAudio(blob, chunks, mimeType)
+      const text = await transcribeRecording(blob, mimeType)
 
       // Letter dictation: skip the patient-confirm + template steps. Land in the
       // edit tab in letter mode with the transcript, and flag it to auto-generate.
@@ -336,7 +297,7 @@ export default function GeneratePage() {
         if (!text.trim()) {
           setError('Nothing was recorded. Please try again.')
           setPhase('idle')
-          setTranscribeProgress(null)
+          setTranscribeStage(null)
           return
         }
         const today = new Date()
@@ -349,7 +310,7 @@ export default function GeneratePage() {
         store.setLetterType(letterType)
         store.setLetterCommonFields({ letterDate: `${dd}/${mm}/${yyyy}` })
         store.setPendingLetterGeneration(true)
-        setTranscribeProgress(null)
+        setTranscribeStage(null)
         router.push('/edit')
         return
       }
@@ -358,17 +319,17 @@ export default function GeneratePage() {
       if (!validation.valid) {
         setError(validation.error!)
         setPhase('idle')
-        setTranscribeProgress(null)
+        setTranscribeStage(null)
         return
       }
       setPendingTranscript(text)
       setTranscriptConfirmOpen(true)
       setPhase('idle')
-      setTranscribeProgress(null)
+      setTranscribeStage(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Transcription failed')
       setPhase('idle')
-      setTranscribeProgress(null)
+      setTranscribeStage(null)
     }
   }
 
@@ -544,20 +505,10 @@ export default function GeneratePage() {
             <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round"/>
           </svg>
           <p className="text-sm font-medium text-[var(--text2)]">
-            {transcribeProgress
-              ? `Transcribing audio — part ${transcribeProgress.current} of ${transcribeProgress.total}…`
-              : 'Transcribing audio…'}
+            {transcribeStage === 'uploading' ? 'Uploading recording…' : 'Transcribing audio…'}
           </p>
-          {transcribeProgress && transcribeProgress.total > 1 && (
-            <div className="w-48 h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
-              <div
-                className="h-full bg-[var(--blue)] motion-safe:transition-all motion-safe:duration-500"
-                style={{ width: `${(transcribeProgress.current / transcribeProgress.total) * 100}%` }}
-              />
-            </div>
-          )}
           <p className="text-xs text-[var(--text3)] max-w-xs">
-            Long recordings are split into segments — this can take a minute or two. After this you&apos;ll confirm the patient and pick a template.
+            The full recording is transcribed in one pass. After this you&apos;ll confirm the patient and pick a template.
           </p>
         </div>
       )}

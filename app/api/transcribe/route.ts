@@ -1,31 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { transcribeAudio, checkQuota, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
+import { transcribeAudioViaFilesApi, checkQuota, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
 import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles'
+import { adminStorage } from '@/lib/firebase-admin'
 import { rateLimit } from '@/lib/rateLimit'
 
-// Transcribing a multi-minute audio segment via Gemini takes far longer than
-// Vercel's 10s Hobby default. 60s is the Hobby-plan ceiling; segments are sized
-// (client-side) to finish within it.
+// Transcribing a full recording in one Gemini call takes far longer than
+// Vercel's 10s Hobby default. 60s is the Hobby-plan ceiling.
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
+  let recordingPath: string | null = null
   try {
-    const form = await req.formData()
-    const audio = form.get('audio')
-    const mimeType = form.get('mimeType')
-    const uid = form.get('uid')
+    const body = await req.json() as {
+      uid?: string
+      storagePath?: string
+      mimeType?: string
+    }
+    const { uid, storagePath, mimeType } = body
 
     if (!uid || typeof uid !== 'string' || uid.length === 0 || uid.length > 128) {
       return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
     }
-
-    if (!(audio instanceof File)) {
-      return NextResponse.json({ error: 'Invalid audio field' }, { status: 400 })
-    }
-
-    if (typeof mimeType !== 'string' || !mimeType.startsWith('audio/')) {
+    if (!mimeType || typeof mimeType !== 'string' || !mimeType.startsWith('audio/') || mimeType.length > 100) {
       return NextResponse.json({ error: 'Invalid mimeType' }, { status: 400 })
+    }
+    // Bind the recording to the caller's own folder and reject path traversal
+    const expectedPrefix = `recordings/${uid}/`
+    if (!storagePath || typeof storagePath !== 'string' || !storagePath.startsWith(expectedPrefix) || storagePath.includes('..')) {
+      return NextResponse.json({ error: 'Invalid storagePath' }, { status: 400 })
     }
 
     const limit = rateLimit(`${uid}:transcribe`, 30, 60 * 60 * 1000)
@@ -33,23 +36,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 })
     }
 
+    recordingPath = storagePath
+    const file = adminStorage().bucket().file(storagePath)
+    const [exists] = await file.exists()
+    if (!exists) {
+      return NextResponse.json({ error: 'Recording not found. Please try recording again.' }, { status: 404 })
+    }
+    const [buffer] = await file.download()
+
     const profile = await getProfile(uid).catch(() => null)
-    const arrayBuffer = await audio.arrayBuffer()
-    const base64 = Buffer.from(arrayBuffer).toString('base64')
 
     if (process.env.GEMINI_API_KEY) {
       const quota = profile?.geminiUsage ?? {}
       if (checkQuota(quota, 'gemini-2.5-flash')) {
         try {
-          const { text, totalTokens } = await transcribeAudio(base64, mimeType)
+          const { text, totalTokens } = await transcribeAudioViaFilesApi(buffer, mimeType)
           await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
           return NextResponse.json({ text, provider: 'gemini' })
         } catch (err) {
-          // Only a per-DAY exhaustion locks the key out for the day. Segmented
-          // recordings fire several calls per minute, so a transient per-minute
-          // 429 here must NOT peg the daily counter — doing so starved the
-          // subsequent note generation of Gemini and forced long transcripts
-          // onto Groq, which cannot fit them within its per-minute token limit.
           if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
             await markGeminiLimitReached(uid, 'gemini-2.5-flash').catch(() => {})
           }
@@ -63,8 +67,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No API key available for transcription' }, { status: 401 })
     }
 
+    const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('webm') ? 'webm' : 'bin'
     const formData = new FormData()
-    formData.append('file', audio, 'audio.webm')
+    formData.append('file', new Blob([buffer], { type: mimeType }), `audio.${ext}`)
     try {
       const text = await transcribeAudioGroq(formData, groqKey)
       return NextResponse.json({ text, provider: 'groq' })
@@ -73,12 +78,16 @@ export async function POST(req: NextRequest) {
         const waitSeconds = parseGroqWaitSeconds(err.message)
         return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
       }
-      const msg = err instanceof Error ? err.message : 'Transcription failed'
-      return NextResponse.json({ error: msg }, { status: 500 })
+      return NextResponse.json({ error: 'Transcription failed' }, { status: 500 })
     }
-
   } catch {
     console.error('Transcription error')
     return NextResponse.json({ error: 'Transcription failed' }, { status: 500 })
+  } finally {
+    // Audio is never retained: delete the uploaded recording immediately,
+    // whether transcription succeeded or failed.
+    if (recordingPath) {
+      adminStorage().bucket().file(recordingPath).delete().catch(() => {})
+    }
   }
 }

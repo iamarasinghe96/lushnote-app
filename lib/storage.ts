@@ -1,6 +1,19 @@
 import { storage } from './firebase'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 
+// Uploads a full session recording to Storage so the server can transcribe the
+// whole file in one pass (Storage has no request-body size limit, unlike the
+// 4.5 MB Vercel API cap that previously forced client-side segmentation).
+// The server deletes the object immediately after transcription — audio is
+// never retained. Returns the storage path for the transcribe request.
+export async function uploadRecording(uid: string, blob: Blob, mimeType: string): Promise<string> {
+  const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('webm') ? 'webm' : 'bin'
+  const path = `recordings/${uid}/${crypto.randomUUID()}.${ext}`
+  const storageRef = ref(storage, path)
+  await uploadBytes(storageRef, blob, { contentType: mimeType })
+  return path
+}
+
 export async function uploadSignatureSVG(uid: string, svgDataUrl: string): Promise<string> {
   // Decode the data URL directly - avoids fetch() which can fail on data: URLs
   const commaIdx = svgDataUrl.indexOf(',')
