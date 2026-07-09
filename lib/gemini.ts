@@ -112,7 +112,7 @@ export async function transcribeAudioViaFilesApi(bytes: Buffer, mimeType: string
       'X-Goog-Upload-Offset': '0',
       'X-Goog-Upload-Command': 'upload, finalize',
     },
-    body: bytes,
+    body: new Uint8Array(bytes),
   })
   if (!uploadRes.ok) throw new Error(`Gemini upload failed ${uploadRes.status}`)
   const uploaded = await uploadRes.json() as { file?: GeminiFile }

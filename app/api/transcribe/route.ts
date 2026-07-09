@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
 
     const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('webm') ? 'webm' : 'bin'
     const formData = new FormData()
-    formData.append('file', new Blob([buffer], { type: mimeType }), `audio.${ext}`)
+    formData.append('file', new Blob([new Uint8Array(buffer)], { type: mimeType }), `audio.${ext}`)
     try {
       const text = await transcribeAudioGroq(formData, groqKey)
       return NextResponse.json({ text, provider: 'groq' })
