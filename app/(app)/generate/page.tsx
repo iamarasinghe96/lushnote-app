@@ -4,7 +4,7 @@ import { useState, useEffect, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { openSettings, quotaDate, getGroqKey } from '@/lib/utils'
+import { openSettings, quotaDate } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import Textarea from '@/components/ui/Textarea'
@@ -14,7 +14,7 @@ import TranscriptConfirmModal from '@/components/modals/TranscriptConfirmModal'
 import TemplatePicker from '@/components/modals/TemplatePicker'
 import LetterPickerModal from '@/components/modals/LetterPickerModal'
 import { listNotes } from '@/lib/firestore/notes'
-import { uploadRecording } from '@/lib/storage'
+import { getTranscriptDraft, deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import type { AnyTemplate, NoteCreationMode, Note, LetterType } from '@/types'
 
 const GEMINI_RPD = 20
@@ -115,9 +115,7 @@ export default function GeneratePage() {
   const store = useNoteStore()
 
   const [phase, setPhase] = useState<GenPhase>('idle')
-  // Drives the transcribing overlay: 'uploading' while the recording is sent to
-  // Storage, 'transcribing' while Gemini processes the whole file in one pass.
-  const [transcribeStage, setTranscribeStage] = useState<'uploading' | 'transcribing' | null>(null)
+  const [recoveredDraft, setRecoveredDraft] = useState<{ text: string; letterType: string | null; durationSec: number } | null>(null)
   const [inputText, setInputText] = useState('')
   const [pendingTranscript, setPendingTranscript] = useState('')
   const [creationMode, setCreationMode] = useState<NoteCreationMode>('paste')
@@ -249,88 +247,82 @@ export default function GeneratePage() {
     setTranscriptConfirmOpen(true)
   }
 
-  // The recorder hands us one complete audio file. We upload it to Storage
-  // (no request-body size limit) and the server transcribes the whole thing in
-  // a single Gemini call, then deletes the audio. This replaces the old
-  // client-side segmentation, which reassembled MediaRecorder chunks into
-  // sub-files — fragile on iOS (mp4 has no reusable header chunk) and slow
-  // (one round-trip and one quota unit per segment).
-  async function transcribeRecording(blob: Blob, mimeType: string): Promise<string> {
-    if (!user) throw new Error('You are signed out. Please sign in and try again.')
-    setTranscribeStage('uploading')
-    let storagePath: string
-    try {
-      storagePath = await uploadRecording(user.uid, blob, mimeType)
-    } catch {
-      throw new Error('Could not upload the recording. Check your connection and try again.')
+  // Load any transcript from a recording that was interrupted before it
+  // finished, so it can be recovered instead of lost.
+  useEffect(() => {
+    if (!user) return
+    getTranscriptDraft(user.uid).then(d => {
+      if (d && typeof d.text === 'string' && d.text.trim().length > 0) {
+        setRecoveredDraft({ text: d.text, letterType: d.letterType ?? null, durationSec: d.durationSec ?? 0 })
+      }
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid])
+
+  // The modals now record and transcribe live in segments and hand us the
+  // finished transcript text. All we do here is route it into the note or
+  // letter flow.
+  async function handleTranscriptReady(text: string, duration: number, letterType?: LetterType | null) {
+    store.setLastRecordingDuration(duration)
+    // Capture the wall-clock end of the recording for the auto session End time.
+    store.setLastRecordingEndTime(Date.now())
+    setPhase('idle')
+
+    if (letterType) {
+      if (!text.trim()) {
+        setError('Nothing was transcribed. Please try again.')
+        return
+      }
+      startLetterFromTranscript(text, letterType)
+      return
     }
 
-    setTranscribeStage('transcribing')
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    const groqKey = getGroqKey()
-    if (groqKey) headers['x-groq-key'] = groqKey
-    const res = await fetch('/api/transcribe', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ uid: user.uid, storagePath, mimeType }),
-    })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({})) as { error?: string }
-      throw new Error(data.error ?? 'Transcription failed')
+    const validation = validateTranscript(text)
+    if (!validation.valid) {
+      setError(validation.error!)
+      return
     }
-    return ((await res.json()) as { text: string }).text
+    setPendingTranscript(text)
+    setTranscriptConfirmOpen(true)
   }
 
-  async function handleAudioReady(blob: Blob, mimeType: string, duration: number, _chunks: Blob[], letterType?: LetterType | null) {
-    store.setLastRecordingDuration(duration)
-    // Capture the wall-clock end of the recording now, before transcription
-    // runs, so the auto session End time is accurate.
+  function startLetterFromTranscript(text: string, letterType: LetterType) {
+    const today = new Date()
+    const dd = String(today.getDate()).padStart(2, '0')
+    const mm = String(today.getMonth() + 1).padStart(2, '0')
+    const yyyy = today.getFullYear()
+    store.resetLetterMode()
+    store.setLastTranscript(text)
+    store.setLastTranscriptMode('dictation')
+    store.setLetterType(letterType)
+    store.setLetterCommonFields({ letterDate: `${dd}/${mm}/${yyyy}` })
+    store.setPendingLetterGeneration(true)
+    if (user) deleteTranscriptDraft(user.uid).catch(() => {})
+    router.push('/edit')
+  }
+
+  function useRecoveredDraft() {
+    const d = recoveredDraft
+    if (!d) return
+    setRecoveredDraft(null)
+    store.setLastRecordingDuration(d.durationSec)
     store.setLastRecordingEndTime(Date.now())
-    setTranscribeStage(null)
-    setPhase('transcribing')
-    try {
-      const text = await transcribeRecording(blob, mimeType)
-
-      // Letter dictation: skip the patient-confirm + template steps. Land in the
-      // edit tab in letter mode with the transcript, and flag it to auto-generate.
-      if (letterType) {
-        if (!text.trim()) {
-          setError('Nothing was recorded. Please try again.')
-          setPhase('idle')
-          setTranscribeStage(null)
-          return
-        }
-        const today = new Date()
-        const dd = String(today.getDate()).padStart(2, '0')
-        const mm = String(today.getMonth() + 1).padStart(2, '0')
-        const yyyy = today.getFullYear()
-        store.resetLetterMode()
-        store.setLastTranscript(text)
-        store.setLastTranscriptMode('dictation')
-        store.setLetterType(letterType)
-        store.setLetterCommonFields({ letterDate: `${dd}/${mm}/${yyyy}` })
-        store.setPendingLetterGeneration(true)
-        setTranscribeStage(null)
-        router.push('/edit')
-        return
-      }
-
-      const validation = validateTranscript(text)
-      if (!validation.valid) {
-        setError(validation.error!)
-        setPhase('idle')
-        setTranscribeStage(null)
-        return
-      }
-      setPendingTranscript(text)
-      setTranscriptConfirmOpen(true)
-      setPhase('idle')
-      setTranscribeStage(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Transcription failed')
-      setPhase('idle')
-      setTranscribeStage(null)
+    if (d.letterType) {
+      startLetterFromTranscript(d.text, d.letterType as LetterType)
+      return
     }
+    const validation = validateTranscript(d.text)
+    if (!validation.valid) {
+      setError(validation.error!)
+      return
+    }
+    setPendingTranscript(d.text)
+    setTranscriptConfirmOpen(true)
+  }
+
+  function discardRecoveredDraft() {
+    if (user) deleteTranscriptDraft(user.uid).catch(() => {})
+    setRecoveredDraft(null)
   }
 
   function handleTranscriptConfirmPatient(
@@ -347,6 +339,7 @@ export default function GeneratePage() {
     store.setLastTranscript(pendingTranscript)
     store.setLastTranscriptMode(creationMode)
     store.setPendingPatientProfile(isNewPatient ? { dob, gender } : null)
+    if (user) deleteTranscriptDraft(user.uid).catch(() => {})
     setPhase('template-picking')
   }
 
@@ -413,6 +406,19 @@ export default function GeneratePage() {
           </div>
         )}
 
+        {recoveredDraft && (
+          <div className="rounded-[var(--r-lg)] border border-[#10b981]/40 bg-[#10b981]/5 p-4 space-y-2">
+            <p className="text-sm font-semibold text-[var(--text)]">Recovered recording</p>
+            <p className="text-xs text-[var(--text2)]">
+              A recording was interrupted before it finished. The transcript captured so far
+              (~{recoveredDraft.text.trim().split(/\s+/).length} words) was saved. Continue with it or discard.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="primary" size="sm" onClick={useRecoveredDraft}>Use it</Button>
+              <Button variant="ghost" size="sm" onClick={discardRecoveredDraft}>Discard</Button>
+            </div>
+          </div>
+        )}
         <ModeCard icon={PasteIcon} title="Paste Transcript" description="Reads clipboard automatically" onClick={handlePasteMode} />
         <ModeCard icon={RecordIcon} title="Record Session" description="In-person or telehealth recording" onClick={() => startMode('conversation')} />
         <ModeCard icon={DictateIcon} title="Dictate Note" description="Narrate the note yourself" onClick={() => startMode('dictation')} />
@@ -497,33 +503,17 @@ export default function GeneratePage() {
         </div>
       </Modal>
 
-      {/* Transcribing overlay */}
-      {phase === 'transcribing' && (
-        <div className="fixed inset-0 bg-white/85 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-3 px-6 text-center">
-          <svg width="32" height="32" viewBox="0 0 24 24" className="animate-spin text-[var(--blue)]" aria-hidden>
-            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25"/>
-            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round"/>
-          </svg>
-          <p className="text-sm font-medium text-[var(--text2)]">
-            {transcribeStage === 'uploading' ? 'Uploading recording…' : 'Transcribing audio…'}
-          </p>
-          <p className="text-xs text-[var(--text3)] max-w-xs">
-            The full recording is transcribed in one pass. After this you&apos;ll confirm the patient and pick a template.
-          </p>
-        </div>
-      )}
-
 
       <RecordModal
         open={phase === 'recording'}
         onClose={handleCancel}
-        onAudioReady={handleAudioReady}
+        onTranscriptReady={handleTranscriptReady}
         recordingDefaults={profile?.recordingDefaults}
       />
       <DictateModal
         open={phase === 'dictating'}
         onClose={handleCancel}
-        onAudioReady={handleAudioReady}
+        onTranscriptReady={handleTranscriptReady}
         recordingDefaults={profile?.recordingDefaults}
       />
       <TranscriptConfirmModal

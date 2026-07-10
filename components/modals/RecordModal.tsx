@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { useRecorder } from '@/hooks/useRecorder'
+import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
+import { useAuth } from '@/hooks/useAuth'
 import type { RecordingDefaults } from '@/types'
 
 interface RecordModalProps {
   open: boolean
   onClose: () => void
-  onAudioReady: (blob: Blob, mimeType: string, duration: number, chunks: Blob[]) => void
+  onTranscriptReady: (text: string, duration: number) => void
   recordingDefaults?: RecordingDefaults
 }
 
@@ -22,7 +23,7 @@ function formatDuration(secs: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export default function RecordModal({ open, onClose, onAudioReady, recordingDefaults }: RecordModalProps) {
+export default function RecordModal({ open, onClose, onTranscriptReady, recordingDefaults }: RecordModalProps) {
   const [subMode, setSubMode] = useState<SubMode>('inperson')
   const [phase, setPhase] = useState<Phase>('idle')
   const [interrupted, setInterrupted] = useState(false)
@@ -31,7 +32,8 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
   const streamRef = useRef<MediaStream | null>(null)
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stopRef = useRef<(() => void) | null>(null)
-  const { duration, startRecording, stopRecording, error: recError } = useRecorder()
+  const { duration, minutesSaved, start, stop, error: recError } = useSegmentedRecorder()
+  const { user } = useAuth()
 
   // null means auto-stop is disabled; otherwise stop after this many minutes
   const autoStopMinutes = recordingDefaults?.autoStop === false
@@ -67,17 +69,15 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
       autoStopRef.current = null
     }
     setPhase('processing')
-    const result = await stopRecording()
+    const result = await stop()
     localStorage.removeItem('ln_recording_interrupted')
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop())
       streamRef.current = null
     }
-    // Hand the audio to the parent. Do NOT call onClose() here — the parent
-    // transitions its phase to 'transcribing' (which closes this modal via the
-    // `open` prop) and shows the transcribing overlay. Calling onClose() would
-    // reset the parent phase back to 'idle' and hide that progress feedback.
-    onAudioReady(result.blob, result.mimeType, result.duration, result.chunks)
+    // Hand the finished transcript to the parent. Do NOT call onClose() here —
+    // the parent closes this modal by flipping its phase.
+    onTranscriptReady(result.text, result.duration)
   }
 
   // Keep stopRef current so the auto-stop timeout always calls the latest version
@@ -85,6 +85,7 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
 
   async function handleStart() {
     setPermError(null)
+    if (!user) { setPermError('Please sign in and try again.'); return }
     try {
       const stream = subMode === 'telehealth'
         ? await navigator.mediaDevices.getDisplayMedia({ audio: true, video: { displaySurface: 'browser' } })
@@ -105,7 +106,7 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
       const audioOnlyStream = subMode === 'telehealth'
         ? new MediaStream(stream.getAudioTracks())
         : stream
-      startRecording(audioOnlyStream)
+      start(audioOnlyStream, { uid: user.uid, mode: 'conversation' })
       setPhase('recording')
       if (autoStopMinutes !== null) {
         autoStopRef.current = setTimeout(() => {
@@ -176,6 +177,9 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
               </span>
             </div>
             <p className="text-sm text-[var(--text3)]">Recording in progress…</p>
+            {minutesSaved > 0 && (
+              <p className="text-xs text-[#10b981] font-medium">~{minutesSaved} min transcribed &amp; saved</p>
+            )}
             <Button onClick={doStop} variant="danger" className="w-full">
               Stop recording
             </Button>
@@ -188,7 +192,7 @@ export default function RecordModal({ open, onClose, onAudioReady, recordingDefa
               <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25"/>
               <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round"/>
             </svg>
-            <p className="text-sm text-[var(--text2)]">Processing recording…</p>
+            <p className="text-sm text-[var(--text2)]">Finishing transcription…</p>
           </div>
         )}
       </div>

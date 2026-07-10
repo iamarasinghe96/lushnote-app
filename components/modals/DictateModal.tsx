@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { useRecorder } from '@/hooks/useRecorder'
+import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
+import { useAuth } from '@/hooks/useAuth'
 import type { RecordingDefaults, LetterType } from '@/types'
 
 interface DictateModalProps {
   open: boolean
   onClose: () => void
-  onAudioReady: (blob: Blob, mimeType: string, duration: number, chunks: Blob[], letterType?: LetterType | null) => void
+  onTranscriptReady: (text: string, duration: number, letterType?: LetterType | null) => void
   recordingDefaults?: RecordingDefaults
 }
 
@@ -83,7 +84,7 @@ function formatDuration(secs: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export default function DictateModal({ open, onClose, onAudioReady, recordingDefaults }: DictateModalProps) {
+export default function DictateModal({ open, onClose, onTranscriptReady, recordingDefaults }: DictateModalProps) {
   const [phase, setPhase] = useState<Phase>('choice')
   const [letterType, setLetterType] = useState<LetterType | null>(null)
   const [interrupted, setInterrupted] = useState(false)
@@ -92,7 +93,8 @@ export default function DictateModal({ open, onClose, onAudioReady, recordingDef
   const streamRef = useRef<MediaStream | null>(null)
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stopRef = useRef<(() => void) | null>(null)
-  const { duration, startRecording, stopRecording, error: recError } = useRecorder()
+  const { duration, minutesSaved, start, stop, error: recError } = useSegmentedRecorder()
+  const { user } = useAuth()
 
   const autoStopMinutes = recordingDefaults?.autoStop === false
     ? null
@@ -128,27 +130,25 @@ export default function DictateModal({ open, onClose, onAudioReady, recordingDef
       autoStopRef.current = null
     }
     setPhase('processing')
-    const result = await stopRecording()
+    const result = await stop()
     localStorage.removeItem('ln_recording_interrupted')
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop())
       streamRef.current = null
     }
-    // Do NOT call onClose() here — the parent transitions to 'transcribing'
-    // (closing this modal) and shows the transcribing overlay. onClose() would
-    // reset the parent phase to 'idle' and hide that progress feedback.
-    onAudioReady(result.blob, result.mimeType, result.duration, result.chunks, letterType)
+    onTranscriptReady(result.text, result.duration, letterType)
   }
 
   stopRef.current = doStop
 
   async function handleStart() {
     setPermError(null)
+    if (!user) { setPermError('Please sign in and try again.'); return }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
       localStorage.setItem('ln_recording_interrupted', '1')
-      startRecording(stream)
+      start(stream, { uid: user.uid, mode: 'dictation', letterType })
       setPhase('recording')
       if (autoStopMinutes !== null) {
         autoStopRef.current = setTimeout(() => {
@@ -329,7 +329,7 @@ export default function DictateModal({ open, onClose, onAudioReady, recordingDef
               <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25"/>
               <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round"/>
             </svg>
-            <p className="text-sm text-[var(--text2)]">Processing recording…</p>
+            <p className="text-sm text-[var(--text2)]">Finishing transcription…</p>
           </div>
         )}
       </div>
