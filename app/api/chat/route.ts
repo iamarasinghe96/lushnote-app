@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { chatResponse, checkQuota, GEMINI_RATE_LIMIT_ERROR } from '@/lib/gemini'
 import { generateNoteGroq } from '@/lib/groq'
-import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles'
+import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 
 const TRANSCRIPT_QA_SYSTEM_PROMPT = `You are a clinical documentation assistant. The user is a psychiatrist reviewing a session transcript.
@@ -277,7 +277,7 @@ Return ONLY the system prompt text, nothing else - no explanation, no preamble.`
       if (checkQuota(quota, 'chat')) {
         try {
           const { text: reply, totalTokens } = await chatResponse(messages, systemPrompt)
-          await updateGeminiUsage(uid, 'chat', totalTokens)
+          await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
           return NextResponse.json({ reply, provider: 'gemini' })
         } catch (err) {
           if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR && typeof uid === 'string') {

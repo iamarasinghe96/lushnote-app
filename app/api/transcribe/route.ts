@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { transcribeAudio, checkQuota, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
 import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
-import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles'
+import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 
 // Recordings are transcribed live in short (~4 min) segments, so each request
