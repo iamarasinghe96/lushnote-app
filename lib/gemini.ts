@@ -52,7 +52,7 @@ export async function generateNote(prompt: string, systemPrompt: string, apiKey?
   return geminiPost(PRIMARY_MODEL, body, apiKey)
 }
 
-export async function transcribeAudio(audioBase64: string, mimeType: string): Promise<GeminiResult> {
+export async function transcribeAudio(audioBase64: string, mimeType: string, apiKey?: string): Promise<GeminiResult> {
   return geminiPost(PRIMARY_MODEL, {
     contents: [
       {
@@ -62,7 +62,7 @@ export async function transcribeAudio(audioBase64: string, mimeType: string): Pr
         ],
       },
     ],
-  })
+  }, apiKey)
 }
 
 interface GeminiFile {

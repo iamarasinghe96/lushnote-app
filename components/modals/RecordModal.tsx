@@ -32,7 +32,7 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
   const streamRef = useRef<MediaStream | null>(null)
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stopRef = useRef<(() => void) | null>(null)
-  const { duration, minutesSaved, start, stop, error: recError } = useSegmentedRecorder()
+  const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, start, stop, error: recError } = useSegmentedRecorder()
   const { user } = useAuth()
 
   // null means auto-stop is disabled; otherwise stop after this many minutes
@@ -177,8 +177,17 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
               </span>
             </div>
             <p className="text-sm text-[var(--text3)]">Recording in progress…</p>
-            {minutesSaved > 0 && (
-              <p className="text-xs text-[#10b981] font-medium">~{minutesSaved} min transcribed &amp; saved</p>
+            {audioSavedMin > 0 && (
+              <p className="text-xs text-[#10b981] font-medium">~{audioSavedMin} min of audio safely captured</p>
+            )}
+            {transcribedMin > 0 && (
+              <p className="text-xs text-[var(--text3)]">~{transcribedMin} min transcribed</p>
+            )}
+            {failures > 0 && (
+              <p className="text-xs text-[var(--danger)] font-medium">⚠ {failures} segment(s) couldn&apos;t transcribe{lastError ? ` — ${lastError}` : ''}. Audio is saved — you can retry later.</p>
+            )}
+            {audioError && (
+              <p className="text-xs text-[var(--danger)] font-medium">⚠ {audioError}</p>
             )}
             <Button onClick={doStop} variant="danger" className="w-full">
               Stop recording

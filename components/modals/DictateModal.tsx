@@ -93,7 +93,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
   const streamRef = useRef<MediaStream | null>(null)
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stopRef = useRef<(() => void) | null>(null)
-  const { duration, minutesSaved, start, stop, error: recError } = useSegmentedRecorder()
+  const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, start, stop, error: recError } = useSegmentedRecorder()
   const { user } = useAuth()
 
   const autoStopMinutes = recordingDefaults?.autoStop === false
@@ -307,6 +307,18 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
             <p className="text-sm text-[var(--text3)]">
               {letterType ? `Dictating your ${selectedLabel?.toLowerCase()}…` : 'Dictating…'}
             </p>
+            {audioSavedMin > 0 && (
+              <p className="text-xs text-[#10b981] font-medium">~{audioSavedMin} min of audio safely captured</p>
+            )}
+            {transcribedMin > 0 && (
+              <p className="text-xs text-[var(--text3)]">~{transcribedMin} min transcribed</p>
+            )}
+            {failures > 0 && (
+              <p className="text-xs text-[var(--danger)] font-medium">⚠ {failures} segment(s) couldn&apos;t transcribe{lastError ? ` — ${lastError}` : ''}. Audio is saved — you can retry later.</p>
+            )}
+            {audioError && (
+              <p className="text-xs text-[var(--danger)] font-medium">⚠ {audioError}</p>
+            )}
             {letterType && (
               <ul className="text-left rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--bg)] px-4 py-3 space-y-1.5">
                 {LETTER_GUIDE[letterType].map((pt, i) => (
