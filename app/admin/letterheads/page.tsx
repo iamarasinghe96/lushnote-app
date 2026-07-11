@@ -66,10 +66,11 @@ export default function AdminLetterheadsPage() {
   }, [toast])
 
   async function call(body: Record<string, unknown>) {
+    const token = user ? await user.getIdToken() : ''
     const res = await fetch('/api/admin/letterhead', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid: user!.uid, ...body }),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
     })
     if (!res.ok) {
       const j = await res.json().catch(() => ({}))

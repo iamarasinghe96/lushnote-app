@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminDb, adminStorage } from '@/lib/firebase-admin'
+import { adminDb, adminStorage, adminAuth } from '@/lib/firebase-admin'
 import { toOrganizationKey } from '@/lib/utils'
 
-const ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
+const ADMIN_UID = process.env.ADMIN_UID ?? process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
 
 function unauthorized() {
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -20,9 +20,20 @@ export async function POST(req: NextRequest) {
       footerDataUrl?: string | null
     }
 
-    const { uid, action } = body
+    const { action } = body
 
-    if (!uid || uid !== ADMIN_UID) return unauthorized()
+    // Verify a real Firebase ID token rather than trusting a client-supplied
+    // uid. The admin uid being public (NEXT_PUBLIC_) no longer matters — an
+    // attacker cannot forge a Google-signed token for it.
+    const authHeader = req.headers.get('authorization') || ''
+    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+    if (!idToken) return unauthorized()
+    try {
+      const decoded = await adminAuth().verifyIdToken(idToken)
+      if (decoded.uid !== ADMIN_UID) return unauthorized()
+    } catch {
+      return unauthorized()
+    }
 
     const db = adminDb()
     const bucket = adminStorage().bucket()
