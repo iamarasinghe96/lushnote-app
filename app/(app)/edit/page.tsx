@@ -535,7 +535,7 @@ function EditContent() {
           referrals:      data.referrals      ?? '',
           summary:        data.summary        ?? '',
           nextsteps:      data.nextsteps      ?? '',
-          transcript:     s.lastTranscript    ?? undefined,
+          transcript:     s.lastTranscript    ? s.lastTranscript.slice(0, 50000) : undefined,
           transcriptMode: s.lastTranscriptMode,
         }
         if (s.currentNoteId) {
@@ -644,7 +644,7 @@ function EditContent() {
         referrals:      data.referrals      ?? '',
         summary:        data.summary        ?? '',
         nextsteps:      data.nextsteps      ?? '',
-        transcript:     s.lastTranscript    ?? undefined,
+        transcript:     s.lastTranscript    ? s.lastTranscript.slice(0, 50000) : undefined,
         transcriptMode: s.lastTranscriptMode,
       }
       if (s.currentNoteId) {
@@ -1036,10 +1036,13 @@ function EditContent() {
         storeRef.current.setCurrentNote(latestFieldsRef.current)
         await doAutoSave()
       }
-    } catch {
+    } catch (err) {
       clearInterval(statusTimer)
       setGenerationStatus(null)
-      if (mountedRef.current) setIsGenerating(false)
+      if (mountedRef.current) {
+        setIsGenerating(false)
+        setGenerationError(err instanceof Error ? err.message : 'Generation failed')
+      }
     }
   }
 

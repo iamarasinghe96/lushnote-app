@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     // Letter AI generation — Groq-only, transient, no uid/quota tracking
     if (mode === 'letter' && letterType && transcript) {
-      if (typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 100000) {
+      if (typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 300000) {
         return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })
       }
 
@@ -160,7 +160,7 @@ ${transcript}`,
       return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
     }
 
-    if (!transcript || typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 100000) {
+    if (!transcript || typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 300000) {
       return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })
     }
 
