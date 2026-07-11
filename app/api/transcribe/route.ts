@@ -22,6 +22,8 @@ export async function POST(req: NextRequest) {
     const mimeType = form.get('mimeType')
     const uidField = form.get('uid')
     uid = typeof uidField === 'string' ? uidField : 'unknown'
+    const segField = form.get('segIndex')
+    const seg = typeof segField === 'string' ? segField : '?'
 
     if (!uidField || typeof uidField !== 'string' || uidField.length === 0 || uidField.length > 128) {
       return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
@@ -53,11 +55,11 @@ export async function POST(req: NextRequest) {
           const base64 = buffer.toString('base64')
           const { text, totalTokens } = await transcribeAudio(base64, mimeType)
           await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
-          console.log(`[transcribe] ok provider=gemini uid=${uid} sizeMB=${sizeMB} chars=${text.length} elapsedMs=${Date.now() - startedAt}`)
+          console.log(`[transcribe] ok provider=gemini seg=${seg} uid=${uid} sizeMB=${sizeMB} chars=${text.length} elapsedMs=${Date.now() - startedAt}`)
           return NextResponse.json({ text, provider: 'gemini' })
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err)
-          console.error(`[transcribe] gemini failed uid=${uid} sizeMB=${sizeMB} elapsedMs=${Date.now() - startedAt}: ${msg}`)
+          console.error(`[transcribe] gemini failed seg=${seg} uid=${uid} sizeMB=${sizeMB} elapsedMs=${Date.now() - startedAt}: ${msg}`)
           if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
             await markGeminiLimitReached(uid, 'gemini-2.5-flash').catch(() => {})
           }
@@ -76,11 +78,11 @@ export async function POST(req: NextRequest) {
     formData.append('file', new Blob([new Uint8Array(buffer)], { type: mimeType }), `audio.${ext}`)
     try {
       const text = await transcribeAudioGroq(formData, groqKey)
-      console.log(`[transcribe] ok provider=groq uid=${uid} sizeMB=${sizeMB} chars=${text.length} elapsedMs=${Date.now() - startedAt}`)
+      console.log(`[transcribe] ok provider=groq seg=${seg} uid=${uid} sizeMB=${sizeMB} chars=${text.length} elapsedMs=${Date.now() - startedAt}`)
       return NextResponse.json({ text, provider: 'groq' })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.error(`[transcribe] groq failed uid=${uid} sizeMB=${sizeMB} elapsedMs=${Date.now() - startedAt}: ${msg}`)
+      console.error(`[transcribe] groq failed seg=${seg} uid=${uid} sizeMB=${sizeMB} elapsedMs=${Date.now() - startedAt}: ${msg}`)
       if (err instanceof Error && err.message.startsWith('429:')) {
         const waitSeconds = parseGroqWaitSeconds(err.message)
         return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })

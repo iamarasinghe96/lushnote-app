@@ -2,13 +2,15 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { getGroqKey } from '@/lib/utils'
-import { saveTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
+import { saveTranscriptDraft, type SegmentLogEntry } from '@/lib/firestore/transcriptDrafts'
 
 // Each recorder cycle produces an independently-valid audio file (~4 min), which
 // is transcribed on its own and appended to a durable Firestore draft the moment
 // it finishes. Because the server only ever sees one short segment per request,
 // recordings of ANY length transcribe within the 60s serverless limit, and an
-// interruption at any point keeps everything transcribed so far.
+// interruption at any point keeps everything transcribed so far. A per-segment
+// diagnostic log (metadata only) is written alongside so any failure is
+// traceable after the fact.
 const SEGMENT_MS = 4 * 60 * 1000
 const SEGMENT_MINUTES = 4
 
@@ -23,11 +25,20 @@ interface StopResult {
   duration: number
 }
 
+interface SegResult {
+  ok: boolean
+  text?: string
+  provider?: string
+  error?: string
+  ms: number
+}
+
 export function useSegmentedRecorder() {
   const [isRecording, setIsRecording] = useState(false)
   const [duration, setDuration] = useState(0)
   const [minutesSaved, setMinutesSaved] = useState(0)
   const [pending, setPending] = useState(0)
+  const [failures, setFailures] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
   const streamRef = useRef<MediaStream | null>(null)
@@ -40,6 +51,17 @@ export function useSegmentedRecorder() {
   const workingRef = useRef(false)
   const textRef = useRef('')
   const optsRef = useRef<StartOpts | null>(null)
+  const segNoRef = useRef(0)
+  const logRef = useRef<SegmentLogEntry[]>([])
+
+  // Clear intervals if the component unmounts mid-recording (e.g. navigation),
+  // so timers don't keep firing against a stopped stream.
+  useEffect(() => {
+    return () => {
+      if (cycleRef.current) clearInterval(cycleRef.current)
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     function onVisibility() {
@@ -57,23 +79,31 @@ export function useSegmentedRecorder() {
     return 'audio/mp4'
   }
 
-  async function transcribeSegment(blob: Blob): Promise<string | null> {
+  async function transcribeSegment(blob: Blob, segIndex: number): Promise<SegResult> {
     const opts = optsRef.current
-    if (!opts) return null
+    const startedAt = Date.now()
+    if (!opts) return { ok: false, error: 'no-session', ms: 0 }
     for (let attempt = 0; ; attempt++) {
       try {
         const fd = new FormData()
         fd.append('audio', blob, 'segment')
         fd.append('mimeType', mimeRef.current)
         fd.append('uid', opts.uid)
+        fd.append('segIndex', String(segIndex))
         const headers: Record<string, string> = {}
         const gk = getGroqKey()
         if (gk) headers['x-groq-key'] = gk
         const res = await fetch('/api/transcribe', { method: 'POST', headers, body: fd })
-        if (!res.ok) throw new Error(`http ${res.status}`)
-        return ((await res.json()) as { text: string }).text
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({})) as { error?: string }
+          throw new Error(`${res.status}${data.error ? ' ' + data.error : ''}`)
+        }
+        const data = (await res.json()) as { text: string; provider?: string }
+        return { ok: true, text: data.text, provider: data.provider, ms: Date.now() - startedAt }
       } catch (err) {
-        if (attempt >= 2) return null
+        if (attempt >= 2) {
+          return { ok: false, error: err instanceof Error ? err.message : 'failed', ms: Date.now() - startedAt }
+        }
         await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)))
       }
     }
@@ -86,10 +116,21 @@ export function useSegmentedRecorder() {
       while (queueRef.current.length > 0) {
         setPending(queueRef.current.length)
         const seg = queueRef.current.shift()!
-        const text = await transcribeSegment(seg)
-        if (text && text.trim()) {
-          textRef.current = `${textRef.current} ${text.trim()}`.trim()
+        const segNo = ++segNoRef.current
+        const r = await transcribeSegment(seg, segNo)
+        if (r.ok && r.text && r.text.trim()) {
+          textRef.current = `${textRef.current} ${r.text.trim()}`.trim()
+        } else if (!r.ok) {
+          setFailures((f) => f + 1)
         }
+        logRef.current.push({
+          seg: segNo,
+          ok: r.ok,
+          provider: r.provider,
+          chars: r.text ? r.text.length : 0,
+          ms: r.ms,
+          error: r.error,
+        })
         setMinutesSaved((m) => m + SEGMENT_MINUTES)
         const opts = optsRef.current
         if (opts) {
@@ -98,6 +139,7 @@ export function useSegmentedRecorder() {
             mode: opts.mode,
             letterType: opts.letterType ?? null,
             durationSec: Math.floor((Date.now() - startTimeRef.current) / 1000),
+            segmentLog: logRef.current.slice(-80),
           }).catch(() => {})
         }
         setPending(queueRef.current.length)
@@ -134,8 +176,11 @@ export function useSegmentedRecorder() {
     optsRef.current = opts
     textRef.current = ''
     queueRef.current = []
+    logRef.current = []
+    segNoRef.current = 0
     setMinutesSaved(0)
     setPending(0)
+    setFailures(0)
     setDuration(0)
     mimeRef.current = pickMime()
     startTimeRef.current = Date.now()
@@ -180,5 +225,5 @@ export function useSegmentedRecorder() {
     return { text: textRef.current, duration: dur }
   }, [])
 
-  return { isRecording, duration, minutesSaved, pending, error, start, stop }
+  return { isRecording, duration, minutesSaved, pending, failures, error, start, stop }
 }
