@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { getPatientProfiles, deletePatientProfile } from '@/lib/firestore/patients'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
+import { getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { GenderAvatar } from '@/components/ui/GenderAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -255,12 +256,18 @@ export default function PatientsPage() {
   const [selectedPatient, setSelectedPatient] = useState<PatientGroup | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [editingProfile, setEditingProfile] = useState<PatientProfile | undefined>(undefined)
+  const [unfinishedDraft, setUnfinishedDraft] = useState<{ text: string; durationSec: number } | null>(null)
 
   useEffect(() => {
     if (!user) return
     Promise.all([listNotes(user.uid), getPatientProfiles(user.uid)])
       .then(([n, p]) => { setNotes(n); setProfiles(p) })
       .finally(() => setLoading(false))
+    getTranscriptDraft(user.uid).then(d => {
+      setUnfinishedDraft(d && typeof d.text === 'string' && d.text.trim().length > 0
+        ? { text: d.text, durationSec: d.durationSec ?? 0 }
+        : null)
+    }).catch(() => {})
   }, [user?.uid])
 
   const groupedPatients = useMemo<PatientGroup[]>(() => {
@@ -493,6 +500,29 @@ export default function PatientsPage() {
 
       {/* Patient list */}
       <div className="flex-1 overflow-y-auto scrollbar-none pb-tabbar">
+        {unfinishedDraft && (
+          <div
+            onClick={() => router.push('/generate')}
+            className="mx-4 mt-3 mb-1 rounded-[var(--r)] border border-amber-300 bg-amber-50 px-4 py-3 flex items-center gap-3 cursor-pointer hover:border-amber-400 transition-colors"
+          >
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0 text-amber-600">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-900">Unfinished recording</p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                ~{unfinishedDraft.text.trim().split(/\s+/).length} words captured, patient not yet named. Tap to name the patient and generate the note.
+              </p>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-amber-400 shrink-0" aria-hidden>
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </div>
+        )}
         {loading ? (
           <div className="space-y-0">
             {[0, 1, 2, 3].map(i => (
