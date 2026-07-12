@@ -293,8 +293,9 @@ REMOVE only filler, repetition, off-topic small talk and conversational scaffold
       return NextResponse.json({ error: msg }, { status: 500 })
     }
 
-  } catch {
-    console.error('Generation error')
-    return NextResponse.json({ error: 'Generation failed' }, { status: 500 })
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
+    console.error(`[generate] fatal: ${detail}`)
+    return NextResponse.json({ error: `Generation failed: ${detail}` }, { status: 500 })
   }
 }
