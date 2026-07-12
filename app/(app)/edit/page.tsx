@@ -185,71 +185,6 @@ async function parseJsonSafe<T = Record<string, unknown>>(res: Response): Promis
   }
 }
 
-// With "thinking" disabled, a single Gemini call comfortably generates a note
-// from a transcript of this size within the serverless time limit, and does it
-// from the full text (no lossy condense). Only genuinely huge sessions above
-// this are split into a condense pass first.
-const CONDENSE_THRESHOLD = 45000
-const CONDENSE_CHUNK_CHARS = 12000
-
-// Split a long transcript into chunks, preferring to break on a space so words
-// are not cut, so each chunk can be condensed in its own fast request.
-function chunkTranscript(text: string, size: number): string[] {
-  const chunks: string[] = []
-  let i = 0
-  while (i < text.length) {
-    let end = Math.min(i + size, text.length)
-    if (end < text.length) {
-      const lastSpace = text.lastIndexOf(' ', end)
-      if (lastSpace > i + size * 0.5) end = lastSpace
-    }
-    const piece = text.slice(i, end).trim()
-    if (piece) chunks.push(piece)
-    i = end
-  }
-  return chunks
-}
-
-async function condenseChunk(chunk: string, uid: string, headers: Record<string, string>): Promise<string> {
-  for (let attempt = 0; ; attempt++) {
-    const res = await fetch('/api/generate', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ mode: 'condense', transcript: chunk, uid }),
-    })
-    const data = await parseJsonSafe<{ digest?: string; error?: string }>(res)
-    if (res.ok && data?.digest?.trim()) return data.digest.trim()
-    if (attempt >= 2) {
-      const fallback = res.status === 429
-        ? 'The AI service is rate-limited right now. Wait a moment and try again.'
-        : 'The AI took too long on part of the transcript. Try again, or shorten the transcript.'
-      throw new Error(data?.error ?? fallback)
-    }
-    await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)))
-  }
-}
-
-// A long transcript is condensed into a clinical digest before note generation
-// so no single AI call handles the whole session (which would time out). The
-// transcript is split into chunks, each condensed in its own fast call in
-// parallel, and the digests are combined. Short transcripts pass straight
-// through unchanged.
-async function condenseIfLong(transcript: string, uid: string): Promise<string> {
-  if (transcript.length <= CONDENSE_THRESHOLD) return transcript
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  const gk = getGroqKey()
-  if (gk) headers['x-groq-key'] = gk
-  const gemk = getGeminiKey()
-  if (gemk) headers['x-gemini-key'] = gemk
-  const chunks = chunkTranscript(transcript, CONDENSE_CHUNK_CHARS)
-  // Sequential (not parallel) so we never burst the per-minute API rate limit.
-  const digests: string[] = []
-  for (const c of chunks) {
-    digests.push(await condenseChunk(c, uid, headers))
-  }
-  return digests.join('\n\n')
-}
-
 export default function EditPage() {
   return (
     <Suspense>
@@ -997,11 +932,10 @@ function EditContent() {
       const geminiKey = getGeminiKey()
       if (geminiKey) headers['x-gemini-key'] = geminiKey
 
-      const genTranscript = await condenseIfLong(transcript, user.uid)
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ transcript: genTranscript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user.uid }),
+        body: JSON.stringify({ transcript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user.uid }),
       })
 
       statusTimers.forEach(clearTimeout)
@@ -1088,11 +1022,10 @@ function EditContent() {
       if (groqKey) headers['x-groq-key'] = groqKey
       const geminiKey = getGeminiKey()
       if (geminiKey) headers['x-gemini-key'] = geminiKey
-      const genTranscript = await condenseIfLong(transcript, user!.uid)
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ transcript: genTranscript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user!.uid }),
+        body: JSON.stringify({ transcript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user!.uid }),
       })
       if (!res.ok) {
         const data = await parseJsonSafe<{ error?: string; waitSeconds?: number }>(res)

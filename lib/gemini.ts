@@ -16,35 +16,16 @@ export interface GeminiResult {
   totalTokens: number
 }
 
-// Serverless functions on the free plan are killed at ~60s. If a single Gemini
-// call hangs that long, the function dies and returns an HTML timeout page
-// instead of JSON, and the fallback chain (shared key, then Groq) never runs.
-// A hard abort well under that wall guarantees we always return clean JSON and
-// gives the fallbacks room to run. A normal call finishes in a few seconds.
-export const GEMINI_TIMEOUT_ERROR = 'GEMINI_TIMEOUT'
-const DEFAULT_TIMEOUT_MS = 45000
-
-async function geminiPost(model: string, body: object, apiKey?: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<GeminiResult> {
+async function geminiPost(model: string, body: object, apiKey?: string): Promise<GeminiResult> {
   const key = apiKey || process.env.GEMINI_API_KEY
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  let res: Response
-  try {
-    res = await fetch(
-      `${BASE_URL}/models/${model}:generateContent?key=${key}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      }
-    )
-  } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') throw new Error(GEMINI_TIMEOUT_ERROR)
-    throw err
-  } finally {
-    clearTimeout(timer)
-  }
+  const res = await fetch(
+    `${BASE_URL}/models/${model}:generateContent?key=${key}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  )
   if (!res.ok) {
     if (res.status === 429) {
       // Google returns 429 for both per-day (RPD) and per-minute (RPM/TPM)
@@ -61,21 +42,14 @@ async function geminiPost(model: string, body: object, apiKey?: string, timeoutM
   }
 }
 
-export async function generateNote(prompt: string, systemPrompt: string, apiKey?: string, maxOutputTokens?: number, timeoutMs?: number): Promise<GeminiResult> {
+export async function generateNote(prompt: string, systemPrompt: string, apiKey?: string): Promise<GeminiResult> {
   const body: Record<string, unknown> = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
   }
   if (systemPrompt.trim()) {
     body.systemInstruction = { parts: [{ text: systemPrompt }] }
   }
-  // gemini-2.5-flash defaults to "thinking", which adds large, unpredictable
-  // latency (and, under a small output cap, can spend the whole budget thinking
-  // and return no text). Disable it: these are extraction/writing tasks that do
-  // not need it, and turning it off keeps every call fast and reliable.
-  const generationConfig: Record<string, unknown> = { thinkingConfig: { thinkingBudget: 0 } }
-  if (maxOutputTokens) generationConfig.maxOutputTokens = maxOutputTokens
-  body.generationConfig = generationConfig
-  return geminiPost(PRIMARY_MODEL, body, apiKey, timeoutMs)
+  return geminiPost(PRIMARY_MODEL, body, apiKey)
 }
 
 export async function transcribeAudio(audioBase64: string, mimeType: string, apiKey?: string): Promise<GeminiResult> {
