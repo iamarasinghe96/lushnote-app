@@ -1,9 +1,13 @@
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
-import { getAuth } from 'firebase-admin/auth'
 
-function getAdminApp(): App {
+// NOTE: do NOT import 'firebase-admin/auth' here. It pulls in jwks-rsa → jose,
+// which is ESM-only and crashes with ERR_REQUIRE_ESM at runtime on Vercel's
+// Node bundle. Every route that imports this module (generate, transcribe,
+// chat, support) would then 500 at import time. Auth token verification lives
+// in firebase-admin-auth.ts and is imported only by the admin route.
+export function getAdminApp(): App {
   if (getApps().length > 0) return getApps()[0]
   return initializeApp({
     credential: cert({
@@ -21,8 +25,4 @@ export function adminDb() {
 
 export function adminStorage() {
   return getStorage(getAdminApp())
-}
-
-export function adminAuth() {
-  return getAuth(getAdminApp())
 }

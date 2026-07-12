@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { adminDb, adminStorage, adminAuth } from '@/lib/firebase-admin'
+import { adminDb, adminStorage } from '@/lib/firebase-admin'
+import { adminAuth } from '@/lib/firebase-admin-auth'
 import { toOrganizationKey } from '@/lib/utils'
 
 const ADMIN_UID = process.env.ADMIN_UID ?? process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
