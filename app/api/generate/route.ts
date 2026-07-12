@@ -177,19 +177,19 @@ REMOVE only filler, repetition, off-topic small talk and conversational scaffold
 
       if (userGeminiKey) {
         try {
-          const { text } = await generateNote(safe, condenseSystem, userGeminiKey)
+          const { text } = await generateNote(safe, condenseSystem, userGeminiKey, 1600)
           if (text.trim()) return NextResponse.json({ digest: text })
         } catch { /* fall through */ }
       }
       if (process.env.GEMINI_API_KEY) {
         try {
-          const { text } = await generateNote(safe, condenseSystem)
+          const { text } = await generateNote(safe, condenseSystem, undefined, 1600)
           if (text.trim()) return NextResponse.json({ digest: text })
         } catch { /* fall through */ }
       }
       if (groqKey) {
         try {
-          const { content } = await generateNoteGroq(safe, condenseSystem, groqKey)
+          const { content } = await generateNoteGroq(safe, condenseSystem, groqKey, 1600)
           if (content.trim()) return NextResponse.json({ digest: content })
         } catch (err) {
           if (err instanceof Error && err.message.startsWith('429:')) {

@@ -42,12 +42,15 @@ async function geminiPost(model: string, body: object, apiKey?: string): Promise
   }
 }
 
-export async function generateNote(prompt: string, systemPrompt: string, apiKey?: string): Promise<GeminiResult> {
+export async function generateNote(prompt: string, systemPrompt: string, apiKey?: string, maxOutputTokens?: number): Promise<GeminiResult> {
   const body: Record<string, unknown> = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
   }
   if (systemPrompt.trim()) {
     body.systemInstruction = { parts: [{ text: systemPrompt }] }
+  }
+  if (maxOutputTokens) {
+    body.generationConfig = { maxOutputTokens }
   }
   return geminiPost(PRIMARY_MODEL, body, apiKey)
 }

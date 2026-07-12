@@ -186,11 +186,47 @@ async function parseJsonSafe<T = Record<string, unknown>>(res: Response): Promis
 }
 
 const CONDENSE_THRESHOLD = 14000
+const CONDENSE_CHUNK_CHARS = 16000
 
-// When a transcript is long enough that one-pass note generation would exceed
-// the serverless time limit, first condense it into a clinical digest (a
-// separate, fast request), then generate the note from that digest. Short
-// transcripts pass straight through unchanged.
+// Split a long transcript into chunks, preferring to break on a space so words
+// are not cut, so each chunk can be condensed in its own fast request.
+function chunkTranscript(text: string, size: number): string[] {
+  const chunks: string[] = []
+  let i = 0
+  while (i < text.length) {
+    let end = Math.min(i + size, text.length)
+    if (end < text.length) {
+      const lastSpace = text.lastIndexOf(' ', end)
+      if (lastSpace > i + size * 0.5) end = lastSpace
+    }
+    const piece = text.slice(i, end).trim()
+    if (piece) chunks.push(piece)
+    i = end
+  }
+  return chunks
+}
+
+async function condenseChunk(chunk: string, uid: string, headers: Record<string, string>): Promise<string> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ mode: 'condense', transcript: chunk, uid }),
+    })
+    const data = await parseJsonSafe<{ digest?: string; error?: string }>(res)
+    if (res.ok && data?.digest?.trim()) return data.digest.trim()
+    if (attempt >= 1) {
+      throw new Error(data?.error ?? 'Could not process part of the long transcript. Please try again.')
+    }
+    await new Promise((r) => setTimeout(r, 3000))
+  }
+}
+
+// A long transcript is condensed into a clinical digest before note generation
+// so no single AI call handles the whole session (which would time out). The
+// transcript is split into chunks, each condensed in its own fast call in
+// parallel, and the digests are combined. Short transcripts pass straight
+// through unchanged.
 async function condenseIfLong(transcript: string, uid: string): Promise<string> {
   if (transcript.length <= CONDENSE_THRESHOLD) return transcript
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -198,21 +234,9 @@ async function condenseIfLong(transcript: string, uid: string): Promise<string> 
   if (gk) headers['x-groq-key'] = gk
   const gemk = getGeminiKey()
   if (gemk) headers['x-gemini-key'] = gemk
-  const res = await fetch('/api/generate', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ mode: 'condense', transcript, uid }),
-  })
-  const data = await parseJsonSafe<{ digest?: string; error?: string }>(res)
-  if (!res.ok || !data?.digest?.trim()) {
-    throw new Error(
-      data?.error ??
-        (res.status === 502 || res.status === 504
-          ? 'The session was too long to process even in two passes. Try generating from a shorter part of the transcript.'
-          : 'Could not process the long transcript. Please try again.')
-    )
-  }
-  return data.digest
+  const chunks = chunkTranscript(transcript, CONDENSE_CHUNK_CHARS)
+  const digests = await Promise.all(chunks.map((c) => condenseChunk(c, uid, headers)))
+  return digests.join('\n\n')
 }
 
 export default function EditPage() {
