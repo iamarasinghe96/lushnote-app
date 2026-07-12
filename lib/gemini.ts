@@ -49,9 +49,13 @@ export async function generateNote(prompt: string, systemPrompt: string, apiKey?
   if (systemPrompt.trim()) {
     body.systemInstruction = { parts: [{ text: systemPrompt }] }
   }
-  if (maxOutputTokens) {
-    body.generationConfig = { maxOutputTokens }
-  }
+  // gemini-2.5-flash defaults to "thinking", which adds large, unpredictable
+  // latency (and, under a small output cap, can spend the whole budget thinking
+  // and return no text). Disable it: these are extraction/writing tasks that do
+  // not need it, and turning it off keeps every call fast and reliable.
+  const generationConfig: Record<string, unknown> = { thinkingConfig: { thinkingBudget: 0 } }
+  if (maxOutputTokens) generationConfig.maxOutputTokens = maxOutputTokens
+  body.generationConfig = generationConfig
   return geminiPost(PRIMARY_MODEL, body, apiKey)
 }
 

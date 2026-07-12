@@ -215,10 +215,10 @@ async function condenseChunk(chunk: string, uid: string, headers: Record<string,
     })
     const data = await parseJsonSafe<{ digest?: string; error?: string }>(res)
     if (res.ok && data?.digest?.trim()) return data.digest.trim()
-    if (attempt >= 1) {
+    if (attempt >= 2) {
       throw new Error(data?.error ?? 'Could not process part of the long transcript. Please try again.')
     }
-    await new Promise((r) => setTimeout(r, 3000))
+    await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)))
   }
 }
 
@@ -235,7 +235,11 @@ async function condenseIfLong(transcript: string, uid: string): Promise<string> 
   const gemk = getGeminiKey()
   if (gemk) headers['x-gemini-key'] = gemk
   const chunks = chunkTranscript(transcript, CONDENSE_CHUNK_CHARS)
-  const digests = await Promise.all(chunks.map((c) => condenseChunk(c, uid, headers)))
+  // Sequential (not parallel) so we never burst the per-minute API rate limit.
+  const digests: string[] = []
+  for (const c of chunks) {
+    digests.push(await condenseChunk(c, uid, headers))
+  }
   return digests.join('\n\n')
 }
 
