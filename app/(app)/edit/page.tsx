@@ -172,6 +172,19 @@ const TARGET_NOTE_FIELDS: Array<[keyof Note, string]> = [
   ['nextsteps',    'Next Steps'],
 ]
 
+// Parse a fetch Response as JSON without throwing on a non-JSON body. When a
+// generation request times out, Vercel returns an HTML error page, and calling
+// res.json() on it throws the confusing "Unexpected token '<'" error — this
+// returns null instead so callers can show a clear "timed out" message.
+async function parseJsonSafe<T = Record<string, unknown>>(res: Response): Promise<T | null> {
+  const raw = await res.text()
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return null
+  }
+}
+
 export default function EditPage() {
   return (
     <Suspense>
@@ -929,8 +942,8 @@ function EditContent() {
       if (!mountedRef.current) return
 
       if (!res.ok) {
-        const data = await res.json() as { error?: string; waitSeconds?: number }
-        if (data.error === 'rate_limit' && data.waitSeconds) {
+        const data = await parseJsonSafe<{ error?: string; waitSeconds?: number }>(res)
+        if (data?.error === 'rate_limit' && data.waitSeconds) {
           metaAnimRef.current?.cancel()
           metaAnimRef.current = null
           setIsGenerating(false)
@@ -941,11 +954,11 @@ function EditContent() {
           }))
           return
         }
-        throw new Error(data.error ?? 'Generation failed')
+        throw new Error(data?.error ?? (res.status === 502 || res.status === 504 || res.status === 413 ? 'The note took too long to generate — a very long session can exceed the time limit. Please try again, or generate from a shorter section of the transcript.' : 'Generation failed'))
       }
 
-      const data = await res.json() as { content: string; provider?: string; groqTokensUsed?: number }
-      if (!data.content?.trim()) throw new Error('AI returned empty response. Please try again.')
+      const data = await parseJsonSafe<{ content?: string; provider?: string; groqTokensUsed?: number }>(res)
+      if (!data?.content?.trim()) throw new Error('The note took too long to generate or returned nothing. Please try again.')
 
       if (data.provider === 'groq') {
         setLetterToast('Note generated using Groq - Gemini daily limit reached')
@@ -1015,8 +1028,8 @@ function EditContent() {
         body: JSON.stringify({ transcript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user!.uid }),
       })
       if (!res.ok) {
-        const data = await res.json() as { error?: string; waitSeconds?: number }
-        if (data.error === 'rate_limit' && data.waitSeconds) {
+        const data = await parseJsonSafe<{ error?: string; waitSeconds?: number }>(res)
+        if (data?.error === 'rate_limit' && data.waitSeconds) {
           clearInterval(statusTimer)
           setGenerationStatus(null)
           setIsGenerating(false)
@@ -1025,9 +1038,10 @@ function EditContent() {
           }))
           return
         }
-        throw new Error(data.error ?? 'Generation failed')
+        throw new Error(data?.error ?? (res.status === 502 || res.status === 504 || res.status === 413 ? 'The note took too long to generate — a very long session can exceed the time limit. Please try again, or generate from a shorter section of the transcript.' : 'Generation failed'))
       }
-      const data = await res.json() as { content: string }
+      const data = await parseJsonSafe<{ content?: string }>(res)
+      if (!data?.content) throw new Error('The note took too long to generate or returned nothing. Please try again.')
       clearInterval(statusTimer)
       if (!mountedRef.current) return
       const noteFields = parseGeneratedContent(data.content)

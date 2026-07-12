@@ -7,7 +7,7 @@ import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY
 
 // Generating a note from a long transcript can exceed Vercel's 10s Hobby
 // default. 60s is the Hobby-plan ceiling.
-export const maxDuration = 60
+export const maxDuration = 300
 
 export async function POST(req: NextRequest) {
   try {
