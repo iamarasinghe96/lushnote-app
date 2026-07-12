@@ -11,6 +11,7 @@ export default function TranscriptPage() {
   const { user } = useAuth()
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [messages, setMessages] = useState<{ role: 'user' | 'ai'; content: string; quote?: string }[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -96,6 +97,45 @@ export default function TranscriptPage() {
     }
   }
 
+  async function copyAll() {
+    if (!lastTranscript) return
+    try {
+      await navigator.clipboard.writeText(lastTranscript)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard blocked — select the transcript so the user can copy manually
+      if (transcriptRef.current) {
+        setExpanded(true)
+        const range = document.createRange()
+        range.selectNodeContents(transcriptRef.current)
+        const sel = window.getSelection()
+        sel?.removeAllRanges()
+        sel?.addRange(range)
+      }
+    }
+  }
+
+  function exportTxt() {
+    if (!lastTranscript) return
+    const stamp = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const header =
+      'LushNote — Session Transcript (verbatim, read-only export)\n' +
+      `Exported: ${stamp.toLocaleString()}\n` +
+      `Word count: ${wordCount}\n\n` +
+      '----------------------------------------\n\n'
+    const blob = new Blob([header + lastTranscript], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `transcript-${stamp.getFullYear()}-${pad(stamp.getMonth() + 1)}-${pad(stamp.getDate())}.txt`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 2000)
+  }
+
   function trsHighlightQuote(quote: string) {
     if (!transcriptRef.current || !quote) return
     const el = transcriptRef.current
@@ -173,6 +213,18 @@ export default function TranscriptPage() {
               {wordCount} words
             </span>
             <button
+              onClick={copyAll}
+              className="text-xs px-2.5 py-0.5 rounded-full border border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)]/50 hover:text-[var(--blue)] motion-safe:transition-colors"
+            >
+              {copied ? 'Copied' : 'Copy all'}
+            </button>
+            <button
+              onClick={exportTxt}
+              className="text-xs px-2.5 py-0.5 rounded-full border border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)]/50 hover:text-[var(--blue)] motion-safe:transition-colors"
+            >
+              Export
+            </button>
+            <button
               onClick={() => setExpanded(v => !v)}
               aria-label={expanded ? 'Collapse transcript' : 'Expand transcript'}
               className="w-7 h-7 flex items-center justify-center rounded-full bg-[var(--bg)] border border-[var(--border)] text-[var(--text3)] motion-safe:transition-transform"
@@ -185,8 +237,8 @@ export default function TranscriptPage() {
           </div>
         </div>
         <div
-          className={`relative text-sm text-[var(--text2)] leading-relaxed whitespace-pre-wrap scrollbar-none ${
-            !expanded ? 'max-h-28 overflow-hidden' : 'max-h-[22vh] overflow-y-auto'
+          className={`relative text-sm text-[var(--text2)] leading-relaxed whitespace-pre-wrap select-text ${
+            !expanded ? 'max-h-28 overflow-hidden scrollbar-none' : 'max-h-[62vh] overflow-y-auto'
           }`}
           ref={transcriptRef}
         >
