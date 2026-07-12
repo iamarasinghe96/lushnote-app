@@ -186,7 +186,7 @@ async function parseJsonSafe<T = Record<string, unknown>>(res: Response): Promis
 }
 
 const CONDENSE_THRESHOLD = 14000
-const CONDENSE_CHUNK_CHARS = 16000
+const CONDENSE_CHUNK_CHARS = 12000
 
 // Split a long transcript into chunks, preferring to break on a space so words
 // are not cut, so each chunk can be condensed in its own fast request.
@@ -216,7 +216,10 @@ async function condenseChunk(chunk: string, uid: string, headers: Record<string,
     const data = await parseJsonSafe<{ digest?: string; error?: string }>(res)
     if (res.ok && data?.digest?.trim()) return data.digest.trim()
     if (attempt >= 2) {
-      throw new Error(data?.error ?? 'Could not process part of the long transcript. Please try again.')
+      const fallback = res.status === 429
+        ? 'The AI service is rate-limited right now. Wait a moment and try again.'
+        : 'The AI took too long on part of the transcript. Try again, or shorten the transcript.'
+      throw new Error(data?.error ?? fallback)
     }
     await new Promise((r) => setTimeout(r, 3000 * (attempt + 1)))
   }

@@ -16,16 +16,35 @@ export interface GeminiResult {
   totalTokens: number
 }
 
-async function geminiPost(model: string, body: object, apiKey?: string): Promise<GeminiResult> {
+// Serverless functions on the free plan are killed at ~60s. If a single Gemini
+// call hangs that long, the function dies and returns an HTML timeout page
+// instead of JSON, and the fallback chain (shared key, then Groq) never runs.
+// A hard abort well under that wall guarantees we always return clean JSON and
+// gives the fallbacks room to run. A normal call finishes in a few seconds.
+export const GEMINI_TIMEOUT_ERROR = 'GEMINI_TIMEOUT'
+const DEFAULT_TIMEOUT_MS = 45000
+
+async function geminiPost(model: string, body: object, apiKey?: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<GeminiResult> {
   const key = apiKey || process.env.GEMINI_API_KEY
-  const res = await fetch(
-    `${BASE_URL}/models/${model}:generateContent?key=${key}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }
-  )
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  let res: Response
+  try {
+    res = await fetch(
+      `${BASE_URL}/models/${model}:generateContent?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      }
+    )
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') throw new Error(GEMINI_TIMEOUT_ERROR)
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
   if (!res.ok) {
     if (res.status === 429) {
       // Google returns 429 for both per-day (RPD) and per-minute (RPM/TPM)
@@ -42,7 +61,7 @@ async function geminiPost(model: string, body: object, apiKey?: string): Promise
   }
 }
 
-export async function generateNote(prompt: string, systemPrompt: string, apiKey?: string, maxOutputTokens?: number): Promise<GeminiResult> {
+export async function generateNote(prompt: string, systemPrompt: string, apiKey?: string, maxOutputTokens?: number, timeoutMs?: number): Promise<GeminiResult> {
   const body: Record<string, unknown> = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
   }
@@ -56,7 +75,7 @@ export async function generateNote(prompt: string, systemPrompt: string, apiKey?
   const generationConfig: Record<string, unknown> = { thinkingConfig: { thinkingBudget: 0 } }
   if (maxOutputTokens) generationConfig.maxOutputTokens = maxOutputTokens
   body.generationConfig = generationConfig
-  return geminiPost(PRIMARY_MODEL, body, apiKey)
+  return geminiPost(PRIMARY_MODEL, body, apiKey, timeoutMs)
 }
 
 export async function transcribeAudio(audioBase64: string, mimeType: string, apiKey?: string): Promise<GeminiResult> {

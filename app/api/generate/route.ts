@@ -175,21 +175,28 @@ REMOVE only filler, repetition, off-topic small talk and conversational scaffold
       const userGeminiKey = req.headers.get('x-gemini-key')
       const groqKey = req.headers.get('x-groq-key')
 
+      // Each provider gets a short timeout so all three can be tried in sequence
+      // and still return JSON before the serverless wall (~60s). A real condense
+      // finishes in a few seconds; the timeout only fires on a hung call.
+      let anyKey = false
       if (userGeminiKey) {
+        anyKey = true
         try {
-          const { text } = await generateNote(safe, condenseSystem, userGeminiKey, 1600)
+          const { text } = await generateNote(safe, condenseSystem, userGeminiKey, 1600, 20000)
           if (text.trim()) return NextResponse.json({ digest: text })
         } catch { /* fall through */ }
       }
       if (process.env.GEMINI_API_KEY) {
+        anyKey = true
         try {
-          const { text } = await generateNote(safe, condenseSystem, undefined, 1600)
+          const { text } = await generateNote(safe, condenseSystem, undefined, 1600, 20000)
           if (text.trim()) return NextResponse.json({ digest: text })
         } catch { /* fall through */ }
       }
       if (groqKey) {
+        anyKey = true
         try {
-          const { content } = await generateNoteGroq(safe, condenseSystem, groqKey, 1600)
+          const { content } = await generateNoteGroq(safe, condenseSystem, groqKey, 1600, 16000)
           if (content.trim()) return NextResponse.json({ digest: content })
         } catch (err) {
           if (err instanceof Error && err.message.startsWith('429:')) {
@@ -198,7 +205,10 @@ REMOVE only filler, repetition, off-topic small talk and conversational scaffold
           }
         }
       }
-      return NextResponse.json({ error: 'Could not process the long transcript. Check your Gemini or Groq key in Settings.' }, { status: 401 })
+      const msg = anyKey
+        ? 'The AI could not condense part of the transcript. Your daily Gemini limit may be reached, or the model returned nothing. Add a Groq key in Settings for higher limits, or try again.'
+        : 'No working AI key. Add your Gemini or Groq key in Settings > API Keys.'
+      return NextResponse.json({ error: msg }, { status: anyKey ? 502 : 401 })
     }
 
     // Standard note generation

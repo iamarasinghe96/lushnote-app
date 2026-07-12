@@ -6,7 +6,8 @@ export async function generateNoteGroq(
   prompt: string,
   systemPrompt: string,
   apiKey: string,
-  maxTokens?: number
+  maxTokens?: number,
+  timeoutMs = 45000
 ): Promise<{ content: string; totalTokens: number }> {
   // Groq's free-tier limiter counts estimated input + max_tokens against the
   // per-minute token cap, so short-answer callers (chat) pass a small maxTokens
@@ -14,21 +15,33 @@ export async function generateNoteGroq(
   const estimatedInputTokens = Math.ceil((systemPrompt.length + prompt.length) / 4)
   const max_tokens = maxTokens ?? Math.max(512, 12000 - estimatedInputTokens - 200)
 
-  const res = await fetch(`${BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: GENERATION_MODEL,
-      max_tokens,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt },
-      ],
-    }),
-  })
+  // Hard timeout so a hanging call fails before the serverless wall (see gemini.ts).
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  let res: Response
+  try {
+    res = await fetch(`${BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: GENERATION_MODEL,
+        max_tokens,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt },
+        ],
+      }),
+      signal: controller.signal,
+    })
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') throw new Error('Groq request timed out')
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({})) as { error?: { message?: string } }
     throw new Error(`${res.status}: ${err?.error?.message ?? res.statusText}`)
