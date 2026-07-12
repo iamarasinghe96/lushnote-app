@@ -23,7 +23,7 @@ export default function ReassignModal({ open, allNotes, onConfirm, onClose }: Re
   const [regNumber, setRegNumber] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const [mounted, setMounted] = useState(false)
-  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null)
+  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => setMounted(true), [])
@@ -58,12 +58,47 @@ export default function ReassignModal({ open, allNotes, onConfirm, onClose }: Re
     return patientIndex.filter(p => p.name.includes(q)).slice(0, 8)
   }, [patientName, patientIndex])
 
+  // Place the dropdown in the visible area — flipped above the field when the
+  // mobile keyboard (which shrinks visualViewport) would otherwise cover it.
   function updateDropdownPos() {
-    if (inputRef.current) {
-      const rect = inputRef.current.getBoundingClientRect()
-      setDropdownRect({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+    const el = inputRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null
+    const visibleTop = vv ? vv.offsetTop : 0
+    const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight
+    const GAP = 4
+    const MAX = 240
+    const spaceBelow = visibleBottom - rect.bottom - GAP
+    const spaceAbove = rect.top - visibleTop - GAP
+    let top: number
+    let maxHeight: number
+    if (spaceBelow >= spaceAbove) {
+      top = rect.bottom + GAP
+      maxHeight = Math.min(MAX, Math.max(0, spaceBelow))
+    } else {
+      maxHeight = Math.min(MAX, Math.max(0, spaceAbove))
+      top = rect.top - GAP - maxHeight
     }
+    setDropdownRect({ top, left: rect.left, width: rect.width, maxHeight })
   }
+
+  // Reposition when the keyboard opens/closes or the view scrolls.
+  useEffect(() => {
+    if (!showDropdown) return
+    const recalc = () => updateDropdownPos()
+    window.addEventListener('resize', recalc)
+    window.addEventListener('scroll', recalc, true)
+    window.visualViewport?.addEventListener('resize', recalc)
+    window.visualViewport?.addEventListener('scroll', recalc)
+    return () => {
+      window.removeEventListener('resize', recalc)
+      window.removeEventListener('scroll', recalc, true)
+      window.visualViewport?.removeEventListener('resize', recalc)
+      window.visualViewport?.removeEventListener('scroll', recalc)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDropdown])
 
   function handlePatientNameChange(value: string) {
     setPatientName(value)
@@ -96,7 +131,7 @@ export default function ReassignModal({ open, allNotes, onConfirm, onClose }: Re
               top: dropdownRect.top,
               left: dropdownRect.left,
               width: dropdownRect.width,
-              maxHeight: 320,
+              maxHeight: dropdownRect.maxHeight,
               zIndex: 9999,
             }}
             className="bg-white border border-[var(--border)] rounded-[var(--r)] shadow-lg overflow-y-auto scrollbar-none"

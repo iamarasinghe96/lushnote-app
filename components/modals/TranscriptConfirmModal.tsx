@@ -52,7 +52,7 @@ export default function TranscriptConfirmModal({
   const [dob, setDob] = useState('')
   const [gender, setGender] = useState<'male' | 'female' | ''>('')
   const [mounted, setMounted] = useState(false)
-  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number } | null>(null)
+  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => setMounted(true), [])
@@ -135,24 +135,47 @@ export default function TranscriptConfirmModal({
 
   // Recalculate dropdown position after layout settles (modal may resize when
   // the new-patient section appears, which shifts the vertically-centred modal).
+  // Uses visualViewport (which shrinks when the mobile keyboard opens) so the
+  // dropdown is placed in the visible area — flipped above the field when the
+  // keyboard would otherwise cover it below.
   useEffect(() => {
     if (!showDropdown || !inputRef.current) return
     let raf: number
     function recalc() {
-      if (inputRef.current) {
-        const rect = inputRef.current.getBoundingClientRect()
-        setDropdownRect({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+      const el = inputRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const vv = typeof window !== 'undefined' ? window.visualViewport : null
+      const visibleTop = vv ? vv.offsetTop : 0
+      const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight
+      const GAP = 4
+      const MAX = 240
+      const spaceBelow = visibleBottom - rect.bottom - GAP
+      const spaceAbove = rect.top - visibleTop - GAP
+      let top: number
+      let maxHeight: number
+      if (spaceBelow >= spaceAbove) {
+        top = rect.bottom + GAP
+        maxHeight = Math.min(MAX, Math.max(0, spaceBelow))
+      } else {
+        maxHeight = Math.min(MAX, Math.max(0, spaceAbove))
+        top = rect.top - GAP - maxHeight
       }
+      setDropdownRect({ top, left: rect.left, width: rect.width, maxHeight })
     }
     raf = requestAnimationFrame(recalc)
     window.addEventListener('resize', recalc)
     window.addEventListener('scroll', recalc, true)
+    window.visualViewport?.addEventListener('resize', recalc)
+    window.visualViewport?.addEventListener('scroll', recalc)
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', recalc)
       window.removeEventListener('scroll', recalc, true)
+      window.visualViewport?.removeEventListener('resize', recalc)
+      window.visualViewport?.removeEventListener('scroll', recalc)
     }
-  }, [showDropdown, isNewPatient])
+  }, [showDropdown, isNewPatient, filteredPatients.length])
 
   function handlePatientNameChange(value: string) {
     setPatientName(value)
@@ -192,7 +215,7 @@ export default function TranscriptConfirmModal({
               top: dropdownRect.top,
               left: dropdownRect.left,
               width: dropdownRect.width,
-              maxHeight: 240,
+              maxHeight: dropdownRect.maxHeight,
               zIndex: 9999,
             }}
             className="bg-white border border-[var(--border)] rounded-[var(--r)] shadow-lg overflow-y-auto scrollbar-none"
