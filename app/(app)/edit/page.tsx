@@ -2019,6 +2019,15 @@ function EditContent() {
         <div ref={formScrollRef} className="overflow-y-auto scrollbar-none px-4 pb-tabbar min-h-0" style={{ paddingTop: contentPt }}>
           <div className="max-w-lg mx-auto space-y-4 pb-10">
 
+            {store.incompleteTranscript && !isLetterMode && (
+              <div className="rounded-lg bg-amber-50 border border-amber-300 px-3 py-2.5 text-xs text-amber-900 flex items-start justify-between gap-2">
+                <span>
+                  <strong>Incomplete information.</strong> This note was generated from a transcript without the patient details step — patient name, age and gender were not entered. Review the note and complete the patient fields before finalising. The note won&apos;t be saved until a patient name is added.
+                </span>
+                <button onClick={() => store.setIncompleteTranscript(false)} className="text-xs underline shrink-0">Dismiss</button>
+              </div>
+            )}
+
             {/* Letter mode fields */}
             {isLetterMode && (
               <div className="space-y-4">

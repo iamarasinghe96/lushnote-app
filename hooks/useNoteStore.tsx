@@ -26,6 +26,7 @@ interface NoteStore {
   pendingAnimation: boolean
   overrideNoteLength: 'brief' | 'balanced' | 'detailed' | null
   pendingPatientProfile: { dob: string; gender: 'male' | 'female' | '' } | null
+  incompleteTranscript: boolean
   activeLetterhead: LetterheadDoc | null
   letterType: LetterType | null
   pendingLetterGeneration: boolean
@@ -43,6 +44,7 @@ interface NoteStore {
   setPendingAnimation: (v: boolean) => void
   setOverrideNoteLength: (v: 'brief' | 'balanced' | 'detailed' | null) => void
   setPendingPatientProfile: (v: { dob: string; gender: 'male' | 'female' | '' } | null) => void
+  setIncompleteTranscript: (v: boolean) => void
   setActiveLetterhead: (lh: LetterheadDoc | null) => void
   setLetterType: (type: LetterType | null) => void
   setPendingLetterGeneration: (v: boolean) => void
@@ -67,6 +69,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   const [pendingAnimation, setPendingAnimation] = useState(false)
   const [overrideNoteLength, setOverrideNoteLength] = useState<'brief' | 'balanced' | 'detailed' | null>(null)
   const [pendingPatientProfile, setPendingPatientProfile] = useState<{ dob: string; gender: 'male' | 'female' | '' } | null>(null)
+  const [incompleteTranscript, setIncompleteTranscript] = useState(false)
   const [activeLetterhead, setActiveLetterhead] = useState<LetterheadDoc | null>(null)
   const [letterType, setLetterType] = useState<LetterType | null>(null)
   const [pendingLetterGeneration, setPendingLetterGeneration] = useState(false)
@@ -84,6 +87,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
     setLastRecordingDuration(0)
     setLastRecordingEndTime(0)
     setPendingAnimation(false)
+    setIncompleteTranscript(false)
   }
 
   function resetLetterMode() {
@@ -109,6 +113,8 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       setOverrideNoteLength,
       pendingPatientProfile,
       setPendingPatientProfile,
+      incompleteTranscript,
+      setIncompleteTranscript,
       activeLetterhead,
       setActiveLetterhead,
       letterType,

@@ -325,6 +325,29 @@ export default function GeneratePage() {
     setRecoveredDraft(null)
   }
 
+  // Generate a note straight from a recovered transcript WITHOUT the patient
+  // name/age/gender step. The edit page shows an "incomplete information"
+  // warning; the note won't persist until a patient name is entered.
+  function generateFromDraftDirect() {
+    const d = recoveredDraft
+    if (!d) return
+    setRecoveredDraft(null)
+    store.setLastRecordingDuration(d.durationSec)
+    store.setLastRecordingEndTime(Date.now())
+    if (d.letterType) {
+      startLetterFromTranscript(d.text, d.letterType as LetterType)
+      return
+    }
+    store.setLastTranscript(d.text)
+    store.setLastTranscriptMode('conversation')
+    store.setPendingPatientProfile(null)
+    store.setIncompleteTranscript(true)
+    setPrefillPatient(null)
+    setCreationMode('conversation')
+    if (user) deleteTranscriptDraft(user.uid).catch(() => {})
+    setPhase('template-picking')
+  }
+
   function handleTranscriptConfirmPatient(
     patient: string,
     regNumber: string,
@@ -407,14 +430,14 @@ export default function GeneratePage() {
         )}
 
         {recoveredDraft && (
-          <div className="rounded-[var(--r-lg)] border border-[#10b981]/40 bg-[#10b981]/5 p-4 space-y-2">
-            <p className="text-sm font-semibold text-[var(--text)]">Recovered recording</p>
-            <p className="text-xs text-[var(--text2)]">
-              A recording was interrupted before it finished. The transcript captured so far
-              (~{recoveredDraft.text.trim().split(/\s+/).length} words) was saved. Continue with it or discard.
+          <div className="rounded-[var(--r-lg)] border border-amber-300 bg-amber-50 p-4 space-y-2">
+            <p className="text-sm font-semibold text-amber-900">Recording not finished</p>
+            <p className="text-xs text-amber-800">
+              A recording was captured (~{recoveredDraft.text.trim().split(/\s+/).length} words) but no note was created — the patient details step wasn&apos;t completed. Add the patient details, or generate a note now from the transcript as it is.
             </p>
-            <div className="flex gap-2">
-              <Button variant="primary" size="sm" onClick={useRecoveredDraft}>Use it</Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="primary" size="sm" onClick={useRecoveredDraft}>Add patient details</Button>
+              <Button variant="ghost" size="sm" onClick={generateFromDraftDirect}>Generate note now</Button>
               <Button variant="ghost" size="sm" onClick={discardRecoveredDraft}>Discard</Button>
             </div>
           </div>
