@@ -185,6 +185,36 @@ async function parseJsonSafe<T = Record<string, unknown>>(res: Response): Promis
   }
 }
 
+const CONDENSE_THRESHOLD = 14000
+
+// When a transcript is long enough that one-pass note generation would exceed
+// the serverless time limit, first condense it into a clinical digest (a
+// separate, fast request), then generate the note from that digest. Short
+// transcripts pass straight through unchanged.
+async function condenseIfLong(transcript: string, uid: string): Promise<string> {
+  if (transcript.length <= CONDENSE_THRESHOLD) return transcript
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const gk = getGroqKey()
+  if (gk) headers['x-groq-key'] = gk
+  const gemk = getGeminiKey()
+  if (gemk) headers['x-gemini-key'] = gemk
+  const res = await fetch('/api/generate', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ mode: 'condense', transcript, uid }),
+  })
+  const data = await parseJsonSafe<{ digest?: string; error?: string }>(res)
+  if (!res.ok || !data?.digest?.trim()) {
+    throw new Error(
+      data?.error ??
+        (res.status === 502 || res.status === 504
+          ? 'The session was too long to process even in two passes. Try generating from a shorter part of the transcript.'
+          : 'Could not process the long transcript. Please try again.')
+    )
+  }
+  return data.digest
+}
+
 export default function EditPage() {
   return (
     <Suspense>
@@ -932,10 +962,11 @@ function EditContent() {
       const geminiKey = getGeminiKey()
       if (geminiKey) headers['x-gemini-key'] = geminiKey
 
+      const genTranscript = await condenseIfLong(transcript, user.uid)
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ transcript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user.uid }),
+        body: JSON.stringify({ transcript: genTranscript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user.uid }),
       })
 
       statusTimers.forEach(clearTimeout)
@@ -1022,10 +1053,11 @@ function EditContent() {
       if (groqKey) headers['x-groq-key'] = groqKey
       const geminiKey = getGeminiKey()
       if (geminiKey) headers['x-gemini-key'] = geminiKey
+      const genTranscript = await condenseIfLong(transcript, user!.uid)
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ transcript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user!.uid }),
+        body: JSON.stringify({ transcript: genTranscript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user!.uid }),
       })
       if (!res.ok) {
         const data = await parseJsonSafe<{ error?: string; waitSeconds?: number }>(res)
