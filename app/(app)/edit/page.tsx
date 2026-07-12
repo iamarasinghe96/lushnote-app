@@ -185,7 +185,11 @@ async function parseJsonSafe<T = Record<string, unknown>>(res: Response): Promis
   }
 }
 
-const CONDENSE_THRESHOLD = 14000
+// With "thinking" disabled, a single Gemini call comfortably generates a note
+// from a transcript of this size within the serverless time limit, and does it
+// from the full text (no lossy condense). Only genuinely huge sessions above
+// this are split into a condense pass first.
+const CONDENSE_THRESHOLD = 45000
 const CONDENSE_CHUNK_CHARS = 12000
 
 // Split a long transcript into chunks, preferring to break on a space so words
