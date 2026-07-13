@@ -9,6 +9,7 @@ import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients
 import { updateProfile } from '@/lib/firestore/profiles'
 import { buildPreviewHTML, buildLetterPreviewHTML, buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
+import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
 import Button from '@/components/ui/Button'
@@ -16,6 +17,7 @@ import DatePicker from '@/components/ui/DatePicker'
 import TimePicker from '@/components/ui/TimePicker'
 import TemplatePicker from '@/components/modals/TemplatePicker'
 import ReassignModal from '@/components/modals/ReassignModal'
+import ManualGenerateModal from '@/components/modals/ManualGenerateModal'
 import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate } from '@/types'
 
 function formatDuration(secs: number): string {
@@ -222,6 +224,7 @@ function EditContent() {
   const [changeTemplateOpen, setChangeTemplateOpen] = useState(false)
   const [changeTemplateDefaultTab, setChangeTemplateDefaultTab] = useState<'all' | 'letters'>('all')
   const [reassignOpen, setReassignOpen] = useState(false)
+  const [manualOpen, setManualOpen] = useState(false)
   const [allNotes, setAllNotes] = useState<Note[]>([])
   const patientDobMap = useRef<Map<string, string>>(new Map())
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false)
@@ -1459,6 +1462,36 @@ function EditContent() {
     doAutoSave('patient')
   }
 
+  // Manual generation escape hatch: assemble the same prompt the API sends (system
+  // personalisation + privacy directive + template + redacted transcript) so the
+  // doctor can paste it into any external AI when their quota is exhausted.
+  function buildManualPrompt(): string {
+    const template = store.lastChosenTemplate
+    const transcript = store.lastTranscript || ''
+    if (!template || !transcript) return ''
+    const noteLength = (store.overrideNoteLength ?? profile?.personalisation?.noteLength ?? 'balanced') as import('@/types').NoteLength
+    const base = profile ? getPersonalisationPrefix(profile, noteLength) : ''
+    const privacy = profile?.transcriptPrivacy ?? DEFAULT_TRANSCRIPT_PRIVACY
+    const directive = privacyDirective(privacy)
+    const system = directive ? `${base}\n\n${directive}`.trim() : base.trim()
+    const templatePrompt = buildTemplatePrompt(template)
+    const safe = applyTranscriptRedactions(transcript, privacy)
+    return `${system ? system + '\n\n' : ''}${templatePrompt}\n\nTRANSCRIPT:\n${safe}`
+  }
+
+  // Parse a manually-pasted AI result with the same parser used for API results,
+  // then merge it into the note and save. Returns false if nothing parseable.
+  function applyManualResult(pasted: string): boolean {
+    const parsed = parseGeneratedContent(pasted)
+    const hasClinical = Object.keys(parsed).some(k => k !== 'patient' && k !== 'date' && (parsed as Record<string, string>)[k]?.trim())
+    if (!hasClinical) return false
+    animateFields(parsed)
+    store.setCurrentNote(latestFieldsRef.current)
+    store.setIncompleteTranscript(false)
+    doAutoSave()
+    return true
+  }
+
   // ── Custom note field handlers ────────────────────────────────────────────
 
   const DIVIDER_FIELD_MAP: Record<string, keyof Note> = {
@@ -1968,6 +2001,11 @@ function EditContent() {
               <button onClick={() => setReassignOpen(true)} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
                 Reassign
               </button>
+              {store.lastTranscript && store.lastChosenTemplate && (
+                <button onClick={() => setManualOpen(true)} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
+                  Manual AI
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1975,10 +2013,15 @@ function EditContent() {
 
       {/* Generation error — floats below bars */}
       {generationError && (
-        <div className="absolute left-4 right-4 z-20 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-[var(--danger)] flex items-center justify-between"
+        <div className="absolute left-4 right-4 z-20 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-[var(--danger)] flex items-center justify-between gap-2"
              style={{ top: errorTop }}>
           <span>{generationError}</span>
-          <button onClick={() => setGenerationError(null)} className="ml-2 text-xs underline shrink-0">Dismiss</button>
+          <div className="flex items-center gap-2 shrink-0">
+            {store.lastTranscript && store.lastChosenTemplate && (
+              <button onClick={() => setManualOpen(true)} className="text-xs font-medium underline whitespace-nowrap">Generate manually</button>
+            )}
+            <button onClick={() => setGenerationError(null)} className="text-xs underline">Dismiss</button>
+          </div>
         </div>
       )}
 
@@ -2604,6 +2647,12 @@ function EditContent() {
         allNotes={allNotes}
         onConfirm={handleReassign}
         onClose={() => setReassignOpen(false)}
+      />
+      <ManualGenerateModal
+        open={manualOpen}
+        buildPrompt={buildManualPrompt}
+        onApply={applyManualResult}
+        onClose={() => setManualOpen(false)}
       />
     </div>
   )
