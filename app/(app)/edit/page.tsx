@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
+import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { updateProfile } from '@/lib/firestore/profiles'
 import { buildPreviewHTML, buildLetterPreviewHTML, buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
@@ -232,6 +233,10 @@ function EditContent() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
   const autoSaveEnabledRef = useRef(true)
+  // The recovery transcript draft (Firestore) is the only durable copy of an
+  // interrupted recording. It must survive until the note that carries this
+  // transcript is durably saved — then it is deleted once, here.
+  const draftClearedRef = useRef(false)
   // Typewriter that fills the already-known header fields (patient, reg, date,
   // clinician) while the AI generates the body. cancel() snaps them to full
   // values; called when generation finishes or the component unmounts.
@@ -523,6 +528,12 @@ function EditContent() {
   const storeRef = useRef(store)
   storeRef.current = store
 
+  // A new transcript means a new recording draft that needs clearing after its
+  // own note saves, so re-arm the one-shot deletion whenever the transcript changes.
+  useEffect(() => {
+    draftClearedRef.current = false
+  }, [store.lastTranscript])
+
   const scheduleSave = useCallback((data: Partial<Note>) => {
     if (!autoSaveEnabledRef.current) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
@@ -668,6 +679,12 @@ function EditContent() {
       } else {
         const id = await saveNote(noteData)
         s.setCurrentNoteId(id)
+      }
+      // The transcript is now durably in Firestore, so the recovery draft is
+      // safe to remove. Do it once per transcript (not on every autosave).
+      if (s.lastTranscript && s.lastTranscript.trim() && !draftClearedRef.current && user) {
+        draftClearedRef.current = true
+        deleteTranscriptDraft(user.uid).catch(() => {})
       }
       if (flashField && mountedRef.current) {
         setSaveFlashFields(prev => new Set(Array.from(prev).concat(flashField)))

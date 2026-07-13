@@ -344,7 +344,9 @@ export default function GeneratePage() {
     store.setIncompleteTranscript(true)
     setPrefillPatient(null)
     setCreationMode('conversation')
-    if (user) deleteTranscriptDraft(user.uid).catch(() => {})
+    // Keep the recovery draft until a note carrying this transcript is durably
+    // saved (in the edit page). Deleting it here would lose the session if the
+    // tab reloads before the note is persisted.
     setPhase('template-picking')
   }
 
@@ -362,7 +364,9 @@ export default function GeneratePage() {
     store.setLastTranscript(pendingTranscript)
     store.setLastTranscriptMode(creationMode)
     store.setPendingPatientProfile(isNewPatient ? { dob, gender } : null)
-    if (user) deleteTranscriptDraft(user.uid).catch(() => {})
+    // Keep the recovery draft until the note is durably saved (in the edit
+    // page). Deleting it here risks losing the session if the tab reloads
+    // before the note is persisted.
     setPhase('template-picking')
   }
 
