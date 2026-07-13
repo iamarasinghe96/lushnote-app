@@ -233,6 +233,14 @@ ${transcript}`,
         const waitSeconds = parseGroqWaitSeconds(err.message)
         return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
       }
+      // Groq's free tier caps a single request at 12k tokens/min, so a long
+      // session (this one is ~13k tokens) is rejected with 413. Gemini has no
+      // such limit — the fix is a Gemini key, not a smaller transcript.
+      if (err instanceof Error && err.message.startsWith('413:')) {
+        return NextResponse.json({
+          error: 'This session is too long for the free Groq fallback (its limit is ~12,000 tokens per request). Your Gemini limit is used up for now. Add your own Gemini API key in Settings → API Keys (free, and it handles long sessions), or wait for your Gemini daily limit to reset.',
+        }, { status: 413 })
+      }
       const msg = err instanceof Error ? err.message : 'Generation failed'
       return NextResponse.json({ error: msg }, { status: 500 })
     }
