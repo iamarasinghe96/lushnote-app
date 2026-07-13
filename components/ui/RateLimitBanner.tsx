@@ -26,7 +26,8 @@ export function RateLimitBanner({ waitSeconds, onDismiss, onRetry }: RateLimitBa
     ? `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
     : `${mins}:${String(secs).padStart(2, '0')}`
 
-  const label = isLong ? 'Groq daily token limit' : 'Groq rate limit'
+  // Generic wording: this banner is shown for both Groq and Gemini rate limits.
+  const label = isLong ? 'Daily AI limit reached' : 'AI service is busy'
   const progress = Math.min(100, ((waitSeconds - remaining) / waitSeconds) * 100)
 
   return (

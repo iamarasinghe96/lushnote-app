@@ -193,13 +193,26 @@ ${transcript}`,
     const prompt = `${templatePrompt}\n\n${safeTranscript}`
     const userGeminiKey = req.headers.get('x-gemini-key')
 
+    // Groq's free tier caps a single request at ~12k tokens/min (input + output),
+    // so a long session can only be done by Gemini. Estimate the size so we never
+    // dump an oversized transcript onto Groq (a guaranteed 413).
+    const estimatedTokens = Math.ceil((effectiveSystemPrompt.length + prompt.length) / 4)
+    const groqViable = estimatedTokens <= 10000
+
+    // Track WHY Gemini failed. A transient failure (per-minute rate limit — common
+    // right after a long recording, whose many transcription calls briefly exhaust
+    // Gemini's RPM) recovers on a short retry. A daily-exhaustion does not.
+    let geminiTransient = false
+    let geminiDaily = false
+
     // 1. User's own Gemini key (primary) — their Google account governs quota.
     if (userGeminiKey) {
       try {
         const { text: content } = await generateNote(prompt, effectiveSystemPrompt, userGeminiKey)
         return NextResponse.json({ content, provider: 'gemini' })
-      } catch {
-        // fall through to shared key / Groq
+      } catch (err) {
+        if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) geminiDaily = true
+        else geminiTransient = true
       }
     }
 
@@ -214,14 +227,36 @@ ${transcript}`,
         } catch (err) {
           if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
             await markGeminiLimitReached(uid, 'gemini-2.5-flash').catch(() => {})
+            geminiDaily = true
+          } else {
+            geminiTransient = true
           }
-          // transient 429 or other error → fall through to Groq without pegging
         }
+      } else {
+        geminiDaily = true
       }
+    }
+
+    // Too long for Groq → Gemini is the only option. Rather than fail on Groq's
+    // 413, ask the client to retry shortly when Gemini only stumbled transiently
+    // (this is what made the same transcript work on a later paste). If Gemini is
+    // genuinely out for the day, retrying won't help — give the actionable message.
+    if (!groqViable) {
+      if (geminiTransient) {
+        return NextResponse.json({ error: 'rate_limit', waitSeconds: 60 }, { status: 429 })
+      }
+      return NextResponse.json({
+        error: 'This session is too long for the free Groq fallback (~12,000-token limit) and your Gemini limit is used up for now. Add your own Gemini API key in Settings → API Keys, wait for your Gemini daily limit to reset, or use "Generate manually".',
+      }, { status: 413 })
     }
 
     const groqKey = req.headers.get('x-groq-key')
     if (!groqKey) {
+      // Short enough for Groq but no Groq key. If Gemini stumbled transiently, a
+      // retry recovers it; otherwise there's simply no usable key.
+      if (geminiTransient) {
+        return NextResponse.json({ error: 'rate_limit', waitSeconds: 60 }, { status: 429 })
+      }
       return NextResponse.json({ error: 'No API key available for generation' }, { status: 401 })
     }
 
@@ -233,12 +268,13 @@ ${transcript}`,
         const waitSeconds = parseGroqWaitSeconds(err.message)
         return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
       }
-      // Groq's free tier caps a single request at 12k tokens/min, so a long
-      // session (this one is ~13k tokens) is rejected with 413. Gemini has no
-      // such limit — the fix is a Gemini key, not a smaller transcript.
+      // A transient Gemini failure with a Groq 413 as backup → prefer a retry.
       if (err instanceof Error && err.message.startsWith('413:')) {
+        if (geminiTransient) {
+          return NextResponse.json({ error: 'rate_limit', waitSeconds: 60 }, { status: 429 })
+        }
         return NextResponse.json({
-          error: 'This session is too long for the free Groq fallback (its limit is ~12,000 tokens per request). Your Gemini limit is used up for now. Add your own Gemini API key in Settings → API Keys (free, and it handles long sessions), or wait for your Gemini daily limit to reset.',
+          error: 'This session is too long for the free Groq fallback (~12,000-token limit) and your Gemini limit is used up for now. Add your own Gemini API key in Settings → API Keys, wait for your Gemini daily limit to reset, or use "Generate manually".',
         }, { status: 413 })
       }
       const msg = err instanceof Error ? err.message : 'Generation failed'
