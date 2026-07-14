@@ -258,6 +258,10 @@ export default function TranscriptConfirmModal({
                   value={regNumber}
                   onChange={e => { setRegNumber(e.target.value); setRegOverridden(true) }}
                   placeholder={regPlaceholder}
+                  onFocus={e => {
+                    const el = e.target
+                    setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
+                  }}
                   className="w-full px-3 py-2 text-sm bg-white border border-[var(--border)] rounded-[var(--r-sm)] text-[var(--text)] placeholder:text-[var(--text3)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 motion-safe:transition-colors"
                 />
               </div>
@@ -285,11 +289,16 @@ export default function TranscriptConfirmModal({
                       value={dob}
                       onChange={e => setDob(formatDob(e.target.value))}
                       autoComplete="off"
-                      // Some mobile browsers recognise this as a birthday field and
-                      // apply their own autofill/dark-mode text-colour override,
-                      // which can leave typed text the same colour as the
-                      // background. Force the colour explicitly so that can't happen.
-                      style={{ WebkitTextFillColor: 'var(--text)', caretColor: 'var(--text)' }}
+                      // This field sits low in the modal, in a section that only
+                      // appears once a new patient name is typed — the keyboard's
+                      // native scroll-into-view doesn't reliably reach it (it was
+                      // ending up hidden below the keyboard entirely, which is what
+                      // actually looked like invisible typing, not a colour bug).
+                      // Scroll it into view ourselves once the keyboard settles.
+                      onFocus={e => {
+                        const el = e.target
+                        setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
+                      }}
                       className="w-full px-3 py-2 text-sm bg-white border border-[var(--border)] rounded-[var(--r-sm)] text-[var(--text)] placeholder:text-[var(--text3)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 motion-safe:transition-colors"
                     />
                   </div>
