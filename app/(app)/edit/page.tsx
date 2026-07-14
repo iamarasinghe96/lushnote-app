@@ -221,6 +221,11 @@ function EditContent() {
   const [fieldFocused, setFieldFocused] = useState(false)
   const [letterBarExpanded, setLetterBarExpanded] = useState(false)
   const [noteBarExpanded, setNoteBarExpanded] = useState(false)
+  // Mirrors Tailwind's sm: breakpoint. On desktop the note bar's action row is
+  // always visible (no expand toggle needed - see the bar's className), so
+  // the floating-content offset below (BAR_H) needs to reserve that space
+  // unconditionally there, not just when noteBarExpanded is true.
+  const [isDesktop, setIsDesktop] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
   const [generationError, setGenerationError] = useState<string | null>(null)
@@ -337,6 +342,14 @@ function EditContent() {
 
   useKeyboardCloseSafety(setFieldFocused)
 
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 640px)')
+    const update = () => setIsDesktop(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
   // Auto-minimise the letter/note bar's action row the moment typing starts,
   // same as the transcript Q&A input collapsing the transcript on focus —
   // gives the field being edited the room the expanded bar would otherwise take.
@@ -409,17 +422,6 @@ function EditContent() {
     if (!(e.target instanceof HTMLTextAreaElement)) return
     e.preventDefault()
     applyInlineFormat(e.target, key === 'b' ? '**' : '*')
-  }
-
-  // For the Bold/Italic buttons in the note/letter bar: mousedown (not click)
-  // with preventDefault stops the browser shifting focus to the button, so
-  // the textarea the doctor was editing stays focused with its selection
-  // intact - exactly the technique the patient-autocomplete dropdowns already
-  // use for the same reason.
-  function handleFormatMouseDown(e: React.MouseEvent, marker: string) {
-    e.preventDefault()
-    const el = document.activeElement
-    if (el instanceof HTMLTextAreaElement) applyInlineFormat(el, marker)
   }
 
   useEffect(() => {
@@ -1859,7 +1861,7 @@ function EditContent() {
   // a second (wrapping) row when its action buttons are expanded
   const BAR_H = 44
     + (isLetterMode && letterBarExpanded ? 48 : 0)
-    + (!isLetterMode && noteBarExpanded ? 48 : 0)
+    + (!isLetterMode && !isGenerating && (noteBarExpanded || isDesktop) ? 48 : 0)
   const hasTopBar = isLetterMode || (!isLetterMode && (!!store.currentNoteId || isGenerating))
   const barTop = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM}px)`
   const contentPt = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM + (hasTopBar ? BAR_H : 0) + 16}px)`
@@ -1921,29 +1923,6 @@ function EditContent() {
 
           {letterBarExpanded && (
             <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/20">
-              {/* Tapping this button after selecting text on a touchscreen
-                  clears the selection first (mobile text-selection is handled
-                  by the OS, not just DOM focus, so preventing default on
-                  mousedown doesn't preserve it the way it does with a mouse) -
-                  so these only appear where a mouse makes the selection
-                  reliable. On mobile, use Format in the native text-selection
-                  menu if the device offers it, or type ** / * by hand. */}
-              <button
-                onMouseDown={e => handleFormatMouseDown(e, '**')}
-                className="hidden sm:flex text-white/80 hover:text-white text-xs font-bold w-7 h-7 items-center justify-center rounded border border-white/40 hover:bg-white/10"
-                aria-label="Bold selected text"
-                title="Bold (Ctrl/Cmd+B)"
-              >
-                B
-              </button>
-              <button
-                onMouseDown={e => handleFormatMouseDown(e, '*')}
-                className="hidden sm:flex text-white/80 hover:text-white text-xs italic w-7 h-7 items-center justify-center rounded border border-white/40 hover:bg-white/10"
-                aria-label="Italicise selected text"
-                title="Italic (Ctrl/Cmd+I)"
-              >
-                I
-              </button>
               <button
                 onClick={() => handleChangeTemplate('letters')}
                 className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10 motion-safe:transition-colors">
@@ -2021,7 +2000,7 @@ function EditContent() {
                 onClick={() => setNoteBarExpanded(v => !v)}
                 aria-label={noteBarExpanded ? 'Collapse actions' : 'Expand actions'}
                 aria-pressed={noteBarExpanded}
-                className={`w-6 h-6 flex items-center justify-center rounded-full border motion-safe:transition-all shrink-0 ${
+                className={`sm:hidden w-6 h-6 flex items-center justify-center rounded-full border motion-safe:transition-all shrink-0 ${
                   noteBarExpanded ? 'bg-white text-[var(--blue)] border-white' : 'bg-white/15 border-white/40 text-white'
                 }`}
                 style={{ transform: noteBarExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transitionDuration: '200ms' }}
@@ -2033,28 +2012,12 @@ function EditContent() {
             )}
           </div>
 
-          {!isGenerating && noteBarExpanded && (
-            <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/20">
-              {/* Hidden on touch/mobile widths — see the letter bar's Bold
-                  button above for why (selection doesn't survive tapping a
-                  button elsewhere on a touchscreen the way it does with a
-                  mouse). */}
-              <button
-                onMouseDown={e => handleFormatMouseDown(e, '**')}
-                className="hidden sm:flex text-white/80 hover:text-white text-xs font-bold w-7 h-7 items-center justify-center rounded border border-white/40 hover:bg-white/10"
-                aria-label="Bold selected text"
-                title="Bold (Ctrl/Cmd+B)"
-              >
-                B
-              </button>
-              <button
-                onMouseDown={e => handleFormatMouseDown(e, '*')}
-                className="hidden sm:flex text-white/80 hover:text-white text-xs italic w-7 h-7 items-center justify-center rounded border border-white/40 hover:bg-white/10"
-                aria-label="Italicise selected text"
-                title="Italic (Ctrl/Cmd+I)"
-              >
-                I
-              </button>
+          {/* Mobile: hidden until noteBarExpanded (chevron toggle). Desktop
+              (sm:) has room for these always, so they're unconditionally
+              visible there regardless of the mobile-only expand state -
+              sm:flex wins over the hidden/flex toggle at that breakpoint. */}
+          {!isGenerating && (
+            <div className={`${noteBarExpanded ? 'flex' : 'hidden'} sm:flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/20`}>
               <button onClick={() => handleChangeTemplate()} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
                 Change Template
               </button>
