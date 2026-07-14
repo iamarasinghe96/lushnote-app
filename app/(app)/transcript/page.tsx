@@ -11,6 +11,7 @@ export default function TranscriptPage() {
   const { user } = useAuth()
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
+  const [chatFocused, setChatFocused] = useState(false)
   const [copied, setCopied] = useState(false)
   const [messages, setMessages] = useState<{ role: 'user' | 'ai'; content: string; quote?: string }[]>([])
   const [input, setInput] = useState('')
@@ -25,6 +26,15 @@ export default function TranscriptPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+
+  // The tab bar is a fixed element rendered by the app layout, outside this
+  // page. While the chat input is focused, the on-screen keyboard already eats
+  // most of the screen, so hide the tab bar (via a body class the layout's CSS
+  // targets) to give the transcript/messages back that space.
+  useEffect(() => {
+    document.body.classList.toggle('qa-input-focused', chatFocused)
+    return () => { document.body.classList.remove('qa-input-focused') }
+  }, [chatFocused])
 
   if (!lastTranscript) return null
 
@@ -207,7 +217,7 @@ export default function TranscriptPage() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden pb-tabbar">
+    <div className={`h-full flex flex-col overflow-hidden ${chatFocused ? '' : 'pb-tabbar'}`}>
       {/* Raw transcript section */}
       <div
         className="border-b border-[var(--border)] px-4 pb-4 pt-header flex-none"
@@ -311,6 +321,8 @@ export default function TranscriptPage() {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAsk()}
+          onFocus={() => { setExpanded(false); setChatFocused(true) }}
+          onBlur={() => setChatFocused(false)}
           placeholder="Ask about this transcript..."
           className="flex-1 text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2 bg-white focus:outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
         />
