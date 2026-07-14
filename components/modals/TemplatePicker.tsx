@@ -457,9 +457,9 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
           {!isLettersTab && (
             <button
               onClick={handleSkip}
-              className="flex-1 py-2 text-sm font-medium text-[var(--blue)] bg-[var(--blue-lt)]
-                         border border-[var(--blue)] rounded-[var(--r)]
-                         hover:bg-[var(--blue)] hover:text-white motion-safe:transition-colors"
+              className="flex-1 py-2 text-sm font-medium text-white bg-[#10b981]
+                         border border-transparent rounded-[var(--r)]
+                         hover:bg-[#059669] motion-safe:transition-colors"
             >
               Skip, use default note
             </button>
