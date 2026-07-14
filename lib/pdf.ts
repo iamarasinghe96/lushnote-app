@@ -108,10 +108,15 @@ export function generateNotePDF(
   }
 
   // ── Header ──────────────────────────────────────────────
-  doc.setFontSize(13)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(90, 214, 167) // mint #5ad6a7
-  doc.text('LushNote', MARGIN, y)
+  // No product/trade name on the exported document — just the clinical
+  // content, so the note is unambiguously the clinician's own document.
+  const titleParts = [note.patient, note.date].filter(Boolean).join('  ·  ')
+  if (titleParts) {
+    doc.setFontSize(13)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(15)
+    doc.text(titleParts, MARGIN, y)
+  }
 
   if (clinicianName) {
     doc.setFontSize(9)
@@ -124,16 +129,6 @@ export function generateNotePDF(
   doc.setDrawColor(220)
   doc.line(MARGIN, y, PAGE_W - MARGIN, y)
   y += 7
-
-  // ── Title ────────────────────────────────────────────────
-  const titleParts = [note.patient, note.date].filter(Boolean).join('  ·  ')
-  if (titleParts) {
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(15)
-    doc.text(titleParts, MARGIN, y)
-    y += 6
-  }
 
   // ── Patient meta row ────────────────────────────────────
   const metaParts: string[] = []
