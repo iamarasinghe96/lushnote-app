@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useMemo, useEffect } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { useAuth } from '@/hooks/useAuth'
@@ -51,11 +50,6 @@ export default function TranscriptConfirmModal({
   const [showDropdown, setShowDropdown] = useState(false)
   const [dob, setDob] = useState('')
   const [gender, setGender] = useState<'male' | 'female' | ''>('')
-  const [mounted, setMounted] = useState(false)
-  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => setMounted(true), [])
 
   useEffect(() => {
     if (open) {
@@ -65,10 +59,8 @@ export default function TranscriptConfirmModal({
       setShowDropdown(false)
       setDob('')
       setGender('')
-      setDropdownRect(null)
     } else {
       setShowDropdown(false)
-      setDropdownRect(null)
     }
   }, [open])
 
@@ -133,50 +125,6 @@ export default function TranscriptConfirmModal({
     if (!regOverridden) setRegNumber(suggestedReg)
   }, [suggestedReg, regOverridden])
 
-  // Recalculate dropdown position after layout settles (modal may resize when
-  // the new-patient section appears, which shifts the vertically-centred modal).
-  // Uses visualViewport (which shrinks when the mobile keyboard opens) so the
-  // dropdown is placed in the visible area — flipped above the field when the
-  // keyboard would otherwise cover it below.
-  useEffect(() => {
-    if (!showDropdown || !inputRef.current) return
-    let raf: number
-    function recalc() {
-      const el = inputRef.current
-      if (!el) return
-      const rect = el.getBoundingClientRect()
-      const vv = typeof window !== 'undefined' ? window.visualViewport : null
-      const visibleTop = vv ? vv.offsetTop : 0
-      const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight
-      const GAP = 4
-      const MAX = 240
-      const spaceBelow = visibleBottom - rect.bottom - GAP
-      const spaceAbove = rect.top - visibleTop - GAP
-      let top: number
-      let maxHeight: number
-      if (spaceBelow >= spaceAbove) {
-        top = rect.bottom + GAP
-        maxHeight = Math.min(MAX, Math.max(0, spaceBelow))
-      } else {
-        maxHeight = Math.min(MAX, Math.max(0, spaceAbove))
-        top = rect.top - GAP - maxHeight
-      }
-      setDropdownRect({ top, left: rect.left, width: rect.width, maxHeight })
-    }
-    raf = requestAnimationFrame(recalc)
-    window.addEventListener('resize', recalc)
-    window.addEventListener('scroll', recalc, true)
-    window.visualViewport?.addEventListener('resize', recalc)
-    window.visualViewport?.addEventListener('scroll', recalc)
-    return () => {
-      cancelAnimationFrame(raf)
-      window.removeEventListener('resize', recalc)
-      window.removeEventListener('scroll', recalc, true)
-      window.visualViewport?.removeEventListener('resize', recalc)
-      window.visualViewport?.removeEventListener('scroll', recalc)
-    }
-  }, [showDropdown, isNewPatient, filteredPatients.length])
-
   function handlePatientNameChange(value: string) {
     setPatientName(value)
     setRegOverridden(false)
@@ -206,43 +154,7 @@ export default function TranscriptConfirmModal({
     onConfirm(patientName.trim(), regNumber, dob, gender, isNewPatient, sessionNumber, attendance)
   }
 
-  const dropdown =
-    mounted && showDropdown && filteredPatients.length > 0 && dropdownRect
-      ? createPortal(
-          <div
-            style={{
-              position: 'fixed',
-              top: dropdownRect.top,
-              left: dropdownRect.left,
-              width: dropdownRect.width,
-              maxHeight: dropdownRect.maxHeight,
-              zIndex: 9999,
-            }}
-            className="bg-white border border-[var(--border)] rounded-[var(--r)] shadow-lg overflow-y-auto scrollbar-none"
-          >
-            {filteredPatients.map(p => (
-              <button
-                key={p.name}
-                type="button"
-                className="w-full text-left px-3 py-2.5 text-sm hover:bg-[var(--bg)] border-b border-[var(--border)] last:border-0 flex items-center justify-between gap-2"
-                onMouseDown={e => {
-                  e.preventDefault()
-                  handleSelectPatient(p.name, p.reg)
-                }}
-              >
-                <span className="text-[var(--text)]">{toTitleCase(p.name)}</span>
-                {p.reg && (
-                  <span className="text-xs text-[var(--text3)] font-mono shrink-0">{p.reg}</span>
-                )}
-              </button>
-            ))}
-          </div>,
-          document.body
-        )
-      : null
-
   return (
-    <>
       <Modal open={open} onClose={onClose} title="Confirm transcript" maxWidth="md">
         <div className="px-5 pb-5 space-y-4">
 
@@ -275,12 +187,11 @@ export default function TranscriptConfirmModal({
             </p>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="relative">
                 <label className="block text-sm font-medium text-[var(--text)] mb-1.5">
                   Patient name
                 </label>
                 <input
-                  ref={inputRef}
                   type="text"
                   value={patientName}
                   onChange={e => handlePatientNameChange(e.target.value)}
@@ -295,6 +206,33 @@ export default function TranscriptConfirmModal({
                   autoComplete="off"
                   className="w-full px-3 py-2 text-sm bg-white border border-[var(--border)] rounded-[var(--r-sm)] text-[var(--text)] placeholder:text-[var(--text3)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 motion-safe:transition-colors"
                 />
+                {/* Suggestions render in normal document flow (absolute, relative to
+                    this field) instead of a fixed-position portal with manual
+                    visualViewport math — that approach positioned correctly on
+                    some browsers but landed in the wrong place on others (Safari)
+                    depending on exactly when the keyboard resize fired. Normal flow
+                    has no browser-timing dependency: the surrounding scroll
+                    container reveals it like any other content. */}
+                {showDropdown && filteredPatients.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-50 max-h-60 overflow-y-auto scrollbar-none bg-white border border-[var(--border)] rounded-[var(--r)] shadow-lg">
+                    {filteredPatients.map(p => (
+                      <button
+                        key={p.name}
+                        type="button"
+                        className="w-full text-left px-3 py-2.5 text-sm hover:bg-[var(--bg)] border-b border-[var(--border)] last:border-0 flex items-center justify-between gap-2"
+                        onMouseDown={e => {
+                          e.preventDefault()
+                          handleSelectPatient(p.name, p.reg)
+                        }}
+                      >
+                        <span className="text-[var(--text)]">{toTitleCase(p.name)}</span>
+                        {p.reg && (
+                          <span className="text-xs text-[var(--text3)] font-mono shrink-0">{p.reg}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--text)] mb-1.5">
@@ -331,6 +269,12 @@ export default function TranscriptConfirmModal({
                       maxLength={10}
                       value={dob}
                       onChange={e => setDob(formatDob(e.target.value))}
+                      autoComplete="off"
+                      // Some mobile browsers recognise this as a birthday field and
+                      // apply their own autofill/dark-mode text-colour override,
+                      // which can leave typed text the same colour as the
+                      // background. Force the colour explicitly so that can't happen.
+                      style={{ WebkitTextFillColor: 'var(--text)', caretColor: 'var(--text)' }}
                       className="w-full px-3 py-2 text-sm bg-white border border-[var(--border)] rounded-[var(--r-sm)] text-[var(--text)] placeholder:text-[var(--text3)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 motion-safe:transition-colors"
                     />
                   </div>
@@ -376,7 +320,5 @@ export default function TranscriptConfirmModal({
           </div>
         </div>
       </Modal>
-      {dropdown}
-    </>
   )
 }
