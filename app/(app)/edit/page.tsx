@@ -8,7 +8,7 @@ import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildPreviewHTML, buildLetterPreviewHTML, buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey } from '@/lib/utils'
+import { buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import Input from '@/components/ui/Input'
@@ -215,9 +215,6 @@ function EditContent() {
   const [saveFlashFields, setSaveFlashFields] = useState<Set<string>>(new Set())
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isSavingRef = useRef(false)
-  const [previewHtml, setPreviewHtml] = useState(() => buildPreviewHTML(store.currentNote))
-  const [letterPageCount, setLetterPageCount] = useState(1)
-  const imageAspectCache = useRef<Map<string, number>>(new Map())
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
@@ -243,8 +240,6 @@ function EditContent() {
   const metaAnimRef = useRef<{ cancel: () => void } | null>(null)
   const latestFieldsRef = useRef<Partial<Note>>(store.currentNote)
   const formScrollRef = useRef<HTMLDivElement>(null)
-  const previewScrollRef = useRef<HTMLDivElement>(null)
-  const scrollSyncLockRef = useRef(false)
 
   // Custom note fields
   const [customFieldOpen, setCustomFieldOpen] = useState<string | null>(null)
@@ -327,55 +322,6 @@ function EditContent() {
 
   useEffect(() => { return () => { mountedRef.current = false; metaAnimRef.current?.cancel() } }, [])
 
-  // Section-name scroll sync: form → preview only (note mode only).
-  // Finds which field label is at the top of the form viewport, then scrolls
-  // the preview to the matching h3 heading. This is accurate regardless of
-  // how different the form and preview scrollHeights are.
-  useEffect(() => {
-    const form = formScrollRef.current
-    const preview = previewScrollRef.current
-    if (!form || !preview) return
-
-    function onFormScroll() {
-      if (storeRef.current.letterType !== null) return
-      if (scrollSyncLockRef.current) return
-      scrollSyncLockRef.current = true
-
-      // Find the last label whose top edge is still within the visible form area
-      const formRect = form!.getBoundingClientRect()
-      const labels = Array.from(form!.querySelectorAll<HTMLLabelElement>('label'))
-      let activeLabel: HTMLLabelElement | null = null
-      for (const label of labels) {
-        const top = label.getBoundingClientRect().top - formRect.top
-        if (top <= 48) activeLabel = label
-        else break
-      }
-
-      if (activeLabel) {
-        const targetText = (activeLabel.textContent ?? '').trim().toUpperCase()
-        const sections = Array.from(preview!.querySelectorAll<HTMLElement>('.preview-section h3'))
-        for (const h3 of sections) {
-          const h3Text = (h3.textContent ?? '').trim().toUpperCase()
-          if (h3Text === targetText || h3Text.startsWith(targetText)) {
-            const section = h3.closest<HTMLElement>('.preview-section')
-            if (section) {
-              const offset = section.getBoundingClientRect().top
-                - preview!.getBoundingClientRect().top
-                + preview!.scrollTop
-              preview!.scrollTop = offset
-            }
-            break
-          }
-        }
-      }
-
-      requestAnimationFrame(() => { scrollSyncLockRef.current = false })
-    }
-
-    form.addEventListener('scroll', onFormScroll, { passive: true })
-    return () => { form.removeEventListener('scroll', onFormScroll) }
-  }, [])
-
   useEffect(() => {
     const s = storeRef.current
     const noteIdParam = searchParams.get('noteId')
@@ -400,12 +346,10 @@ function EditContent() {
       } else {
         latestFieldsRef.current = s.currentNote
         setFields(s.currentNote)
-        setPreviewHtml(buildPreviewHTML(s.currentNote))
       }
     } else {
       latestFieldsRef.current = s.currentNote
       setFields(s.currentNote)
-      setPreviewHtml(buildPreviewHTML(s.currentNote))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
@@ -435,7 +379,6 @@ function EditContent() {
     }
     latestFieldsRef.current = noteFields
     setFields(noteFields)
-    setPreviewHtml(buildPreviewHTML(noteFields))
     store.setCurrentNote(noteFields)
     store.setCurrentNoteId(noteId)
     if (note.transcript) {
@@ -443,54 +386,6 @@ function EditContent() {
       store.setLastTranscriptMode((note.transcriptMode as Parameters<typeof store.setLastTranscriptMode>[0]) ?? 'paste')
     }
   }
-
-  useEffect(() => {
-    if (isLetterMode) return
-    const timer = setTimeout(() => setPreviewHtml(buildPreviewHTML(fields)), 200)
-    return () => clearTimeout(timer)
-  }, [fields, isLetterMode])
-
-  useEffect(() => {
-    if (!isLetterMode) return
-    const timer = setTimeout(() => {
-      const html = buildLetterPreviewHTML({
-        letterType: letterType!,
-        common: letterCommonFields,
-        referral: referralFields,
-        records: recordsFields,
-        freetext: freetextFields,
-        letterheadHeaderUrl: store.activeLetterhead?.headerUrl ?? null,
-        letterheadFooterUrl: store.activeLetterhead?.footerUrl ?? null,
-        signatureUrl: profile?.signatureUrl ?? null,
-        signatureScale: sigScaleDraft,
-        fontSize: fontSizeDraft,
-        lineHeight: lineSpacingDraft,
-        margin: marginDraft,
-        clinicianName: profile?.displayName,
-        credentials: profile?.credentials,
-        providerNumber: profile?.providerNumber,
-        workPhone: profile?.workPhone,
-        position: profile?.position,
-        workplaceName: profile?.workplaces?.find(w => w.id === profile?.activeWorkplaceId)?.name,
-      })
-      setPreviewHtml(html)
-    }, 200)
-    return () => clearTimeout(timer)
-  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile, store.activeLetterhead, sigScaleDraft, fontSizeDraft, lineSpacingDraft, marginDraft])
-
-  // Estimate how many A4 pages the letter spans by replaying the *exact* vertical
-  // accounting used by the PDF export (handleLetterPDF) — same geometry, same line
-  // wrapping (jsPDF splitTextToSize), same signature-block placement rule. The HTML
-  // preview uses a different layout engine, so measuring it never matched the real
-  // page break; mirroring the PDF flow does, to the line.
-  useEffect(() => {
-    if (!isLetterMode) { setLetterPageCount(1); return }
-    let cancelled = false
-    const t = setTimeout(() => {
-      computeLetterPages().then(pages => { if (!cancelled) setLetterPageCount(pages) })
-    }, 250)
-    return () => { cancelled = true; clearTimeout(t) }
-  }, [isLetterMode, letterType, letterCommonFields, referralFields, recordsFields, freetextFields, profile, store.activeLetterhead, sigScaleDraft, fontSizeDraft, lineSpacingDraft, marginDraft])
 
   useEffect(() => {
     if (!letterToast) return
@@ -787,15 +682,12 @@ function EditContent() {
     const next = { ...latestFieldsRef.current, ...noteFields }
     latestFieldsRef.current = next
     setFields(next)
-    setPreviewHtml(buildPreviewHTML(next))
 
     autoSaveEnabledRef.current = true
 
     if (mountedRef.current) {
       const form = formScrollRef.current
-      const preview = previewScrollRef.current
       if (form) form.scrollTop = 0
-      if (preview) preview.scrollTop = 0
     }
   }
 
@@ -866,9 +758,9 @@ function EditContent() {
         patientName: name,
         dob: patientDobMap.current.get(name.trim().toLowerCase()) ?? '',
       })
-      // Scroll preview back to top so the letter starts visible, not at the
-      // proportional position the form was scrolled to before entering letter mode
-      if (previewScrollRef.current) previewScrollRef.current.scrollTop = 0
+      // Scroll back to top so the letter starts visible, not at the scroll
+      // position the form was at before entering letter mode
+      if (formScrollRef.current) formScrollRef.current.scrollTop = 0
     }
   }
 
@@ -1218,66 +1110,6 @@ function EditContent() {
     return sigLines
   }
 
-  // Natural aspect ratio (height / width) of a letterhead image, cached by URL.
-  // Only dimensions are needed here, so a plain Image load is fine (no proxy).
-  function imageAspect(url: string | null): Promise<number> {
-    if (!url) return Promise.resolve(0)
-    const cached = imageAspectCache.current.get(url)
-    if (cached !== undefined) return Promise.resolve(cached)
-    return new Promise<number>((resolve) => {
-      const img = new Image()
-      img.onload = () => {
-        const ar = img.naturalWidth ? img.naturalHeight / img.naturalWidth : 0
-        imageAspectCache.current.set(url, ar)
-        resolve(ar)
-      }
-      img.onerror = () => { imageAspectCache.current.set(url, 0); resolve(0) }
-      img.src = url
-    })
-  }
-
-  // Predict how many A4 pages the letter will occupy, replaying handleLetterPDF's
-  // geometry exactly: same line wrapping, same maxY break, same signature placement.
-  async function computeLetterPages(): Promise<number> {
-    const { jsPDF } = await import('jspdf')
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-    const PW = 210, PH = 297
-    const ML = marginDraft > 0 ? marginDraft : 20
-    const CW = PW - ML * 2
-    const fs = fontSizeDraft > 0 ? fontSizeDraft : 11
-    const ls = lineSpacingDraft > 0 ? lineSpacingDraft : 1.4
-    const LH = fs * 0.3528 * ls
-    const PS = LH * 0.5
-
-    const lh = store.activeLetterhead
-    const headerAR = await imageAspect(lh?.headerUrl ?? null)
-    const footerAR = await imageAspect(lh?.footerUrl ?? null)
-    const headerH = headerAR ? headerAR * PW : 0
-    const footerH = footerAR ? footerAR * PW : 0
-    const contentTop = headerH ? headerH + 8 : 20
-    const footerY = PH - footerH
-    const maxY = footerH ? footerY - 4 : PH - 15
-    const sigZoneBottom = footerH ? footerY + footerH * 0.42 : maxY
-
-    let y = contentTop
-    let pages = 1
-    const write = (text: string, bold = false) => {
-      doc.setFont('helvetica', bold ? 'bold' : 'normal')
-      doc.setFontSize(fs)
-      doc.splitTextToSize(text, CW).forEach(() => {
-        if (y + LH > maxY) { pages++; y = contentTop }
-        y += LH
-      })
-    }
-    const para = () => { y += PS * 2 }
-    flowLetterBody(write, para)
-
-    const sigF = (sigScaleDraft > 0 ? sigScaleDraft : 100) / 100
-    const sigImgH = profile?.signatureUrl ? 14 * sigF + 3 : 0
-    const blockH = sigImgH + buildSigLines().length * LH
-    if (sigZoneBottom - blockH < y + PS * 2) pages++
-    return pages
-  }
 
   async function handleLetterPDF() {
     const { jsPDF } = await import('jspdf')
@@ -2043,11 +1875,9 @@ function EditContent() {
       )}
 
 
-      <div className="absolute inset-0 overflow-hidden grid grid-cols-1 md:grid-cols-[55%_45%] grid-rows-[1fr]">
-
-        {/* LEFT: form — starts at top:0, contentPt pushes first item below the floating bars */}
-        <div ref={formScrollRef} className="overflow-y-auto scrollbar-none px-4 pb-tabbar min-h-0" style={{ paddingTop: contentPt }}>
-          <div className="max-w-lg mx-auto space-y-4 pb-10">
+      {/* Form — fills the tab content area; contentPt pushes the first item below the floating bars */}
+      <div ref={formScrollRef} className="absolute inset-0 overflow-y-auto scrollbar-none px-4 pb-tabbar" style={{ paddingTop: contentPt }}>
+        <div className="max-w-lg mx-auto space-y-4 pb-10">
 
             {store.incompleteTranscript && !isLetterMode && (
               <div className="rounded-lg bg-amber-50 border border-amber-300 px-3 py-2.5 text-xs text-amber-900 flex items-start justify-between gap-2">
@@ -2616,41 +2446,8 @@ function EditContent() {
             )}
 
             </> /* end !isLetterMode */}
-          </div>
-        </div>
-
-        {/* RIGHT: live preview — desktop only */}
-        <div
-          className="hidden md:grid min-h-0 border-l border-[var(--border)]"
-          style={{ gridTemplateRows: 'auto 1fr', paddingTop: contentPt, background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
-        >
-          <div
-            className="border-b border-[var(--border)] px-4 py-2 flex items-center justify-between gap-2"
-            style={{ background: 'rgba(255,255,255,0.80)', backdropFilter: 'blur(12px)' }}
-          >
-            <span className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wide">Preview</span>
-            {isLetterMode && (
-              letterPageCount > 1 ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-                  </svg>
-                  {letterPageCount} pages — shrink font/spacing to fit
-                </span>
-              ) : (
-                <span className="text-[11px] font-medium text-[var(--text3)]">1 page</span>
-              )
-            )}
-          </div>
-          <div
-            ref={previewScrollRef}
-            className="overflow-y-auto scrollbar-none p-4 pb-tabbar preview-pane min-h-0"
-            dangerouslySetInnerHTML={{ __html: previewHtml }}
-          />
         </div>
       </div>
-
 
       <TemplatePicker
         open={changeTemplateOpen}
