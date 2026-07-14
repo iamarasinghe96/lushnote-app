@@ -588,6 +588,17 @@ function Step4({
             <p className="text-xs text-[#475569] leading-relaxed">{step}</p>
           </div>
         ))}
+        <a
+          href="https://youtu.be/LEX6q9m2Ayc"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-xs font-medium text-[#2563eb] hover:underline pt-1"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          Watch a video walkthrough
+        </a>
       </div>
 
       <div>
