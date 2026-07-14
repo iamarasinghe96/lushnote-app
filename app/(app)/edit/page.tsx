@@ -20,6 +20,7 @@ import TimePicker from '@/components/ui/TimePicker'
 import TemplatePicker from '@/components/modals/TemplatePicker'
 import ReassignModal from '@/components/modals/ReassignModal'
 import ManualGenerateModal from '@/components/modals/ManualGenerateModal'
+import { parseBoldSegments } from '@/lib/pdf'
 import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate } from '@/types'
 
 function formatDuration(secs: number): string {
@@ -361,6 +362,56 @@ function EditContent() {
     const tag = e.target.tagName
     if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return
     setFieldFocused(false)
+  }
+
+  // Wraps the current selection in a textarea with **bold** or *italic*
+  // markers (or, with no selection, inserts an empty pair and places the
+  // cursor between them so typing continues formatted) — the same convention
+  // already rendered by the note preview/PDF and the letter preview/PDF.
+  // Updates the DOM value via the native setter + a real 'input' event so
+  // React's onChange fires normally, whichever state setter a given field is
+  // wired to (setField for note fields, store.setXFields for letter fields) -
+  // this needs no per-field wiring at all.
+  function applyInlineFormat(el: HTMLTextAreaElement, marker: string) {
+    const start = el.selectionStart ?? el.value.length
+    const end = el.selectionEnd ?? el.value.length
+    const selected = el.value.slice(start, end)
+    const newValue = el.value.slice(0, start) + marker + selected + marker + el.value.slice(end)
+    const newStart = start + marker.length
+    const newEnd = end + marker.length
+
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set
+    setter?.call(el, newValue)
+    el.dispatchEvent(new Event('input', { bubbles: true }))
+
+    requestAnimationFrame(() => {
+      el.focus()
+      el.setSelectionRange(newStart, newEnd)
+    })
+  }
+
+  // Ctrl/Cmd+B and Ctrl/Cmd+I while a textarea is focused, anywhere in the
+  // form (note fields or letter fields, since both render inside this same
+  // container) - saves typing ** or * by hand at both ends of a selection.
+  function handleFormKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    const isMod = e.ctrlKey || e.metaKey
+    if (!isMod) return
+    const key = e.key.toLowerCase()
+    if (key !== 'b' && key !== 'i') return
+    if (!(e.target instanceof HTMLTextAreaElement)) return
+    e.preventDefault()
+    applyInlineFormat(e.target, key === 'b' ? '**' : '*')
+  }
+
+  // For the Bold/Italic buttons in the note/letter bar: mousedown (not click)
+  // with preventDefault stops the browser shifting focus to the button, so
+  // the textarea the doctor was editing stays focused with its selection
+  // intact - exactly the technique the patient-autocomplete dropdowns already
+  // use for the same reason.
+  function handleFormatMouseDown(e: React.MouseEvent, marker: string) {
+    e.preventDefault()
+    const el = document.activeElement
+    if (el instanceof HTMLTextAreaElement) applyInlineFormat(el, marker)
   }
 
   useEffect(() => {
@@ -1189,14 +1240,47 @@ function EditContent() {
     let y = contentTop
     stampLetterhead()
 
+    // Word-by-word rendering (same tokenizing approach as lib/pdf.ts's
+    // drawRich) so **bold**/*italic* markdown typed via the Bold/Italic
+    // shortcut renders inline within a wrapped paragraph, rather than the
+    // old splitTextToSize(text) approach which could only style a whole call
+    // uniformly via the `bold` flag.
     const write = (text: string, bold = false, size = fs) => {
-      doc.setFont('helvetica', bold ? 'bold' : 'normal')
+      const segs = parseBoldSegments(text)
+      const tokens: { w: string; bold: boolean; italic: boolean; space: boolean }[] = []
+      for (const s of segs) {
+        for (const part of s.text.split(/(\s+)/)) {
+          if (!part) continue
+          tokens.push({ w: part, bold: bold || s.bold, italic: s.italic, space: /^\s+$/.test(part) })
+        }
+      }
+      const fontStyle = (b: boolean, i: boolean) => (b && i ? 'bolditalic' : b ? 'bold' : i ? 'italic' : 'normal')
       doc.setFontSize(size)
-      doc.splitTextToSize(text, CW).forEach((line: string) => {
-        if (y + LH > maxY) { doc.addPage(); stampLetterhead(); y = contentTop }
-        doc.text(line, ML, y)
+      const maxX = ML + CW
+      let x = ML
+      let atLineStart = true
+      const startNewLine = () => {
         y += LH
-      })
+        if (y + LH > maxY) { doc.addPage(); stampLetterhead(); y = contentTop }
+        x = ML
+        atLineStart = true
+      }
+      if (y + LH > maxY) { doc.addPage(); stampLetterhead(); y = contentTop }
+      for (const tok of tokens) {
+        if (tok.space) {
+          if (atLineStart) continue
+          doc.setFont('helvetica', 'normal')
+          x += doc.getTextWidth(tok.w)
+          continue
+        }
+        doc.setFont('helvetica', fontStyle(tok.bold, tok.italic))
+        const tw = doc.getTextWidth(tok.w)
+        if (!atLineStart && x + tw > maxX) startNewLine()
+        doc.text(tok.w, x, y)
+        x += tw
+        atLineStart = false
+      }
+      y += LH
     }
     const nl = (n = 1) => { y += PS * n }
 
@@ -1830,6 +1914,22 @@ function EditContent() {
           {letterBarExpanded && (
             <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/20">
               <button
+                onMouseDown={e => handleFormatMouseDown(e, '**')}
+                className="text-white/80 hover:text-white text-xs font-bold w-7 h-7 flex items-center justify-center rounded border border-white/40 hover:bg-white/10"
+                aria-label="Bold selected text"
+                title="Bold (Ctrl/Cmd+B)"
+              >
+                B
+              </button>
+              <button
+                onMouseDown={e => handleFormatMouseDown(e, '*')}
+                className="text-white/80 hover:text-white text-xs italic w-7 h-7 flex items-center justify-center rounded border border-white/40 hover:bg-white/10"
+                aria-label="Italicise selected text"
+                title="Italic (Ctrl/Cmd+I)"
+              >
+                I
+              </button>
+              <button
                 onClick={() => handleChangeTemplate('letters')}
                 className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10 motion-safe:transition-colors">
                 Change
@@ -1920,6 +2020,22 @@ function EditContent() {
 
           {!isGenerating && noteBarExpanded && (
             <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/20">
+              <button
+                onMouseDown={e => handleFormatMouseDown(e, '**')}
+                className="text-white/80 hover:text-white text-xs font-bold w-7 h-7 flex items-center justify-center rounded border border-white/40 hover:bg-white/10"
+                aria-label="Bold selected text"
+                title="Bold (Ctrl/Cmd+B)"
+              >
+                B
+              </button>
+              <button
+                onMouseDown={e => handleFormatMouseDown(e, '*')}
+                className="text-white/80 hover:text-white text-xs italic w-7 h-7 flex items-center justify-center rounded border border-white/40 hover:bg-white/10"
+                aria-label="Italicise selected text"
+                title="Italic (Ctrl/Cmd+I)"
+              >
+                I
+              </button>
               <button onClick={() => handleChangeTemplate()} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
                 Change Template
               </button>
@@ -1963,6 +2079,7 @@ function EditContent() {
         style={{ paddingTop: contentPt }}
         onFocus={handleFormFocus}
         onBlur={handleFormBlur}
+        onKeyDown={handleFormKeyDown}
       >
         <div className="max-w-lg mx-auto space-y-4 pb-10">
 

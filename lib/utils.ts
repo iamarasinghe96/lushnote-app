@@ -240,7 +240,11 @@ const PREVIEW_FIELD_ORDER = [
 ]
 
 function applyInlineBold(line: string): string {
-  return line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  // Bold consumes ** pairs first so any single * left over afterwards is
+  // genuinely an italic marker, never half of a bold pair.
+  return line
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
 }
 
 function formatContent(text: string): string {
@@ -464,30 +468,34 @@ export function buildLetterPreviewHTML(params: {
     const medList = referral.showMedicationList && referral.medicationList
       ? autoNumberLines(referral.medicationList)
       : ''
+    // applyInlineBold runs after escapeHtml (never before - escaping must see
+    // the raw **/*  markers, not HTML-encoded ones) so **bold**/*italic*
+    // typed via the Bold/Italic shortcut renders the same as it does in the
+    // clinical note fields and the PDF export.
     bodyHtml = `
-      ${p(`To Dr. ${escapeHtml(referral.doctorName || '[Doctor Name]')},`)}
-      ${p(`I am writing to refer to you ${escapeHtml(common.patientName || '[Patient Name]')}, who was admitted to the ${escapeHtml(referral.admissionUnit || '[Unit]')} from the ${formatDateForLetter(referral.admissionDateStart)} to the ${formatDateForLetter(referral.admissionDateEnd)}.`)}
-      ${p(`Thank you for seeing ${title} ${escapeHtml(common.patientName || '[Patient Name]')}. ${escapeHtml(firstName)} is a ${agePart}${escapeHtml(referral.gender || '[gender]')} who presented with ${escapeHtml(referral.presentingComplaint || '[presenting complaint]')}.`)}
-      ${referral.secondParagraph ? p(escapeHtml(referral.secondParagraph)) : ''}
-      ${p(`${escapeHtml(referral.referralReason || '[reason for referral]')}${referral.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`)}
+      ${p(`To Dr. ${applyInlineBold(escapeHtml(referral.doctorName || '[Doctor Name]'))},`)}
+      ${p(`I am writing to refer to you ${applyInlineBold(escapeHtml(common.patientName || '[Patient Name]'))}, who was admitted to the ${applyInlineBold(escapeHtml(referral.admissionUnit || '[Unit]'))} from the ${formatDateForLetter(referral.admissionDateStart)} to the ${formatDateForLetter(referral.admissionDateEnd)}.`)}
+      ${p(`Thank you for seeing ${title} ${applyInlineBold(escapeHtml(common.patientName || '[Patient Name]'))}. ${applyInlineBold(escapeHtml(firstName))} is a ${agePart}${applyInlineBold(escapeHtml(referral.gender || '[gender]'))} who presented with ${applyInlineBold(escapeHtml(referral.presentingComplaint || '[presenting complaint]'))}.`)}
+      ${referral.secondParagraph ? p(applyInlineBold(escapeHtml(referral.secondParagraph))) : ''}
+      ${p(`${applyInlineBold(escapeHtml(referral.referralReason || '[reason for referral]'))}${referral.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`)}
       ${referral.showPastMedicalHistory && referral.pastMedicalHistory
-        ? `${p('<strong><u>Past Medical History:</u></strong>')}<p style="margin:0 0 0.8em;white-space:pre-line;">${escapeHtml(referral.pastMedicalHistory)}</p>`
+        ? `${p('<strong><u>Past Medical History:</u></strong>')}<p style="margin:0 0 0.8em;white-space:pre-line;">${applyInlineBold(escapeHtml(referral.pastMedicalHistory))}</p>`
         : ''}
       ${medList
-        ? `${p('<strong><u>Medication List:</u></strong>')}<p style="margin:0 0 0.8em;white-space:pre-line;">${escapeHtml(medList)}</p>`
+        ? `${p('<strong><u>Medication List:</u></strong>')}<p style="margin:0 0 0.8em;white-space:pre-line;">${applyInlineBold(escapeHtml(medList))}</p>`
         : ''}
       ${p('Please do not hesitate to contact me if there are any queries regarding this referral.')}
     `
   } else if (letterType === 'records' && records) {
     bodyHtml = `
       ${p('To whom it may concern,')}
-      ${p(`I am writing to request any correspondence or documentation from their previous visits at ${escapeHtml(records.recordsLocation || '[Location]')}. It would be greatly appreciated if any correspondence, treatments, and recent investigations could be provided to assist with their ongoing management.`)}
-      ${records.secondParagraphRecords ? p(escapeHtml(records.secondParagraphRecords)) : ''}
+      ${p(`I am writing to request any correspondence or documentation from their previous visits at ${applyInlineBold(escapeHtml(records.recordsLocation || '[Location]'))}. It would be greatly appreciated if any correspondence, treatments, and recent investigations could be provided to assist with their ongoing management.`)}
+      ${records.secondParagraphRecords ? p(applyInlineBold(escapeHtml(records.secondParagraphRecords))) : ''}
     `
   } else if (letterType === 'freetext' && freetext) {
     bodyHtml = freetext.freeTextContent
       ? freetext.freeTextContent.split('\n')
-          .map(l => l.trim() ? p(escapeHtml(l)) : '<br>').join('')
+          .map(l => l.trim() ? p(applyInlineBold(escapeHtml(l))) : '<br>').join('')
       : '<p style="color:#94a3b8;">[Letter content will appear here]</p>'
   }
 

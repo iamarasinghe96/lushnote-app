@@ -34,20 +34,24 @@ function calcAge(dob: string): number | null {
   return age >= 0 ? age : null
 }
 
-type RichSeg = { text: string; bold: boolean }
+export type RichSeg = { text: string; bold: boolean; italic: boolean }
 
-// Split a line into normal/bold segments based on **bold** markdown markers.
-function parseBoldSegments(text: string): RichSeg[] {
+// Split a line into normal/bold/italic segments based on **bold** and *italic*
+// markdown markers. Bold is tried first in the alternation, so ** pairs are
+// never misread as two single-* italic markers. Exported so the letter PDF
+// generator (app/(app)/edit/page.tsx) can render the same inline formatting.
+export function parseBoldSegments(text: string): RichSeg[] {
   const segs: RichSeg[] = []
-  const rx = /\*\*(.+?)\*\*/g
+  const rx = /\*\*(.+?)\*\*|\*(.+?)\*/g
   let last = 0
   let m: RegExpExecArray | null
   while ((m = rx.exec(text)) !== null) {
-    if (m.index > last) segs.push({ text: text.slice(last, m.index), bold: false })
-    segs.push({ text: m[1], bold: true })
+    if (m.index > last) segs.push({ text: text.slice(last, m.index), bold: false, italic: false })
+    if (m[1] !== undefined) segs.push({ text: m[1], bold: true, italic: false })
+    else segs.push({ text: m[2], bold: false, italic: true })
     last = m.index + m[0].length
   }
-  if (last < text.length) segs.push({ text: text.slice(last), bold: false })
+  if (last < text.length) segs.push({ text: text.slice(last), bold: false, italic: false })
   return segs
 }
 
@@ -72,13 +76,15 @@ export function generateNotePDF(
   // colour. Advances y past the last line.
   function drawRich(text: string, startX: number, wrapX: number) {
     const segs = parseBoldSegments(text)
-    const tokens: { w: string; bold: boolean; space: boolean }[] = []
+    const tokens: { w: string; bold: boolean; italic: boolean; space: boolean }[] = []
     for (const s of segs) {
       for (const part of s.text.split(/(\s+)/)) {
         if (!part) continue
-        tokens.push({ w: part, bold: s.bold, space: /^\s+$/.test(part) })
+        tokens.push({ w: part, bold: s.bold, italic: s.italic, space: /^\s+$/.test(part) })
       }
     }
+    const fontStyle = (bold: boolean, italic: boolean) =>
+      bold && italic ? 'bolditalic' : bold ? 'bold' : italic ? 'italic' : 'normal'
     const maxX = PAGE_W - MARGIN
     let x = startX
     let atLineStart = true
@@ -89,7 +95,7 @@ export function generateNotePDF(
         x += doc.getTextWidth(tok.w)
         continue
       }
-      doc.setFont('helvetica', tok.bold ? 'bold' : 'normal')
+      doc.setFont('helvetica', fontStyle(tok.bold, tok.italic))
       const tw = doc.getTextWidth(tok.w)
       if (!atLineStart && x + tw > maxX) {
         y += 4.5
