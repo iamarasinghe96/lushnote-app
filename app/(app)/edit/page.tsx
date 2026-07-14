@@ -217,6 +217,7 @@ function EditContent() {
   const isSavingRef = useRef(false)
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
   const [fieldFocused, setFieldFocused] = useState(false)
+  const [letterBarExpanded, setLetterBarExpanded] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
   const [generationError, setGenerationError] = useState<string | null>(null)
@@ -329,6 +330,13 @@ function EditContent() {
   useEffect(() => {
     document.body.classList.toggle('keyboard-input-focused', fieldFocused)
     return () => { document.body.classList.remove('keyboard-input-focused') }
+  }, [fieldFocused])
+
+  // Auto-minimise the letter layout controls the moment typing starts, same
+  // as the transcript Q&A input collapsing the transcript on focus — gives
+  // the field being edited the room the expanded bar would otherwise take.
+  useEffect(() => {
+    if (fieldFocused) setLetterBarExpanded(false)
   }, [fieldFocused])
 
   // Bubbling focus/blur (React 17+ delegates via focusin/focusout, which
@@ -1751,7 +1759,9 @@ function EditContent() {
   // Floating overlay geometry — bars sit above content, content scrolls behind them.
   // HEADER_BOTTOM = safe-area + 8px gap + 60px header + 8px gap (matches .pt-header = 76px)
   const HEADER_BOTTOM = 76
-  const BAR_H = 44 // approximate bar visual height + gap below it
+  // approximate bar visual height + gap below it; the letter bar grows by a
+  // second (wrapping) row when its layout controls are expanded
+  const BAR_H = 44 + (isLetterMode && letterBarExpanded ? 48 : 0)
   const hasTopBar = isLetterMode || (!isLetterMode && (!!store.currentNoteId || isGenerating))
   const barTop = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM}px)`
   const contentPt = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM + (hasTopBar ? BAR_H : 0) + 16}px)`
@@ -1767,63 +1777,78 @@ function EditContent() {
         </div>
       )}
 
-      {/* Letter mode bar — floats below the header */}
+      {/* Letter mode bar — floats below the header. The layout controls (Font/
+          Spacing/Margin/Sig) used to sit absolutely-centred over this same row,
+          which collided with the label and action buttons on narrow screens.
+          They now live in a second row shown only when expanded. */}
       {isLetterMode && (
         <div
           data-glass
-          className="ln-glass ln-glass-note absolute left-4 right-4 z-20 flex items-center px-3 py-2 text-white text-sm"
+          className="ln-glass ln-glass-note absolute left-4 right-4 z-20 flex flex-col px-3 py-2 text-white text-sm"
           style={{ top: barTop, borderRadius: 20, boxShadow: '0 4px 16px rgba(14,159,110,0.25)' }}
         >
-          {/* Left: letter type label + change action */}
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="font-medium text-sm">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm truncate">
               {letterType === 'referral' ? 'Referral Letter'
                 : letterType === 'records' ? 'Records Request'
                 : 'Free Text Letter'}
             </span>
             <button
-              onClick={() => handleChangeTemplate('letters')}
-              className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10 motion-safe:transition-colors">
-              Change
+              onClick={() => setLetterBarExpanded(v => !v)}
+              aria-label={letterBarExpanded ? 'Collapse layout controls' : 'Expand layout controls'}
+              aria-pressed={letterBarExpanded}
+              className={`w-6 h-6 flex items-center justify-center rounded-full border motion-safe:transition-all shrink-0 ${
+                letterBarExpanded ? 'bg-white text-[var(--blue)] border-white' : 'bg-white/15 border-white/40 text-white'
+              }`}
+              style={{ transform: letterBarExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transitionDuration: '200ms' }}
+            >
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden>
+                <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </button>
-          </div>
 
-          {/* Centre: layout controls — absolutely centred */}
-          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
-            <LayoutField label="Font" suffix="pt" value={fontSizeDraft} min={8} max={14} step={0.5}
-              onChange={v => { setFontSizeDraft(v); layoutTouchedRef.current = true }} />
-            <LayoutField label="Spacing" value={lineSpacingDraft} min={1} max={2} step={0.05}
-              onChange={v => { setLineSpacingDraft(v); layoutTouchedRef.current = true }} />
-            <LayoutField label="Margin" suffix="mm" value={marginDraft} min={8} max={35} step={1}
-              onChange={v => { setMarginDraft(v); layoutTouchedRef.current = true }} />
-            {profile?.signatureUrl && (
-              <LayoutField label="Sig" suffix="%" value={sigScaleDraft} min={40} max={250} step={5}
-                onChange={v => { setSigScaleDraft(v); layoutTouchedRef.current = true }} />
-            )}
-            {layoutDirty && (
+            <div className="flex items-center gap-2 ml-auto shrink-0">
               <button
-                onClick={handleSaveLetterLayout}
-                disabled={savingLayout}
-                className="text-xs border border-white/50 text-white px-2 py-1 rounded-md font-medium
-                           hover:bg-white/10 disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-colors">
-                {savingLayout ? 'Saving…' : 'Save'}
+                onClick={handleLetterPDF}
+                className="text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-[var(--r)] motion-safe:active:scale-95 motion-safe:transition-transform">
+                Download PDF
               </button>
-            )}
+              <button
+                onClick={handleLetterEmail}
+                className="text-xs bg-[#10b981] text-white font-semibold px-3 py-1.5 rounded-[var(--r)] border border-white/50 motion-safe:active:scale-95 motion-safe:transition-transform">
+                Email
+              </button>
+            </div>
           </div>
 
-          {/* Right: action buttons */}
-          <div className="flex items-center gap-2 ml-auto shrink-0">
-            <button
-              onClick={handleLetterPDF}
-              className="text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-[var(--r)] motion-safe:active:scale-95 motion-safe:transition-transform">
-              Download PDF
-            </button>
-            <button
-              onClick={handleLetterEmail}
-              className="text-xs bg-[#10b981] text-white font-semibold px-3 py-1.5 rounded-[var(--r)] border border-white/50 motion-safe:active:scale-95 motion-safe:transition-transform">
-              Email
-            </button>
-          </div>
+          {letterBarExpanded && (
+            <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/20">
+              <button
+                onClick={() => handleChangeTemplate('letters')}
+                className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10 motion-safe:transition-colors">
+                Change
+              </button>
+              <LayoutField label="Font" suffix="pt" value={fontSizeDraft} min={8} max={14} step={0.5}
+                onChange={v => { setFontSizeDraft(v); layoutTouchedRef.current = true }} />
+              <LayoutField label="Spacing" value={lineSpacingDraft} min={1} max={2} step={0.05}
+                onChange={v => { setLineSpacingDraft(v); layoutTouchedRef.current = true }} />
+              <LayoutField label="Margin" suffix="mm" value={marginDraft} min={8} max={35} step={1}
+                onChange={v => { setMarginDraft(v); layoutTouchedRef.current = true }} />
+              {profile?.signatureUrl && (
+                <LayoutField label="Sig" suffix="%" value={sigScaleDraft} min={40} max={250} step={5}
+                  onChange={v => { setSigScaleDraft(v); layoutTouchedRef.current = true }} />
+              )}
+              {layoutDirty && (
+                <button
+                  onClick={handleSaveLetterLayout}
+                  disabled={savingLayout}
+                  className="text-xs border border-white/50 text-white px-2 py-1 rounded-md font-medium
+                             hover:bg-white/10 disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-colors">
+                  {savingLayout ? 'Saving…' : 'Save'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
