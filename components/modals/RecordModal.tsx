@@ -142,12 +142,12 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
 
         {phase === 'idle' && (
           <>
-            <div className="flex rounded-lg bg-[var(--bg)] p-1 gap-1">
+            <div className="flex rounded-[var(--r)] bg-[var(--bg)] p-1 gap-1">
               {(['inperson', 'telehealth'] as SubMode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => setSubMode(m)}
-                  className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors
+                  className={`flex-1 py-1.5 rounded-[var(--r-sm)] text-sm font-medium transition-colors
                     ${subMode === m
                       ? 'bg-[#10b981] text-white shadow-sm'
                       : 'text-[var(--text2)] hover:text-[var(--text)]'
