@@ -19,6 +19,13 @@ export function RateLimitBanner({ waitSeconds, onDismiss, onRetry }: RateLimitBa
     return () => clearInterval(timer)
   }, [remaining <= 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Retry automatically the moment the countdown ends — the doctor shouldn't
+  // have to notice the banner and tap a button for a wait that's already over.
+  useEffect(() => {
+    if (!ready) return
+    onRetry()
+  }, [ready]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const hrs  = Math.floor(remaining / 3600)
   const mins = Math.floor((remaining % 3600) / 60)
   const secs = remaining % 60

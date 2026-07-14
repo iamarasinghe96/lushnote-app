@@ -18,9 +18,10 @@ export async function POST(req: NextRequest) {
       systemPrompt?: string
       mode?: string
       letterType?: string
+      retry?: boolean
     }
 
-    const { uid, transcript, templatePrompt, systemPrompt, mode, letterType } = body
+    const { uid, transcript, templatePrompt, systemPrompt, mode, letterType, retry } = body
 
     // Letter AI generation — Groq-only, transient, no uid/quota tracking
     if (mode === 'letter' && letterType && transcript) {
@@ -237,12 +238,14 @@ ${transcript}`,
       }
     }
 
-    // Too long for Groq → Gemini is the only option. Rather than fail on Groq's
-    // 413, ask the client to retry shortly when Gemini only stumbled transiently
-    // (this is what made the same transcript work on a later paste). If Gemini is
-    // genuinely out for the day, retrying won't help — give the actionable message.
+    // Too long for Groq → Gemini is the only option. Google's 429 responses often
+    // bundle several quota metrics together, so a per-minute stumble can look like
+    // a per-day exhaustion (this is why the same transcript reliably works on a
+    // retry a minute later). Rather than trust that classification on the first
+    // failure, ask the client to silently retry once; only if the SAME failure
+    // survives a fresh attempt (retry === true) do we give the actionable message.
     if (!groqViable) {
-      if (geminiTransient) {
+      if (geminiTransient || !retry) {
         return NextResponse.json({ error: 'rate_limit', waitSeconds: 60 }, { status: 429 })
       }
       return NextResponse.json({
@@ -268,9 +271,10 @@ ${transcript}`,
         const waitSeconds = parseGroqWaitSeconds(err.message)
         return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
       }
-      // A transient Gemini failure with a Groq 413 as backup → prefer a retry.
+      // A Gemini failure with a Groq 413 as backup → prefer a silent retry first,
+      // same reasoning as the !groqViable branch above.
       if (err instanceof Error && err.message.startsWith('413:')) {
-        if (geminiTransient) {
+        if (geminiTransient || !retry) {
           return NextResponse.json({ error: 'rate_limit', waitSeconds: 60 }, { status: 429 })
         }
         return NextResponse.json({

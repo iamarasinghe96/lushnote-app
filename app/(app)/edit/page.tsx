@@ -866,7 +866,7 @@ function EditContent() {
     }
   }
 
-  async function runPendingGeneration() {
+  async function runPendingGeneration(isRetry = false) {
     const s = storeRef.current
     const template = s.lastChosenTemplate
     const transcript = s.lastTranscript || ''
@@ -949,7 +949,7 @@ function EditContent() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ transcript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user.uid }),
+        body: JSON.stringify({ transcript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user.uid, retry: isRetry }),
       })
 
       statusTimers.forEach(clearTimeout)
@@ -964,7 +964,7 @@ function EditContent() {
           setGenerationStatus(null)
           autoSaveEnabledRef.current = true
           window.dispatchEvent(new CustomEvent('groq-rate-limit', {
-            detail: { waitSeconds: data.waitSeconds, retry: () => runPendingGeneration() }
+            detail: { waitSeconds: data.waitSeconds, retry: () => runPendingGeneration(true) }
           }))
           return
         }
@@ -1015,7 +1015,7 @@ function EditContent() {
     }
   }
 
-  async function runGeneration(transcript: string, template: AnyTemplate) {
+  async function runGeneration(transcript: string, template: AnyTemplate, isRetry = false) {
     setIsGenerating(true)
     store.setLastChosenTemplate(template)
 
@@ -1039,7 +1039,7 @@ function EditContent() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ transcript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user!.uid }),
+        body: JSON.stringify({ transcript, templatePrompt: buildTemplatePrompt(template), systemPrompt, uid: user!.uid, retry: isRetry }),
       })
       if (!res.ok) {
         const data = await parseJsonSafe<{ error?: string; waitSeconds?: number }>(res)
@@ -1048,7 +1048,7 @@ function EditContent() {
           setGenerationStatus(null)
           setIsGenerating(false)
           window.dispatchEvent(new CustomEvent('groq-rate-limit', {
-            detail: { waitSeconds: data.waitSeconds, retry: () => runGeneration(transcript, template) }
+            detail: { waitSeconds: data.waitSeconds, retry: () => runGeneration(transcript, template, true) }
           }))
           return
         }
