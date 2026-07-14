@@ -208,6 +208,11 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
                   text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
                   focus:border-[var(--blue)] focus:bg-[var(--blue-lt)] focus:outline-none
                   motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
+                style={{
+                  background: 'rgba(255,255,255,0.75)',
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                }}
               >
                 <span className="text-[#10b981] shrink-0">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -229,6 +234,11 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
                   text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
                   focus:border-[var(--blue)] focus:bg-[var(--blue-lt)] focus:outline-none
                   motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
+                style={{
+                  background: 'rgba(255,255,255,0.75)',
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                }}
               >
                 <span className="text-[var(--blue)] shrink-0">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -262,6 +272,11 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
                     text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
                     focus:border-[var(--blue)] focus:bg-[var(--blue-lt)] focus:outline-none
                     motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
+                  style={{
+                    background: 'rgba(255,255,255,0.75)',
+                    backdropFilter: 'blur(12px)',
+                    boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                  }}
                 >
                   <span className="text-[var(--blue)] shrink-0">{opt.icon}</span>
                   <div className="flex-1 min-w-0">
