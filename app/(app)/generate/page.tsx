@@ -55,7 +55,7 @@ function ModeCard({ icon, title, description, onClick }: ModeCardProps) {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left rounded-[var(--r-lg)] bg-white border border-[var(--border)]
+      className="w-full text-left rounded-[var(--r-lg)] bg-white border border-[var(--text3)]
                  p-4 flex items-start gap-3 hover:border-[var(--blue)] hover:shadow-md
                  active:scale-[0.99] transition-all"
       style={{ boxShadow: 'var(--shadow-sm)' }}

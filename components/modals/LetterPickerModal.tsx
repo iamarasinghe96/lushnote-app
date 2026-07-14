@@ -57,7 +57,7 @@ export default function LetterPickerModal({ open, onSelect, onSelectClinicalNote
             <button
               key={opt.type}
               onClick={() => onSelect(opt.type)}
-              className="w-full flex items-center gap-4 p-4 rounded-[var(--r-lg)] border border-[var(--border)]
+              className="w-full flex items-center gap-4 p-4 rounded-[var(--r-lg)] border border-[var(--text3)]
                 text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
                 motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
               style={{

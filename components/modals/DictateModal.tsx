@@ -209,7 +209,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
 
               <button
                 onClick={() => setPhase('letter-type')}
-                className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[var(--border)]
+                className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[var(--text3)]
                   text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
                   motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
               >
@@ -241,7 +241,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
                 <button
                   key={opt.type}
                   onClick={() => { setLetterType(opt.type); setPhase('idle') }}
-                  className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[var(--border)]
+                  className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[var(--text3)]
                     text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
                     motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
                 >
