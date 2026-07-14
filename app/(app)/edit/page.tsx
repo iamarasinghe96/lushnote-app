@@ -1913,9 +1913,16 @@ function EditContent() {
 
           {letterBarExpanded && (
             <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/20">
+              {/* Tapping this button after selecting text on a touchscreen
+                  clears the selection first (mobile text-selection is handled
+                  by the OS, not just DOM focus, so preventing default on
+                  mousedown doesn't preserve it the way it does with a mouse) -
+                  so these only appear where a mouse makes the selection
+                  reliable. On mobile, use Format in the native text-selection
+                  menu if the device offers it, or type ** / * by hand. */}
               <button
                 onMouseDown={e => handleFormatMouseDown(e, '**')}
-                className="text-white/80 hover:text-white text-xs font-bold w-7 h-7 flex items-center justify-center rounded border border-white/40 hover:bg-white/10"
+                className="hidden sm:flex text-white/80 hover:text-white text-xs font-bold w-7 h-7 items-center justify-center rounded border border-white/40 hover:bg-white/10"
                 aria-label="Bold selected text"
                 title="Bold (Ctrl/Cmd+B)"
               >
@@ -1923,7 +1930,7 @@ function EditContent() {
               </button>
               <button
                 onMouseDown={e => handleFormatMouseDown(e, '*')}
-                className="text-white/80 hover:text-white text-xs italic w-7 h-7 flex items-center justify-center rounded border border-white/40 hover:bg-white/10"
+                className="hidden sm:flex text-white/80 hover:text-white text-xs italic w-7 h-7 items-center justify-center rounded border border-white/40 hover:bg-white/10"
                 aria-label="Italicise selected text"
                 title="Italic (Ctrl/Cmd+I)"
               >
@@ -2020,9 +2027,13 @@ function EditContent() {
 
           {!isGenerating && noteBarExpanded && (
             <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/20">
+              {/* Hidden on touch/mobile widths — see the letter bar's Bold
+                  button above for why (selection doesn't survive tapping a
+                  button elsewhere on a touchscreen the way it does with a
+                  mouse). */}
               <button
                 onMouseDown={e => handleFormatMouseDown(e, '**')}
-                className="text-white/80 hover:text-white text-xs font-bold w-7 h-7 flex items-center justify-center rounded border border-white/40 hover:bg-white/10"
+                className="hidden sm:flex text-white/80 hover:text-white text-xs font-bold w-7 h-7 items-center justify-center rounded border border-white/40 hover:bg-white/10"
                 aria-label="Bold selected text"
                 title="Bold (Ctrl/Cmd+B)"
               >
@@ -2030,7 +2041,7 @@ function EditContent() {
               </button>
               <button
                 onMouseDown={e => handleFormatMouseDown(e, '*')}
-                className="text-white/80 hover:text-white text-xs italic w-7 h-7 flex items-center justify-center rounded border border-white/40 hover:bg-white/10"
+                className="hidden sm:flex text-white/80 hover:text-white text-xs italic w-7 h-7 items-center justify-center rounded border border-white/40 hover:bg-white/10"
                 aria-label="Italicise selected text"
                 title="Italic (Ctrl/Cmd+I)"
               >
