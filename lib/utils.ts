@@ -428,7 +428,7 @@ export function buildLetterPreviewHTML(params: {
        </div>`
 
   const footerHtml = letterheadFooterUrl
-    ? `<div style="margin-top:-14mm;position:relative;z-index:1;"><img src="${escapeHtml(letterheadFooterUrl)}" style="width:100%;display:block;" alt="Footer" /></div>`
+    ? `<div style="margin-top:-14mm;position:relative;z-index:1;"><img src="${escapeHtml(letterheadFooterUrl)}" style="width:100%;max-height:110px;display:block;margin:0 auto;" alt="Footer" /></div>`
     : `<div style="padding:8px 24px;border-top:1px solid #e2e8f0;font-size:10px;color:#64748b;text-align:center;">
          ${escapeHtml(clinicianName || '')}${credentials ? ', ' + escapeHtml(credentials) : ''}
        </div>`
