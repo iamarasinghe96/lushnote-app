@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { chatResponse, checkQuota, GEMINI_RATE_LIMIT_ERROR } from '@/lib/gemini'
+import { chatResponse, checkQuota, GEMINI_RATE_LIMIT_ERROR, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
 import { generateNoteGroq } from '@/lib/groq'
 import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
@@ -117,7 +117,10 @@ Keep responses concise and practical.`
       if (!question || typeof question !== 'string' || question.length > 2000) {
         return NextResponse.json({ error: 'Invalid question' }, { status: 400 })
       }
-      if (!transcript || typeof transcript !== 'string' || transcript.length > 50000) {
+      // A full session transcript can be large (a 55-min session is ~60k chars).
+      // Gemini handles that easily; cap generously rather than the old 50k that
+      // rejected long sessions outright.
+      if (!transcript || typeof transcript !== 'string' || transcript.length > 200000) {
         return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })
       }
 
@@ -126,27 +129,58 @@ Keep responses concise and practical.`
         { role: 'user', parts: [{ text: question }] },
       ]
 
-      if (process.env.GEMINI_API_KEY) {
+      // Groq's free tier can't accept a long transcript in one request (~12k
+      // token cap), so only use it when the transcript is small enough.
+      const groqViable = Math.ceil((systemPrompt.length + question.length) / 4) <= 10000
+      const userGeminiKey = req.headers.get('x-gemini-key')
+      let geminiTransient = false
+
+      // 1. User's own Gemini key — no per-day cap, handles long transcripts.
+      if (userGeminiKey) {
         try {
-          const { text: answer, totalTokens } = await chatResponse(messages, systemPrompt)
-          if (uid && typeof uid === 'string') {
-            await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
-          }
-          return NextResponse.json({ answer, provider: 'gemini' })
+          const { text: answer } = await chatResponse(messages, systemPrompt, userGeminiKey)
+          if (answer.trim()) return NextResponse.json({ answer, provider: 'gemini' })
         } catch (err) {
-          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR && typeof uid === 'string') {
-            await markGeminiLimitReached(uid, 'chat').catch(() => {})
-          }
-          // fall through to Groq
+          if (!(err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR)) geminiTransient = true
         }
       }
 
-      const groqKey = req.headers.get('x-groq-key')
-      if (!groqKey) {
-        return NextResponse.json({ error: 'No API key available' }, { status: 401 })
+      // 2. Shared server key.
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const { text: answer, totalTokens } = await chatResponse(messages, systemPrompt)
+          if (answer.trim()) {
+            if (uid && typeof uid === 'string') await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
+            return NextResponse.json({ answer, provider: 'gemini' })
+          }
+        } catch (err) {
+          if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
+            if (typeof uid === 'string') await markGeminiLimitReached(uid, 'chat').catch(() => {})
+          } else {
+            geminiTransient = true
+          }
+        }
       }
-      const { content: answer } = await generateNoteGroq(question, systemPrompt, groqKey)
-      return NextResponse.json({ answer, provider: 'groq' })
+
+      // 3. Groq — only if the transcript is short enough for its free-tier limit.
+      const groqKey = req.headers.get('x-groq-key')
+      if (groqViable && groqKey) {
+        try {
+          const { content: answer } = await generateNoteGroq(question, systemPrompt, groqKey)
+          if (answer.trim()) return NextResponse.json({ answer, provider: 'groq' })
+        } catch { /* fall through to a clear error */ }
+      }
+
+      // Nothing worked. If Gemini only stumbled transiently (e.g. per-minute rate
+      // limit right after a long recording), a retry recovers it.
+      if (geminiTransient) {
+        return NextResponse.json({ error: 'The AI is busy right now. Wait a moment and ask again.' }, { status: 429 })
+      }
+      return NextResponse.json({
+        error: !groqViable
+          ? 'This transcript is long, so answering needs Gemini. Add your Gemini API key in Settings → API Keys, or wait for your Gemini daily limit to reset.'
+          : 'No AI key available. Add your Gemini or Groq key in Settings → API Keys.',
+      }, { status: 401 })
     }
 
     // ── Prompt engineering: natural language → AI system prompt ────────────────

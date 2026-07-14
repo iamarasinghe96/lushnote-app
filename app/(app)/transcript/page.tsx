@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { useAuth } from '@/hooks/useAuth'
-import { getGroqKey } from '@/lib/utils'
+import { getGroqKey, getGeminiKey } from '@/lib/utils'
 
 export default function TranscriptPage() {
   const { lastTranscript } = useNoteStore()
@@ -67,6 +67,8 @@ export default function TranscriptPage() {
       const groqKey = getGroqKey()
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (groqKey) headers['x-groq-key'] = groqKey
+      const geminiKey = getGeminiKey()
+      if (geminiKey) headers['x-gemini-key'] = geminiKey
 
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -90,8 +92,13 @@ export default function TranscriptPage() {
         quote: parsed.quote || undefined,
       }])
       if (parsed.quote) trsHighlightQuote(parsed.quote)
-    } catch {
-      setMessages(prev => [...prev, { role: 'ai', content: 'Could not get an answer. Check your API key in Settings.' }])
+    } catch (err) {
+      // Show the server's specific reason (e.g. "AI is busy, try again") when it
+      // gave one; fall back to the generic hint otherwise.
+      const msg = err instanceof Error && err.message && err.message !== 'No response' && err.message !== 'Could not parse response'
+        ? err.message
+        : 'Could not get an answer. Check your API key in Settings, or try again.'
+      setMessages(prev => [...prev, { role: 'ai', content: msg }])
     } finally {
       setLoading(false)
     }

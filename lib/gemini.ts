@@ -153,12 +153,13 @@ export async function transcribeAudioViaFilesApi(bytes: Buffer, mimeType: string
 
 export async function chatResponse(
   messages: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }>,
-  systemPrompt: string
+  systemPrompt: string,
+  apiKey?: string
 ): Promise<GeminiResult> {
   return geminiPost(CHAT_MODEL, {
     systemInstruction: { parts: [{ text: systemPrompt }] },
     contents: messages,
-  })
+  }, apiKey)
 }
 
 export function checkQuota(usageRecord: GeminiUsage, modelKey: string): boolean {
