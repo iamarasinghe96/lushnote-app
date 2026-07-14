@@ -4,7 +4,7 @@ import { useState, useEffect, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { openSettings, quotaDate, withTimeout } from '@/lib/utils'
+import { openSettings, quotaDate } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import Textarea from '@/components/ui/Textarea'
@@ -200,11 +200,7 @@ export default function GeneratePage() {
     setInputText('')
     setPasteModalError(null)
     try {
-      // Some browsers (seen on Brave) don't reject when clipboard read access
-      // is blocked — they leave the call pending forever instead, which would
-      // leave this button looking like it does nothing. Time it out so the
-      // manual-paste fallback below always runs either way.
-      const text = await withTimeout(navigator.clipboard.readText())
+      const text = await navigator.clipboard.readText()
       if (text.trim()) {
         const validation = validateTranscript(text.trim())
         if (!validation.valid) {

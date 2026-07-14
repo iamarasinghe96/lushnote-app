@@ -14,7 +14,6 @@ export default function TranscriptPage() {
   const [expanded, setExpanded] = useState(false)
   const [chatFocused, setChatFocused] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [copyFallback, setCopyFallback] = useState(false)
   const [messages, setMessages] = useState<{ role: 'user' | 'ai'; content: string; quote?: string }[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -128,9 +127,7 @@ export default function TranscriptPage() {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      // Clipboard blocked — select the transcript so the user can copy manually.
-      // Without an explicit label change this looked like the button did
-      // nothing (reported), since selecting text alone isn't an obvious signal.
+      // Clipboard blocked — select the transcript so the user can copy manually
       if (transcriptRef.current) {
         setExpanded(true)
         const range = document.createRange()
@@ -138,8 +135,6 @@ export default function TranscriptPage() {
         const sel = window.getSelection()
         sel?.removeAllRanges()
         sel?.addRange(range)
-        setCopyFallback(true)
-        setTimeout(() => setCopyFallback(false), 3000)
       }
     }
   }
@@ -244,7 +239,7 @@ export default function TranscriptPage() {
               onClick={copyAll}
               className="text-xs px-2.5 py-0.5 rounded-full border border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)]/50 hover:text-[var(--blue)] motion-safe:transition-colors"
             >
-              {copied ? 'Copied' : copyFallback ? 'Selected — press Cmd/Ctrl+C' : 'Copy all'}
+              {copied ? 'Copied' : 'Copy all'}
             </button>
             <button
               onClick={exportTxt}
