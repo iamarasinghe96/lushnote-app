@@ -78,6 +78,21 @@ const LETTER_GUIDE: Record<LetterType, string[]> = {
   ],
 }
 
+// Same idea as LETTER_GUIDE, for the plain psychiatrist-note path (no
+// letterType) — covers the sections most clinical templates draw from, so
+// mentioning each aloud gives the AI enough to populate the note fully.
+const NOTE_GUIDE: string[] = [
+  'Presenting complaint and reason for this review',
+  'Relevant history — psychiatric, medical, social, family, or developmental as relevant',
+  'Current medications, adherence, and any side effects',
+  'Mental state examination — appearance, mood, affect, thought, perception, cognition',
+  'What was discussed or covered in the session',
+  'Any rating scale scores completed today',
+  'Risk — self-harm, suicidal ideation or intent, harm to others, safeguarding concerns',
+  'Referrals made or correspondence to send',
+  'Management plan and next steps',
+]
+
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60)
   const s = secs % 60
@@ -283,9 +298,19 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
                 </ul>
               </>
             ) : (
-              <p className="text-sm text-[var(--text2)]">
-                Narrate your note. Speak clearly and include all relevant clinical detail.
-              </p>
+              <>
+                <p className="text-sm text-[var(--text2)]">
+                  Narrate your note. Speak clearly and cover these topics so the AI can populate the note fully:
+                </p>
+                <ul className="rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--bg)] px-4 py-3 space-y-1.5">
+                  {NOTE_GUIDE.map((pt, i) => (
+                    <li key={i} className="flex gap-2 text-sm text-[var(--text2)]">
+                      <span className="text-[#10b981] shrink-0">•</span>
+                      <span>{pt}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
             <Button onClick={handleStart} variant="primary" className="w-full">
               Start dictating
@@ -322,16 +347,14 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
             {audioError && (
               <p className="text-xs text-[var(--danger)] font-medium">⚠ {audioError}</p>
             )}
-            {letterType && (
-              <ul className="text-left rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--bg)] px-4 py-3 space-y-1.5">
-                {LETTER_GUIDE[letterType].map((pt, i) => (
-                  <li key={i} className="flex gap-2 text-xs text-[var(--text2)]">
-                    <span className="text-[var(--blue)] shrink-0">•</span>
-                    <span>{pt}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <ul className="text-left rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--bg)] px-4 py-3 space-y-1.5">
+              {(letterType ? LETTER_GUIDE[letterType] : NOTE_GUIDE).map((pt, i) => (
+                <li key={i} className="flex gap-2 text-xs text-[var(--text2)]">
+                  <span className={`${letterType ? 'text-[var(--blue)]' : 'text-[#10b981]'} shrink-0`}>•</span>
+                  <span>{pt}</span>
+                </li>
+              ))}
+            </ul>
             <Button onClick={doStop} variant="danger" className="w-full">
               Stop dictating
             </Button>
