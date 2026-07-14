@@ -270,6 +270,18 @@ export default function PatientsPage() {
     }).catch(() => {})
   }, [user?.uid])
 
+  // Tapping the Patients tab while already on it doesn't navigate (same
+  // route), so it can't reset a drilled-into patient by itself. The tab bar
+  // broadcasts a reselect event in that case — use it to back out to the list.
+  useEffect(() => {
+    function onReselect(e: Event) {
+      const detail = (e as CustomEvent<{ href: string }>).detail
+      if (detail?.href === '/patients') setSelectedPatient(null)
+    }
+    window.addEventListener('tabbar-reselect', onReselect)
+    return () => window.removeEventListener('tabbar-reselect', onReselect)
+  }, [])
+
   const groupedPatients = useMemo<PatientGroup[]>(() => {
     const map = new Map<string, PatientGroup>()
 

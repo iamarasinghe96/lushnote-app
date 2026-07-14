@@ -125,6 +125,13 @@ export default function TabBar() {
             <Link
               key={href}
               href={href}
+              onClick={() => {
+                // Tapping a tab that's already active doesn't navigate (same
+                // route), so pages can't rely on a route change to reset any
+                // drilled-into view (e.g. a selected patient). Broadcast it so
+                // the active page can reset itself back to its default view.
+                if (active) window.dispatchEvent(new CustomEvent('tabbar-reselect', { detail: { href } }))
+              }}
               className="relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 text-[var(--text3)]"
               style={{ minWidth: 0 }}
             >
