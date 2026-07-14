@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { useAuth } from '@/hooks/useAuth'
+import { useKeyboardCloseSafety } from '@/hooks/useKeyboardCloseSafety'
 import { getGroqKey, getGeminiKey } from '@/lib/utils'
 
 export default function TranscriptPage() {
@@ -35,6 +36,8 @@ export default function TranscriptPage() {
     document.body.classList.toggle('keyboard-input-focused', chatFocused)
     return () => { document.body.classList.remove('keyboard-input-focused') }
   }, [chatFocused])
+
+  useKeyboardCloseSafety(setChatFocused)
 
   if (!lastTranscript) return null
 

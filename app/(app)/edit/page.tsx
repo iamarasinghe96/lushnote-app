@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'rea
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
+import { useKeyboardCloseSafety } from '@/hooks/useKeyboardCloseSafety'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
@@ -331,6 +332,8 @@ function EditContent() {
     document.body.classList.toggle('keyboard-input-focused', fieldFocused)
     return () => { document.body.classList.remove('keyboard-input-focused') }
   }, [fieldFocused])
+
+  useKeyboardCloseSafety(setFieldFocused)
 
   // Auto-minimise the letter layout controls the moment typing starts, same
   // as the transcript Q&A input collapsing the transcript on focus — gives
