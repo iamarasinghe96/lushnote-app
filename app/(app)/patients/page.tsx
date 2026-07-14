@@ -135,33 +135,39 @@ function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNo
 
         {/* Patient info card */}
         <div
-          className="bg-white border border-[var(--border)] rounded-[var(--r-lg)] p-4 relative"
+          className="bg-white border border-[var(--border)] rounded-[var(--r-lg)] p-4"
           style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
         >
-          <div className="absolute top-4 right-4 flex gap-2">
-            <button
-              onClick={onEditPatient}
-              className="text-xs border border-[var(--blue)] text-[var(--blue)]
-                         px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-[var(--blue-lt)] active:scale-95 transition-all"
-            >
-              Edit
-            </button>
-            <button
-              onClick={() => setConfirmDeletePatient(true)}
-              className="text-xs border border-[var(--danger)] text-[var(--danger)]
-                         px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-red-50 active:scale-95 transition-all"
-            >
-              Delete
-            </button>
-          </div>
-
-          <div className="flex items-start gap-3 mb-4 pr-16">
-            <GenderAvatar gender={patient.gender} size={56} />
-            <div className="min-w-0">
-              <h2 className="text-xl font-bold text-[var(--text)] truncate">{patient.name}</h2>
-              {patient.reg && (
-                <p className="text-sm text-[var(--text3)] mt-0.5">Registration #{patient.reg}</p>
-              )}
+          {/* Buttons were absolutely positioned with a guessed padding-right on
+              the name to clear them — not enough room for a long name, so it
+              ran underneath them (reported). A real flex row reserves exactly
+              the space the buttons need and lets the name truncate around it,
+              regardless of name length. */}
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <GenderAvatar gender={patient.gender} size={56} />
+              <div className="min-w-0">
+                <h2 className="text-xl font-bold text-[var(--text)] truncate">{patient.name}</h2>
+                {patient.reg && (
+                  <p className="text-sm text-[var(--text3)] mt-0.5">Registration #{patient.reg}</p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={onEditPatient}
+                className="text-xs border border-[var(--blue)] text-[var(--blue)]
+                           px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-[var(--blue-lt)] active:scale-95 transition-all"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => setConfirmDeletePatient(true)}
+                className="text-xs border border-[var(--danger)] text-[var(--danger)]
+                           px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-red-50 active:scale-95 transition-all"
+              >
+                Delete
+              </button>
             </div>
           </div>
 

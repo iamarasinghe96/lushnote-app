@@ -219,6 +219,7 @@ function EditContent() {
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
   const [fieldFocused, setFieldFocused] = useState(false)
   const [letterBarExpanded, setLetterBarExpanded] = useState(false)
+  const [noteBarExpanded, setNoteBarExpanded] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
   const [generationError, setGenerationError] = useState<string | null>(null)
@@ -335,11 +336,11 @@ function EditContent() {
 
   useKeyboardCloseSafety(setFieldFocused)
 
-  // Auto-minimise the letter layout controls the moment typing starts, same
-  // as the transcript Q&A input collapsing the transcript on focus — gives
-  // the field being edited the room the expanded bar would otherwise take.
+  // Auto-minimise the letter/note bar's action row the moment typing starts,
+  // same as the transcript Q&A input collapsing the transcript on focus —
+  // gives the field being edited the room the expanded bar would otherwise take.
   useEffect(() => {
-    if (fieldFocused) setLetterBarExpanded(false)
+    if (fieldFocused) { setLetterBarExpanded(false); setNoteBarExpanded(false) }
   }, [fieldFocused])
 
   // Bubbling focus/blur (React 17+ delegates via focusin/focusout, which
@@ -1762,9 +1763,11 @@ function EditContent() {
   // Floating overlay geometry — bars sit above content, content scrolls behind them.
   // HEADER_BOTTOM = safe-area + 8px gap + 60px header + 8px gap (matches .pt-header = 76px)
   const HEADER_BOTTOM = 76
-  // approximate bar visual height + gap below it; the letter bar grows by a
-  // second (wrapping) row when its layout controls are expanded
-  const BAR_H = 44 + (isLetterMode && letterBarExpanded ? 48 : 0)
+  // approximate bar visual height + gap below it; the letter/note bar grows by
+  // a second (wrapping) row when its action buttons are expanded
+  const BAR_H = 44
+    + (isLetterMode && letterBarExpanded ? 48 : 0)
+    + (!isLetterMode && noteBarExpanded ? 48 : 0)
   const hasTopBar = isLetterMode || (!isLetterMode && (!!store.currentNoteId || isGenerating))
   const barTop = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM}px)`
   const contentPt = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM + (hasTopBar ? BAR_H : 0) + 16}px)`
@@ -1855,11 +1858,14 @@ function EditContent() {
         </div>
       )}
 
-      {/* Current note bar — floats below the header */}
+      {/* Current note bar — floats below the header. Same collapsible pattern
+          as the letter bar: a long patient name used to fight the action
+          buttons for space on one row, so the actions now live in a second
+          row shown only when expanded. */}
       {!isLetterMode && (store.currentNoteId || isGenerating) && (
         <div
           data-glass
-          className={`ln-glass ln-glass-note absolute left-4 right-4 z-20 flex items-center justify-between px-4 py-2 text-white text-sm
+          className={`ln-glass ln-glass-note absolute left-4 right-4 z-20 flex flex-col px-4 py-2 text-white text-sm
             ${isGenerating ? 'animate-pulse' : ''}`}
           style={{
             top: barTop,
@@ -1867,35 +1873,53 @@ function EditContent() {
             boxShadow: '0 4px 16px rgba(14,159,110,0.25)',
           }}
         >
-          <div className="flex items-center gap-2 min-w-0">
-            {isGenerating ? (
-              <div className="flex items-center justify-center rounded-full bg-white/25 px-4 h-7 animate-[shimmer_1.5s_infinite] motion-reduce:animate-none">
-                <span className="text-xs text-white font-medium truncate max-w-[260px]">
-                  {generationStatus ?? 'Preparing…'}
-                </span>
-              </div>
-            ) : (
-              <>
-                <span className="font-medium truncate">
-                  {fields.patient || 'No patient'} · {fields.date || '-'}
-                </span>
-                {sessionStats && (
-                  <div className="hidden sm:flex items-center gap-1.5 text-xs text-white/60 shrink-0 ml-1">
-                    <span>{formatDuration(sessionStats.durationSeconds)}</span>
-                    <span className="text-white/30">·</span>
-                    <span>{sessionStats.wordCount.toLocaleString()}w</span>
-                    <span className="text-white/30">·</span>
-                    <span>{sessionStats.wpm} wpm</span>
-                  </div>
-                )}
-                {isSaving && (
-                  <span className="text-xs text-white/60 ml-2 shrink-0">Saving...</span>
-                )}
-              </>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              {isGenerating ? (
+                <div className="flex items-center justify-center rounded-full bg-white/25 px-4 h-7 animate-[shimmer_1.5s_infinite] motion-reduce:animate-none min-w-0">
+                  <span className="text-xs text-white font-medium truncate max-w-[260px]">
+                    {generationStatus ?? 'Preparing…'}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <span className="font-medium truncate min-w-0">
+                    {fields.patient || 'No patient'} · {fields.date || '-'}
+                  </span>
+                  {sessionStats && (
+                    <div className="hidden sm:flex items-center gap-1.5 text-xs text-white/60 shrink-0 ml-1">
+                      <span>{formatDuration(sessionStats.durationSeconds)}</span>
+                      <span className="text-white/30">·</span>
+                      <span>{sessionStats.wordCount.toLocaleString()}w</span>
+                      <span className="text-white/30">·</span>
+                      <span>{sessionStats.wpm} wpm</span>
+                    </div>
+                  )}
+                  {isSaving && (
+                    <span className="text-xs text-white/60 ml-2 shrink-0">Saving...</span>
+                  )}
+                </>
+              )}
+            </div>
+            {!isGenerating && (
+              <button
+                onClick={() => setNoteBarExpanded(v => !v)}
+                aria-label={noteBarExpanded ? 'Collapse actions' : 'Expand actions'}
+                aria-pressed={noteBarExpanded}
+                className={`w-6 h-6 flex items-center justify-center rounded-full border motion-safe:transition-all shrink-0 ${
+                  noteBarExpanded ? 'bg-white text-[var(--blue)] border-white' : 'bg-white/15 border-white/40 text-white'
+                }`}
+                style={{ transform: noteBarExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transitionDuration: '200ms' }}
+              >
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden>
+                  <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
             )}
           </div>
-          {!isGenerating && (
-            <div className="flex items-center gap-1 shrink-0">
+
+          {!isGenerating && noteBarExpanded && (
+            <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/20">
               <button onClick={() => handleChangeTemplate()} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
                 Change Template
               </button>
