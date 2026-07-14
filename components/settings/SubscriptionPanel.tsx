@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Button from '@/components/ui/Button'
+import { withTimeout } from '@/lib/utils'
 import type { User } from '@/types'
 
 const APP_URL = 'https://lushnote.app'
@@ -16,7 +17,7 @@ export default function SubscriptionPanel({ profile: _profile }: SubscriptionPan
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(APP_URL)
+      await withTimeout(navigator.clipboard.writeText(APP_URL))
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 2000)
     } catch {

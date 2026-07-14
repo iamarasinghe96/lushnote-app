@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import { withTimeout } from '@/lib/utils'
 
 interface ManualGenerateModalProps {
   open: boolean
@@ -32,7 +33,7 @@ export default function ManualGenerateModal({ open, buildPrompt, onApply, onClos
   async function handleCopy() {
     const text = buildPrompt()
     try {
-      await navigator.clipboard.writeText(text)
+      await withTimeout(navigator.clipboard.writeText(text))
     } catch {
       // Fallback for browsers/contexts where the async clipboard API is blocked.
       const ta = document.createElement('textarea')

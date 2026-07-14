@@ -9,7 +9,7 @@ import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey } from '@/lib/utils'
+import { buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import Input from '@/components/ui/Input'
@@ -1070,7 +1070,7 @@ function EditContent() {
 
   async function handlePasteAddress() {
     try {
-      const text = await navigator.clipboard.readText()
+      const text = await withTimeout(navigator.clipboard.readText())
       if (text.trim()) store.setLetterCommonFields({ recipientAddress: text.trim() })
     } catch {
       setLetterToast('Unable to read clipboard — paste manually')

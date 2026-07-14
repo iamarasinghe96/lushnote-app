@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { useAuth } from '@/hooks/useAuth'
-import { buildNoteText, buildCoverLetterEmail, buildPreviewHTML, buildLetterPreviewHTML } from '@/lib/utils'
+import { buildNoteText, buildCoverLetterEmail, buildPreviewHTML, buildLetterPreviewHTML, withTimeout } from '@/lib/utils'
 import { downloadNotePDF } from '@/lib/pdf'
 import { getPatientProfiles } from '@/lib/firestore/patients'
 import type { PatientProfile, LetterType } from '@/types'
@@ -71,7 +71,7 @@ export default function ExportPage() {
   async function handleCopyClipboard() {
     const noteText = buildNoteText(currentNote)
     try {
-      await navigator.clipboard.writeText(noteText)
+      await withTimeout(navigator.clipboard.writeText(noteText))
       showToast('Copied to clipboard')
     } catch {
       showToast('Copy failed - please copy manually')

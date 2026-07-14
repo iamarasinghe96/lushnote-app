@@ -85,6 +85,17 @@ export function getGeminiKey(): string | null {
   return k || null
 }
 
+// Some browsers (seen on Brave) don't reject a permission-gated clipboard call
+// when access is blocked — they leave it pending indefinitely instead, which
+// would leave the caller stuck forever with no fallback ever running. Race it
+// against a short timeout so a hang is always treated the same as a rejection.
+export function withTimeout<T>(promise: Promise<T>, ms = 2000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ])
+}
+
 export function detectIdPattern(example: string): {
   regex: string
   template: string

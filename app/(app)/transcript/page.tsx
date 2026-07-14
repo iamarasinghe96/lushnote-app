@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { useAuth } from '@/hooks/useAuth'
 import { useKeyboardCloseSafety } from '@/hooks/useKeyboardCloseSafety'
-import { getGroqKey, getGeminiKey } from '@/lib/utils'
+import { getGroqKey, getGeminiKey, withTimeout } from '@/lib/utils'
 
 export default function TranscriptPage() {
   const { lastTranscript } = useNoteStore()
@@ -14,6 +14,7 @@ export default function TranscriptPage() {
   const [expanded, setExpanded] = useState(false)
   const [chatFocused, setChatFocused] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [copyFallback, setCopyFallback] = useState(false)
   const [messages, setMessages] = useState<{ role: 'user' | 'ai'; content: string; quote?: string }[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -120,11 +121,16 @@ export default function TranscriptPage() {
   async function copyAll() {
     if (!lastTranscript) return
     try {
-      await navigator.clipboard.writeText(lastTranscript)
+      // Some browsers (seen on Brave) don't reject when clipboard write access
+      // is blocked — they leave the call pending forever instead. Time it out
+      // so the manual-copy fallback below always runs either way.
+      await withTimeout(navigator.clipboard.writeText(lastTranscript))
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      // Clipboard blocked — select the transcript so the user can copy manually
+      // Clipboard blocked — select the transcript so the user can copy manually.
+      // Without an explicit label change this looked like the button did
+      // nothing (reported), since selecting text alone isn't an obvious signal.
       if (transcriptRef.current) {
         setExpanded(true)
         const range = document.createRange()
@@ -132,6 +138,8 @@ export default function TranscriptPage() {
         const sel = window.getSelection()
         sel?.removeAllRanges()
         sel?.addRange(range)
+        setCopyFallback(true)
+        setTimeout(() => setCopyFallback(false), 3000)
       }
     }
   }
@@ -236,7 +244,7 @@ export default function TranscriptPage() {
               onClick={copyAll}
               className="text-xs px-2.5 py-0.5 rounded-full border border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)]/50 hover:text-[var(--blue)] motion-safe:transition-colors"
             >
-              {copied ? 'Copied' : 'Copy all'}
+              {copied ? 'Copied' : copyFallback ? 'Selected — press Cmd/Ctrl+C' : 'Copy all'}
             </button>
             <button
               onClick={exportTxt}
