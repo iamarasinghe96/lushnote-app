@@ -829,7 +829,10 @@ function EditContent() {
     setChangeTemplateOpen(false)
     const wasLetter = store.letterType !== null
     if (store.lastTranscript) {
-      if (!window.confirm(`Regenerate note with "${newTemplate.title}"?`)) return
+      // Only warn before overwriting a note that already has generated content.
+      // An empty note (interrupted / never generated) has nothing to lose, so go
+      // straight to generation.
+      if (noteHasContent && !window.confirm(`Regenerate note with "${newTemplate.title}"?`)) return
       if (wasLetter) store.resetLetterMode()
       if (noteLength) store.setOverrideNoteLength(noteLength as 'brief' | 'balanced' | 'detailed')
       runGeneration(store.lastTranscript, newTemplate)
@@ -1867,6 +1870,17 @@ function EditContent() {
   const contentPt = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM + (hasTopBar ? BAR_H : 0) + 16}px)`
   const errorTop = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM + (hasTopBar ? BAR_H + 4 : 4)}px)`
 
+  // A note whose clinical sections are all still empty but which carries a
+  // transcript — i.e. generation never ran or was interrupted after the note
+  // itself was saved. It should offer a clear "Generate note" action rather
+  // than only the "Change Template" wording, which reads oddly with no note yet.
+  const NOTE_CONTENT_KEYS: (keyof Note)[] = [
+    'diagnosis', 'presentation', 'history', 'medications', 'mse', 'content',
+    'scales', 'risk', 'referrals', 'summary', 'nextsteps',
+  ]
+  const noteHasContent = NOTE_CONTENT_KEYS.some(k => String(fields[k] ?? '').trim())
+  const canGenerateFromTranscript = !isLetterMode && !!store.lastTranscript && !noteHasContent
+
   return (
     <div className="h-full overflow-hidden relative">
 
@@ -2018,9 +2032,15 @@ function EditContent() {
               sm:flex wins over the hidden/flex toggle at that breakpoint. */}
           {!isGenerating && (
             <div className={`${noteBarExpanded ? 'flex' : 'hidden'} sm:flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/20`}>
-              <button onClick={() => handleChangeTemplate()} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
-                Change Template
-              </button>
+              {canGenerateFromTranscript ? (
+                <button onClick={() => handleChangeTemplate()} className="text-[var(--blue)] bg-white hover:bg-white/90 text-xs font-semibold px-2.5 py-1 rounded border border-white motion-safe:active:scale-95 motion-safe:transition-all">
+                  Generate note
+                </button>
+              ) : (
+                <button onClick={() => handleChangeTemplate()} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
+                  Change Template
+                </button>
+              )}
               {store.lastTranscript && (
                 <button onClick={() => router.push('/transcript')} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
                   Transcript
