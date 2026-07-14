@@ -574,6 +574,17 @@ function Step4({
       {/* Step-by-step instructions */}
       <div className="rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-4 space-y-2">
         <p className="text-xs font-semibold text-[#0f172a] mb-3">How to get your free Gemini API key:</p>
+        <a
+          href="https://youtu.be/LEX6q9m2Ayc"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-xs font-medium text-[#2563eb] hover:underline pb-3"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          Watch a video walkthrough
+        </a>
         {[
           <>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-[#2563eb] underline font-medium">aistudio.google.com</a> and sign in with your Google account</>,
           <>Click <span className="font-semibold text-[#0f172a]">&quot;Create API key&quot;</span> in the top right corner</>,
@@ -588,17 +599,6 @@ function Step4({
             <p className="text-xs text-[#475569] leading-relaxed">{step}</p>
           </div>
         ))}
-        <a
-          href="https://youtu.be/LEX6q9m2Ayc"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs font-medium text-[#2563eb] hover:underline pt-1"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <path d="M8 5v14l11-7z" />
-          </svg>
-          Watch a video walkthrough
-        </a>
       </div>
 
       <div>
