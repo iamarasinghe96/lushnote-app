@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { useAuth } from '@/hooks/useAuth'
@@ -50,6 +50,7 @@ export default function TranscriptConfirmModal({
   const [showDropdown, setShowDropdown] = useState(false)
   const [dob, setDob] = useState('')
   const [gender, setGender] = useState<'male' | 'female' | ''>('')
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (open) {
@@ -102,6 +103,20 @@ export default function TranscriptConfirmModal({
     const q = patientName.trim().toLowerCase()
     return patientIndex.filter(p => p.name.toLowerCase().includes(q)).slice(0, 8)
   }, [patientName, patientIndex])
+
+  // The dropdown renders in normal flow right below the input, but the mobile
+  // keyboard's native "scroll focused field into view" doesn't reliably scroll
+  // far enough to also reveal it — how much extra margin browsers add differs
+  // (Safari happened to scroll past it, Brave stopped right at the input). Do
+  // it ourselves once the keyboard has finished animating in, so it's visible
+  // on every browser rather than depending on that native behaviour.
+  useEffect(() => {
+    if (!showDropdown || filteredPatients.length === 0) return
+    const t = setTimeout(() => {
+      dropdownRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }, 300)
+    return () => clearTimeout(t)
+  }, [showDropdown, filteredPatients.length])
 
   const exactMatch = useMemo(() => {
     if (!patientName.trim()) return null
@@ -214,7 +229,7 @@ export default function TranscriptConfirmModal({
                     has no browser-timing dependency: the surrounding scroll
                     container reveals it like any other content. */}
                 {showDropdown && filteredPatients.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 z-50 max-h-60 overflow-y-auto scrollbar-none bg-white border border-[var(--border)] rounded-[var(--r)] shadow-lg">
+                  <div ref={dropdownRef} className="absolute top-full left-0 right-0 mt-1 z-50 max-h-60 overflow-y-auto scrollbar-none bg-white border border-[var(--border)] rounded-[var(--r)] shadow-lg">
                     {filteredPatients.map(p => (
                       <button
                         key={p.name}

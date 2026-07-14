@@ -22,6 +22,7 @@ export default function ReassignModal({ open, allNotes, onConfirm, onClose }: Re
   const [regNumber, setRegNumber] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (open) {
@@ -50,6 +51,18 @@ export default function ReassignModal({ open, allNotes, onConfirm, onClose }: Re
     const q = patientName.trim().toLowerCase()
     return patientIndex.filter(p => p.name.includes(q)).slice(0, 8)
   }, [patientName, patientIndex])
+
+  // The dropdown renders right below the input in normal flow, but the mobile
+  // keyboard's native "scroll focused field into view" doesn't reliably scroll
+  // far enough to also reveal it (varies by browser). Do it ourselves once the
+  // keyboard has finished animating in.
+  useEffect(() => {
+    if (!showDropdown || filteredPatients.length === 0) return
+    const t = setTimeout(() => {
+      dropdownRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }, 300)
+    return () => clearTimeout(t)
+  }, [showDropdown, filteredPatients.length])
 
   function handlePatientNameChange(value: string) {
     setPatientName(value)
@@ -93,7 +106,7 @@ export default function ReassignModal({ open, allNotes, onConfirm, onClose }: Re
                 positioned correctly on some browsers but landed in the wrong
                 place on others depending on keyboard-resize timing. */}
             {showDropdown && filteredPatients.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 z-50 max-h-60 overflow-y-auto scrollbar-none bg-white border border-[var(--border)] rounded-[var(--r)] shadow-lg">
+              <div ref={dropdownRef} className="absolute top-full left-0 right-0 mt-1 z-50 max-h-60 overflow-y-auto scrollbar-none bg-white border border-[var(--border)] rounded-[var(--r)] shadow-lg">
                 {filteredPatients.map(p => (
                   <button
                     key={p.name}
