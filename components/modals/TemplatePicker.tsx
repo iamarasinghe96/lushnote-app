@@ -310,7 +310,7 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
 
   return (
     <Modal open={open} onClose={onCancel} title="Select Clinical Template" maxWidth="lg">
-      <div className="flex flex-col" style={{ maxHeight: '80vh' }}>
+      <div className="flex flex-col" style={{ maxHeight: '80dvh' }}>
 
         {/* Tabs */}
         <div className="flex gap-0 px-5 pt-1 border-b border-[var(--border)] overflow-x-auto scrollbar-none shrink-0">
