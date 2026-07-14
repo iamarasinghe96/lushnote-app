@@ -149,7 +149,7 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
                   onClick={() => setSubMode(m)}
                   className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors
                     ${subMode === m
-                      ? 'bg-white text-[var(--text)] shadow-sm'
+                      ? 'bg-[#10b981] text-white shadow-sm'
                       : 'text-[var(--text2)] hover:text-[var(--text)]'
                     }`}
                 >
