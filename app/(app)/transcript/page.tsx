@@ -32,8 +32,8 @@ export default function TranscriptPage() {
   // most of the screen, so hide the tab bar (via a body class the layout's CSS
   // targets) to give the transcript/messages back that space.
   useEffect(() => {
-    document.body.classList.toggle('qa-input-focused', chatFocused)
-    return () => { document.body.classList.remove('qa-input-focused') }
+    document.body.classList.toggle('keyboard-input-focused', chatFocused)
+    return () => { document.body.classList.remove('keyboard-input-focused') }
   }, [chatFocused])
 
   if (!lastTranscript) return null

@@ -216,6 +216,7 @@ function EditContent() {
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isSavingRef = useRef(false)
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
+  const [fieldFocused, setFieldFocused] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
   const [generationError, setGenerationError] = useState<string | null>(null)
@@ -321,6 +322,34 @@ function EditContent() {
   }
 
   useEffect(() => { return () => { mountedRef.current = false; metaAnimRef.current?.cancel() } }, [])
+
+  // While a form field is focused, the on-screen keyboard already consumes
+  // most of the screen — hide the floating tab bar (via a body class the
+  // layout's CSS keys off) and give back the space it reserves for it.
+  useEffect(() => {
+    document.body.classList.toggle('keyboard-input-focused', fieldFocused)
+    return () => { document.body.classList.remove('keyboard-input-focused') }
+  }, [fieldFocused])
+
+  // Bubbling focus/blur (React 17+ delegates via focusin/focusout, which
+  // bubble) lets one pair of handlers on the form container cover every field
+  // without touching each input/textarea/select individually. Buttons (e.g.
+  // "+" add-section, calendar nav) are excluded since they don't open a
+  // keyboard. On focus, also scroll the field into view once the keyboard has
+  // finished animating in, so it isn't left hidden behind it.
+  function handleFormFocus(e: React.FocusEvent<HTMLDivElement>) {
+    const tag = e.target.tagName
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return
+    setFieldFocused(true)
+    const target = e.target as HTMLElement
+    setTimeout(() => { target.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, 300)
+  }
+
+  function handleFormBlur(e: React.FocusEvent<HTMLDivElement>) {
+    const tag = e.target.tagName
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return
+    setFieldFocused(false)
+  }
 
   useEffect(() => {
     const s = storeRef.current
@@ -1876,7 +1905,13 @@ function EditContent() {
 
 
       {/* Form — fills the tab content area; contentPt pushes the first item below the floating bars */}
-      <div ref={formScrollRef} className="absolute inset-0 overflow-y-auto scrollbar-none px-4 pb-tabbar" style={{ paddingTop: contentPt }}>
+      <div
+        ref={formScrollRef}
+        className={`absolute inset-0 overflow-y-auto scrollbar-none px-4 ${fieldFocused ? '' : 'pb-tabbar'}`}
+        style={{ paddingTop: contentPt }}
+        onFocus={handleFormFocus}
+        onBlur={handleFormBlur}
+      >
         <div className="max-w-lg mx-auto space-y-4 pb-10">
 
             {store.incompleteTranscript && !isLetterMode && (

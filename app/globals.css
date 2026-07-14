@@ -239,10 +239,11 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
    Tab bar = 60px tall, positioned at bottom:8px → 68px total clearance. */
 .pb-tabbar { padding-bottom: 68px; }
 
-/* While a page's chat/QA input is focused, the on-screen keyboard already
-   consumes most of the screen — hide the floating tab bar to give that space
-   back rather than stacking it on top of the keyboard. */
-body.qa-input-focused [data-tab-bar] { display: none; }
+/* While a text field/textarea/select is focused (chat input, form fields),
+   the on-screen keyboard already consumes most of the screen — hide the
+   floating tab bar to give that space back rather than stacking it on top of
+   the keyboard. */
+body.keyboard-input-focused [data-tab-bar] { display: none; }
 
 /* Top clearance so scroll containers fill behind the floating header pill.
    76px = 8px top gap + 60px header + 8px bottom gap, all after safe-area.
