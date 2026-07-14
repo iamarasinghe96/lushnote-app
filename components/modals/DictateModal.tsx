@@ -190,7 +190,8 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
               <button
                 onClick={() => { setLetterType(null); setPhase('idle') }}
                 className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[#10b981]/40
-                  text-left hover:border-[#10b981] hover:bg-[#10b981]/5
+                  text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
+                  focus:border-[var(--blue)] focus:bg-[var(--blue-lt)] focus:outline-none
                   motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
               >
                 <span className="text-[#10b981] shrink-0">
@@ -209,8 +210,9 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
 
               <button
                 onClick={() => setPhase('letter-type')}
-                className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[var(--text3)]
+                className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[#10b981]/40
                   text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
+                  focus:border-[var(--blue)] focus:bg-[var(--blue-lt)] focus:outline-none
                   motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
               >
                 <span className="text-[var(--blue)] shrink-0">
@@ -241,8 +243,9 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
                 <button
                   key={opt.type}
                   onClick={() => { setLetterType(opt.type); setPhase('idle') }}
-                  className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[var(--text3)]
+                  className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[#10b981]/40
                     text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
+                    focus:border-[var(--blue)] focus:bg-[var(--blue-lt)] focus:outline-none
                     motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
                 >
                   <span className="text-[var(--blue)] shrink-0">{opt.icon}</span>
