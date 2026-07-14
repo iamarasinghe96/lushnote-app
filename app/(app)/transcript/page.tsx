@@ -234,7 +234,12 @@ export default function TranscriptPage() {
             <button
               onClick={() => setExpanded(v => !v)}
               aria-label={expanded ? 'Collapse transcript' : 'Expand transcript'}
-              className="w-7 h-7 flex items-center justify-center rounded-full bg-[var(--bg)] border border-[var(--border)] text-[var(--text3)] motion-safe:transition-transform"
+              aria-pressed={expanded}
+              className={`w-7 h-7 flex items-center justify-center rounded-full border motion-safe:transition-all ${
+                expanded
+                  ? 'bg-[var(--blue)] border-[var(--blue)] text-white'
+                  : 'bg-[var(--bg)] border-[var(--border)] text-[var(--text3)]'
+              }`}
               style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', transitionDuration: '200ms' }}
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
@@ -245,7 +250,7 @@ export default function TranscriptPage() {
         </div>
         <div
           className={`relative text-sm text-[var(--text2)] leading-relaxed whitespace-pre-wrap select-text ${
-            !expanded ? 'max-h-28 overflow-hidden scrollbar-none' : 'max-h-[62vh] overflow-y-auto'
+            !expanded ? 'max-h-28 overflow-hidden scrollbar-none' : 'max-h-[38dvh] sm:max-h-[62dvh] overflow-y-auto'
           }`}
           ref={transcriptRef}
         >
@@ -260,7 +265,7 @@ export default function TranscriptPage() {
       </div>
 
       {/* AI Q&A messages */}
-      <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none p-4 space-y-3">
         {messages.length === 0 && (
           <p className="text-sm text-[var(--text3)] text-center mt-8">
             Ask a question about this transcript.
