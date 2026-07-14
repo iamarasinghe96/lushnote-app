@@ -147,7 +147,10 @@ function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNo
             <div className="flex items-start gap-3 min-w-0">
               <GenderAvatar gender={patient.gender} size={56} />
               <div className="min-w-0">
-                <h2 className="text-xl font-bold text-[var(--text)] truncate">{patient.name}</h2>
+                {/* A long name used to just get an ellipsis with no way to read
+                    the rest of it. Scroll horizontally instead so it's fully
+                    reachable by swiping, rather than permanently cut off. */}
+                <h2 className="text-xl font-bold text-[var(--text)] overflow-x-auto whitespace-nowrap scrollbar-none">{patient.name}</h2>
                 {patient.reg && (
                   <p className="text-sm text-[var(--text3)] mt-0.5">Registration #{patient.reg}</p>
                 )}
@@ -184,9 +187,9 @@ function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNo
               <p className="text-xs text-[var(--text3)] mb-0.5">Last visit</p>
               <p className="text-sm font-semibold text-[var(--text)]">{lastDate || '-'}</p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs text-[var(--text3)] mb-0.5">Clinician</p>
-              <p className="text-sm font-semibold text-[var(--text)] truncate">{clinician || '-'}</p>
+              <p className="text-sm font-semibold text-[var(--text)] overflow-x-auto whitespace-nowrap scrollbar-none">{clinician || '-'}</p>
             </div>
           </div>
         </div>
