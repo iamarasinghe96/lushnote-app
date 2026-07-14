@@ -350,12 +350,20 @@ function EditContent() {
   // "+" add-section, calendar nav) are excluded since they don't open a
   // keyboard. On focus, also scroll the field into view once the keyboard has
   // finished animating in, so it isn't left hidden behind it.
+  //
+  // 'nearest' (not 'center'): centering tries to fit the WHOLE element in the
+  // middle of the visible area, which is fine for short fields but forces an
+  // excessive scroll for a tall one (e.g. the free-text letter body, rows=12
+  // vs 2-5 elsewhere) once the keyboard has eaten half the screen - the field
+  // is close to or taller than what's left, so "centering" it scrolled the
+  // header out of view and left mostly blank field visible (reported, Brave).
+  // 'nearest' scrolls the minimum needed to bring it into view instead.
   function handleFormFocus(e: React.FocusEvent<HTMLDivElement>) {
     const tag = e.target.tagName
     if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') return
     setFieldFocused(true)
     const target = e.target as HTMLElement
-    setTimeout(() => { target.scrollIntoView({ block: 'center', behavior: 'smooth' }) }, 300)
+    setTimeout(() => { target.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) }, 300)
   }
 
   function handleFormBlur(e: React.FocusEvent<HTMLDivElement>) {
