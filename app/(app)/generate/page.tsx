@@ -482,8 +482,26 @@ export default function GeneratePage() {
                 {pasteModalError}
               </div>
               <div className="flex gap-2">
-                <Button variant="ghost" onClick={handleCancel} className="flex-1">Close</Button>
-                <Button variant="ghost" onClick={() => setPasteModalError(null)} className="flex-1">Paste manually</Button>
+                <button
+                  onClick={handleCancel}
+                  className="flex-1 py-2.5 text-sm font-medium text-[var(--text)] bg-white
+                             border border-[#10b981]/40 rounded-[var(--r)]
+                             hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
+                             focus:border-[var(--blue)] focus:bg-[var(--blue-lt)] focus:outline-none
+                             motion-safe:active:scale-[0.97] motion-safe:transition-all"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => setPasteModalError(null)}
+                  className="flex-1 py-2.5 text-sm font-medium text-[var(--text)] bg-white
+                             border border-[#10b981]/40 rounded-[var(--r)]
+                             hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
+                             focus:border-[var(--blue)] focus:bg-[var(--blue-lt)] focus:outline-none
+                             motion-safe:active:scale-[0.97] motion-safe:transition-all"
+                >
+                  Paste manually
+                </button>
               </div>
             </>
           ) : (
