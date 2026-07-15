@@ -521,26 +521,36 @@ export default function PatientsPage() {
 
       {/* Patient list */}
       <div className="flex-1 overflow-y-auto scrollbar-none pb-tabbar">
+        {/* An interrupted recording that never got a patient name lives only in
+            the recovery draft (not in progress_notes, so it can't group like a
+            real patient). Surface it here as an "Unnamed patient" row so the
+            doctor can find it in the list and tap through to name + generate. */}
         {unfinishedDraft && (
           <div
-            onClick={() => router.push('/generate')}
-            className="mx-4 mt-3 mb-1 rounded-[var(--r)] border border-amber-300 bg-amber-50 px-4 py-3 flex items-center gap-3 cursor-pointer hover:border-amber-400 transition-colors"
+            onClick={() => router.push('/generate?recover=1')}
+            className="flex items-center gap-3 px-4 py-3 border-b border-amber-200 bg-amber-50/60
+                       hover:bg-amber-50 cursor-pointer transition-colors"
           >
-            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0 text-amber-600">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                <line x1="12" y1="19" x2="12" y2="23"/>
-              </svg>
-            </div>
+            <GenderAvatar gender={null} size={40} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-amber-900">Unfinished recording</p>
-              <p className="text-xs text-amber-800 mt-0.5">
-                ~{unfinishedDraft.text.trim().split(/\s+/).length} words captured, patient not yet named. Tap to name the patient and generate the note.
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-[var(--text)] truncate">Unnamed patient</p>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700
+                                 bg-amber-100 border border-amber-300 rounded-full px-1.5 py-0.5 shrink-0">
+                  Unfinished
+                </span>
+              </div>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <span className="text-xs text-[var(--text3)]">
+                  ~{unfinishedDraft.text.trim().split(/\s+/).length} words captured
+                </span>
+                <span className="text-xs text-[var(--text3)]">·</span>
+                <span className="text-xs text-amber-700">Tap to name &amp; generate</span>
+              </div>
             </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-amber-400 shrink-0" aria-hidden>
-              <polyline points="9 18 15 12 9 6"/>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 strokeWidth="2" className="text-[var(--text3)] shrink-0" aria-hidden>
+              <polyline points="9,18 15,12 9,6"/>
             </svg>
           </div>
         )}
@@ -556,7 +566,7 @@ export default function PatientsPage() {
               </div>
             ))}
           </div>
-        ) : filteredPatients.length === 0 ? (
+        ) : filteredPatients.length === 0 && !unfinishedDraft ? (
           <div className="flex items-center justify-center h-40 text-center px-4">
             <p className="text-sm text-[var(--text3)]">
               {search || quickFilter ? 'No patients match your filters.' : 'No patients yet.'}

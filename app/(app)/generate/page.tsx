@@ -253,8 +253,13 @@ export default function GeneratePage() {
   useEffect(() => {
     if (!user) return
     getTranscriptDraft(user.uid).then(d => {
-      if (d && typeof d.text === 'string' && d.text.trim().length > 0) {
-        setRecoveredDraft({ text: d.text, letterType: d.letterType ?? null, durationSec: d.durationSec ?? 0 })
+      if (!(d && typeof d.text === 'string' && d.text.trim().length > 0)) return
+      const draft = { text: d.text, letterType: d.letterType ?? null, durationSec: d.durationSec ?? 0 }
+      setRecoveredDraft(draft)
+      // Arriving from the Patients "Unnamed" entry (?recover=1) skips the banner
+      // and drops the doctor straight into naming the patient.
+      if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('recover') === '1') {
+        recoverDraftIntoNaming(draft)
       }
     }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -302,9 +307,10 @@ export default function GeneratePage() {
     router.push('/edit')
   }
 
-  function useRecoveredDraft() {
-    const d = recoveredDraft
-    if (!d) return
+  // Drop a recovered draft into the patient-naming step (TranscriptConfirmModal),
+  // or the letter flow if it was a dictated letter. Shared by the banner's "Add
+  // patient details" button and the ?recover=1 deep-link from the Patients tab.
+  function recoverDraftIntoNaming(d: { text: string; letterType: string | null; durationSec: number }) {
     setRecoveredDraft(null)
     store.setLastRecordingDuration(d.durationSec)
     store.setLastRecordingEndTime(Date.now())
@@ -319,6 +325,10 @@ export default function GeneratePage() {
     }
     setPendingTranscript(d.text)
     setTranscriptConfirmOpen(true)
+  }
+
+  function useRecoveredDraft() {
+    if (recoveredDraft) recoverDraftIntoNaming(recoveredDraft)
   }
 
   function discardRecoveredDraft() {
