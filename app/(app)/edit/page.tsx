@@ -221,11 +221,6 @@ function EditContent() {
   const [fieldFocused, setFieldFocused] = useState(false)
   const [letterBarExpanded, setLetterBarExpanded] = useState(false)
   const [noteBarExpanded, setNoteBarExpanded] = useState(false)
-  // Mirrors Tailwind's sm: breakpoint. On desktop the note bar's action row is
-  // always visible (no expand toggle needed - see the bar's className), so
-  // the floating-content offset below (BAR_H) needs to reserve that space
-  // unconditionally there, not just when noteBarExpanded is true.
-  const [isDesktop, setIsDesktop] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
   const [generationError, setGenerationError] = useState<string | null>(null)
@@ -341,14 +336,6 @@ function EditContent() {
   }, [fieldFocused])
 
   useKeyboardCloseSafety(setFieldFocused)
-
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 640px)')
-    const update = () => setIsDesktop(mq.matches)
-    update()
-    mq.addEventListener('change', update)
-    return () => mq.removeEventListener('change', update)
-  }, [])
 
   // Auto-minimise the letter/note bar's action row the moment typing starts,
   // same as the transcript Q&A input collapsing the transcript on focus —
@@ -1899,11 +1886,13 @@ function EditContent() {
   // Floating overlay geometry — bars sit above content, content scrolls behind them.
   // HEADER_BOTTOM = safe-area + 8px gap + 60px header + 8px gap (matches .pt-header = 76px)
   const HEADER_BOTTOM = 76
-  // approximate bar visual height + gap below it; the letter/note bar grows by
-  // a second (wrapping) row when its action buttons are expanded
+  // approximate bar visual height + gap below it. The letter bar grows by a
+  // second row when expanded. The note bar's actions sit inline on the header
+  // row on desktop (no extra height); on mobile they drop to a second row only
+  // when the chevron is expanded.
   const BAR_H = 44
     + (isLetterMode && letterBarExpanded ? 48 : 0)
-    + (!isLetterMode && !isGenerating && (noteBarExpanded || isDesktop) ? 48 : 0)
+    + (!isLetterMode && !isGenerating && noteBarExpanded ? 48 : 0)
   const hasTopBar = isLetterMode || (!isLetterMode && (!!store.currentNoteId || isGenerating))
   const barTop = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM}px)`
   const contentPt = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM + (hasTopBar ? BAR_H : 0) + 16}px)`
@@ -1919,6 +1908,36 @@ function EditContent() {
   ]
   const noteHasContent = NOTE_CONTENT_KEYS.some(k => String(fields[k] ?? '').trim())
   const canGenerateFromTranscript = !isLetterMode && !!store.lastTranscript && !noteHasContent
+
+  // The note bar's action buttons, rendered in two places: inline on the header
+  // row at desktop widths, and in a collapsible second row on mobile. Defined
+  // once so the two placements stay identical.
+  const noteActionButtons = (
+    <>
+      {canGenerateFromTranscript ? (
+        <button onClick={() => handleChangeTemplate()} className="text-[var(--blue)] bg-white hover:bg-white/90 text-xs font-semibold px-2.5 py-1 rounded border border-white motion-safe:active:scale-95 motion-safe:transition-all">
+          Generate note
+        </button>
+      ) : (
+        <button onClick={() => handleChangeTemplate()} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
+          Change Template
+        </button>
+      )}
+      {store.lastTranscript && (
+        <button onClick={() => router.push('/transcript')} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
+          Transcript
+        </button>
+      )}
+      <button onClick={() => setReassignOpen(true)} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
+        Reassign
+      </button>
+      {store.lastTranscript && store.lastChosenTemplate && (
+        <button onClick={() => setManualOpen(true)} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
+          Manual AI
+        </button>
+      )}
+    </>
+  )
 
   return (
     <div className="h-full overflow-hidden relative">
@@ -2048,6 +2067,14 @@ function EditContent() {
                 </>
               )}
             </div>
+            {/* Desktop: actions sit inline on the header row (in the free space
+                to the right of the patient name) — no second line, no toggle. */}
+            {!isGenerating && (
+              <div className="hidden sm:flex items-center gap-2 shrink-0">
+                {noteActionButtons}
+              </div>
+            )}
+            {/* Mobile: a chevron toggles the collapsible second row below. */}
             {!isGenerating && (
               <button
                 onClick={() => setNoteBarExpanded(v => !v)}
@@ -2065,34 +2092,11 @@ function EditContent() {
             )}
           </div>
 
-          {/* Mobile: hidden until noteBarExpanded (chevron toggle). Desktop
-              (sm:) has room for these always, so they're unconditionally
-              visible there regardless of the mobile-only expand state -
-              sm:flex wins over the hidden/flex toggle at that breakpoint. */}
+          {/* Mobile only: collapsible second row, revealed by the chevron.
+              Never shows on desktop (sm:hidden) — the actions are inline above. */}
           {!isGenerating && (
-            <div className={`${noteBarExpanded ? 'flex' : 'hidden'} sm:flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/20`}>
-              {canGenerateFromTranscript ? (
-                <button onClick={() => handleChangeTemplate()} className="text-[var(--blue)] bg-white hover:bg-white/90 text-xs font-semibold px-2.5 py-1 rounded border border-white motion-safe:active:scale-95 motion-safe:transition-all">
-                  Generate note
-                </button>
-              ) : (
-                <button onClick={() => handleChangeTemplate()} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
-                  Change Template
-                </button>
-              )}
-              {store.lastTranscript && (
-                <button onClick={() => router.push('/transcript')} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
-                  Transcript
-                </button>
-              )}
-              <button onClick={() => setReassignOpen(true)} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
-                Reassign
-              </button>
-              {store.lastTranscript && store.lastChosenTemplate && (
-                <button onClick={() => setManualOpen(true)} className="text-white/80 hover:text-white text-xs px-2 py-1 rounded border border-white/40 hover:bg-white/10">
-                  Manual AI
-                </button>
-              )}
+            <div className={`${noteBarExpanded ? 'flex' : 'hidden'} sm:hidden flex-wrap items-center gap-2 mt-2 pt-2 border-t border-white/20`}>
+              {noteActionButtons}
             </div>
           )}
         </div>
