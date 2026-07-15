@@ -105,7 +105,14 @@ Same for `geminiApiKey`.
 - **Collection:** `progress_notes`
 - **User profiles:** `users/{uid}`
 - **Patient profiles:** `users/{uid}/patientProfiles/{profileId}`
+- **Transcript recovery drafts:** `users/{uid}/transcriptDrafts/current` (single doc; only durable copy of an interrupted recording's transcript until it is saved into a named note)
 - **Deletion feedback:** `deletion_feedback/{uid}`
+
+Version-controlled security rules live in `firestore.rules` (repo root). Deploy with
+`firebase deploy --only firestore:rules`, or paste into the Firebase console. Each
+subcollection needs its OWN `match` block — Firestore rules do NOT cascade from
+`users/{uid}` to `users/{uid}/transcriptDrafts/...`, so a missing block means the
+catch-all `allow read, write: if false` silently denies every access.
 
 ### Storage Rules — STRICT
 
@@ -220,6 +227,12 @@ service cloud.firestore {
       allow delete: if owns(userId);
 
       match /patientProfiles/{profileId} {
+        allow read:   if owns(userId);
+        allow write:  if owns(userId);
+        allow delete: if owns(userId);
+      }
+
+      match /transcriptDrafts/{draftId} {
         allow read:   if owns(userId);
         allow write:  if owns(userId);
         allow delete: if owns(userId);

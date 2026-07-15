@@ -1,0 +1,107 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function verified() { return request.auth != null; }
+    function owns(uid) { return verified() && request.auth.uid == uid; }
+    function ownsNote() { return verified() && request.auth.uid == resource.data.userId; }
+    function writingOwnNote() { return verified() && request.auth.uid == request.resource.data.userId; }
+
+    function noPrivilegeEscalation() {
+      return (!('tier'   in request.resource.data) || request.resource.data.tier   == resource.data.tier)
+          && (!('status' in request.resource.data) || request.resource.data.status == resource.data.status);
+    }
+
+    function noteValid() {
+      let d = request.resource.data;
+      return d.userId is string && d.userId.size() <= 128
+          && (!('patient'        in d) || (d.patient        is string && d.patient.size()        <= 300))
+          && (!('reg_number'     in d) || (d.reg_number     is string && d.reg_number.size()     <= 100))
+          && (!('clinician'      in d) || (d.clinician      is string && d.clinician.size()      <= 300))
+          && (!('date'           in d) || (d.date           is string && d.date.size()           <= 50))
+          && (!('time'           in d) || (d.time           is string && d.time.size()           <= 50))
+          && (!('session_number' in d) || (d.session_number is string && d.session_number.size() <= 100))
+          && (!('attendance'     in d) || (d.attendance     is string && d.attendance.size()     <= 500))
+          && (!('diagnosis'      in d) || (d.diagnosis      is string && d.diagnosis.size()      <= 3000))
+          && (!('presentation'   in d) || (d.presentation   is string && d.presentation.size()   <= 8000))
+          && (!('history'        in d) || (d.history        is string && d.history.size()        <= 8000))
+          && (!('medications'    in d) || (d.medications    is string && d.medications.size()    <= 3000))
+          && (!('mse'            in d) || (d.mse            is string && d.mse.size()            <= 5000))
+          && (!('content'        in d) || (d.content        is string && d.content.size()        <= 15000))
+          && (!('scales'         in d) || (d.scales         is string && d.scales.size()         <= 2000))
+          && (!('risk'           in d) || (d.risk           is string && d.risk.size()           <= 5000))
+          && (!('referrals'      in d) || (d.referrals      is string && d.referrals.size()      <= 3000))
+          && (!('summary'        in d) || (d.summary        is string && d.summary.size()        <= 8000))
+          && (!('nextsteps'      in d) || (d.nextsteps      is string && d.nextsteps.size()      <= 5000))
+          && (!('transcript'     in d) || (d.transcript     is string && d.transcript.size()     <= 50000))
+          && (!('transcriptMode' in d) || (d.transcriptMode is string && d.transcriptMode.size() <= 50))
+          && request.resource.data.keys().hasOnly([
+               'userId','patient','reg_number','date','time','clinician',
+               'session_number','attendance','diagnosis','presentation',
+               'history','medications','mse','content','scales','risk',
+               'referrals','summary','nextsteps','transcript','transcriptMode',
+               'createdAt','updatedAt'
+             ]);
+    }
+
+    function profileValid() {
+      let d = request.resource.data;
+      return (!('displayName'        in d) || (d.displayName        is string && d.displayName.size()        <= 200))
+          && (!('credentials'        in d) || (d.credentials        is string && d.credentials.size()        <= 200))
+          && (!('email'              in d) || (d.email              is string && d.email.size()              <= 300))
+          && (!('status'             in d) || (d.status             is string && d.status.size()             <= 50))
+          && (!('tier'               in d) || (d.tier               is string && d.tier.size()               <= 50))
+          && (!('emailPretext'       in d) || (d.emailPretext       is string && d.emailPretext.size()       <= 1000))
+          && (!('activeWorkplaceId'  in d) || (d.activeWorkplaceId  is string && d.activeWorkplaceId.size()  <= 100))
+          && (!('onboardingComplete' in d) || (d.onboardingComplete is bool))
+          && (!('notesMigrated'      in d) || (d.notesMigrated      is bool))
+          && (!('workplaces'         in d) || (d.workplaces         is list   && d.workplaces.size()         <= 30))
+          && (!('favoriteTemplateIds'in d) || (d.favoriteTemplateIds is list  && d.favoriteTemplateIds.size() <= 200))
+          && (!('customTemplates'    in d) || (d.customTemplates    is list   && d.customTemplates.size()    <= 50));
+    }
+
+    match /progress_notes/{noteId} {
+      allow get:    if ownsNote();
+      allow list:   if verified() && resource.data.userId == request.auth.uid && request.query.limit <= 500;
+      allow create: if writingOwnNote() && noteValid();
+      allow update: if ownsNote() && writingOwnNote() && noteValid()
+                    && request.resource.data.userId == resource.data.userId;
+      allow delete: if ownsNote();
+    }
+
+    match /users/{userId} {
+      allow get:    if owns(userId);
+      allow create: if owns(userId) && profileValid()
+                    && (!('tier'   in request.resource.data) || request.resource.data.tier   == 'free')
+                    && (!('status' in request.resource.data) || request.resource.data.status == 'active');
+      allow update: if owns(userId) && profileValid() && noPrivilegeEscalation();
+      allow delete: if owns(userId);
+
+      match /patientProfiles/{profileId} {
+        allow read:   if owns(userId);
+        allow write:  if owns(userId);
+        allow delete: if owns(userId);
+      }
+
+      // Recovery draft for an interrupted recording. Owner-only, single doc per
+      // user ('current'). This is the ONLY durable copy of a transcript that has
+      // not yet been saved into a named note, so without this rule an interrupted
+      // recording can never be recovered (writes/reads fall through to the
+      // catch-all deny below). Mirrors patientProfiles: ownership only, since a
+      // user can only ever touch their own draft.
+      match /transcriptDrafts/{draftId} {
+        allow read:   if owns(userId);
+        allow write:  if owns(userId);
+        allow delete: if owns(userId);
+      }
+    }
+
+    match /deletion_feedback/{docId} {
+      allow create: if verified() && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
