@@ -939,10 +939,12 @@ function EditContent() {
     autoSaveEnabledRef.current = false
     setIsGenerating(true)
 
-    // Set Time (a dropdown, not animated) directly; session_number and
-    // attendance were already carried in via the mount effect. animateKnownFields
-    // preserves all of these while it types the text header fields.
-    const base = { ...latestFieldsRef.current, time: timeStr }
+    // Set Time and Date directly (Time is a dropdown, not animated; Date must be
+    // in the saved data BEFORE the pre-generation save below, or a failed
+    // generation leaves a dateless note that then breaks the Recent sort).
+    // session_number and attendance were already carried in via the mount effect.
+    // animateKnownFields preserves all of these while it types the header fields.
+    const base = { ...latestFieldsRef.current, time: timeStr, date: dateStr }
     latestFieldsRef.current = base
     setFields(base)
 

@@ -41,9 +41,13 @@ function formatDateDD(date: Date): string {
 function compareDateStrs(a: string, b: string): number {
   const da = parseDateStr(a)
   const db = parseDateStr(b)
+  // A missing/unparseable date sorts as the OLDEST, never the newest. Otherwise
+  // a dateless note (e.g. one left behind by a failed generation) would make its
+  // patient's lastDate empty and pin them to the top of the Recent sort, and
+  // would win the "Latest" session badge over a real dated note.
   if (!da && !db) return 0
-  if (!da) return 1
-  if (!db) return -1
+  if (!da) return -1
+  if (!db) return 1
   return da.getTime() - db.getTime()
 }
 
