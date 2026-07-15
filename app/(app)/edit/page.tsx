@@ -282,28 +282,48 @@ function EditContent() {
   const [addrOpen, setAddrOpen] = useState(false)
 
   // Letter layout (font size, line spacing, signature size) - adjusted live
-  // against the real letter preview, then saved to the profile on confirm
-  const [sigScaleDraft, setSigScaleDraft] = useState<number>(profile?.signatureScale ?? 60)
-  const [fontSizeDraft, setFontSizeDraft] = useState<number>(profile?.letterFontSize ?? 11)
-  const [lineSpacingDraft, setLineSpacingDraft] = useState<number>(profile?.letterLineSpacing ?? 1)
-  const [marginDraft, setMarginDraft] = useState<number>(profile?.letterMargin ?? 12)
+  // against the real letter preview, then saved to the profile on confirm.
+  // These are the app's original defaults; "Reset" restores them, and they're
+  // also the fallback when the profile has no saved custom layout.
+  const LETTER_LAYOUT_DEFAULTS = { sig: 60, font: 11, spacing: 1, margin: 12 }
+  const [sigScaleDraft, setSigScaleDraft] = useState<number>(profile?.signatureScale ?? LETTER_LAYOUT_DEFAULTS.sig)
+  const [fontSizeDraft, setFontSizeDraft] = useState<number>(profile?.letterFontSize ?? LETTER_LAYOUT_DEFAULTS.font)
+  const [lineSpacingDraft, setLineSpacingDraft] = useState<number>(profile?.letterLineSpacing ?? LETTER_LAYOUT_DEFAULTS.spacing)
+  const [marginDraft, setMarginDraft] = useState<number>(profile?.letterMargin ?? LETTER_LAYOUT_DEFAULTS.margin)
   const [savingLayout, setSavingLayout] = useState(false)
   const layoutTouchedRef = useRef(false)
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false)
 
   useEffect(() => {
     if (layoutTouchedRef.current) return
-    setSigScaleDraft(profile?.signatureScale ?? 60)
-    setFontSizeDraft(profile?.letterFontSize ?? 11)
-    setLineSpacingDraft(profile?.letterLineSpacing ?? 1)
-    setMarginDraft(profile?.letterMargin ?? 12)
+    setSigScaleDraft(profile?.signatureScale ?? LETTER_LAYOUT_DEFAULTS.sig)
+    setFontSizeDraft(profile?.letterFontSize ?? LETTER_LAYOUT_DEFAULTS.font)
+    setLineSpacingDraft(profile?.letterLineSpacing ?? LETTER_LAYOUT_DEFAULTS.spacing)
+    setMarginDraft(profile?.letterMargin ?? LETTER_LAYOUT_DEFAULTS.margin)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.signatureScale, profile?.letterFontSize, profile?.letterLineSpacing, profile?.letterMargin])
 
   const layoutDirty =
-    sigScaleDraft !== (profile?.signatureScale ?? 60) ||
-    fontSizeDraft !== (profile?.letterFontSize ?? 11) ||
-    lineSpacingDraft !== (profile?.letterLineSpacing ?? 1) ||
-    marginDraft !== (profile?.letterMargin ?? 12)
+    sigScaleDraft !== (profile?.signatureScale ?? LETTER_LAYOUT_DEFAULTS.sig) ||
+    fontSizeDraft !== (profile?.letterFontSize ?? LETTER_LAYOUT_DEFAULTS.font) ||
+    lineSpacingDraft !== (profile?.letterLineSpacing ?? LETTER_LAYOUT_DEFAULTS.spacing) ||
+    marginDraft !== (profile?.letterMargin ?? LETTER_LAYOUT_DEFAULTS.margin)
+
+  // Whether the live values already match the app defaults — when they don't,
+  // the "Reset" button is offered to restore them.
+  const layoutAtDefault =
+    sigScaleDraft === LETTER_LAYOUT_DEFAULTS.sig &&
+    fontSizeDraft === LETTER_LAYOUT_DEFAULTS.font &&
+    lineSpacingDraft === LETTER_LAYOUT_DEFAULTS.spacing &&
+    marginDraft === LETTER_LAYOUT_DEFAULTS.margin
+
+  function handleResetLetterLayout() {
+    layoutTouchedRef.current = true
+    setSigScaleDraft(LETTER_LAYOUT_DEFAULTS.sig)
+    setFontSizeDraft(LETTER_LAYOUT_DEFAULTS.font)
+    setLineSpacingDraft(LETTER_LAYOUT_DEFAULTS.spacing)
+    setMarginDraft(LETTER_LAYOUT_DEFAULTS.margin)
+  }
 
   async function handleSaveLetterLayout() {
     if (!user) return
@@ -2009,6 +2029,15 @@ function EditContent() {
               {profile?.signatureUrl && (
                 <LayoutField label="Sig" suffix="%" value={sigScaleDraft} min={40} max={250} step={5}
                   onChange={v => { setSigScaleDraft(v); layoutTouchedRef.current = true }} />
+              )}
+              {!layoutAtDefault && (
+                <button
+                  onClick={handleResetLetterLayout}
+                  title="Reset font, spacing, margin and signature size to their defaults"
+                  className="text-xs border border-white/40 text-white/80 hover:text-white px-2 py-1 rounded-md
+                             hover:bg-white/10 motion-safe:active:scale-95 motion-safe:transition-colors">
+                  Reset
+                </button>
               )}
               {layoutDirty && (
                 <button
