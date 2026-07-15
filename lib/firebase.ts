@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { initializeFirestore, getFirestore, type Firestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 
 const firebaseConfig = {
@@ -14,7 +14,19 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
 const auth = getAuth(app)
-const db = getFirestore(app)
+
+// ignoreUndefinedProperties drops `undefined` fields instead of throwing
+// `invalid-argument` on the whole write. Optional fields left undefined (e.g.
+// a segment log entry's `error`/`provider` on a successful transcription) were
+// rejecting the entire recovery-draft save, silently disabling recording
+// recovery. initializeFirestore must run once before any getFirestore call;
+// fall back to getFirestore if the instance already exists (HMR / re-import).
+let db: Firestore
+try {
+  db = initializeFirestore(app, { ignoreUndefinedProperties: true })
+} catch {
+  db = getFirestore(app)
+}
 const storage = getStorage(app)
 
 export { app, auth, db, storage }
