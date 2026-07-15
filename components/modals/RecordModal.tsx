@@ -12,6 +12,12 @@ interface RecordModalProps {
   onClose: () => void
   onTranscriptReady: (text: string, duration: number) => void
   recordingDefaults?: RecordingDefaults
+  // Whether a genuinely recoverable transcript draft exists in Firestore right
+  // now (the same signal that drives the Generate-page recovery banner and
+  // the Patients "Unnamed patient" row) — NOT a localStorage tripwire that
+  // just remembers "a recording once started." Only real, unresolved data
+  // should trigger the "previous recording was interrupted" warning below.
+  hasInterruptedDraft?: boolean
 }
 
 type SubMode = 'inperson' | 'telehealth'
@@ -23,7 +29,7 @@ function formatDuration(secs: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export default function RecordModal({ open, onClose, onTranscriptReady, recordingDefaults }: RecordModalProps) {
+export default function RecordModal({ open, onClose, onTranscriptReady, recordingDefaults, hasInterruptedDraft }: RecordModalProps) {
   const [subMode, setSubMode] = useState<SubMode>('inperson')
   const [phase, setPhase] = useState<Phase>('idle')
   const [interrupted, setInterrupted] = useState(false)
@@ -41,10 +47,8 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
     : (recordingDefaults?.autoStopMinutes ?? 55)
 
   useEffect(() => {
-    if (open && localStorage.getItem('ln_recording_interrupted') === '1') {
-      setInterrupted(true)
-    }
-  }, [open])
+    if (open) setInterrupted(!!hasInterruptedDraft)
+  }, [open, hasInterruptedDraft])
 
   useEffect(() => {
     if (!open) {
@@ -70,7 +74,6 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
     }
     setPhase('processing')
     const result = await stop()
-    localStorage.removeItem('ln_recording_interrupted')
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop())
       streamRef.current = null
@@ -100,7 +103,6 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
       }
 
       streamRef.current = stream
-      localStorage.setItem('ln_recording_interrupted', '1')
       // getDisplayMedia returns video + audio tracks; MediaRecorder is configured
       // for audio-only. Build an audio-only stream so the recorder doesn't reject it.
       const audioOnlyStream = subMode === 'telehealth'

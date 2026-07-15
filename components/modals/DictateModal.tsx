@@ -12,6 +12,12 @@ interface DictateModalProps {
   onClose: () => void
   onTranscriptReady: (text: string, duration: number, letterType?: LetterType | null) => void
   recordingDefaults?: RecordingDefaults
+  // Whether a genuinely recoverable transcript draft exists in Firestore right
+  // now (the same signal that drives the Generate-page recovery banner and
+  // the Patients "Unnamed patient" row) — NOT a localStorage tripwire that
+  // just remembers "a recording once started." Only real, unresolved data
+  // should trigger the "previous recording was interrupted" warning below.
+  hasInterruptedDraft?: boolean
 }
 
 type Phase = 'choice' | 'letter-type' | 'idle' | 'recording' | 'processing'
@@ -99,7 +105,7 @@ function formatDuration(secs: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export default function DictateModal({ open, onClose, onTranscriptReady, recordingDefaults }: DictateModalProps) {
+export default function DictateModal({ open, onClose, onTranscriptReady, recordingDefaults, hasInterruptedDraft }: DictateModalProps) {
   const [phase, setPhase] = useState<Phase>('choice')
   const [letterType, setLetterType] = useState<LetterType | null>(null)
   const [interrupted, setInterrupted] = useState(false)
@@ -116,10 +122,8 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
     : (recordingDefaults?.autoStopMinutes ?? 55)
 
   useEffect(() => {
-    if (open && localStorage.getItem('ln_recording_interrupted') === '1') {
-      setInterrupted(true)
-    }
-  }, [open])
+    if (open) setInterrupted(!!hasInterruptedDraft)
+  }, [open, hasInterruptedDraft])
 
   useEffect(() => {
     if (!open) {
@@ -146,7 +150,6 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
     }
     setPhase('processing')
     const result = await stop()
-    localStorage.removeItem('ln_recording_interrupted')
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop())
       streamRef.current = null
@@ -162,7 +165,6 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
-      localStorage.setItem('ln_recording_interrupted', '1')
       start(stream, { uid: user.uid, mode: 'dictation', letterType })
       setPhase('recording')
       if (autoStopMinutes !== null) {

@@ -565,12 +565,14 @@ export default function GeneratePage() {
         onClose={handleCancel}
         onTranscriptReady={handleTranscriptReady}
         recordingDefaults={profile?.recordingDefaults}
+        hasInterruptedDraft={!!recoveredDraft}
       />
       <DictateModal
         open={phase === 'dictating'}
         onClose={handleCancel}
         onTranscriptReady={handleTranscriptReady}
         recordingDefaults={profile?.recordingDefaults}
+        hasInterruptedDraft={!!recoveredDraft}
       />
       <TranscriptConfirmModal
         open={transcriptConfirmOpen}
