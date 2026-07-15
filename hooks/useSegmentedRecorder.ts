@@ -47,6 +47,7 @@ export function useSegmentedRecorder() {
   const [failures, setFailures] = useState(0)
   const [lastError, setLastError] = useState<string | null>(null)
   const [audioError, setAudioError] = useState<string | null>(null)
+  const [draftError, setDraftError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const streamRef = useRef<MediaStream | null>(null)
@@ -159,13 +160,24 @@ export function useSegmentedRecorder() {
           error: r.error,
         })
 
-        await saveTranscriptDraft(opts.uid, {
-          text: textRef.current,
-          mode: opts.mode,
-          letterType: opts.letterType ?? null,
-          durationSec: Math.floor((Date.now() - startTimeRef.current) / 1000),
-          segmentLog: logRef.current.slice(-80),
-        }).catch(() => {})
+        // The recovery draft is the ONLY durable copy of the transcript until a
+        // note is saved. A failed write here (e.g. a rules/permission problem)
+        // must be visible, not swallowed — surface the Firebase error code so
+        // the recording screen shows exactly what went wrong.
+        try {
+          await saveTranscriptDraft(opts.uid, {
+            text: textRef.current,
+            mode: opts.mode,
+            letterType: opts.letterType ?? null,
+            durationSec: Math.floor((Date.now() - startTimeRef.current) / 1000),
+            segmentLog: logRef.current.slice(-80),
+          })
+          setDraftError(null)
+        } catch (err) {
+          const code = (err as { code?: string })?.code
+            ?? (err instanceof Error ? err.message : 'unknown')
+          setDraftError(`Recovery draft could not be saved (${shortErr(String(code))}). If this recording is interrupted, the transcript will NOT be recoverable.`)
+        }
       }
     } finally {
       workingRef.current = false
@@ -196,6 +208,7 @@ export function useSegmentedRecorder() {
     setError(null)
     setAudioError(null)
     setLastError(null)
+    setDraftError(null)
     streamRef.current = stream
     optsRef.current = opts
     sessionIdRef.current = crypto.randomUUID()
@@ -246,5 +259,5 @@ export function useSegmentedRecorder() {
     return { text: textRef.current, duration: dur }
   }, [])
 
-  return { isRecording, duration, audioSavedMin, transcribedMin, failures, lastError, audioError, error, start, stop }
+  return { isRecording, duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, error, start, stop }
 }

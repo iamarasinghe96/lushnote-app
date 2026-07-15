@@ -108,7 +108,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
   const streamRef = useRef<MediaStream | null>(null)
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stopRef = useRef<(() => void) | null>(null)
-  const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, start, stop, error: recError } = useSegmentedRecorder()
+  const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, start, stop, error: recError } = useSegmentedRecorder()
   const { user } = useAuth()
 
   const autoStopMinutes = recordingDefaults?.autoStop === false
@@ -361,6 +361,9 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
             )}
             {audioError && (
               <p className="text-xs text-[var(--danger)] font-medium">⚠ {audioError}</p>
+            )}
+            {draftError && (
+              <p className="text-xs text-[var(--danger)] font-medium">⚠ {draftError}</p>
             )}
             <ul className="text-left rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--bg)] px-4 py-3 space-y-1.5">
               {(letterType ? LETTER_GUIDE[letterType] : NOTE_GUIDE).map((pt, i) => (

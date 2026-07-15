@@ -32,7 +32,7 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
   const streamRef = useRef<MediaStream | null>(null)
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stopRef = useRef<(() => void) | null>(null)
-  const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, start, stop, error: recError } = useSegmentedRecorder()
+  const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, start, stop, error: recError } = useSegmentedRecorder()
   const { user } = useAuth()
 
   // null means auto-stop is disabled; otherwise stop after this many minutes
@@ -188,6 +188,9 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
             )}
             {audioError && (
               <p className="text-xs text-[var(--danger)] font-medium">⚠ {audioError}</p>
+            )}
+            {draftError && (
+              <p className="text-xs text-[var(--danger)] font-medium">⚠ {draftError}</p>
             )}
             <Button onClick={doStop} variant="danger" className="w-full">
               Stop recording
