@@ -50,6 +50,7 @@ export default function TranscriptConfirmModal({
   const [showDropdown, setShowDropdown] = useState(false)
   const [dob, setDob] = useState('')
   const [gender, setGender] = useState<'male' | 'female' | ''>('')
+  const [transcriptExpanded, setTranscriptExpanded] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function TranscriptConfirmModal({
       setShowDropdown(false)
       setDob('')
       setGender('')
+      setTranscriptExpanded(false)
     } else {
       setShowDropdown(false)
     }
@@ -180,15 +182,30 @@ export default function TranscriptConfirmModal({
             <span className="text-xs text-[var(--text3)]">{wordCount} words</span>
           </div>
 
-          <div
-            className="relative bg-[var(--bg)] border border-[var(--border)] rounded-[var(--r-sm)] px-4 py-3 text-sm text-[var(--text)] leading-relaxed overflow-hidden"
-            style={{ maxHeight: 120 }}
-          >
-            <span>{preview}{hasMore ? '…' : ''}</span>
+          <div>
             <div
-              className="absolute bottom-0 left-0 right-0 h-9 pointer-events-none"
-              style={{ background: 'linear-gradient(to bottom, transparent, #f8fafc)' }}
-            />
+              className={`relative bg-[var(--bg)] border border-[var(--border)] rounded-[var(--r-sm)] px-4 py-3 text-sm text-[var(--text)] leading-relaxed ${
+                transcriptExpanded ? 'overflow-y-auto whitespace-pre-wrap' : 'overflow-hidden'
+              }`}
+              style={{ maxHeight: transcriptExpanded ? 260 : 120 }}
+            >
+              <span>{transcriptExpanded ? transcript.trim() : `${preview}${hasMore ? '…' : ''}`}</span>
+              {!transcriptExpanded && hasMore && (
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-9 pointer-events-none"
+                  style={{ background: 'linear-gradient(to bottom, transparent, #f8fafc)' }}
+                />
+              )}
+            </div>
+            {hasMore && (
+              <button
+                type="button"
+                onClick={() => setTranscriptExpanded(v => !v)}
+                className="mt-2 text-xs font-medium text-[var(--blue)] hover:underline"
+              >
+                {transcriptExpanded ? 'Show less' : 'Show full transcript'}
+              </button>
+            )}
           </div>
 
           <p className="text-sm text-[var(--text2)]">
