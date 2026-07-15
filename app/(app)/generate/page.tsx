@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
@@ -128,6 +128,11 @@ export default function GeneratePage() {
   const [allNotes, setAllNotes] = useState<Note[]>([])
   const [letterPickerOpen, setLetterPickerOpen] = useState(false)
   const [clinicalNoteMode, setClinicalNoteMode] = useState(false)
+  // The captured transcript didn't pass the clinical-content check, but a real
+  // recording must never be thrown away — carry it through naming to the edit
+  // page and save it there WITHOUT generating (the doctor can generate on
+  // demand). Set when we let a non-clinical transcript proceed.
+  const skipGenerationRef = useRef(false)
 
   useEffect(() => {
     if (localStorage.getItem('_ln_rec_interrupted')) {
@@ -209,6 +214,7 @@ export default function GeneratePage() {
           setPhase('paste-input')
           return
         }
+        skipGenerationRef.current = false
         setPendingTranscript(text.trim())
         setTranscriptConfirmOpen(true)
         return
@@ -241,6 +247,7 @@ export default function GeneratePage() {
       setPasteModalError(validation.error!)
       return
     }
+    skipGenerationRef.current = false
     setInputText('')
     setPasteModalError(null)
     setPhase('idle')
@@ -283,11 +290,14 @@ export default function GeneratePage() {
       return
     }
 
-    const validation = validateTranscript(text)
-    if (!validation.valid) {
-      setError(validation.error!)
+    if (!text.trim()) {
+      setError('Nothing was transcribed. Please try again.')
       return
     }
+    // A recorded/dictated transcript is never discarded, even if it doesn't look
+    // clinical — proceed to naming regardless. When it failed the check, flag it
+    // so the edit page saves it without forcing (and wasting quota on) an AI note.
+    skipGenerationRef.current = !validateTranscript(text).valid
     setPendingTranscript(text)
     setTranscriptConfirmOpen(true)
   }
@@ -318,11 +328,14 @@ export default function GeneratePage() {
       startLetterFromTranscript(d.text, d.letterType as LetterType)
       return
     }
-    const validation = validateTranscript(d.text)
-    if (!validation.valid) {
-      setError(validation.error!)
+    if (!d.text.trim()) {
+      setError('Nothing was transcribed. Please try again.')
       return
     }
+    // Recovering a draft must always work — never block on the clinical-content
+    // check. If it doesn't look clinical, flag it so the edit page keeps the
+    // transcript without auto-generating a note from it.
+    skipGenerationRef.current = !validateTranscript(d.text).valid
     setPendingTranscript(d.text)
     setTranscriptConfirmOpen(true)
   }
@@ -375,6 +388,20 @@ export default function GeneratePage() {
     store.setLastTranscript(pendingTranscript)
     store.setLastTranscriptMode(creationMode)
     store.setPendingPatientProfile(isNewPatient ? { dob, gender } : null)
+
+    // Non-clinical transcript: skip the template picker and generation entirely.
+    // Land on the edit page, where it's saved under the patient with the
+    // transcript preserved and a "Generate note" button for on-demand use.
+    if (skipGenerationRef.current) {
+      skipGenerationRef.current = false
+      store.setCurrentNote({ patient, reg_number: regNumber, session_number: sessionNumber, attendance })
+      store.setCurrentNoteId(null)
+      store.setPendingTranscriptOnly(true)
+      setPhase('idle')
+      router.push('/edit')
+      return
+    }
+
     // Keep the recovery draft until the note is durably saved (in the edit
     // page). Deleting it here risks losing the session if the tab reloads
     // before the note is persisted.

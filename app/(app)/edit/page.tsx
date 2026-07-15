@@ -427,6 +427,45 @@ function EditContent() {
   useEffect(() => {
     const s = storeRef.current
     const noteIdParam = searchParams.get('noteId')
+    if (s.pendingTranscriptOnly) {
+      // A captured transcript that didn't look clinical: save it under the
+      // patient WITH the transcript but WITHOUT generating a note, so it's
+      // never discarded. The note bar's "Generate note" button lets the doctor
+      // run generation later if they decide it's worth it.
+      s.setPendingTranscriptOnly(false)
+      const cn = s.currentNote as Record<string, string>
+      const now = new Date()
+      const dd = String(now.getDate()).padStart(2, '0')
+      const mm = String(now.getMonth() + 1).padStart(2, '0')
+      const yyyy = now.getFullYear()
+      const recorded = s.lastTranscriptMode === 'conversation' || s.lastTranscriptMode === 'dictation'
+      const durationSec = recorded ? s.lastRecordingDuration : 0
+      const endMs = recorded && s.lastRecordingEndTime ? s.lastRecordingEndTime : now.getTime()
+      const known: Partial<Note> = {
+        patient: cn['patient'] || '',
+        reg_number: cn['reg_number'] || '',
+        session_number: cn['session_number'] || '',
+        attendance: cn['attendance'] || '',
+        date: `${dd}/${mm}/${yyyy}`,
+        time: autoSessionTime(endMs, durationSec),
+        clinician: profile?.displayName ?? '',
+      }
+      latestFieldsRef.current = known
+      setFields(known)
+      void (async () => {
+        await doAutoSave()
+        const pending = s.pendingPatientProfile
+        if (pending && user && known.patient) {
+          await savePatientProfile(user.uid, {
+            displayName: known.patient,
+            ...(pending.dob ? { dob: pending.dob } : {}),
+            ...(pending.gender ? { gender: pending.gender } : {}),
+          }).catch(err => console.error('savePatientProfile failed', err))
+          s.setPendingPatientProfile(null)
+        }
+      })()
+      return
+    }
     if (s.pendingAnimation) {
       // In-progress generation takes priority over any ?noteId= in the URL
       s.setPendingAnimation(false)

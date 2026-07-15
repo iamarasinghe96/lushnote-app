@@ -24,6 +24,11 @@ interface NoteStore {
   lastRecordingDuration: number
   lastRecordingEndTime: number
   pendingAnimation: boolean
+  // Land on the edit page and persist the note WITH its transcript but WITHOUT
+  // running AI generation — used when a captured transcript failed the clinical-
+  // content check but must never be discarded. The doctor gets it saved under
+  // the patient with a "Generate note" button to run generation on demand.
+  pendingTranscriptOnly: boolean
   overrideNoteLength: 'brief' | 'balanced' | 'detailed' | null
   pendingPatientProfile: { dob: string; gender: 'male' | 'female' | '' } | null
   incompleteTranscript: boolean
@@ -42,6 +47,7 @@ interface NoteStore {
   setLastRecordingDuration: (s: number) => void
   setLastRecordingEndTime: (t: number) => void
   setPendingAnimation: (v: boolean) => void
+  setPendingTranscriptOnly: (v: boolean) => void
   setOverrideNoteLength: (v: 'brief' | 'balanced' | 'detailed' | null) => void
   setPendingPatientProfile: (v: { dob: string; gender: 'male' | 'female' | '' } | null) => void
   setIncompleteTranscript: (v: boolean) => void
@@ -67,6 +73,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   const [lastRecordingDuration, setLastRecordingDuration] = useState(0)
   const [lastRecordingEndTime, setLastRecordingEndTime] = useState(0)
   const [pendingAnimation, setPendingAnimation] = useState(false)
+  const [pendingTranscriptOnly, setPendingTranscriptOnly] = useState(false)
   const [overrideNoteLength, setOverrideNoteLength] = useState<'brief' | 'balanced' | 'detailed' | null>(null)
   const [pendingPatientProfile, setPendingPatientProfile] = useState<{ dob: string; gender: 'male' | 'female' | '' } | null>(null)
   const [incompleteTranscript, setIncompleteTranscript] = useState(false)
@@ -87,6 +94,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
     setLastRecordingDuration(0)
     setLastRecordingEndTime(0)
     setPendingAnimation(false)
+    setPendingTranscriptOnly(false)
     setIncompleteTranscript(false)
   }
 
@@ -109,6 +117,8 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       lastRecordingDuration,
       lastRecordingEndTime,
       pendingAnimation,
+      pendingTranscriptOnly,
+      setPendingTranscriptOnly,
       overrideNoteLength,
       setOverrideNoteLength,
       pendingPatientProfile,
