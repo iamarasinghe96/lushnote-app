@@ -84,7 +84,6 @@ const CORE_SYNONYMS = new Map(Object.entries({
   'risk assessment and management': 'risk',
   'risk assessment & management plan': 'risk',
   'risk assessment and management plan': 'risk',
-  'risk assessment and management plan': 'risk',
   // referrals
   'referrals': 'referrals',
   'referral reason': 'referrals',

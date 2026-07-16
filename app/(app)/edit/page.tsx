@@ -106,6 +106,7 @@ const CORE_LABEL_MAP: Record<string, keyof Note> = {
   'history': 'history', 'background': 'history',
   'medications': 'medications', 'current medications': 'medications',
   'mental status': 'mse', 'mse': 'mse', 'mental status examination': 'mse',
+  'mental status exam': 'mse', 'mental state exam': 'mse',
   'mental status examination (mse)': 'mse', 'mental state examination': 'mse',
   'session content': 'content', 'content': 'content',
   'scales': 'scales', 'rating scales': 'scales', 'measures': 'scales',
@@ -160,9 +161,16 @@ function parseGeneratedContent(content: string, template?: AnyTemplate | null): 
       const bold = !md && line.match(/^\s*\*\*([^*\n]{2,80})\*\*:?\s*$/)
       const label = md ? md[1] : bold ? bold[1] : null
       if (label !== null) {
-        flush()
         const norm = normSectionLabel(label)
-        curKey = labelToKey.get(norm) ?? CORE_LABEL_MAP[norm] ?? null
+        const nextKey = labelToKey.get(norm) ?? CORE_LABEL_MAP[norm] ?? null
+        if (nextKey) {
+          flush()
+          curKey = nextKey
+        } else if (curKey) {
+          // Unknown heading inside a known section (e.g. a **Behaviour:**
+          // sub-heading within MSE) — keep it as body, don't drop what follows.
+          buf.push(line)
+        }
       } else if (curKey) {
         buf.push(line)
       }
@@ -290,6 +298,7 @@ function EditContent() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [isSaving, setIsSaving] = useState(false)
   const [saveFlashFields, setSaveFlashFields] = useState<Set<string>>(new Set())
+  const latestFieldsRef = useRef<Partial<Note>>(store.currentNote)
   // Template-specific extra sections + the full section render order (core+extra
   // keys). Empty order => canonical field order (today's behaviour). latest*Ref
   // mirror the state for the ref-based autosave path.
@@ -300,8 +309,17 @@ function EditContent() {
   // Empty fields (core or extra) collapse to a "label +" row; tapping + adds the
   // key here to reveal a compact textarea.
   const [expandedEmpty, setExpandedEmpty] = useState<Set<string>>(new Set())
-  const setExtras = (next: ExtraSection[]) => { latestExtrasRef.current = next; setExtrasState(next) }
-  const setSectionOrder = (next: string[]) => { latestOrderRef.current = next; setSectionOrderState(next) }
+  // Keep latestFieldsRef.current.extraSections in sync whenever extras/order
+  // change, synchronously — the store is synced right after generation (before
+  // any effect could run), and the Export tab reads extras from store.currentNote.
+  const syncExtraSectionsIntoFields = () => {
+    latestFieldsRef.current = {
+      ...latestFieldsRef.current,
+      extraSections: serializeExtraSections(latestOrderRef.current, latestExtrasRef.current),
+    }
+  }
+  const setExtras = (next: ExtraSection[]) => { latestExtrasRef.current = next; setExtrasState(next); syncExtraSectionsIntoFields() }
+  const setSectionOrder = (next: string[]) => { latestOrderRef.current = next; setSectionOrderState(next); syncExtraSectionsIntoFields() }
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isSavingRef = useRef(false)
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
@@ -330,7 +348,6 @@ function EditContent() {
   // clinician) while the AI generates the body. cancel() snaps them to full
   // values; called when generation finishes or the component unmounts.
   const metaAnimRef = useRef<{ cancel: () => void } | null>(null)
-  const latestFieldsRef = useRef<Partial<Note>>(store.currentNote)
   const formScrollRef = useRef<HTMLDivElement>(null)
 
   // Custom note fields
@@ -611,6 +628,7 @@ function EditContent() {
       referrals:      note.referrals,
       summary:        note.summary,
       nextsteps:      note.nextsteps,
+      extraSections:  note.extraSections,
     }
     latestFieldsRef.current = noteFields
     setFields(noteFields)
@@ -805,10 +823,11 @@ function EditContent() {
         referrals:      data.referrals      ?? '',
         summary:        data.summary        ?? '',
         nextsteps:      data.nextsteps      ?? '',
-        // Omitted (undefined) when there's nothing template-specific, so notes
-        // from core-only/no template keep saving even before the extraSections
-        // Firestore rule is published. Only extra-bearing notes need the new rule.
-        extraSections:  serializeExtraSections(latestOrderRef.current, latestExtrasRef.current),
+        // '' (not undefined) so regenerating with a template that has no extras
+        // clears any previously-stored sections — undefined would be dropped by
+        // ignoreUndefinedProperties, leaving the old extras stale. Requires the
+        // extraSections Firestore rule to be published (deploy is gated on it).
+        extraSections:  serializeExtraSections(latestOrderRef.current, latestExtrasRef.current) ?? '',
         transcript:     s.lastTranscript    ? s.lastTranscript.slice(0, 50000) : undefined,
         transcriptMode: s.lastTranscriptMode,
       }
