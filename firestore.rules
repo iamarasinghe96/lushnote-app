@@ -35,12 +35,13 @@ service cloud.firestore {
           && (!('nextsteps'      in d) || (d.nextsteps      is string && d.nextsteps.size()      <= 5000))
           && (!('transcript'     in d) || (d.transcript     is string && d.transcript.size()     <= 50000))
           && (!('transcriptMode' in d) || (d.transcriptMode is string && d.transcriptMode.size() <= 50))
+          && (!('extraSections'  in d) || (d.extraSections  is string && d.extraSections.size()  <= 30000))
           && request.resource.data.keys().hasOnly([
                'userId','patient','reg_number','date','time','clinician',
                'session_number','attendance','diagnosis','presentation',
                'history','medications','mse','content','scales','risk',
                'referrals','summary','nextsteps','transcript','transcriptMode',
-               'createdAt','updatedAt'
+               'extraSections','createdAt','updatedAt'
              ]);
     }
 

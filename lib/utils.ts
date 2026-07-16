@@ -1,4 +1,46 @@
-import { WP_THEMES, type Note, type AnyTemplate, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields } from '@/types'
+import { WP_THEMES, type Note, type AnyTemplate, type ExtraSection, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields } from '@/types'
+
+// The 11 core clinical note fields, in canonical order. Shared source of truth
+// for rendering order fallbacks and for deciding whether a section key is core.
+export const CORE_NOTE_FIELDS: (keyof Note)[] = [
+  'diagnosis', 'presentation', 'history', 'medications', 'mse', 'content',
+  'scales', 'risk', 'referrals', 'summary', 'nextsteps',
+]
+
+export interface ParsedExtraSections {
+  order: string[]          // full section key sequence in template order (core + extra keys)
+  extras: ExtraSection[]   // the non-core sections, with their display labels + content
+}
+
+// Tolerant parse of Note.extraSections (a JSON string). Any malformed/missing
+// value yields an empty result so renderers fall back to canonical order.
+export function parseExtraSectionsField(raw?: string | null): ParsedExtraSections {
+  if (!raw || typeof raw !== 'string') return { order: [], extras: [] }
+  try {
+    const obj = JSON.parse(raw) as Partial<ParsedExtraSections>
+    const order = Array.isArray(obj.order) ? obj.order.filter(k => typeof k === 'string') : []
+    const extras = Array.isArray(obj.extras)
+      ? obj.extras
+          .filter(e => e && typeof e.key === 'string')
+          .map(e => ({ key: String(e.key), label: String(e.label ?? e.key), content: String(e.content ?? '') }))
+      : []
+    return { order, extras }
+  } catch {
+    return { order: [], extras: [] }
+  }
+}
+
+// Serialize section order + extras for storage. Returns undefined when there is
+// nothing template-specific to store (keeps old-shape notes and no-template
+// notes free of the field). Capped at the Firestore rule limit.
+export function serializeExtraSections(order: string[], extras: ExtraSection[]): string | undefined {
+  const cleanExtras = extras
+    .filter(e => e && e.key)
+    .map(e => ({ key: e.key, label: e.label || e.key, content: e.content || '' }))
+  if (order.length === 0 && cleanExtras.length === 0) return undefined
+  const json = JSON.stringify({ order, extras: cleanExtras })
+  return json.length > 30000 ? json.slice(0, 30000) : json
+}
 
 // Daily quota date aligned to Google's free-tier reset (US Pacific midnight),
 // returned as YYYY-MM-DD. Using UTC here would reset hours early/late and
@@ -233,12 +275,6 @@ export function stripRedundantSectionLabel(field: string, value: string): string
   return value
 }
 
-const PREVIEW_FIELD_ORDER = [
-  'patient', 'reg_number', 'date', 'time', 'clinician', 'session_number', 'attendance',
-  'diagnosis', 'presentation', 'history', 'medications', 'mse', 'content', 'scales',
-  'risk', 'referrals', 'summary', 'nextsteps',
-]
-
 function applyInlineBold(line: string): string {
   // Bold consumes ** pairs first so any single * left over afterwards is
   // genuinely an italic marker, never half of a bold pair.
@@ -284,21 +320,52 @@ const NOTE_TEXT_LABELS: Record<string, string> = {
   summary: 'SUMMARY', nextsteps: 'NEXT STEPS',
 }
 
-const NOTE_TEXT_ORDER = [
-  'patient', 'reg_number', 'date', 'time', 'clinician', 'session_number', 'attendance',
-  'diagnosis', 'presentation', 'history', 'medications', 'mse', 'content', 'scales',
-  'risk', 'referrals', 'summary', 'nextsteps',
-]
+// Header (non-clinical) fields that always render first, in fixed order.
+const NOTE_HEADER_KEYS = ['patient', 'reg_number', 'date', 'time', 'clinician', 'session_number', 'attendance']
+
+// The clinical body sections of a note in render order: the note's stored
+// template order (core + extra keys) when present, then any content-bearing core
+// fields not in that order (canonical order). Old notes (no extraSections) fall
+// back to canonical order — identical to today. `coreLabel` maps a core field
+// key to its display label; extra sections carry their own stored label.
+export function orderedNoteSections(
+  f: Partial<Note>,
+  coreLabel: (key: string) => string,
+): { key: string; label: string; content: string }[] {
+  const { order, extras } = parseExtraSectionsField(f.extraSections)
+  const extraByKey = new Map(extras.map(e => [e.key, e]))
+  const coreSet = new Set<string>(CORE_NOTE_FIELDS as string[])
+  const out: { key: string; label: string; content: string }[] = []
+  const seen = new Set<string>()
+  const addCore = (key: string) => {
+    const val = stripRedundantSectionLabel(key, (f as Record<string, string>)[key] || '')
+    if (val.trim()) out.push({ key, label: coreLabel(key), content: val.trim() })
+  }
+  const addExtra = (e: { key: string; label: string; content: string }) => {
+    if (e.content && e.content.trim()) out.push({ key: e.key, label: e.label, content: e.content.trim() })
+  }
+  const keys = order.length ? order : (CORE_NOTE_FIELDS as string[])
+  for (const key of keys) {
+    if (seen.has(key)) continue
+    seen.add(key)
+    if (coreSet.has(key)) addCore(key)
+    else if (extraByKey.has(key)) addExtra(extraByKey.get(key)!)
+  }
+  for (const e of extras) { if (!seen.has(e.key)) { seen.add(e.key); addExtra(e) } }
+  for (const key of CORE_NOTE_FIELDS as string[]) { if (!seen.has(key)) { seen.add(key); addCore(key) } }
+  return out
+}
 
 export function buildNoteText(f: Partial<Note>): string {
-  return NOTE_TEXT_ORDER
+  const header = NOTE_HEADER_KEYS
     .map(key => {
       const val = stripRedundantSectionLabel(key, (f as Record<string, string>)[key] || '')
-      if (!val || !val.trim()) return ''
-      return `${NOTE_TEXT_LABELS[key]}\n${val.trim()}`
+      return val && val.trim() ? `${NOTE_TEXT_LABELS[key]}\n${val.trim()}` : ''
     })
     .filter(Boolean)
-    .join('\n\n')
+  const body = orderedNoteSections(f, key => NOTE_TEXT_LABELS[key] ?? key.toUpperCase())
+    .map(({ label, content }) => `${label.toUpperCase()}\n${content}`)
+  return [...header, ...body].filter(Boolean).join('\n\n')
 }
 
 export function buildCoverLetterEmail(
@@ -536,10 +603,21 @@ export function formatDob(raw: string): string {
 // large majority) carry their own ### headings and must not be told to use
 // brackets, or the two instructions conflict.
 const BRACKET_FIELD_RX = /\[(?:presentation|history|medications|mse|content|scales|risk|referrals|summary|nextsteps|diagnosis)\]/
-const BRACKET_FORMAT_INSTRUCTION = `Format:
-- Begin each section with the exact [fieldname] marker shown in the template (e.g. [presentation], [history], [mse], [content], [risk], [summary], [nextsteps]).
-- Do not use ## markdown headings or **bold text** as section dividers — use only the [fieldname] bracket markers.
-- Within a section you may use bold (**Label:**) for sub-headings (e.g. **Behaviour:** within MSE, **Session Content:** within content).`
+
+// Appended to EVERY generation prompt: our note fields are plain text, so a
+// markdown table the model copies from a template renders as walls of dashes.
+const NO_TABLE_INSTRUCTION = `Never output markdown tables (no "|" pipe columns and no "|---|" separator rows). Where a template shows a table, write one labelled line per column for each row instead — e.g. "Situation: …" / "Thought: …" / "Emotion: …" / "Behaviour: …" — with a blank line between rows.`
+
+// Section-marker instruction. When a template declares sections, list its exact
+// markers so the model emits parseable [key] lines instead of ### headings.
+function bracketFormatInstruction(markers: string[]): string {
+  const list = markers.map(m => `[${m}]`).join(', ')
+  return `Format:
+- Begin each section on its own line with its exact marker: ${list}.
+- Use ONLY these bracket markers as section dividers — no ## markdown headings and no **bold** heading lines.
+- Omit any section that has nothing to report (just leave its marker out) — do not write "None" or an empty heading.
+- Within a section you may use bold (**Label:**) for sub-headings.`
+}
 
 export function buildTemplatePrompt(template: AnyTemplate): string {
   const base = (template.prompt ?? '').trim()
@@ -553,21 +631,37 @@ export function buildTemplatePrompt(template: AnyTemplate): string {
     prompt = (base + additions).trim()
   }
 
-  if (BRACKET_FIELD_RX.test(prompt)) {
-    prompt = `${prompt}\n\n${BRACKET_FORMAT_INSTRUCTION}`
+  // Prefer the precomputed section list (annotate-template-sections.mjs). A
+  // content-only template (single 'content' section) needs no marker
+  // instruction — its whole output is the note. Fall back to detecting inline
+  // [field] markers for templates/custom-templates without a sections array.
+  const sections = 'sections' in template ? template.sections : undefined
+  const markerKeys = sections && !(sections.length === 1 && sections[0].key === 'content')
+    ? sections.map(s => s.key)
+    : (BRACKET_FIELD_RX.test(prompt) ? ['presentation', 'history', 'mse', 'content', 'risk', 'summary', 'nextsteps'] : null)
+
+  if (markerKeys) {
+    prompt = `${prompt}\n\n${bracketFormatInstruction(markerKeys)}`
   }
 
-  return prompt
+  return `${prompt}\n\n${NO_TABLE_INSTRUCTION}`
 }
 
 export function buildPreviewHTML(f: Partial<Note>): string {
-  const sections = PREVIEW_FIELD_ORDER
+  const renderSection = (key: string, label: string, content: string) =>
+    `<div class="preview-section" data-field="${escapeHtml(key)}"><h3>${escapeHtml(label)}</h3><div class="preview-content">${formatContent(content)}</div></div>`
+
+  const headerSections = NOTE_HEADER_KEYS
     .map(key => ({ key, val: stripRedundantSectionLabel(key, (f as Record<string, string>)[key] || '') }))
     .filter(({ val }) => val.trim())
-    .map(({ key, val }) =>
-      `<div class="preview-section" data-field="${key}"><h3>${FIELD_LABELS[key]}</h3><div class="preview-content">${formatContent(val)}</div></div>`
-    )
+    .map(({ key, val }) => renderSection(key, FIELD_LABELS[key] ?? key, val))
     .join('')
+
+  const bodySections = orderedNoteSections(f, key => FIELD_LABELS[key] ?? key)
+    .map(({ key, label, content }) => renderSection(key, label, content))
+    .join('')
+
+  const sections = headerSections + bodySections
 
   if (!sections) return '<div class="preview-empty"><p>Your note preview will appear here as you fill in the fields.</p></div>'
 

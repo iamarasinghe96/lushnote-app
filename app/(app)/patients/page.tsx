@@ -361,6 +361,7 @@ export default function PatientsPage() {
       history: note.history, medications: note.medications, mse: note.mse,
       content: note.content, scales: note.scales, risk: note.risk,
       referrals: note.referrals, summary: note.summary, nextsteps: note.nextsteps,
+      extraSections: note.extraSections,
     })
     store.setLastTranscript(note.transcript ?? null)
     store.setLastTranscriptMode(note.transcriptMode || 'paste')

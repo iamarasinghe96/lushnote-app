@@ -109,10 +109,32 @@ interface Note {
   referrals: string
   summary: string
   nextsteps: string
+  // Serialized JSON of template-specific sections that don't map to a core field
+  // above, plus the full section render order. Shape (see lib/utils serialize/parse
+  // helpers): { order: string[]; extras: ExtraSection[] }. Absent on notes created
+  // before template-aware sections existed — renderers fall back to canonical order.
+  extraSections?: string
   transcript?: string
   transcriptMode?: NoteCreationMode
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
+}
+
+// A template section that has no core-field equivalent (e.g. "CBT Formulation",
+// "Core Beliefs"). Stored on the note WITH its label so old notes survive the
+// template being edited or deleted.
+interface ExtraSection {
+  key: string
+  label: string
+  content: string
+}
+
+// A template's declared section (core = fills one of the 11 Note fields above;
+// otherwise an extra section rendered as its own field in template order).
+interface TemplateSection {
+  key: string
+  label: string
+  core: boolean
 }
 
 // Subset used when creating or updating - omits server-managed fields
@@ -140,6 +162,7 @@ interface Template {
   tplType: 'session' | 'document' | 'both'
   description: string
   prompt: string            // loaded from templates-prompts.json at runtime (empty string until loaded)
+  sections?: TemplateSection[]  // precomputed section metadata (annotate-template-sections.mjs)
   custom?: false
 }
 
@@ -159,6 +182,7 @@ interface CustomTemplate {
   custom: true
   baseTemplateId?: string
   customFields?: CustomTemplateField[]
+  sections?: TemplateSection[]
 }
 
 type AnyTemplate = Template | CustomTemplate
@@ -276,6 +300,8 @@ export type {
   WorkplaceType,
   Note,
   NoteInput,
+  ExtraSection,
+  TemplateSection,
   PatientProfile,
   PatientSummary,
   Template,

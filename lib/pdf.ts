@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import type { Note } from '@/types'
+import { orderedNoteSections } from '@/lib/utils'
 
 const MARGIN = 20
 const PAGE_W = 210
@@ -8,19 +9,11 @@ const TEXT_W = PAGE_W - MARGIN * 2
 const BOTTOM_LIMIT = PAGE_H - MARGIN - 8
 
 
-const SECTIONS: { key: keyof Note; label: string }[] = [
-  { key: 'diagnosis',    label: 'Diagnosis' },
-  { key: 'presentation', label: 'Presentation' },
-  { key: 'history',      label: 'History' },
-  { key: 'medications',  label: 'Medications' },
-  { key: 'mse',          label: 'Mental Status Examination' },
-  { key: 'content',      label: 'Session Content' },
-  { key: 'scales',       label: 'Scales' },
-  { key: 'risk',         label: 'Risk' },
-  { key: 'referrals',    label: 'Referrals' },
-  { key: 'summary',      label: 'Summary' },
-  { key: 'nextsteps',    label: 'Next Steps' },
-]
+const SECTION_LABELS: Record<string, string> = {
+  diagnosis: 'Diagnosis', presentation: 'Presentation', history: 'History',
+  medications: 'Medications', mse: 'Mental Status Examination', content: 'Session Content',
+  scales: 'Scales', risk: 'Risk', referrals: 'Referrals', summary: 'Summary', nextsteps: 'Next Steps',
+}
 
 function calcAge(dob: string): number | null {
   const parts = dob.split('/')
@@ -160,8 +153,10 @@ export function generateNotePDF(
   }
 
   // ── Sections ─────────────────────────────────────────────
-  for (const { key, label } of SECTIONS) {
-    const value = (note[key] as string | undefined)?.trim()
+  // Ordered core + template-specific extra sections (extraSections), falling
+  // back to canonical field order for notes without that field.
+  for (const { label, content } of orderedNoteSections(note, key => SECTION_LABELS[key] ?? key)) {
+    const value = content.trim()
     if (!value) continue
 
     ensureSpace(14)

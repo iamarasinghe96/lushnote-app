@@ -9,7 +9,7 @@ import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout } from '@/lib/utils'
+import { buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import Input from '@/components/ui/Input'
@@ -21,7 +21,7 @@ import TemplatePicker from '@/components/modals/TemplatePicker'
 import ReassignModal from '@/components/modals/ReassignModal'
 import ManualGenerateModal from '@/components/modals/ManualGenerateModal'
 import { parseBoldSegments } from '@/lib/pdf'
-import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate } from '@/types'
+import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate, ExtraSection } from '@/types'
 
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60)
@@ -55,88 +55,163 @@ function bulletsToNumbered(text: string): string {
   return result.join('\n')
 }
 
-// Remove any leading title the model echoed inside a section body, so the value
-// we store (and show in the textarea) doesn't duplicate the field's own header.
-function finalizeFields(out: Partial<Note>): Partial<Note> {
-  for (const key of Object.keys(out) as (keyof Note)[]) {
-    const v = (out as Record<string, string>)[key]
+const CORE_FIELD_SET = new Set<string>(CORE_NOTE_FIELDS as string[])
+
+// Note fields are plain text, so a markdown table the model echoed from a
+// template renders as walls of dashes. Drop the |---| separator rows and turn
+// each data row into labelled lines using the table's header cells as labels.
+function sanitizeTables(text: string): string {
+  if (!text.includes('|')) return text
+  const out: string[] = []
+  let header: string[] | null = null
+  for (const raw of text.split('\n')) {
+    const t = raw.trim()
+    const isRow = t.startsWith('|') && t.endsWith('|') && t.length > 2
+    if (isRow) {
+      const cells = t.slice(1, -1).split('|').map(c => c.trim())
+      const isSeparator = cells.every(c => /^:?-{1,}:?$/.test(c) || c === '')
+      if (isSeparator) continue
+      if (!header && cells.some(c => c) && cells.every(c => c.length <= 40)) { header = cells; continue }
+      let wrote = false
+      cells.forEach((c, i) => {
+        if (!c) return
+        const lbl = header && header[i] ? `${header[i]}: ` : ''
+        out.push(`${lbl}${c}`); wrote = true
+      })
+      if (wrote) out.push('')
+      continue
+    }
+    header = null
+    out.push(raw)
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+function normSectionLabel(s: string): string {
+  return s
+    .replace(/<\/?u>/gi, '')
+    .replace(/[*_#]+/g, '')
+    .replace(/[:.\s]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+// Generic core-field synonyms for the heading fallback (when the model ignores
+// the [key] markers). The template's own section labels are matched first.
+const CORE_LABEL_MAP: Record<string, keyof Note> = {
+  'presentation': 'presentation', 'current presentation': 'presentation',
+  'presenting problem': 'presentation', 'presenting problems': 'presentation',
+  'presenting problem(s)': 'presentation', 'presenting concerns': 'presentation',
+  'history': 'history', 'background': 'history',
+  'medications': 'medications', 'current medications': 'medications',
+  'mental status': 'mse', 'mse': 'mse', 'mental status examination': 'mse',
+  'mental status examination (mse)': 'mse', 'mental state examination': 'mse',
+  'session content': 'content', 'content': 'content',
+  'scales': 'scales', 'rating scales': 'scales', 'measures': 'scales',
+  'risk': 'risk', 'risk assessment': 'risk',
+  'referrals': 'referrals', 'referral reason': 'referrals',
+  'summary': 'summary', 'session summary': 'summary',
+  'next steps': 'nextsteps', 'nextsteps': 'nextsteps', 'plan': 'nextsteps',
+  'diagnosis': 'diagnosis', 'diagnoses': 'diagnosis',
+}
+
+interface ParsedNote { fields: Partial<Note>; extras: ExtraSection[] }
+
+// Split AI output into the 11 core note fields plus any template-specific extra
+// sections. Given the template, [key] markers map to core fields or the
+// template's extra section keys; without markers, a heading fallback matches
+// section labels; failing all that, the whole response becomes Session Content.
+function parseGeneratedContent(content: string, template?: AnyTemplate | null): ParsedNote {
+  const fields: Partial<Note> = {}
+  const extraContent: Record<string, string> = {}
+
+  const sections = (template && 'sections' in template && template.sections) ? template.sections : []
+  const extraDefs = sections.filter(s => !s.core)
+  const extraKeySet = new Set(extraDefs.map(s => s.key))
+  const extraLabel = new Map(extraDefs.map(s => [s.key, s.label]))
+  // Heading fallback lookup: every template section's normalized label -> key.
+  const labelToKey = new Map<string, string>()
+  for (const s of sections) labelToKey.set(normSectionLabel(s.label), s.key)
+
+  const assign = (key: string, body: string) => {
+    if (!body) return false
+    if (CORE_FIELD_SET.has(key)) { (fields as Record<string, string>)[key] = body; return true }
+    if (extraKeySet.has(key)) { extraContent[key] = body; return true }
+    return false
+  }
+
+  // 1. [key] bracket markers. Keys are slug-shaped (a-z, digits, underscore).
+  const bracketRx = /(?:^|\n)\*{0,2}\[([a-z][a-z0-9_]{1,40})\][^\n]*\n([\s\S]*?)(?=(?:^|\n)\*{0,2}\[[a-z][a-z0-9_]{1,40}\]|$)/g
+  let m: RegExpExecArray | null
+  let any = false
+  while ((m = bracketRx.exec(content)) !== null) {
+    if (assign(m[1], m[2].trim())) any = true
+  }
+
+  // 2. Heading fallback (### / #### / whole-line **bold**) when no markers hit.
+  if (!any) {
+    const lines = content.split('\n')
+    let curKey: string | null = null
+    let buf: string[] = []
+    const flush = () => { if (curKey) { if (assign(curKey, buf.join('\n').trim())) any = true } buf = [] }
+    for (const line of lines) {
+      const md = line.match(/^\s*#{1,4}\s+(.+?)\s*$/)
+      const bold = !md && line.match(/^\s*\*\*([^*\n]{2,80})\*\*:?\s*$/)
+      const label = md ? md[1] : bold ? bold[1] : null
+      if (label !== null) {
+        flush()
+        const norm = normSectionLabel(label)
+        curKey = labelToKey.get(norm) ?? CORE_LABEL_MAP[norm] ?? null
+      } else if (curKey) {
+        buf.push(line)
+      }
+    }
+    flush()
+  }
+
+  // 3. Last resort: whole response → Session Content.
+  if (!any) fields.content = content.trim()
+
+  // Finalize: strip echoed titles, renumber bullets, sanitize tables.
+  for (const key of Object.keys(fields) as (keyof Note)[]) {
+    const v = (fields as Record<string, string>)[key]
     if (typeof v === 'string') {
-      let s = stripRedundantSectionLabel(key, v)
-      s = bulletsToNumbered(s)
-      ;(out as Record<string, string>)[key] = s
+      (fields as Record<string, string>)[key] = sanitizeTables(bulletsToNumbered(stripRedundantSectionLabel(key, v)))
     }
   }
-  return out
+  const extras: ExtraSection[] = extraDefs.map(s => ({
+    key: s.key,
+    label: extraLabel.get(s.key) ?? s.label,
+    content: extraContent[s.key] ? sanitizeTables(bulletsToNumbered(extraContent[s.key])) : '',
+  }))
+  return { fields, extras }
 }
 
-function parseGeneratedContent(content: string): Partial<Note> {
-  const out: Partial<Note> = {}
-
-  // Primary: [key] bracket labels - format produced by llama-3.3-70b and Gemini with these templates.
-  // e.g.  [presentation] Current Presentation\n<body>\n[history] Past Medical...
-  // Anchor to line-start via (?:^|\n) so inline abbreviations like [SI] or [N/A] never
-  // prematurely split a section body. Keys are required to be 3+ lowercase letters,
-  // which covers every template section key and eliminates uppercase clinical abbreviations.
-  const DIRECT_FIELDS: Record<string, keyof Note> = {
-    'presentation': 'presentation',
-    'history':      'history',
-    'medications':  'medications',
-    'mse':          'mse',
-    'content':      'content',
-    'scales':       'scales',
-    'risk':         'risk',
-    'referrals':    'referrals',
-    'summary':      'summary',
-    'nextsteps':    'nextsteps',
-    'diagnosis':    'diagnosis',
-  }
-  // Primary: [key] bracket labels. Model sometimes wraps in **bold** (**[key]**) — allow 0-2 leading/trailing asterisks.
-  // Anchor to line-start; keys must be 3+ lowercase letters to exclude inline abbreviations like [SI] or [N/A].
-  const bracketRx = /(?:^|\n)\*{0,2}\[([a-z]{3,})\][^\n]*\n([\s\S]*?)(?=(?:^|\n)\*{0,2}\[[a-z]{3,}\]|$)/g
-  let bm = bracketRx.exec(content)
-  let bracketParsed = false
-  while (bm !== null) {
-    const field = DIRECT_FIELDS[bm[1]]
-    if (field) {
-      const body = bm[2].trim()
-      if (body) { (out as Record<string, string>)[field] = body; bracketParsed = true }
-    }
-    bm = bracketRx.exec(content)
-  }
-  if (bracketParsed) return finalizeFields(out)
-
-  // Fallback: ## markdown headings (Gemini sometimes outputs these instead)
-  const sectionMap: Record<string, keyof Note> = {
-    'presentation':              'presentation',
-    'history':                   'history',
-    'medications':               'medications',
-    'mental status':             'mse',
-    'mse':                       'mse',
-    'mental status examination': 'mse',
-    'session content':           'content',
-    'content':                   'content',
-    'scales':                    'scales',
-    'risk':                      'risk',
-    'referrals':                 'referrals',
-    'summary':                   'summary',
-    'next steps':                'nextsteps',
-    'nextsteps':                 'nextsteps',
-    'diagnosis':                 'diagnosis',
-  }
-  const headingRx = /#{1,3}\s+([^\n]+)\n([\s\S]*?)(?=#{1,3}\s+|$)/g
-  let hm = headingRx.exec(content)
-  let headingParsed = false
-  while (hm !== null) {
-    const key = sectionMap[hm[1].trim().toLowerCase()]
-    if (key) { (out as Record<string, string>)[key] = hm[2].trim(); headingParsed = true }
-    hm = headingRx.exec(content)
-  }
-  if (headingParsed) return finalizeFields(out)
-
-  // Last resort: whole response → content field
-  out.content = content.trim()
-  return finalizeFields(out)
+// The full section render order (core + extra keys) a template declares, or []
+// for content-only templates / no template (=> canonical field order).
+function templateSectionKeys(t?: AnyTemplate | null): string[] {
+  const s = t && 'sections' in t ? t.sections : undefined
+  if (!s || (s.length === 1 && s[0].key === 'content')) return []
+  return s.map(x => x.key)
 }
+
+// The 11 core note fields in canonical order, with their default labels and
+// which are list fields (Enter auto-numbers). Used to render fields data-driven.
+const CORE_FIELD_DEFS: { key: keyof Note; label: string; list: boolean }[] = [
+  { key: 'diagnosis',    label: 'Diagnosis',                  list: false },
+  { key: 'presentation', label: 'Presentation',               list: false },
+  { key: 'history',      label: 'History',                    list: false },
+  { key: 'medications',  label: 'Medications',                list: false },
+  { key: 'mse',          label: 'Mental Status Examination',  list: false },
+  { key: 'content',      label: 'Session Content',            list: true  },
+  { key: 'scales',       label: 'Scales',                     list: true  },
+  { key: 'risk',         label: 'Risk',                       list: true  },
+  { key: 'referrals',    label: 'Referrals',                  list: true  },
+  { key: 'summary',      label: 'Summary',                    list: false },
+  { key: 'nextsteps',    label: 'Next Steps',                 list: true  },
+]
+const CORE_DEF_BY_KEY = new Map(CORE_FIELD_DEFS.map(d => [d.key as string, d]))
 
 
 function checkRegStatus(value: string, workplace: Workplace | undefined): 'valid' | 'invalid' | 'none' {
@@ -215,6 +290,18 @@ function EditContent() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [isSaving, setIsSaving] = useState(false)
   const [saveFlashFields, setSaveFlashFields] = useState<Set<string>>(new Set())
+  // Template-specific extra sections + the full section render order (core+extra
+  // keys). Empty order => canonical field order (today's behaviour). latest*Ref
+  // mirror the state for the ref-based autosave path.
+  const [extras, setExtrasState] = useState<ExtraSection[]>(() => parseExtraSectionsField(store.currentNote.extraSections).extras)
+  const [sectionOrder, setSectionOrderState] = useState<string[]>(() => parseExtraSectionsField(store.currentNote.extraSections).order)
+  const latestExtrasRef = useRef<ExtraSection[]>(extras)
+  const latestOrderRef = useRef<string[]>(sectionOrder)
+  // Empty fields (core or extra) collapse to a "label +" row; tapping + adds the
+  // key here to reveal a compact textarea.
+  const [expandedEmpty, setExpandedEmpty] = useState<Set<string>>(new Set())
+  const setExtras = (next: ExtraSection[]) => { latestExtrasRef.current = next; setExtrasState(next) }
+  const setSectionOrder = (next: string[]) => { latestOrderRef.current = next; setSectionOrderState(next) }
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isSavingRef = useRef(false)
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
@@ -527,6 +614,10 @@ function EditContent() {
     }
     latestFieldsRef.current = noteFields
     setFields(noteFields)
+    const parsedExtra = parseExtraSectionsField(note.extraSections)
+    setExtras(parsedExtra.extras)
+    setSectionOrder(parsedExtra.order)
+    setExpandedEmpty(new Set())
     store.setCurrentNote(noteFields)
     store.setCurrentNoteId(noteId)
     if (note.transcript) {
@@ -714,6 +805,10 @@ function EditContent() {
         referrals:      data.referrals      ?? '',
         summary:        data.summary        ?? '',
         nextsteps:      data.nextsteps      ?? '',
+        // Omitted (undefined) when there's nothing template-specific, so notes
+        // from core-only/no template keep saving even before the extraSections
+        // Firestore rule is published. Only extra-bearing notes need the new rule.
+        extraSections:  serializeExtraSections(latestOrderRef.current, latestExtrasRef.current),
         transcript:     s.lastTranscript    ? s.lastTranscript.slice(0, 50000) : undefined,
         transcriptMode: s.lastTranscriptMode,
       }
@@ -815,7 +910,7 @@ function EditContent() {
     animateOne()
   }
 
-  function animateFields(noteFields: Partial<Note>) {
+  function animateFields(parsed: { fields: Partial<Note>; extras: ExtraSection[] }, order: string[] = []) {
     // The typewriter reveal and per-field auto-scroll were deliberate delays.
     // They're removed: the generated note is populated all at once and shown
     // immediately. (AI generation itself is unchanged — same model, same tokens.)
@@ -827,9 +922,12 @@ function EditContent() {
     metaAnimRef.current?.cancel()
     metaAnimRef.current = null
 
-    const next = { ...latestFieldsRef.current, ...noteFields }
+    const next = { ...latestFieldsRef.current, ...parsed.fields }
     latestFieldsRef.current = next
     setFields(next)
+    setExtras(parsed.extras)
+    setSectionOrder(order)
+    setExpandedEmpty(new Set())
 
     autoSaveEnabledRef.current = true
 
@@ -1029,8 +1127,8 @@ function EditContent() {
         setLetterToast('Note generated using Groq - Gemini daily limit reached')
       }
 
-      const noteFields = parseGeneratedContent(data.content)
-      animateFields(noteFields)
+      const parsed = parseGeneratedContent(data.content, template)
+      animateFields(parsed, templateSectionKeys(template))
 
       if (!mountedRef.current) return
 
@@ -1109,8 +1207,8 @@ function EditContent() {
       if (!data?.content) throw new Error('The note took too long to generate or returned nothing. Please try again.')
       clearInterval(statusTimer)
       if (!mountedRef.current) return
-      const noteFields = parseGeneratedContent(data.content)
-      animateFields(noteFields)
+      const parsed = parseGeneratedContent(data.content, template)
+      animateFields(parsed, templateSectionKeys(template))
       if (mountedRef.current) {
         storeRef.current.setCurrentNote(latestFieldsRef.current)
         await doAutoSave()
@@ -1517,10 +1615,13 @@ function EditContent() {
   // Parse a manually-pasted AI result with the same parser used for API results,
   // then merge it into the note and save. Returns false if nothing parseable.
   function applyManualResult(pasted: string): boolean {
-    const parsed = parseGeneratedContent(pasted)
-    const hasClinical = Object.keys(parsed).some(k => k !== 'patient' && k !== 'date' && (parsed as Record<string, string>)[k]?.trim())
+    const template = store.lastChosenTemplate
+    const parsed = parseGeneratedContent(pasted, template)
+    const hasClinical =
+      Object.keys(parsed.fields).some(k => k !== 'patient' && k !== 'date' && (parsed.fields as Record<string, string>)[k]?.trim()) ||
+      parsed.extras.some(e => e.content.trim())
     if (!hasClinical) return false
-    animateFields(parsed)
+    animateFields(parsed, templateSectionKeys(template))
     store.setCurrentNote(latestFieldsRef.current)
     store.setIncompleteTranscript(false)
     doAutoSave()
@@ -1891,6 +1992,107 @@ function EditContent() {
     )
   }
 
+  // Edit one extra section's content (mirrors setField for core fields).
+  function setExtraContent(key: string, value: string) {
+    setExtras(latestExtrasRef.current.map(e => e.key === key ? { ...e, content: value } : e))
+  }
+
+  // Reveal a collapsed empty field's textarea and focus it.
+  function expandField(key: string) {
+    setExpandedEmpty(prev => new Set(prev).add(key))
+    setTimeout(() => {
+      const el = formScrollRef.current?.querySelector(`[data-field="${key}"] textarea`) as HTMLTextAreaElement | null
+      el?.focus()
+    }, 50)
+  }
+
+  // A collapsed empty section: just its title + a "＋" to reveal the textarea.
+  function renderCollapsedField(key: string, label: string) {
+    return (
+      <button
+        type="button"
+        onClick={() => expandField(key)}
+        className="flex items-center justify-between w-full text-left px-3 py-2 rounded-[var(--r)]
+                   border border-dashed border-[var(--border)] text-[var(--text3)]
+                   hover:border-[var(--blue)] hover:text-[var(--text2)] motion-safe:transition-colors"
+      >
+        <span className="text-sm font-medium">{label}</span>
+        <span className="text-lg leading-none" aria-hidden>+</span>
+      </button>
+    )
+  }
+
+  function renderCoreField(def: { key: keyof Note; label: string; list: boolean }) {
+    const value = (fields[def.key] as string | undefined) ?? ''
+    const expanded = value.trim().length > 0 || expandedEmpty.has(def.key)
+    return (
+      <div key={def.key}>
+        <div data-field={def.key}>
+          {expanded ? (
+            <Textarea
+              label={def.label}
+              rows={2}
+              autoResize
+              value={value}
+              onChange={e => setField(def.key, e.target.value)}
+              onBlur={() => handleFieldBlur(def.key)}
+              onKeyDown={def.list ? (e => handleListKeyDown(e, def.key)) : undefined}
+              className={saveFlashFields.has(def.key) ? 'save-flash' : ''}
+            />
+          ) : renderCollapsedField(def.key, def.label)}
+        </div>
+        {renderDivider('after-' + def.key)}
+      </div>
+    )
+  }
+
+  function renderExtraField(extra: ExtraSection) {
+    const value = extra.content ?? ''
+    const expanded = value.trim().length > 0 || expandedEmpty.has(extra.key)
+    return (
+      <div key={extra.key}>
+        <div data-field={extra.key}>
+          {expanded ? (
+            <Textarea
+              label={extra.label}
+              rows={2}
+              autoResize
+              value={value}
+              onChange={e => setExtraContent(extra.key, e.target.value)}
+              onBlur={() => handleFieldBlur(extra.key)}
+              className={saveFlashFields.has(extra.key) ? 'save-flash' : ''}
+            />
+          ) : renderCollapsedField(extra.key, extra.label)}
+        </div>
+        {renderDivider('after-' + extra.key)}
+      </div>
+    )
+  }
+
+  // Ordered field render plan: template section order first (core fields render
+  // their core textarea, extra keys render an extra textarea), then any core
+  // fields not in that order in canonical order. No order => canonical order.
+  function renderNoteSections() {
+    const extraByKey = new Map(extras.map(e => [e.key, e]))
+    const order = sectionOrder.length ? sectionOrder : (CORE_NOTE_FIELDS as string[])
+    const seen = new Set<string>()
+    const out: React.ReactNode[] = []
+    for (const key of order) {
+      if (seen.has(key)) continue
+      seen.add(key)
+      const core = CORE_DEF_BY_KEY.get(key)
+      if (core) out.push(renderCoreField(core))
+      else if (extraByKey.has(key)) out.push(renderExtraField(extraByKey.get(key)!))
+    }
+    for (const e of extras) {
+      if (!seen.has(e.key)) { seen.add(e.key); out.push(renderExtraField(e)) }
+    }
+    for (const def of CORE_FIELD_DEFS) {
+      if (!seen.has(def.key as string)) { seen.add(def.key as string); out.push(renderCoreField(def)) }
+    }
+    return out
+  }
+
   const sessionStats = store.lastTranscript && store.lastRecordingDuration > 0
     ? (() => {
         const wordCount = store.lastTranscript.trim().split(/\s+/).filter(Boolean).length
@@ -1924,11 +2126,9 @@ function EditContent() {
   // transcript — i.e. generation never ran or was interrupted after the note
   // itself was saved. It should offer a clear "Generate note" action rather
   // than only the "Change Template" wording, which reads oddly with no note yet.
-  const NOTE_CONTENT_KEYS: (keyof Note)[] = [
-    'diagnosis', 'presentation', 'history', 'medications', 'mse', 'content',
-    'scales', 'risk', 'referrals', 'summary', 'nextsteps',
-  ]
-  const noteHasContent = NOTE_CONTENT_KEYS.some(k => String(fields[k] ?? '').trim())
+  const noteHasContent =
+    CORE_NOTE_FIELDS.some(k => String(fields[k] ?? '').trim()) ||
+    extras.some(e => e.content.trim())
   const canGenerateFromTranscript = !isLetterMode && !!store.lastTranscript && !noteHasContent
 
   // The note bar's action buttons, rendered in two places: inline on the header
@@ -2568,143 +2768,7 @@ function EditContent() {
               className={saveFlashFields.has('attendance') ? 'save-flash' : ''}
             />
             {renderDivider('after-attendance')}
-            <div data-field="diagnosis">
-              <Textarea
-                label="Diagnosis"
-                rows={3}
-                autoResize
-                value={fields.diagnosis ?? ''}
-                onChange={e => setField('diagnosis', e.target.value)}
-                onBlur={() => handleFieldBlur('diagnosis')}
-                className={saveFlashFields.has('diagnosis') ? 'save-flash' : ''}
-              />
-            </div>
-            {renderDivider('after-diagnosis')}
-            <div data-field="presentation">
-              <Textarea
-                label="Presentation"
-                rows={5}
-                autoResize
-                value={fields.presentation ?? ''}
-                onChange={e => setField('presentation', e.target.value)}
-                onBlur={() => handleFieldBlur('presentation')}
-                className={saveFlashFields.has('presentation') ? 'save-flash' : ''}
-              />
-            </div>
-            {renderDivider('after-presentation')}
-            <div data-field="history">
-              <Textarea
-                label="History"
-                rows={5}
-                autoResize
-                value={fields.history ?? ''}
-                onChange={e => setField('history', e.target.value)}
-                onBlur={() => handleFieldBlur('history')}
-                className={saveFlashFields.has('history') ? 'save-flash' : ''}
-              />
-            </div>
-            {renderDivider('after-history')}
-            <div data-field="medications">
-              <Textarea
-                label="Medications"
-                rows={3}
-                autoResize
-                value={fields.medications ?? ''}
-                onChange={e => setField('medications', e.target.value)}
-                onBlur={() => handleFieldBlur('medications')}
-                className={saveFlashFields.has('medications') ? 'save-flash' : ''}
-              />
-            </div>
-            {renderDivider('after-medications')}
-            <div data-field="mse">
-              <Textarea
-                label="Mental Status Examination"
-                rows={5}
-                autoResize
-                value={fields.mse ?? ''}
-                onChange={e => setField('mse', e.target.value)}
-                onBlur={() => handleFieldBlur('mse')}
-                className={saveFlashFields.has('mse') ? 'save-flash' : ''}
-              />
-            </div>
-            {renderDivider('after-mse')}
-            <div data-field="content">
-              <Textarea
-                label="Session Content"
-                rows={8}
-                autoResize
-                value={fields.content ?? ''}
-                onChange={e => setField('content', e.target.value)}
-                onBlur={() => handleFieldBlur('content')}
-                onKeyDown={e => handleListKeyDown(e, 'content')}
-                className={saveFlashFields.has('content') ? 'save-flash' : ''}
-              />
-            </div>
-            {renderDivider('after-content')}
-            <div data-field="scales">
-              <Textarea
-                label="Scales"
-                rows={3}
-                autoResize
-                value={fields.scales ?? ''}
-                onChange={e => setField('scales', e.target.value)}
-                onBlur={() => handleFieldBlur('scales')}
-                onKeyDown={e => handleListKeyDown(e, 'scales')}
-                className={saveFlashFields.has('scales') ? 'save-flash' : ''}
-              />
-            </div>
-            {renderDivider('after-scales')}
-            <div data-field="risk">
-              <Textarea
-                label="Risk"
-                rows={4}
-                autoResize
-                value={fields.risk ?? ''}
-                onChange={e => setField('risk', e.target.value)}
-                onBlur={() => handleFieldBlur('risk')}
-                onKeyDown={e => handleListKeyDown(e, 'risk')}
-                className={saveFlashFields.has('risk') ? 'save-flash' : ''}
-              />
-            </div>
-            {renderDivider('after-risk')}
-            <div data-field="referrals">
-              <Textarea
-                label="Referrals"
-                rows={3}
-                autoResize
-                value={fields.referrals ?? ''}
-                onChange={e => setField('referrals', e.target.value)}
-                onBlur={() => handleFieldBlur('referrals')}
-                onKeyDown={e => handleListKeyDown(e, 'referrals')}
-                className={saveFlashFields.has('referrals') ? 'save-flash' : ''}
-              />
-            </div>
-            {renderDivider('after-referrals')}
-            <div data-field="summary">
-              <Textarea
-                label="Summary"
-                rows={5}
-                autoResize
-                value={fields.summary ?? ''}
-                onChange={e => setField('summary', e.target.value)}
-                onBlur={() => handleFieldBlur('summary')}
-                className={saveFlashFields.has('summary') ? 'save-flash' : ''}
-              />
-            </div>
-            {renderDivider('after-summary')}
-            <div data-field="nextsteps">
-              <Textarea
-                label="Next Steps"
-                rows={3}
-                autoResize
-                value={fields.nextsteps ?? ''}
-                onChange={e => setField('nextsteps', e.target.value)}
-                onBlur={() => handleFieldBlur('nextsteps')}
-                onKeyDown={e => handleListKeyDown(e, 'nextsteps')}
-                className={saveFlashFields.has('nextsteps') ? 'save-flash' : ''}
-              />
-            </div>
-            {renderDivider('after-nextsteps')}
+            {renderNoteSections()}
 
             {/* Raw transcript collapsible */}
             {store.lastTranscript && (
