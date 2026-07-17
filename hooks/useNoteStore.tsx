@@ -1,7 +1,11 @@
 'use client'
 
 import { createContext, useContext, useState, type ReactNode } from 'react'
-import type { Note, NoteCreationMode, AnyTemplate, LetterType, LetterCommonFields, ReferralFields, RecordsFields, FreetextFields } from '@/types'
+import type { Note, NoteCreationMode, AnyTemplate, LetterType, LetterCommonFields, ReferralFields, RecordsFields, FreetextFields, CustomLetterTemplate } from '@/types'
+
+// One editable section of a custom letter in progress (content the doctor typed
+// or the AI extracted, keyed to the template's section).
+export interface CustomLetterSectionValue { key: string; heading: string; content: string }
 import type { LetterheadDoc } from '@/lib/firestore/letterheads'
 
 const DEFAULT_LETTER_COMMON: LetterCommonFields = {
@@ -39,6 +43,8 @@ interface NoteStore {
   referralFields: ReferralFields
   recordsFields: RecordsFields
   freetextFields: FreetextFields
+  customLetterTemplate: CustomLetterTemplate | null
+  customLetterSections: CustomLetterSectionValue[]
   setCurrentNote: (note: Partial<Note>) => void
   setCurrentNoteId: (id: string | null) => void
   setLastTranscript: (t: string | null) => void
@@ -58,6 +64,9 @@ interface NoteStore {
   setReferralFields: (fields: Partial<ReferralFields>) => void
   setRecordsFields: (fields: Partial<RecordsFields>) => void
   setFreetextFields: (fields: Partial<FreetextFields>) => void
+  setCustomLetterTemplate: (t: CustomLetterTemplate | null) => void
+  setCustomLetterSections: (sections: CustomLetterSectionValue[]) => void
+  updateCustomLetterSection: (key: string, content: string) => void
   resetNote: () => void
   resetLetterMode: () => void
 }
@@ -84,6 +93,8 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   const [referralFields, setReferralFieldsState] = useState<ReferralFields>(DEFAULT_REFERRAL)
   const [recordsFields, setRecordsFieldsState] = useState<RecordsFields>(DEFAULT_RECORDS)
   const [freetextFields, setFreetextFieldsState] = useState<FreetextFields>(DEFAULT_FREETEXT)
+  const [customLetterTemplate, setCustomLetterTemplate] = useState<CustomLetterTemplate | null>(null)
+  const [customLetterSections, setCustomLetterSections] = useState<CustomLetterSectionValue[]>([])
 
   function resetNote() {
     setCurrentNoteId(null)
@@ -105,6 +116,8 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
     setReferralFieldsState(DEFAULT_REFERRAL)
     setRecordsFieldsState(DEFAULT_RECORDS)
     setFreetextFieldsState(DEFAULT_FREETEXT)
+    setCustomLetterTemplate(null)
+    setCustomLetterSections([])
   }
 
   return (
@@ -134,6 +147,12 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       referralFields,
       recordsFields,
       freetextFields,
+      customLetterTemplate,
+      customLetterSections,
+      setCustomLetterTemplate,
+      setCustomLetterSections,
+      updateCustomLetterSection: (key, content) =>
+        setCustomLetterSections(prev => prev.map(s => s.key === key ? { ...s, content } : s)),
       setCurrentNote,
       setCurrentNoteId,
       setLastTranscript,

@@ -19,9 +19,14 @@ export async function POST(req: NextRequest) {
       mode?: string
       letterType?: string
       retry?: boolean
+      customLetter?: {
+        title?: string
+        prompt?: string
+        sections?: { key?: string; heading?: string; description?: string }[]
+      }
     }
 
-    const { uid, transcript, templatePrompt, systemPrompt, mode, letterType, retry } = body
+    const { uid, transcript, templatePrompt, systemPrompt, mode, letterType, retry, customLetter } = body
 
     // Letter AI generation — Groq-only, transient, no uid/quota tracking
     if (mode === 'letter' && letterType && transcript) {
@@ -138,7 +143,45 @@ DICTATION:
 ${transcript}`,
       }
 
-      const letterPrompt = letterPrompts[letterType]
+      let letterPrompt: string | undefined = letterPrompts[letterType]
+
+      // Custom letter: the doctor's saved template drives the topics. The server
+      // still owns the JSON contract so a quirky template can't break parsing.
+      if (letterType === 'custom') {
+        const secs = Array.isArray(customLetter?.sections)
+          ? customLetter!.sections
+              .filter(s => s && typeof s.key === 'string' && /^[a-z][a-z0-9_]{1,40}$/.test(s.key!))
+              .slice(0, 12)
+              .map(s => ({ key: s.key!, heading: String(s.heading ?? s.key), description: String(s.description ?? '').slice(0, 500) }))
+          : []
+        if (!secs.length) return NextResponse.json({ error: 'Invalid custom letter template' }, { status: 400 })
+        const guidance = String(customLetter?.prompt ?? '').slice(0, 6000)
+        const skeleton = `{
+  "recipientName": "",
+  "recipientAddress": "",
+  "patientName": "",
+  "dob": "",
+  "sections": {
+${secs.map(s => `    "${s.key}": ""`).join(',\n')}
+  }
+}`
+        letterPrompt = `Extract information from this doctor's dictation to populate a "${customLetter?.title || 'letter'}".
+${guidance ? `\nGUIDANCE:\n${guidance}\n` : ''}
+FIELD GUIDE:
+- recipientName: Full name/title of who this letter is addressed TO
+- recipientAddress: Their address, hospital, or clinic
+- patientName: Patient's full name if mentioned
+- dob: Patient date of birth DD/MM/YYYY — leave "" if not mentioned
+Sections (write formal letter prose for each, "" if not covered in the dictation):
+${secs.map(s => `- ${s.key}: ${s.heading}${s.description ? ` — ${s.description}` : ''}`).join('\n')}
+
+Return ONLY valid JSON — no markdown, no explanation, no extra text:
+${skeleton}
+
+DICTATION:
+${transcript}`
+      }
+
       if (!letterPrompt) return NextResponse.json({ error: 'Unknown letterType' }, { status: 400 })
 
       const groqKey = req.headers.get('x-groq-key')

@@ -236,7 +236,8 @@ service cloud.firestore {
           && (!('notesMigrated'      in d) || (d.notesMigrated      is bool))
           && (!('workplaces'         in d) || (d.workplaces         is list   && d.workplaces.size()         <= 30))
           && (!('favoriteTemplateIds'in d) || (d.favoriteTemplateIds is list  && d.favoriteTemplateIds.size() <= 200))
-          && (!('customTemplates'    in d) || (d.customTemplates    is list   && d.customTemplates.size()    <= 50));
+          && (!('customTemplates'    in d) || (d.customTemplates    is list   && d.customTemplates.size()    <= 50))
+          && (!('customLetterTemplates' in d) || (d.customLetterTemplates is list && d.customLetterTemplates.size() <= 15));
     }
 
     match /progress_notes/{noteId} {
@@ -393,6 +394,22 @@ Resets on new UTC date (check `date !== today` → reset count to 0).
 - Custom templates stored in `users/{uid}.customTemplates`
 - Favourite template IDs in `users/{uid}.favoriteTemplateIds`
 - Recent usage tracked in `localStorage('lnTemplateUsage')`
+
+### Custom Letter Templates
+
+Doctor-defined letter types, private to their account (`users/{uid}.customLetterTemplates`,
+array order = picker priority, ≤15). Each has `{ id, title, description, sections:[{key,heading,description}], prompt }`.
+- **Builder:** `components/modals/CustomLetterBuilderModal.tsx` (shared by LetterPicker,
+  DictateModal, TemplatePicker letters tab, and Settings). "Refine with AI" →
+  `/api/chat` `type:'letter-template'` cleans wording + writes the extraction prompt;
+  "Save as written" falls back to a deterministic prompt. Section keys are slugged client-side.
+- **Dictation:** DictateModal encodes the template id into the draft as `custom:<id>`.
+  `/api/generate` `mode:'letter', letterType:'custom'` builds the JSON contract SERVER-side
+  from `customLetter.sections` (server owns the skeleton) → returns `{ sections: {key:...} }`.
+- **Store:** `letterType:'custom'` + `customLetterTemplate` + `customLetterSections`
+  (per-topic content). Edit page renders one field per section (collapsed-empty like note
+  sections); PDF/preview/email stitch sections under bold headings with `letterSalutation`.
+  A deleted template's dictation degrades to a free-text letter (never lost).
 
 ---
 

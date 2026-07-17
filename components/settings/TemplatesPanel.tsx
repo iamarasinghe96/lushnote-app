@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from 'react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Textarea from '@/components/ui/Textarea'
-import type { User, Template, CustomTemplate, AnyTemplate } from '@/types'
+import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderModal'
+import type { User, Template, CustomTemplate, AnyTemplate, CustomLetterTemplate } from '@/types'
 
 interface TemplatesPanelProps {
   profile: User
@@ -90,6 +91,38 @@ export default function TemplatesPanel({ profile, onSave, onToast }: TemplatesPa
   const [form, setForm] = useState<CustomTemplateForm>(defaultForm())
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [letterBuilderOpen, setLetterBuilderOpen] = useState(false)
+  const [letterBuilderInitial, setLetterBuilderInitial] = useState<CustomLetterTemplate | null>(null)
+  const [deletingLetterId, setDeletingLetterId] = useState<string | null>(null)
+
+  const letterTemplates: CustomLetterTemplate[] = profile.customLetterTemplates ?? []
+
+  async function saveLetterTemplates(next: CustomLetterTemplate[], toast: string) {
+    try {
+      await onSave({ customLetterTemplates: next })
+      onToast(toast)
+    } catch {
+      onToast('Failed to save letter template')
+    }
+  }
+  async function handleSaveLetterTemplate(t: CustomLetterTemplate) {
+    setLetterBuilderOpen(false)
+    setLetterBuilderInitial(null)
+    const next = letterTemplates.some(x => x.id === t.id)
+      ? letterTemplates.map(x => x.id === t.id ? t : x)
+      : [...letterTemplates, t]
+    await saveLetterTemplates(next, 'Letter template saved')
+  }
+  function moveLetter(i: number, dir: -1 | 1) {
+    const j = i + dir
+    if (j < 0 || j >= letterTemplates.length) return
+    const next = [...letterTemplates];[next[i], next[j]] = [next[j], next[i]]
+    saveLetterTemplates(next, 'Order updated')
+  }
+  async function deleteLetter(id: string) {
+    setDeletingLetterId(null)
+    await saveLetterTemplates(letterTemplates.filter(t => t.id !== id), 'Letter template deleted')
+  }
 
   useEffect(() => {
     import('@/data/clinical-templates.json')
@@ -452,6 +485,68 @@ export default function TemplatesPanel({ profile, onSave, onToast }: TemplatesPa
           })}
         </ul>
       )}
+
+      {/* ── My Letter Templates ─────────────────────────────────────────── */}
+      <div className="mt-8 pt-6 border-t border-[var(--border)]">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-sm font-semibold text-[var(--text)]">My Letter Templates</h3>
+          <button
+            onClick={() => { setLetterBuilderInitial(null); setLetterBuilderOpen(true) }}
+            className="text-xs font-medium text-[var(--blue)] hover:underline"
+          >
+            + New
+          </button>
+        </div>
+        <p className="text-xs text-[var(--text3)] mb-3">
+          Your own letter types for dictation and Create Document. Drag order sets their priority in the pickers.
+        </p>
+        {letterTemplates.length === 0 ? (
+          <p className="text-xs text-[var(--text3)] italic">No letter templates yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {letterTemplates.map((t, i) => (
+              <li key={t.id} className="flex items-center gap-2 rounded-[var(--r)] border border-[var(--border)] px-3 py-2">
+                <div className="flex flex-col shrink-0">
+                  <button onClick={() => moveLetter(i, -1)} disabled={i === 0} aria-label="Move up"
+                    className="text-[var(--text3)] hover:text-[var(--text)] disabled:opacity-30 leading-none text-xs">▲</button>
+                  <button onClick={() => moveLetter(i, 1)} disabled={i === letterTemplates.length - 1} aria-label="Move down"
+                    className="text-[var(--text3)] hover:text-[var(--text)] disabled:opacity-30 leading-none text-xs">▼</button>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-[var(--text)] truncate">{t.title}</p>
+                  <p className="text-xs text-[var(--text3)] truncate">{t.description || `${t.sections.length} topic${t.sections.length !== 1 ? 's' : ''}`}</p>
+                </div>
+                <button onClick={() => { setLetterBuilderInitial(t); setLetterBuilderOpen(true) }} aria-label="Edit"
+                  className="shrink-0 text-[var(--text3)] hover:text-[var(--blue)] p-1">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </button>
+                {deletingLetterId === t.id ? (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => deleteLetter(t.id)} className="text-xs text-[var(--danger)] font-medium">Delete</button>
+                    <button onClick={() => setDeletingLetterId(null)} className="text-xs text-[var(--text3)]">Cancel</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setDeletingLetterId(t.id)} aria-label="Delete" className="shrink-0 text-[var(--text3)] hover:text-[var(--danger)] p-1">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                      <polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    </svg>
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <CustomLetterBuilderModal
+        open={letterBuilderOpen}
+        initial={letterBuilderInitial}
+        onSave={handleSaveLetterTemplate}
+        onClose={() => { setLetterBuilderOpen(false); setLetterBuilderInitial(null) }}
+      />
     </div>
   )
 }

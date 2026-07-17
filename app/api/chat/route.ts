@@ -244,6 +244,83 @@ Return ONLY the system prompt text, nothing else - no explanation, no preamble.`
       return NextResponse.json({ systemPrompt, provider: 'groq' })
     }
 
+    // ── Custom letter template refine ───────────────────────────────────────────
+    // A doctor described a letter type (title + topic rows) in plain, possibly
+    // typo-ridden language. Clean it up and produce an extraction prompt.
+    if (type === 'letter-template') {
+      const { title, description, sections } = body as {
+        title?: string
+        description?: string
+        sections?: { heading?: string; description?: string }[]
+      }
+      const rawSections = Array.isArray(sections)
+        ? sections
+            .filter(s => s && typeof s.heading === 'string' && s.heading.trim())
+            .slice(0, 12)
+            .map(s => ({ heading: String(s.heading).slice(0, 80), description: String(s.description ?? '').slice(0, 500) }))
+        : []
+      if (!title || typeof title !== 'string' || !rawSections.length) {
+        return NextResponse.json({ error: 'A title and at least one topic are required.' }, { status: 400 })
+      }
+
+      const refineSystem = `You are a clinical documentation assistant helping a doctor define a custom LETTER template for a psychiatry tool.
+The doctor has given a title, an optional description, and a list of topics (each a heading + what it should contain), often with typos or dictation artifacts.
+
+Do ALL of the following:
+1. Correct spelling, grammar and dictation errors in the title, description and every topic — but preserve the doctor's meaning and the EXACT order and number of topics. Never add, merge, split or drop a topic.
+2. Write a concise "prompt": guidance for another AI that will later read a doctor's dictation and fill each topic. For each topic say what content belongs in it. Require formal, professional letter prose (not verbatim dictation) and that nothing is fabricated.
+
+Return ONLY strict JSON, no markdown, no commentary:
+{
+  "title": "",
+  "description": "",
+  "sections": [ { "heading": "", "description": "" } ],
+  "prompt": ""
+}`
+
+      const userMsg = [
+        `Title: ${title}`,
+        description ? `Description: ${description}` : '',
+        'Topics:',
+        ...rawSections.map((s, i) => `${i + 1}. ${s.heading}${s.description ? ` — ${s.description}` : ''}`),
+      ].filter(Boolean).join('\n')
+
+      const parseResult = (text: string) => {
+        const match = text.match(/\{[\s\S]*\}/)
+        if (!match) return null
+        try {
+          const obj = JSON.parse(match[0]) as { title?: string; description?: string; sections?: { heading?: string; description?: string }[]; prompt?: string }
+          if (!obj.sections || !Array.isArray(obj.sections) || !obj.sections.length) return null
+          return {
+            title: String(obj.title ?? title),
+            description: String(obj.description ?? description ?? ''),
+            sections: obj.sections.slice(0, 12).map(s => ({ heading: String(s?.heading ?? ''), description: String(s?.description ?? '') })).filter(s => s.heading.trim()),
+            prompt: String(obj.prompt ?? '').slice(0, 6000),
+          }
+        } catch { return null }
+      }
+
+      // Groq first — template building is a one-off that must not burn the shared
+      // Gemini note-generation quota. Fall back to Gemini if no Groq key.
+      const groqKey = req.headers.get('x-groq-key')
+      if (groqKey) {
+        try {
+          const { content } = await generateNoteGroq(userMsg, refineSystem, groqKey, 1500)
+          const parsed = parseResult(content)
+          if (parsed) return NextResponse.json({ template: parsed, provider: 'groq' })
+        } catch { /* fall through to Gemini */ }
+      }
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const msgs: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }> = [{ role: 'user', parts: [{ text: userMsg }] }]
+          const { text } = await chatResponse(msgs, refineSystem)
+          const parsed = parseResult(text)
+          if (parsed) return NextResponse.json({ template: parsed, provider: 'gemini' })
+        } catch { /* fall through to error */ }
+      }
+      return NextResponse.json({ error: 'Could not refine the template. You can save it as written.' }, { status: 502 })
+    }
+
     // ── Custom field standardize ────────────────────────────────────────────────
     if (type === 'standardize') {
       const { rawInput, prompt: fieldPrompt, uid } = body as {

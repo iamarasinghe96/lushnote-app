@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Modal from '@/components/ui/Modal'
 import { useAuth } from '@/hooks/useAuth'
 import { updateProfile } from '@/lib/firestore/profiles'
-import type { AnyTemplate, NoteLength, Template, LetterType } from '@/types'
+import type { AnyTemplate, NoteLength, Template, LetterType, CustomLetterTemplate } from '@/types'
 
 interface TemplatePickerProps {
   open: boolean
@@ -12,6 +12,10 @@ interface TemplatePickerProps {
   onCancel: () => void
   /** When provided, a "Letters" tab is shown so the user can switch into letter mode. */
   onSelectLetter?: (letterType: LetterType) => void
+  customLetterTemplates?: CustomLetterTemplate[]
+  onSelectCustomLetter?: (template: CustomLetterTemplate) => void
+  onEditCustomLetter?: (template: CustomLetterTemplate) => void
+  onCreateLetterTemplate?: () => void
   /** Tab to show when the picker opens. Defaults to 'all'. */
   defaultTab?: Tab
 }
@@ -103,7 +107,7 @@ function matchesTab(t: AnyTemplate, tab: Tab, customIds: Set<string>): boolean {
   return true
 }
 
-export default function TemplatePicker({ open, onSelect, onCancel, onSelectLetter, defaultTab }: TemplatePickerProps) {
+export default function TemplatePicker({ open, onSelect, onCancel, onSelectLetter, customLetterTemplates = [], onSelectCustomLetter, onEditCustomLetter, onCreateLetterTemplate, defaultTab }: TemplatePickerProps) {
   const { profile, user, refreshProfile } = useAuth()
   const [builtins, setBuiltins] = useState<Template[]>([])
   const [search, setSearch] = useState('')
@@ -371,6 +375,53 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
                 </svg>
               </button>
             ))}
+
+            {onSelectCustomLetter && customLetterTemplates.map(t => (
+              <div key={t.id} className="w-full flex items-stretch gap-1">
+                <button
+                  onClick={() => onSelectCustomLetter(t)}
+                  className="flex-1 min-w-0 flex items-center gap-4 p-4 rounded-[var(--r-lg)] border border-[var(--border)]
+                    text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
+                    motion-safe:active:scale-[0.98] motion-safe:transition-all"
+                >
+                  <span className="text-[var(--blue)] shrink-0">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                      <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                    </svg>
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[var(--text)] truncate">{t.title}</p>
+                    <p className="text-xs text-[var(--text3)] mt-0.5 truncate">{t.description || `${t.sections.length} topic${t.sections.length !== 1 ? 's' : ''}`}</p>
+                  </div>
+                </button>
+                {onEditCustomLetter && (
+                  <button
+                    onClick={() => onEditCustomLetter(t)}
+                    aria-label="Edit template"
+                    className="shrink-0 w-10 flex items-center justify-center rounded-[var(--r-lg)] border border-[var(--border)] text-[var(--text3)] hover:text-[var(--blue)] hover:border-[var(--blue)] motion-safe:transition-colors"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ))}
+
+            {onCreateLetterTemplate && (
+              <button
+                onClick={onCreateLetterTemplate}
+                className="w-full flex items-center gap-4 p-4 rounded-[var(--r-lg)] border border-dashed border-[var(--border)]
+                  text-left text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)] motion-safe:transition-all"
+              >
+                <span className="shrink-0 text-lg leading-none">+</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">Create letter template</p>
+                  <p className="text-xs text-[var(--text3)] mt-0.5">Define your own reusable letter type</p>
+                </div>
+              </button>
+            )}
           </div>
         ) : (
           <>

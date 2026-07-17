@@ -14,6 +14,7 @@ interface User {
   workplaces: Workplace[]
   favoriteTemplateIds: (string | number)[]
   customTemplates: CustomTemplate[]
+  customLetterTemplates?: CustomLetterTemplate[]  // array order = picker priority
   groqApiKey?: string
   geminiApiKey?: string
   signatureUrl?: string
@@ -34,7 +35,23 @@ interface User {
   updatedAt?: FirestoreTimestamp
 }
 
-type LetterType = 'referral' | 'records' | 'freetext'
+type LetterType = 'referral' | 'records' | 'freetext' | 'custom'
+
+// A doctor-defined letter type, saved privately to their own profile. Each
+// section is one topic the letter covers; `prompt` is the AI-refined guidance
+// used to extract the doctor's dictation into those sections.
+interface CustomLetterSection {
+  key: string       // slug of the heading, used as the extraction field key
+  heading: string   // display label
+  description: string
+}
+interface CustomLetterTemplate {
+  id: string        // 'ltr_' + timestamp
+  title: string
+  description: string
+  sections: CustomLetterSection[]
+  prompt: string
+}
 
 interface LetterCommonFields {
   recipientName: string
@@ -329,6 +346,8 @@ export type {
   ReferralFields,
   RecordsFields,
   FreetextFields,
+  CustomLetterSection,
+  CustomLetterTemplate,
 }
 
 export { WP_THEMES }

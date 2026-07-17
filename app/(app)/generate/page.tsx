@@ -13,9 +13,11 @@ import DictateModal from '@/components/modals/DictateModal'
 import TranscriptConfirmModal from '@/components/modals/TranscriptConfirmModal'
 import TemplatePicker from '@/components/modals/TemplatePicker'
 import LetterPickerModal from '@/components/modals/LetterPickerModal'
+import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderModal'
 import { listNotes } from '@/lib/firestore/notes'
 import { getTranscriptDraft, deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
-import type { AnyTemplate, NoteCreationMode, Note, LetterType } from '@/types'
+import { updateProfile } from '@/lib/firestore/profiles'
+import type { AnyTemplate, NoteCreationMode, Note, LetterType, CustomLetterTemplate } from '@/types'
 
 const GEMINI_RPD = 20
 
@@ -112,7 +114,7 @@ const UploadIcon = (
 
 export default function GeneratePage() {
   const router = useRouter()
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const store = useNoteStore()
 
   const [phase, setPhase] = useState<GenPhase>('idle')
@@ -127,6 +129,7 @@ export default function GeneratePage() {
   const [prefillPatient, setPrefillPatient] = useState<{ patient: string; reg_number: string; session_number: string; attendance: string } | null>(null)
   const [allNotes, setAllNotes] = useState<Note[]>([])
   const [letterPickerOpen, setLetterPickerOpen] = useState(false)
+  const [customBuilderOpen, setCustomBuilderOpen] = useState(false)
   const [clinicalNoteMode, setClinicalNoteMode] = useState(false)
   // The captured transcript didn't pass the clinical-content check, but a real
   // recording must never be thrown away — carry it through naming to the edit
@@ -171,15 +174,40 @@ export default function GeneratePage() {
     setLetterPickerOpen(true)
   }
 
+  function todayStr() {
+    const today = new Date()
+    return `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`
+  }
+
   function handleLetterTypeSelected(type: LetterType) {
     setLetterPickerOpen(false)
-    const today = new Date()
-    const dd = String(today.getDate()).padStart(2, '0')
-    const mm = String(today.getMonth() + 1).padStart(2, '0')
-    const yyyy = today.getFullYear()
+    store.resetLetterMode()
     store.setLetterType(type)
-    store.setLetterCommonFields({ letterDate: `${dd}/${mm}/${yyyy}` })
+    store.setLetterCommonFields({ letterDate: todayStr() })
     router.push('/edit')
+  }
+
+  // Manual (no-dictation) custom letter: seed empty per-topic sections from the
+  // template and open the edit page for typing.
+  function handleCustomLetterSelected(t: CustomLetterTemplate) {
+    setLetterPickerOpen(false)
+    store.resetLetterMode()
+    store.setLetterType('custom')
+    store.setCustomLetterTemplate(t)
+    store.setCustomLetterSections(t.sections.map(s => ({ key: s.key, heading: s.heading, content: '' })))
+    store.setLetterCommonFields({ letterDate: todayStr() })
+    router.push('/edit')
+  }
+
+  async function handleSaveCustomTemplate(t: CustomLetterTemplate) {
+    setCustomBuilderOpen(false)
+    if (!user) return
+    const current = profile?.customLetterTemplates ?? []
+    const next = current.some(x => x.id === t.id)
+      ? current.map(x => x.id === t.id ? t : x)
+      : [...current, t]
+    await updateProfile(user.uid, { customLetterTemplates: next }).catch(() => {})
+    await refreshProfile()
   }
 
   // Doctor wants to write a consultation note by hand (no dictation/transcript):
@@ -275,7 +303,7 @@ export default function GeneratePage() {
   // The modals now record and transcribe live in segments and hand us the
   // finished transcript text. All we do here is route it into the note or
   // letter flow.
-  async function handleTranscriptReady(text: string, duration: number, letterType?: LetterType | null) {
+  async function handleTranscriptReady(text: string, duration: number, letterType?: LetterType | null, customTemplateId?: string) {
     store.setLastRecordingDuration(duration)
     // Capture the wall-clock end of the recording for the auto session End time.
     store.setLastRecordingEndTime(Date.now())
@@ -286,7 +314,10 @@ export default function GeneratePage() {
         setError('Nothing was transcribed. Please try again.')
         return
       }
-      startLetterFromTranscript(text, letterType)
+      const customTemplate = letterType === 'custom' && customTemplateId
+        ? (profile?.customLetterTemplates ?? []).find(t => t.id === customTemplateId) ?? null
+        : null
+      startLetterFromTranscript(text, letterType, customTemplate)
       return
     }
 
@@ -302,19 +333,32 @@ export default function GeneratePage() {
     setTranscriptConfirmOpen(true)
   }
 
-  function startLetterFromTranscript(text: string, letterType: LetterType) {
-    const today = new Date()
-    const dd = String(today.getDate()).padStart(2, '0')
-    const mm = String(today.getMonth() + 1).padStart(2, '0')
-    const yyyy = today.getFullYear()
+  function startLetterFromTranscript(text: string, letterType: LetterType, customTemplate?: CustomLetterTemplate | null) {
     store.resetLetterMode()
     store.setLastTranscript(text)
     store.setLastTranscriptMode('dictation')
-    store.setLetterType(letterType)
-    store.setLetterCommonFields({ letterDate: `${dd}/${mm}/${yyyy}` })
+    // A custom letter with no resolvable template (e.g. deleted) degrades to a
+    // free-text letter so the dictation is never lost.
+    const effectiveType: LetterType = letterType === 'custom' && !customTemplate ? 'freetext' : letterType
+    store.setLetterType(effectiveType)
+    if (effectiveType === 'custom' && customTemplate) {
+      store.setCustomLetterTemplate(customTemplate)
+      store.setCustomLetterSections(customTemplate.sections.map(s => ({ key: s.key, heading: s.heading, content: '' })))
+    }
+    store.setLetterCommonFields({ letterDate: todayStr() })
     store.setPendingLetterGeneration(true)
     if (user) deleteTranscriptDraft(user.uid).catch(() => {})
     router.push('/edit')
+  }
+
+  // A recovery draft stores a custom letter's type as "custom:<id>". Resolve it
+  // back to its template (null if the template was since deleted → freetext).
+  function resolveDraftLetter(raw: string): { letterType: LetterType; customTemplate: CustomLetterTemplate | null } {
+    if (raw.startsWith('custom:')) {
+      const id = raw.slice(7)
+      return { letterType: 'custom', customTemplate: (profile?.customLetterTemplates ?? []).find(x => x.id === id) ?? null }
+    }
+    return { letterType: raw as LetterType, customTemplate: null }
   }
 
   // Drop a recovered draft into the patient-naming step (TranscriptConfirmModal),
@@ -325,7 +369,8 @@ export default function GeneratePage() {
     store.setLastRecordingDuration(d.durationSec)
     store.setLastRecordingEndTime(Date.now())
     if (d.letterType) {
-      startLetterFromTranscript(d.text, d.letterType as LetterType)
+      const { letterType, customTemplate } = resolveDraftLetter(d.letterType)
+      startLetterFromTranscript(d.text, letterType, customTemplate)
       return
     }
     if (!d.text.trim()) {
@@ -359,7 +404,8 @@ export default function GeneratePage() {
     store.setLastRecordingDuration(d.durationSec)
     store.setLastRecordingEndTime(Date.now())
     if (d.letterType) {
-      startLetterFromTranscript(d.text, d.letterType as LetterType)
+      const { letterType, customTemplate } = resolveDraftLetter(d.letterType)
+      startLetterFromTranscript(d.text, letterType, customTemplate)
       return
     }
     store.setLastTranscript(d.text)
@@ -600,6 +646,7 @@ export default function GeneratePage() {
         onTranscriptReady={handleTranscriptReady}
         recordingDefaults={profile?.recordingDefaults}
         hasInterruptedDraft={!!recoveredDraft}
+        customTemplates={profile?.customLetterTemplates ?? []}
       />
       <TranscriptConfirmModal
         open={transcriptConfirmOpen}
@@ -626,6 +673,14 @@ export default function GeneratePage() {
         onSelect={handleLetterTypeSelected}
         onSelectClinicalNote={handleSelectClinicalNote}
         onClose={() => setLetterPickerOpen(false)}
+        customTemplates={profile?.customLetterTemplates ?? []}
+        onSelectCustom={handleCustomLetterSelected}
+        onCreateTemplate={() => { setLetterPickerOpen(false); setCustomBuilderOpen(true) }}
+      />
+      <CustomLetterBuilderModal
+        open={customBuilderOpen}
+        onSave={handleSaveCustomTemplate}
+        onClose={() => setCustomBuilderOpen(false)}
       />
     </div>
   )

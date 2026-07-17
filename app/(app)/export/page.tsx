@@ -36,6 +36,7 @@ export default function ExportPage() {
         referral: store.referralFields,
         records: store.recordsFields,
         freetext: store.freetextFields,
+        custom: { sections: store.customLetterSections },
         letterheadHeaderUrl: store.activeLetterhead?.headerUrl ?? null,
         letterheadFooterUrl: store.activeLetterhead?.footerUrl ?? null,
         signatureUrl: profile?.signatureUrl ?? null,

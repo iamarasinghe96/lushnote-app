@@ -476,6 +476,7 @@ export function buildLetterPreviewHTML(params: {
   freetext?: FreetextFields
   letterheadHeaderUrl?: string | null
   letterheadFooterUrl?: string | null
+  custom?: { sections: { heading: string; content: string }[] }
   signatureUrl?: string | null
   signatureScale?: number
   fontSize?: number
@@ -489,7 +490,7 @@ export function buildLetterPreviewHTML(params: {
   workplaceName?: string
 }): string {
   const {
-    letterType, common, referral, records, freetext,
+    letterType, common, referral, records, freetext, custom,
     letterheadHeaderUrl, letterheadFooterUrl,
     signatureUrl, signatureScale, fontSize, lineHeight, margin, clinicianName, credentials,
     providerNumber, workPhone, position, workplaceName,
@@ -573,6 +574,16 @@ export function buildLetterPreviewHTML(params: {
       ? freetext.freeTextContent.split('\n')
           .map(l => l.trim() ? p(applyInlineBold(escapeHtml(l))) : '<br>').join('')
       : '<p style="color:#94a3b8;">[Letter content will appear here]</p>'
+  } else if (letterType === 'custom') {
+    const filled = (custom?.sections ?? []).filter(s => s.content.trim())
+    bodyHtml = p(escapeHtml(letterSalutation(common.recipientName)))
+      + (filled.length
+          ? filled.map(s =>
+              `${p(`<strong>${escapeHtml(s.heading)}:</strong>`)}` +
+              s.content.split('\n').map(l => l.trim() ? p(applyInlineBold(escapeHtml(l))) : '<br>').join('')
+            ).join('')
+          : '<p style="color:#94a3b8;">[Letter content will appear here]</p>')
+      + p('Please do not hesitate to contact me if you require any further information.')
   }
 
   return `

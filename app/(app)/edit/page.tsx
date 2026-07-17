@@ -20,8 +20,9 @@ import TimePicker from '@/components/ui/TimePicker'
 import TemplatePicker from '@/components/modals/TemplatePicker'
 import ReassignModal from '@/components/modals/ReassignModal'
 import ManualGenerateModal from '@/components/modals/ManualGenerateModal'
+import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderModal'
 import { parseBoldSegments } from '@/lib/pdf'
-import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate, ExtraSection } from '@/types'
+import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate, ExtraSection, CustomLetterTemplate } from '@/types'
 
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60)
@@ -330,6 +331,8 @@ function EditContent() {
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [changeTemplateOpen, setChangeTemplateOpen] = useState(false)
+  const [letterBuilderOpen, setLetterBuilderOpen] = useState(false)
+  const [letterBuilderInitial, setLetterBuilderInitial] = useState<CustomLetterTemplate | null>(null)
   const [changeTemplateDefaultTab, setChangeTemplateDefaultTab] = useState<'all' | 'letters'>('all')
   const [reassignOpen, setReassignOpen] = useState(false)
   const [manualOpen, setManualOpen] = useState(false)
@@ -1032,6 +1035,45 @@ function EditContent() {
     }
   }
 
+  // Switch the current patient into a custom letter (from the Change Template
+  // letters tab), carrying the patient name over and seeding the topic fields.
+  function handleSelectCustomLetter(t: CustomLetterTemplate) {
+    setChangeTemplateOpen(false)
+    const alreadyLetter = store.letterType !== null
+    store.setLetterType('custom')
+    store.setCustomLetterTemplate(t)
+    store.setCustomLetterSections(t.sections.map(s => ({ key: s.key, heading: s.heading, content: '' })))
+    if (!alreadyLetter) {
+      const now = new Date()
+      const dd = String(now.getDate()).padStart(2, '0')
+      const mm = String(now.getMonth() + 1).padStart(2, '0')
+      const yyyy = now.getFullYear()
+      const name = latestFieldsRef.current.patient ?? ''
+      store.setLetterCommonFields({
+        letterDate: `${dd}/${mm}/${yyyy}`,
+        patientName: name,
+        dob: patientDobMap.current.get(name.trim().toLowerCase()) ?? '',
+      })
+    }
+    if (formScrollRef.current) formScrollRef.current.scrollTop = 0
+  }
+
+  async function handleSaveLetterTemplate(t: CustomLetterTemplate) {
+    setLetterBuilderOpen(false)
+    setLetterBuilderInitial(null)
+    if (!user) return
+    const current = profile?.customLetterTemplates ?? []
+    const next = current.some(x => x.id === t.id) ? current.map(x => x.id === t.id ? t : x) : [...current, t]
+    await updateProfile(user.uid, { customLetterTemplates: next }).catch(() => {})
+    await refreshProfile()
+    // If we're editing the letter currently open, refresh its sections to match.
+    if (store.letterType === 'custom' && store.customLetterTemplate?.id === t.id) {
+      store.setCustomLetterTemplate(t)
+      const byKey = new Map(store.customLetterSections.map(s => [s.key, s.content]))
+      store.setCustomLetterSections(t.sections.map(s => ({ key: s.key, heading: s.heading, content: byKey.get(s.key) ?? '' })))
+    }
+  }
+
   async function runPendingGeneration(isRetry = false) {
     const s = storeRef.current
     const template = s.lastChosenTemplate
@@ -1358,6 +1400,16 @@ function EditContent() {
       freetextFields.freeTextContent.split('\n').map(l => l.trim()).forEach(l => {
         if (l) write(l); else para()
       })
+    } else if (letterType === 'custom') {
+      write(letterSalutation(letterCommonFields.recipientName))
+      para()
+      store.customLetterSections.filter(s => s.content.trim()).forEach((s, i) => {
+        if (i > 0) para()
+        write(`${s.heading}:`, true)
+        s.content.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => write(l))
+      })
+      para()
+      write('Please do not hesitate to contact me if you require any further information.')
     }
   }
 
@@ -1549,6 +1601,13 @@ function EditContent() {
       if (recordsFields.secondParagraphRecords) { lines.push(''); lines.push(recordsFields.secondParagraphRecords) }
     } else if (letterType === 'freetext') {
       lines.push(freetextFields.freeTextContent || '')
+    } else if (letterType === 'custom') {
+      lines.push(letterSalutation(letterCommonFields.recipientName))
+      store.customLetterSections.filter(s => s.content.trim()).forEach(s => {
+        lines.push(''); lines.push(`${s.heading}:`)
+        s.content.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => lines.push(l))
+      })
+      lines.push(''); lines.push('Please do not hesitate to contact me if you require any further information.')
     }
     lines.push(''); lines.push('Kind regards,')
     if (profile?.displayName) lines.push(profile.displayName)
@@ -1577,14 +1636,21 @@ function EditContent() {
       if (groqKey) headers['x-groq-key'] = groqKey
       const geminiKey = getGeminiKey()
       if (geminiKey) headers['x-gemini-key'] = geminiKey
+      const customLetter = letterType === 'custom' && store.customLetterTemplate
+        ? {
+            title: store.customLetterTemplate.title,
+            prompt: store.customLetterTemplate.prompt,
+            sections: store.customLetterTemplate.sections,
+          }
+        : undefined
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ mode: 'letter', letterType, transcript: store.lastTranscript }),
+        body: JSON.stringify({ mode: 'letter', letterType, transcript: store.lastTranscript, customLetter }),
       })
       const data = await res.json() as { letterFields?: Record<string, unknown>; error?: string }
       if (data.letterFields) {
-        const { recipientName, recipientAddress, patientName, dob, ...typeFields } = data.letterFields
+        const { recipientName, recipientAddress, patientName, dob, sections, ...typeFields } = data.letterFields
         store.setLetterCommonFields({
           ...(recipientName !== undefined && { recipientName: String(recipientName) }),
           ...(recipientAddress !== undefined && { recipientAddress: String(recipientAddress) }),
@@ -1594,6 +1660,12 @@ function EditContent() {
         if (letterType === 'referral') store.setReferralFields(typeFields as Parameters<typeof store.setReferralFields>[0])
         else if (letterType === 'records') store.setRecordsFields(typeFields as Parameters<typeof store.setRecordsFields>[0])
         else if (letterType === 'freetext') store.setFreetextFields(typeFields as Parameters<typeof store.setFreetextFields>[0])
+        else if (letterType === 'custom' && sections && typeof sections === 'object') {
+          const secMap = sections as Record<string, unknown>
+          store.setCustomLetterSections(
+            store.customLetterSections.map(s => ({ ...s, content: secMap[s.key] !== undefined ? String(secMap[s.key]) : s.content }))
+          )
+        }
         setLetterToast('Fields populated from transcript')
       } else {
         setLetterToast(data.error || 'Generation failed. Fill fields manually.')
@@ -2204,6 +2276,7 @@ function EditContent() {
             <span className="font-medium text-sm truncate">
               {letterType === 'referral' ? 'Referral Letter'
                 : letterType === 'records' ? 'Records Request'
+                : letterType === 'custom' ? (store.customLetterTemplate?.title ?? 'Letter')
                 : 'Free Text Letter'}
             </span>
             <button
@@ -2670,6 +2743,28 @@ function EditContent() {
                   </div>
                 )}
 
+                {/* Custom letter — one field per template topic; empty ones collapse. */}
+                {letterType === 'custom' && (
+                  <div className="space-y-3">
+                    {store.customLetterSections.map(s => {
+                      const expanded = s.content.trim().length > 0 || expandedEmpty.has(s.key)
+                      return (
+                        <div key={s.key} data-field={s.key}>
+                          {expanded ? (
+                            <Textarea
+                              label={s.heading}
+                              rows={3}
+                              autoResize
+                              value={s.content}
+                              onChange={e => store.updateCustomLetterSection(s.key, e.target.value)}
+                            />
+                          ) : renderCollapsedField(s.key, s.heading)}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
                 {/* AI generate from transcript */}
                 {store.lastTranscript && (
                   <button
@@ -2818,6 +2913,16 @@ function EditContent() {
         onSelectLetter={handleSelectLetterType}
         onCancel={() => setChangeTemplateOpen(false)}
         defaultTab={changeTemplateDefaultTab}
+        customLetterTemplates={profile?.customLetterTemplates ?? []}
+        onSelectCustomLetter={handleSelectCustomLetter}
+        onEditCustomLetter={(t) => { setChangeTemplateOpen(false); setLetterBuilderInitial(t); setLetterBuilderOpen(true) }}
+        onCreateLetterTemplate={() => { setChangeTemplateOpen(false); setLetterBuilderInitial(null); setLetterBuilderOpen(true) }}
+      />
+      <CustomLetterBuilderModal
+        open={letterBuilderOpen}
+        initial={letterBuilderInitial}
+        onSave={handleSaveLetterTemplate}
+        onClose={() => { setLetterBuilderOpen(false); setLetterBuilderInitial(null) }}
       />
       <ReassignModal
         open={reassignOpen}
