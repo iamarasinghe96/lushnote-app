@@ -29,7 +29,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })
       }
 
-      const systemInstruction = `You are an expert medical scribe. Extract clinical information from a doctor's verbal dictation and map it accurately to letter fields. The doctor may speak in any order and use informal language — identify all entities and assign them to the correct field. Never fabricate information. Use empty string "" for anything not mentioned.`
+      const systemInstruction = `You are an expert medical scribe. Extract clinical information from a doctor's verbal dictation and map it accurately to letter fields. The doctor may speak in any order and use informal language — identify all entities and assign them to the correct field. Never fabricate information. Use empty string "" for anything not mentioned.
+
+DOSES & NUMBERS — CRITICAL FOR SAFETY:
+- Write every dose EXACTLY as dictated. Convert spoken numbers to digits precisely: "one thousand" → 1000, "eighty one" → 81, "twenty" → 20. Never round, approximate, drop, or add a digit ("one thousand milligrams" is 1000 mg, NEVER 100 mg).
+- If a medication dose number is given with no unit but is clearly a strength, append "mg" (e.g. "aspirin eighty one" → "Aspirin 81 mg"). Do not invent units for numbers that are not doses.
+- Do NOT correct, guess, or substitute drug names — transcribe each medication name as given, even if it looks unusual.
+
+STYLE:
+- Rewrite content into formal, professional medical-letter prose. Do NOT reproduce the dictation word-for-word or keep conversational phrasing (e.g. "last 48 hours pain is completely resolved" → "Over the past 48 hours, the chest pain has fully resolved").`
 
       const letterPrompts: Record<string, string> = {
         referral: `Extract ALL clinical information from this psychiatrist's dictation to populate a referral letter. Map entities to the correct field regardless of speaking order.
@@ -57,7 +65,7 @@ FIELD GUIDE — read carefully before extracting:
 - secondParagraph: Additional clinical context — what happened during admission, current status, relevant background. 2–4 sentences of plain prose. CRITICAL: Do NOT include any salutation ("Dear...", "To Dr...", "I am writing"), subject line, or letter-style introduction. This text appears directly as a mid-letter paragraph.
 - pastMedicalHistory: Relevant past medical, psychiatric, or surgical history if mentioned (plain text or one item per line)
 - showPastMedicalHistory: true if any past history is mentioned; false otherwise
-- medicationList: Current medications with doses and frequencies if mentioned (one per line)
+- medicationList: Current medications, one per line, as "Name Dose Frequency". Preserve each dose EXACTLY as dictated (see the DOSES rule — "one thousand milligrams" is 1000 mg, never 100 mg) and append "mg" to a bare dose number that is clearly a milligram strength (e.g. "Aspirin 81 mg daily", "Ticagrelor 90 mg twice daily").
 - showMedicationList: true if any medications are mentioned; false otherwise
 - dischargeSummaryAttached: true if the doctor says they are attaching or enclosing a discharge summary; false otherwise
 

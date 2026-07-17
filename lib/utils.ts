@@ -378,6 +378,15 @@ export function buildCoverLetterEmail(
   return `${pretext}\n\n${body}\n\nRegards,\n${sign}`
 }
 
+// Body salutation for referral/records letters. Addresses the RECIPIENT (who
+// the letter is sent to — recipientName usually already carries the title, e.g.
+// "Dr Eleanor Vance"), not the admitting doctor. Falls back to a generic
+// greeting rather than leaving a "[Doctor Name]" placeholder in the letter.
+export function letterSalutation(recipientName?: string): string {
+  const r = (recipientName || '').trim()
+  return r ? `Dear ${r},` : 'Dear Sir/Madam,'
+}
+
 export function formatDateForLetter(dateStr: string): string {
   if (!dateStr || dateStr.length < 8) return '[Date]'
   const parts = dateStr.split('/')
@@ -540,7 +549,7 @@ export function buildLetterPreviewHTML(params: {
     // typed via the Bold/Italic shortcut renders the same as it does in the
     // clinical note fields and the PDF export.
     bodyHtml = `
-      ${p(`To Dr. ${applyInlineBold(escapeHtml(referral.doctorName || '[Doctor Name]'))},`)}
+      ${p(escapeHtml(letterSalutation(common.recipientName)))}
       ${p(`I am writing to refer to you ${applyInlineBold(escapeHtml(common.patientName || '[Patient Name]'))}, who was admitted to the ${applyInlineBold(escapeHtml(referral.admissionUnit || '[Unit]'))} from the ${formatDateForLetter(referral.admissionDateStart)} to the ${formatDateForLetter(referral.admissionDateEnd)}.`)}
       ${p(`Thank you for seeing ${title} ${applyInlineBold(escapeHtml(common.patientName || '[Patient Name]'))}. ${applyInlineBold(escapeHtml(firstName))} is a ${agePart}${applyInlineBold(escapeHtml(referral.gender || '[gender]'))} who presented with ${applyInlineBold(escapeHtml(referral.presentingComplaint || '[presenting complaint]'))}.`)}
       ${referral.secondParagraph ? p(applyInlineBold(escapeHtml(referral.secondParagraph))) : ''}

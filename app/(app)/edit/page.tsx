@@ -9,7 +9,7 @@ import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections } from '@/lib/utils'
+import { buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, letterSalutation } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import Input from '@/components/ui/Input'
@@ -1327,7 +1327,7 @@ function EditContent() {
     para()
 
     if (letterType === 'referral') {
-      write(`To Dr. ${referralFields.doctorName || '[Doctor Name]'},`)
+      write(letterSalutation(letterCommonFields.recipientName))
       para()
       write(`I am writing to refer to you ${letterCommonFields.patientName || '[Patient Name]'}, who was admitted to the ${referralFields.admissionUnit || '[Unit]'} from the ${formatDateForLetter(referralFields.admissionDateStart)} to the ${formatDateForLetter(referralFields.admissionDateEnd)}.`)
       para()
@@ -1523,7 +1523,7 @@ function EditContent() {
     }
     lines.push('')
     if (letterType === 'referral') {
-      lines.push(`To Dr. ${referralFields.doctorName || '[Doctor Name]'},`)
+      lines.push(letterSalutation(letterCommonFields.recipientName))
       lines.push('')
       lines.push(`I am writing to refer to you ${letterCommonFields.patientName || '[Patient Name]'}, who was admitted to the ${referralFields.admissionUnit || '[Unit]'} from the ${formatDateForLetter(referralFields.admissionDateStart)} to the ${formatDateForLetter(referralFields.admissionDateEnd)}.`)
       lines.push('')
