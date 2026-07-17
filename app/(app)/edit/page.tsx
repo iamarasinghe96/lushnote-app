@@ -8,6 +8,7 @@ import { useKeyboardCloseSafety } from '@/hooks/useKeyboardCloseSafety'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
+import { registerReloadGuard } from '@/lib/reloadGuard'
 import { updateProfile } from '@/lib/firestore/profiles'
 import { buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, letterSalutation } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
@@ -688,6 +689,14 @@ function EditContent() {
   useEffect(() => {
     draftClearedRef.current = false
   }, [store.lastTranscript])
+
+  // Tell pull-to-refresh that reloading the edit screen right now would lose
+  // in-progress work: a letter (letters are never persisted to Firestore) or a
+  // note mid-save. The gesture confirms with the doctor before reloading.
+  useEffect(() => {
+    registerReloadGuard(() => storeRef.current.letterType !== null || isSavingRef.current)
+    return () => registerReloadGuard(null)
+  }, [])
 
   const scheduleSave = useCallback((data: Partial<Note>) => {
     if (!autoSaveEnabledRef.current) return
