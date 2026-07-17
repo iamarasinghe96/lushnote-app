@@ -19,6 +19,11 @@ export default function TranscriptPage() {
   const [loading, setLoading] = useState(false)
   const transcriptRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  // trsHighlightQuote fires from an async answer callback, so it needs the
+  // CURRENT expanded state rather than whatever was captured when the question
+  // was asked — a ref avoids that stale-closure gap.
+  const expandedRef = useRef(false)
+  useEffect(() => { expandedRef.current = expanded }, [expanded])
 
   useEffect(() => {
     if (!lastTranscript) router.replace('/generate')
@@ -182,8 +187,11 @@ export default function TranscriptPage() {
     }
     if (matchIdx === -1) return
 
-    setExpanded(true)
-
+    // Mark the quote in the transcript text regardless of collapsed state, so
+    // it's already highlighted whenever the doctor chooses to expand it. Do
+    // NOT force the transcript open here — the collapsed transcript's 28px
+    // preview area is too short to push the answer bubble below the tab bar
+    // (reported), so leave the collapse state exactly as the doctor left it.
     setTimeout(() => {
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
       let charCount = 0
@@ -216,7 +224,10 @@ export default function TranscriptPage() {
         mark.style.cssText = 'background:#fef08a;border-radius:2px;padding:0 1px;'
         try {
           range.surroundContents(mark)
-          mark.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          // Only scroll to it if the transcript is already open — scrolling
+          // inside a collapsed (clipped, non-scrolling) box does nothing
+          // useful and risks nudging the page's own scroll instead.
+          if (expandedRef.current) mark.scrollIntoView({ behavior: 'smooth', block: 'center' })
         } catch (_) {}
       }
     }, 100)
