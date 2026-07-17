@@ -242,8 +242,12 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 /* While a text field/textarea/select is focused (chat input, form fields),
    the on-screen keyboard already consumes most of the screen — hide the
    floating tab bar to give that space back rather than stacking it on top of
-   the keyboard. */
-body.keyboard-input-focused [data-tab-bar] { display: none; }
+   the keyboard. Mobile-only (matches the sm: breakpoint used elsewhere): on
+   desktop there is no on-screen keyboard to reclaim space from, so this rule
+   was hiding the tab bar on every field focus for no reason (reported). */
+@media (max-width: 639.98px) {
+  body.keyboard-input-focused [data-tab-bar] { display: none; }
+}
 
 /* Top clearance so scroll containers fill behind the floating header pill.
    76px = 8px top gap + 60px header + 8px bottom gap, all after safe-area.
