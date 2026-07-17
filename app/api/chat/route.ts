@@ -51,7 +51,9 @@ ${kb ?? ''}
 
 Rules for patient questions:
 - Answer ONLY from the notes provided. Never fabricate clinical details.
-- Identify patients by name and session date in your answer.
+- Identify patients by name, and include their registration number when the note
+  has one, e.g. "Nellie (Reg: 20260715001)". Add the session date where relevant.
+- Write each patient's name exactly as it appears in the notes so it can be linked.
 - If several patients match, list each of them.
 - For counting questions, count distinct patient names that match.
 - If the notes provided do not contain the answer, say so plainly.

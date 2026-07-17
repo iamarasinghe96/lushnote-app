@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
@@ -324,6 +324,28 @@ export default function PatientsPage() {
 
     return Array.from(map.values())
   }, [notes, profiles])
+
+  // Deep-link into a patient's overview from the AI Assistant. The FAB dispatches
+  // 'ln-open-patient' (caught if this page is already mounted) and navigates to
+  // ?patient=<name> (read once here on a fresh mount, after notes have grouped).
+  const deepLinkConsumedRef = useRef(false)
+  useEffect(() => {
+    function selectByName(name: string) {
+      const q = name.trim().toLowerCase()
+      const target = groupedPatients.find(p => p.name.trim().toLowerCase() === q)
+      if (target) setSelectedPatient(target)
+    }
+    function onOpenPatient(e: Event) {
+      const name = (e as CustomEvent<{ name: string }>).detail?.name
+      if (name) selectByName(name)
+    }
+    window.addEventListener('ln-open-patient', onOpenPatient)
+    if (!deepLinkConsumedRef.current && groupedPatients.length) {
+      const name = new URLSearchParams(window.location.search).get('patient')
+      if (name) { deepLinkConsumedRef.current = true; selectByName(name) }
+    }
+    return () => window.removeEventListener('ln-open-patient', onOpenPatient)
+  }, [groupedPatients])
 
   const filteredPatients = useMemo<PatientGroup[]>(() => {
     let list = [...groupedPatients]

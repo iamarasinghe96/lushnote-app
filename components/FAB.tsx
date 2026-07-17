@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { usePathname } from 'next/navigation'
+import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { listNotes } from '@/lib/firestore/notes'
 import { getGroqKey } from '@/lib/utils'
@@ -48,7 +48,8 @@ function buildNotesContext(question: string, notes: Note[]): string {
 
   const entries = notes.map(note => {
     const diagnosis = (note.diagnosis ?? '').replace(/\s+/g, ' ').slice(0, 150)
-    const header = `Patient: ${note.patient ?? 'Unknown'} | Date: ${note.date ?? '?'}${diagnosis ? ` | Diagnosis: ${diagnosis}` : ''}`
+    const reg = (note.reg_number ?? '').trim()
+    const header = `Patient: ${note.patient ?? 'Unknown'}${reg ? ` | Reg: ${reg}` : ''} | Date: ${note.date ?? '?'}${diagnosis ? ` | Diagnosis: ${diagnosis}` : ''}`
     const summary = ((note.summary || note.presentation || '') as string).replace(/\s+/g, ' ').slice(0, 200)
 
     const snippets: string[] = []
@@ -91,6 +92,42 @@ function buildNotesContext(question: string, notes: Note[]): string {
   return out.join('\n---\n')
 }
 
+// Turn any mention of a known patient name in an AI answer into a clickable
+// link that opens that patient's overview. Names are matched at word
+// boundaries, longest first so a full name wins over a first name.
+function linkifyPatients(text: string, names: string[], onNameClick: (name: string) => void): ReactNode[] {
+  if (!names.length) return [text]
+  const sorted = [...names].sort((a, b) => b.length - a.length)
+  const escaped = sorted.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  const rx = new RegExp(`\\b(${escaped.join('|')})\\b`, 'gi')
+  const out: ReactNode[] = []
+  let last = 0
+  let m: RegExpExecArray | null
+  let k = 0
+  while ((m = rx.exec(text)) !== null) {
+    const matched = m[0]
+    // Only linkify a capitalised occurrence — a patient named "Psychosis" links,
+    // but the word "psychosis" in "history of psychosis" stays plain text.
+    const isProperNoun = matched[0] !== matched[0].toLowerCase()
+    if (!isProperNoun) continue
+    if (m.index > last) out.push(text.slice(last, m.index))
+    const canonical = names.find(n => n.toLowerCase() === matched.toLowerCase()) ?? matched
+    out.push(
+      <button
+        key={`p${k++}`}
+        type="button"
+        onClick={() => onNameClick(canonical)}
+        className="text-[var(--blue)] font-medium underline underline-offset-2 hover:opacity-80"
+      >
+        {matched}
+      </button>
+    )
+    last = m.index + matched.length
+  }
+  if (last < text.length) out.push(text.slice(last))
+  return out
+}
+
 interface ChatMessage {
   role: string
   content: string
@@ -104,9 +141,11 @@ interface SupportMessage {
 
 export function FAB() {
   const pathname = usePathname()
+  const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [panel, setPanel] = useState<'ai' | 'support' | null>(null)
   const [aiMessages, setAiMessages] = useState<ChatMessage[]>([])
+  const [patientNames, setPatientNames] = useState<string[]>([])
   const [aiInput, setAiInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([])
@@ -167,6 +206,16 @@ export function FAB() {
     setExpanded(false)
   }
 
+  // Open a patient's overview from a linkified name in an AI answer. Dispatch an
+  // event for the Patients page if it's already mounted, and navigate with a
+  // ?patient= param that the page reads on a fresh mount — covers both cases.
+  function handlePatientClick(name: string) {
+    setPanel(null)
+    setExpanded(false)
+    window.dispatchEvent(new CustomEvent('ln-open-patient', { detail: { name } }))
+    router.push('/patients?patient=' + encodeURIComponent(name))
+  }
+
   async function getNotes(): Promise<Note[]> {
     if (!user) return []
     const cache = notesCacheRef.current
@@ -186,6 +235,10 @@ export function FAB() {
 
     try {
       const notes = await getNotes().catch(() => [] as Note[])
+      // Unique patient names so the answer can linkify each one to its overview.
+      setPatientNames(Array.from(new Set(
+        notes.map(n => (n.patient ?? '').trim()).filter(name => name.length > 1)
+      )))
       const notesContext = buildNotesContext(question, notes)
 
       const groqKey = getGroqKey()
@@ -343,7 +396,9 @@ export function FAB() {
                     ? 'bg-[var(--blue)] text-white rounded-br-sm'
                     : 'bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] rounded-bl-sm'
                 }`}>
-                  <p className="whitespace-pre-wrap">{m.content}</p>
+                  <p className="whitespace-pre-wrap">
+                    {m.role === 'ai' ? linkifyPatients(m.content, patientNames, handlePatientClick) : m.content}
+                  </p>
                 </div>
               </div>
             ))}
