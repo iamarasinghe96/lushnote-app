@@ -94,6 +94,19 @@ const LETTER_OPTIONS: { type: LetterType; title: string; description: string; ic
   },
 ]
 
+// Glass letter card — matched to LetterPickerModal so the Letters tab reads as the
+// same bordered, uniform card set rather than borderless "naked" rows on the
+// frosted modal (the default --border is nearly invisible there).
+const LETTER_CARD_CLASS = `flex items-center gap-4 p-4 rounded-[var(--r-lg)] border border-[#10b981]/40
+  text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
+  focus:border-[var(--blue)] focus:bg-[var(--blue-lt)] focus:outline-none
+  motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150`
+const LETTER_CARD_STYLE = {
+  background: 'rgba(255,255,255,0.75)',
+  backdropFilter: 'blur(12px)',
+  boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+} as const
+
 function templateType(t: AnyTemplate): 'session' | 'document' | 'both' {
   return 'tplType' in t ? t.tplType : 'session'
 }
@@ -360,9 +373,8 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
               <button
                 key={opt.type}
                 onClick={() => onSelectLetter?.(opt.type)}
-                className="w-full flex items-center gap-4 p-4 rounded-[var(--r-lg)] border border-[var(--border)]
-                  text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
-                  motion-safe:active:scale-[0.98] motion-safe:transition-all motion-safe:duration-150"
+                className={'w-full ' + LETTER_CARD_CLASS}
+                style={LETTER_CARD_STYLE}
               >
                 <span className="text-[var(--blue)] shrink-0">{opt.icon}</span>
                 <div className="flex-1 min-w-0">
@@ -380,9 +392,8 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
               <div key={t.id} className="w-full flex items-stretch gap-1">
                 <button
                   onClick={() => onSelectCustomLetter(t)}
-                  className="flex-1 min-w-0 flex items-center gap-4 p-4 rounded-[var(--r-lg)] border border-[var(--border)]
-                    text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
-                    motion-safe:active:scale-[0.98] motion-safe:transition-all"
+                  className={'flex-1 min-w-0 ' + LETTER_CARD_CLASS}
+                  style={LETTER_CARD_STYLE}
                 >
                   <span className="text-[var(--blue)] shrink-0">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -398,7 +409,8 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
                   <button
                     onClick={() => onEditCustomLetter(t)}
                     aria-label="Edit template"
-                    className="shrink-0 w-10 flex items-center justify-center rounded-[var(--r-lg)] border border-[var(--border)] text-[var(--text3)] hover:text-[var(--blue)] hover:border-[var(--blue)] motion-safe:transition-colors"
+                    className="shrink-0 w-10 flex items-center justify-center rounded-[var(--r-lg)] border border-[#10b981]/40 text-[var(--text3)] hover:text-[var(--blue)] hover:border-[var(--blue)] motion-safe:transition-colors"
+                    style={LETTER_CARD_STYLE}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -412,8 +424,10 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
             {onCreateLetterTemplate && (
               <button
                 onClick={onCreateLetterTemplate}
-                className="w-full flex items-center gap-4 p-4 rounded-[var(--r-lg)] border border-dashed border-[var(--border)]
-                  text-left text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)] motion-safe:transition-all"
+                className="w-full flex items-center gap-4 p-4 rounded-[var(--r-lg)] border border-dashed border-[#10b981]/50
+                  text-left text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)] hover:bg-[var(--blue-lt)]
+                  motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
+                style={LETTER_CARD_STYLE}
               >
                 <span className="shrink-0 text-lg leading-none">+</span>
                 <div className="flex-1 min-w-0">
