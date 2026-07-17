@@ -182,6 +182,8 @@ export default function GeneratePage() {
   function handleLetterTypeSelected(type: LetterType) {
     setLetterPickerOpen(false)
     store.resetLetterMode()
+    store.setCurrentNoteId(null)
+    store.setLastTranscript(null)   // manual letter — no dictation to attach
     store.setLetterType(type)
     store.setLetterCommonFields({ letterDate: todayStr() })
     router.push('/edit')
@@ -192,6 +194,8 @@ export default function GeneratePage() {
   function handleCustomLetterSelected(t: CustomLetterTemplate) {
     setLetterPickerOpen(false)
     store.resetLetterMode()
+    store.setCurrentNoteId(null)
+    store.setLastTranscript(null)   // manual letter — no dictation to attach
     store.setLetterType('custom')
     store.setCustomLetterTemplate(t)
     store.setCustomLetterSections(t.sections.map(s => ({ key: s.key, heading: s.heading, content: '' })))
@@ -335,6 +339,8 @@ export default function GeneratePage() {
 
   function startLetterFromTranscript(text: string, letterType: LetterType, customTemplate?: CustomLetterTemplate | null) {
     store.resetLetterMode()
+    // Fresh letter → its own new doc; never reuse a note id left in the store.
+    store.setCurrentNoteId(null)
     store.setLastTranscript(text)
     store.setLastTranscriptMode('dictation')
     // A custom letter with no resolvable template (e.g. deleted) degrades to a

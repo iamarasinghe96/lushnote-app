@@ -133,8 +133,31 @@ interface Note {
   extraSections?: string
   transcript?: string
   transcriptMode?: NoteCreationMode
+  // Letter persistence. A progress_notes doc with docType 'letter' is a saved,
+  // AI-generated letter rather than a clinical note. `letterType` is the kind of
+  // letter and `letterData` is the serialized LetterData payload (recipient +
+  // per-section content) used to re-open it in the letter editor. The assembled
+  // plain-text letter body is also mirrored into `content` so the Patients list,
+  // History preview and AI assistant treat it exactly like a note. Absent on
+  // clinical notes (docType absent = note).
+  docType?: 'note' | 'letter'
+  letterType?: LetterType
+  letterData?: string
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
+}
+
+// Structured payload of a saved letter (serialized into Note.letterData). Carries
+// the recipient/patient common fields plus whichever type-specific fields the
+// letter uses. For custom letters the template is snapshotted so the letter still
+// renders after the doctor edits or deletes that template.
+interface LetterData {
+  common: LetterCommonFields
+  referral?: ReferralFields
+  records?: RecordsFields
+  freetext?: FreetextFields
+  customTemplate?: CustomLetterTemplate
+  customSections?: { key: string; heading: string; content: string }[]
 }
 
 // A template section that has no core-field equivalent (e.g. "CBT Formulation",
@@ -348,6 +371,7 @@ export type {
   FreetextFields,
   CustomLetterSection,
   CustomLetterTemplate,
+  LetterData,
 }
 
 export { WP_THEMES }

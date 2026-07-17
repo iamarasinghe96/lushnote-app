@@ -134,13 +134,22 @@ On sign-out: all in-memory state clears. `sessionStorage` wipes on tab close.
 ```
 userId, patient, reg_number, date, time, clinician, session_number, attendance,
 diagnosis, presentation, history, medications, mse, content, scales, risk,
-referrals, summary, nextsteps, transcript, transcriptMode, extraSections, createdAt, updatedAt
+referrals, summary, nextsteps, transcript, transcriptMode, extraSections,
+docType, letterType, letterData, createdAt, updatedAt
 ```
 
 `transcript` — raw transcript text (string, optional)
 `transcriptMode` — `'paste' | 'conversation' | 'dictation' | 'document'`
 `extraSections` — serialized JSON (string, optional, ≤30000) of template-specific
 sections + render order — see **Template Sections** below. Absent on old notes.
+`docType` — `'note' | 'letter'` (string, optional; absent = note). A `'letter'` doc
+is a saved AI-generated letter that lives in `progress_notes` alongside notes so it
+shows up in Patients / History / AI assistant exactly like a note — see **Saved Letters** below.
+`letterType` — `'referral' | 'records' | 'freetext' | 'custom'` (only on letter docs).
+`letterData` — serialized JSON (string, ≤40000) of the letter's structured fields
+(recipient/patient common fields + per-type/section content) used to re-open it in
+the letter editor. The assembled plain-text body is also mirrored into `content` so
+letters are searchable and previewable without a special path.
 
 Adding new fields requires updating Firestore security rules AND the validation function.
 
@@ -170,6 +179,33 @@ note flows into Session Content as before.
 - **Rendering:** `orderedNoteSections(f, coreLabel)` (lib/utils) yields the ordered
   core+extra sections for preview/text/PDF; the edit page renders them data-driven
   (`renderNoteSections`). Empty fields collapse to a "label ＋" row (tap ＋ to expand).
+
+---
+
+## Saved Letters (letters persist like notes)
+
+Generated letters are saved to `progress_notes` as `docType: 'letter'` docs so they
+show up under their patient in Patients/History and are searchable by the AI
+assistant — exactly like clinical notes. No separate collection.
+
+- **Shape:** `docType:'letter'`, `letterType`, `letterData` (serialized `LetterData`:
+  `{ common, referral?|records?|freetext?|customTemplate?+customSections? }`), plus
+  reused note fields: `patient` = the letter's patient/subject (so it groups),
+  `date` = letter date, `clinician`, and `content` = the assembled plain-text body
+  (`buildLetterText`, lib/utils) for list snippets / History preview / AI search.
+- **Autosave (edit page):** a debounced effect on the store letter fields calls
+  `doAutoSaveLetter` (parallel to `doAutoSave` for notes). It no-ops until the letter
+  names a patient, skips a write when nothing changed since the last save
+  (`lastSavedLetterDataRef`), and flushes on unmount.
+- **Never clobbers a note:** `currentDocIsLetterRef` gates create-vs-update — letter
+  autosave only updates a doc it knows is a letter, else creates a fresh one.
+  `enterFreshLetter()` (note→letter) and `leaveLetterForNewNote()` (letter→note)
+  keep the two docs separate so converting between them never overwrites the other.
+- **Re-open:** `hydrateLetterFromNote(store, note)` (hooks/useNoteStore) loads a saved
+  letter back into letter mode; the edit page's `loadNote` and the Patients/History
+  rows route letters through it (Patients via `?noteId=`).
+- **Serialize helpers:** `serializeLetterData` / `parseLetterData` (lib/utils);
+  `LETTER_TYPE_LABEL` for list labels.
 
 ---
 
@@ -214,12 +250,16 @@ service cloud.firestore {
           && (!('transcript'     in d) || (d.transcript     is string && d.transcript.size()     <= 50000))
           && (!('transcriptMode' in d) || (d.transcriptMode is string && d.transcriptMode.size() <= 50))
           && (!('extraSections'  in d) || (d.extraSections  is string && d.extraSections.size()  <= 30000))
+          && (!('docType'        in d) || (d.docType        is string && d.docType.size()        <= 20))
+          && (!('letterType'     in d) || (d.letterType     is string && d.letterType.size()     <= 20))
+          && (!('letterData'     in d) || (d.letterData     is string && d.letterData.size()     <= 40000))
           && request.resource.data.keys().hasOnly([
                'userId','patient','reg_number','date','time','clinician',
                'session_number','attendance','diagnosis','presentation',
                'history','medications','mse','content','scales','risk',
                'referrals','summary','nextsteps','transcript','transcriptMode',
-               'extraSections','createdAt','updatedAt'
+               'extraSections','docType','letterType','letterData',
+               'createdAt','updatedAt'
              ]);
     }
 

@@ -96,9 +96,13 @@ export default function TermsPage() {
 
           <SubHeading>Letters and generated documents</SubHeading>
           <p>
-            Referral letters and other AI-generated documents are produced in real time and
-            delivered to you. They are not stored by LushNote unless you save them as part of
-            a note. Once you close your browser session, any unsaved generated content is gone.
+            When you generate a letter (such as a referral, a records request, or a custom
+            letter), it is saved securely to your account in the same way as your clinical
+            notes, so you can find it later under the relevant patient and re-open, edit, or
+            export it. Like your notes, saved letters can only be accessed by you, and no
+            LushNote team member or administrator can view them. You can delete any saved
+            letter at any time. The underlying audio, if you dictated the letter, is still
+            never stored — it is transcribed and immediately discarded.
           </p>
 
           <SubHeading>API keys</SubHeading>
@@ -224,8 +228,10 @@ export default function TermsPage() {
             by deleting your account.
           </p>
           <p>
-            Audio recordings are not stored at all. AI-generated letters are not stored unless
-            you save them. There are no automatic deletion timelines for notes you choose to keep.
+            Audio recordings are not stored at all. Letters you generate are saved to your
+            account alongside your notes and kept for as long as your account is active; you
+            can delete any letter at any time. There are no automatic deletion timelines for
+            notes or letters you choose to keep.
           </p>
         </Section>
 

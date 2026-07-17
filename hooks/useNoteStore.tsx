@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import type { Note, NoteCreationMode, AnyTemplate, LetterType, LetterCommonFields, ReferralFields, RecordsFields, FreetextFields, CustomLetterTemplate } from '@/types'
+import { parseLetterData } from '@/lib/utils'
 
 // One editable section of a custom letter in progress (content the doctor typed
 // or the AI extracted, keyed to the template's section).
@@ -178,4 +179,29 @@ export function useNoteStore(): NoteStore {
   const ctx = useContext(NoteStoreContext)
   if (!ctx) throw new Error('useNoteStore must be used within NoteStoreProvider')
   return ctx
+}
+
+// Load a saved letter doc (docType 'letter') back into the store so the edit page
+// re-opens it in letter mode. Callers reset letter mode first, then call this.
+// Returns false (and touches nothing) when the doc is not a valid letter.
+export function hydrateLetterFromNote(store: NoteStore, note: Note): boolean {
+  if (note.docType !== 'letter' || !note.letterType) return false
+  const data = parseLetterData(note.letterData)
+  if (!data) return false
+  store.setLetterType(note.letterType)
+  store.setLetterCommonFields(data.common)
+  if (data.referral) store.setReferralFields(data.referral)
+  if (data.records) store.setRecordsFields(data.records)
+  if (data.freetext) store.setFreetextFields(data.freetext)
+  store.setCustomLetterTemplate(data.customTemplate ?? null)
+  store.setCustomLetterSections(data.customSections ?? [])
+  store.setPendingLetterGeneration(false)
+  store.setCurrentNoteId(note.id ?? null)
+  if (note.transcript) {
+    store.setLastTranscript(note.transcript)
+    store.setLastTranscriptMode((note.transcriptMode as NoteCreationMode) ?? 'paste')
+  } else {
+    store.setLastTranscript(null)
+  }
+  return true
 }

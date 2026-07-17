@@ -1,4 +1,4 @@
-import { WP_THEMES, type Note, type AnyTemplate, type ExtraSection, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields } from '@/types'
+import { WP_THEMES, type Note, type AnyTemplate, type ExtraSection, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields, type LetterData } from '@/types'
 
 // The 11 core clinical note fields, in canonical order. Shared source of truth
 // for rendering order fallbacks and for deciding whether a section key is core.
@@ -40,6 +40,27 @@ export function serializeExtraSections(order: string[], extras: ExtraSection[]):
   if (order.length === 0 && cleanExtras.length === 0) return undefined
   const json = JSON.stringify({ order, extras: cleanExtras })
   return json.length > 30000 ? json.slice(0, 30000) : json
+}
+
+// Serialize a saved letter's structured fields for Note.letterData. Capped at the
+// Firestore rule limit (40000). Returns undefined only for a missing payload.
+export function serializeLetterData(data: LetterData): string | undefined {
+  if (!data) return undefined
+  const json = JSON.stringify(data)
+  return json.length > 40000 ? json.slice(0, 40000) : json
+}
+
+// Tolerant parse of Note.letterData. Malformed/missing → null so callers can fall
+// back to treating the doc as a plain note.
+export function parseLetterData(raw?: string | null): LetterData | null {
+  if (!raw || typeof raw !== 'string') return null
+  try {
+    const obj = JSON.parse(raw) as Partial<LetterData>
+    if (!obj || typeof obj !== 'object' || !obj.common) return null
+    return obj as LetterData
+  } catch {
+    return null
+  }
 }
 
 // Daily quota date aligned to Google's free-tier reset (US Pacific midnight),
@@ -356,6 +377,67 @@ export function orderedNoteSections(
   return out
 }
 
+// Plain-text assembly of a letter body. Mirrors the edit page's flowLetterBody
+// so a saved letter's `content` (used for the Patients snippet, History preview,
+// and AI-assistant search) reads like the letter the doctor produced. Not the
+// exported document — the PDF/email builders own that — just a faithful text copy.
+export function buildLetterText(params: {
+  letterType: LetterType
+  common: LetterCommonFields
+  referral?: ReferralFields
+  records?: RecordsFields
+  freetext?: FreetextFields
+  customSections?: { heading: string; content: string }[]
+}): string {
+  const { letterType, common, referral, records, freetext, customSections } = params
+  const lines: string[] = []
+  const push = (t: string) => lines.push(t)
+  const gap = () => { if (lines.length && lines[lines.length - 1] !== '') lines.push('') }
+
+  if (letterType !== 'freetext') {
+    push(`Re: ${common.patientName || ''}`.trim())
+    if (common.dob) push(`DOB: ${common.dob}`)
+  } else if (common.patientName) {
+    push(`Subject: ${common.patientName}`)
+  }
+  gap()
+
+  if (letterType === 'referral' && referral) {
+    push(letterSalutation(common.recipientName)); gap()
+    push(`I am writing to refer to you ${common.patientName || ''}, who was admitted to the ${referral.admissionUnit || ''} from the ${formatDateForLetter(referral.admissionDateStart)} to the ${formatDateForLetter(referral.admissionDateEnd)}.`.replace(/\s+/g, ' ').trim())
+    gap()
+    const age = calculateAgeFromDOB(common.dob)
+    const agePart = age !== null ? `${age} year old ` : ''
+    const firstName = (common.patientName || '').split(' ')[0] || 'Patient'
+    const title = referral.gender === 'male' ? 'Mr.' : referral.gender === 'female' ? 'Ms.' : ''
+    push(`Thank you for seeing ${title} ${common.patientName || ''}. ${firstName} is a ${agePart}${referral.gender || ''} who presented with ${referral.presentingComplaint || ''}.`.replace(/\s+/g, ' ').trim())
+    if (referral.secondParagraph) { gap(); push(referral.secondParagraph) }
+    if (referral.referralReason) { gap(); push(`${referral.referralReason}${referral.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`) }
+    if (referral.showPastMedicalHistory && referral.pastMedicalHistory) {
+      gap(); push('Past Medical History:')
+      referral.pastMedicalHistory.split('\n').map(l => l.trim()).filter(Boolean).forEach(push)
+    }
+    if (referral.showMedicationList && referral.medicationList) {
+      gap(); push('Medication List:')
+      autoNumberLines(referral.medicationList).split('\n').map(l => l.trim()).filter(Boolean).forEach(push)
+    }
+  } else if (letterType === 'records' && records) {
+    push('To whom it may concern,'); gap()
+    push(`I am writing to request any correspondence or documentation from their previous visits at ${records.recordsLocation || ''}.`.replace(/\s+/g, ' ').trim())
+    if (records.secondParagraphRecords) { gap(); push(records.secondParagraphRecords) }
+  } else if (letterType === 'freetext' && freetext) {
+    freetext.freeTextContent.split('\n').map(l => l.trim()).forEach(l => l ? push(l) : gap())
+  } else if (letterType === 'custom') {
+    push(letterSalutation(common.recipientName)); gap()
+    ;(customSections ?? []).filter(s => s.content.trim()).forEach((s, i) => {
+      if (i > 0) gap()
+      push(`${s.heading}:`)
+      s.content.split('\n').map(l => l.trim()).filter(Boolean).forEach(push)
+    })
+  }
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
 export function buildNoteText(f: Partial<Note>): string {
   const header = NOTE_HEADER_KEYS
     .map(key => {
@@ -382,6 +464,16 @@ export function buildCoverLetterEmail(
 // the letter is sent to — recipientName usually already carries the title, e.g.
 // "Dr Eleanor Vance"), not the admitting doctor. Falls back to a generic
 // greeting rather than leaving a "[Doctor Name]" placeholder in the letter.
+// Display label for a saved letter in list surfaces (Patients / History). Custom
+// and free-text letters share the generic "Letter" label since the doc doesn't
+// carry a distinct title in the list.
+export const LETTER_TYPE_LABEL: Record<LetterType, string> = {
+  referral: 'Referral Letter',
+  records: 'Records Request',
+  freetext: 'Letter',
+  custom: 'Letter',
+}
+
 export function letterSalutation(recipientName?: string): string {
   const r = (recipientName || '').trim()
   return r ? `Dear ${r},` : 'Dear Sir/Madam,'

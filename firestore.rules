@@ -36,12 +36,16 @@ service cloud.firestore {
           && (!('transcript'     in d) || (d.transcript     is string && d.transcript.size()     <= 50000))
           && (!('transcriptMode' in d) || (d.transcriptMode is string && d.transcriptMode.size() <= 50))
           && (!('extraSections'  in d) || (d.extraSections  is string && d.extraSections.size()  <= 30000))
+          && (!('docType'        in d) || (d.docType        is string && d.docType.size()        <= 20))
+          && (!('letterType'     in d) || (d.letterType     is string && d.letterType.size()     <= 20))
+          && (!('letterData'     in d) || (d.letterData     is string && d.letterData.size()     <= 40000))
           && request.resource.data.keys().hasOnly([
                'userId','patient','reg_number','date','time','clinician',
                'session_number','attendance','diagnosis','presentation',
                'history','medications','mse','content','scales','risk',
                'referrals','summary','nextsteps','transcript','transcriptMode',
-               'extraSections','createdAt','updatedAt'
+               'extraSections','docType','letterType','letterData',
+               'createdAt','updatedAt'
              ]);
     }
 

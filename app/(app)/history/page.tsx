@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { listNotes } from '@/lib/firestore/notes'
 import { getPatientProfiles } from '@/lib/firestore/patients'
+import { LETTER_TYPE_LABEL } from '@/lib/utils'
 import { GenderAvatar } from '@/components/ui/GenderAvatar'
 import type { Note, PatientProfile } from '@/types'
 
@@ -273,6 +274,12 @@ export default function HistoryPage() {
                         )}
                         {note.time && (
                           <span className="text-xs text-[var(--text3)]">{note.time}</span>
+                        )}
+                        {note.docType === 'letter' && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--blue)]
+                                           bg-[var(--blue-lt)] border border-[var(--blue)]/30 rounded-full px-1.5 py-0.5">
+                            {note.letterType ? LETTER_TYPE_LABEL[note.letterType] : 'Letter'}
+                          </span>
                         )}
                       </div>
                       {note.clinician && (

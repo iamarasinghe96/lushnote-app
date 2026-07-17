@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
+import { LETTER_TYPE_LABEL } from '@/lib/utils'
 import { getPatientProfiles, deletePatientProfile } from '@/lib/firestore/patients'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
 import { getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
@@ -60,6 +61,8 @@ interface SessionCardProps {
 
 function SessionCard({ note, isLatest, onClick, onDelete }: SessionCardProps) {
   const snippet = (note.content || note.summary || note.presentation || '').slice(0, 120)
+  const isLetter = note.docType === 'letter'
+  const title = isLetter ? (note.letterType ? LETTER_TYPE_LABEL[note.letterType] : 'Letter') : 'Progress Note'
   return (
     <div
       onClick={onClick}
@@ -72,7 +75,15 @@ function SessionCard({ note, isLatest, onClick, onDelete }: SessionCardProps) {
         {note.time && <p className="text-xs text-[var(--text3)] mt-0.5">{note.time}</p>}
       </div>
       <div className="flex-1 min-w-0 border-l border-[var(--border)] pl-3">
-        <p className="text-sm font-semibold text-[var(--text)] truncate">Progress Note</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-semibold text-[var(--text)] truncate">{title}</p>
+          {isLetter && (
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--blue)]
+                             bg-[var(--blue-lt)] border border-[var(--blue)]/30 rounded-full px-1.5 py-0.5 shrink-0">
+              Letter
+            </span>
+          )}
+        </div>
         {snippet && <p className="text-xs text-[var(--text2)] mt-0.5 line-clamp-2">{snippet}</p>}
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -374,6 +385,14 @@ export default function PatientsPage() {
   }, [groupedPatients, search, sortBy, quickFilter])
 
   function loadNote(note: Note) {
+    // A saved letter re-opens in the letter editor. Route via ?noteId so the edit
+    // page owns hydration (and primes its "already saved" guard so merely opening
+    // the letter doesn't re-write it). Don't touch letter state here — resetting it
+    // would wipe the fields when the store already holds this letter.
+    if (note.docType === 'letter' && note.id) {
+      router.push('/edit?noteId=' + note.id)
+      return
+    }
     store.resetLetterMode()
     store.setCurrentNoteId(note.id ?? null)
     store.setCurrentNote({

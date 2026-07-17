@@ -3,14 +3,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { useNoteStore } from '@/hooks/useNoteStore'
+import { useNoteStore, hydrateLetterFromNote } from '@/hooks/useNoteStore'
 import { useKeyboardCloseSafety } from '@/hooks/useKeyboardCloseSafety'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { registerReloadGuard } from '@/lib/reloadGuard'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, letterSalutation } from '@/lib/utils'
+import { buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, letterSalutation, serializeLetterData, parseLetterData, buildLetterText } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import Input from '@/components/ui/Input'
@@ -23,12 +23,40 @@ import ReassignModal from '@/components/modals/ReassignModal'
 import ManualGenerateModal from '@/components/modals/ManualGenerateModal'
 import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderModal'
 import { parseBoldSegments } from '@/lib/pdf'
-import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate, ExtraSection, CustomLetterTemplate } from '@/types'
+import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate, ExtraSection, CustomLetterTemplate, LetterData, ReferralFields, RecordsFields, FreetextFields } from '@/types'
 
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60)
   const s = secs % 60
   return `${m}m ${s}s`
+}
+
+// Canonical LetterData for a letter of the given type, keeping only the fields
+// that type uses. Shared by the letter autosave and the load path so both
+// serialize identically — that's what lets the load path prime the
+// "already saved" guard and avoid a redundant write (and updatedAt bump) on open.
+function buildLetterPayload(parts: {
+  letterType: LetterType
+  common: LetterData['common']
+  referral: ReferralFields
+  records: RecordsFields
+  freetext: FreetextFields
+  customTemplate: CustomLetterTemplate | null
+  customSections: { key: string; heading: string; content: string }[]
+}): LetterData {
+  const { letterType, common, referral, records, freetext, customTemplate, customSections } = parts
+  return {
+    common,
+    ...(letterType === 'referral' ? { referral } : {}),
+    ...(letterType === 'records' ? { records } : {}),
+    ...(letterType === 'freetext' ? { freetext } : {}),
+    ...(letterType === 'custom'
+      ? {
+          customTemplate: customTemplate ?? undefined,
+          customSections: customSections.map(x => ({ key: x.key, heading: x.heading, content: x.content })),
+        }
+      : {}),
+  }
 }
 
 function autoFormatDate(raw: string): string {
@@ -324,6 +352,19 @@ function EditContent() {
   const setSectionOrder = (next: string[]) => { latestOrderRef.current = next; setSectionOrderState(next); syncExtraSectionsIntoFields() }
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isSavingRef = useRef(false)
+  // Letter autosave: a saved letter lives in progress_notes as a docType 'letter'.
+  // lastSavedLetterDataRef holds the last-persisted serialized payload so an
+  // unchanged letter (e.g. one just re-opened) doesn't trigger a redundant write.
+  const letterSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastSavedLetterDataRef = useRef<string | null>(null)
+  // Whether store.currentNoteId currently points at a saved LETTER doc (vs a note).
+  // Letter autosave only ever updates a doc it knows is a letter — otherwise it
+  // creates a fresh one — so a letter can never overwrite a clinical note.
+  const currentDocIsLetterRef = useRef(false)
+  // Always-latest doAutoSaveLetter so the debounce and unmount flush use current
+  // user/profile/store, not a stale first-render closure.
+  const doAutoSaveLetterRef = useRef<() => void>(() => {})
+  const [letterSaveState, setLetterSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
   const [fieldFocused, setFieldFocused] = useState(false)
   const [letterBarExpanded, setLetterBarExpanded] = useState(false)
@@ -595,13 +636,20 @@ function EditContent() {
       setFields(known)
       runPendingGeneration()
     } else if (noteIdParam) {
-      // Opening a specific note always exits letter mode
-      if (s.letterType !== null) s.resetLetterMode()
       if (noteIdParam !== s.currentNoteId) {
+        // Loading a different doc: exit any in-memory letter first. loadNote
+        // re-enters letter mode itself if the target doc is a saved letter.
+        if (s.letterType !== null) s.resetLetterMode()
         loadNote(noteIdParam)
-      } else {
+      } else if (s.letterType === null) {
+        // Same doc, note mode — keep the fields already in the store.
         latestFieldsRef.current = s.currentNote
         setFields(s.currentNote)
+      } else {
+        // Same letter doc carried over in the store on a fresh mount: reload so the
+        // edit-page save guards (currentDocIsLetterRef / lastSavedLetterDataRef) get
+        // primed. Without this, the first autosave would create a duplicate.
+        loadNote(noteIdParam)
       }
     } else {
       latestFieldsRef.current = s.currentNote
@@ -613,6 +661,33 @@ function EditContent() {
   async function loadNote(noteId: string) {
     const note = await getNote(noteId)
     if (!note || !mountedRef.current) return
+    // A saved letter re-opens in letter mode instead of the note editor. If its
+    // payload is somehow unreadable, fall through and show it as a note (its body
+    // still lives in `content`) rather than a blank screen.
+    if (note.docType === 'letter' && note.letterType) {
+      const parsed = parseLetterData(note.letterData)
+      store.resetLetterMode()
+      if (parsed && hydrateLetterFromNote(store, note)) {
+        currentDocIsLetterRef.current = true
+        // Prime the "already saved" guard with the same serialization the
+        // autosave will compute, so merely opening the letter doesn't re-write it.
+        lastSavedLetterDataRef.current = serializeLetterData(buildLetterPayload({
+          letterType: note.letterType,
+          common: parsed.common,
+          referral: parsed.referral ?? ({} as ReferralFields),
+          records: parsed.records ?? ({} as RecordsFields),
+          freetext: parsed.freetext ?? ({} as FreetextFields),
+          customTemplate: parsed.customTemplate ?? null,
+          customSections: parsed.customSections ?? [],
+        })) ?? ''
+        const cn: Partial<Note> = { patient: note.patient, date: note.date }
+        latestFieldsRef.current = cn
+        setFields(cn)
+        store.setCurrentNote(cn)
+        return
+      }
+    }
+    currentDocIsLetterRef.current = false
     const noteFields: Partial<Note> = {
       patient:        note.patient,
       reg_number:     note.reg_number,
@@ -666,6 +741,27 @@ function EditContent() {
     }
   }, [store.pendingLetterGeneration, store.letterType, store.lastTranscript])
 
+  // Autosave the letter (debounced) whenever its fields change — including right
+  // after generation fills them. Skipped while a generation is in flight so a
+  // half-populated letter isn't persisted. doAutoSaveLetter itself no-ops when
+  // the letter has no patient yet or nothing changed since the last save.
+  useEffect(() => {
+    if (!isLetterMode || !user || isGeneratingLetter) return
+    if (letterSaveTimerRef.current) clearTimeout(letterSaveTimerRef.current)
+    letterSaveTimerRef.current = setTimeout(() => { doAutoSaveLetterRef.current() }, 800)
+    return () => { if (letterSaveTimerRef.current) clearTimeout(letterSaveTimerRef.current) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLetterMode, user, isGeneratingLetter, store.letterType, store.letterCommonFields,
+      store.referralFields, store.recordsFields, store.freetextFields, store.customLetterSections])
+
+  // Flush a pending letter save on unmount so navigating away right after an edit
+  // (or generation) never loses it. Fire-and-forget; the mounted guards inside
+  // doAutoSaveLetter keep it from touching unmounted state.
+  useEffect(() => () => {
+    if (storeRef.current.letterType !== null) doAutoSaveLetterRef.current()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     if (!user) return
     listNotes(user.uid).then(setAllNotes).catch(() => {})
@@ -691,8 +787,8 @@ function EditContent() {
   }, [store.lastTranscript])
 
   // Tell pull-to-refresh that reloading the edit screen right now would lose
-  // in-progress work: a letter (letters are never persisted to Firestore) or a
-  // note mid-save. The gesture confirms with the doctor before reloading.
+  // in-progress work: an in-memory letter (autosaves only once it names a patient)
+  // or a save in flight. The gesture confirms with the doctor before reloading.
   useEffect(() => {
     registerReloadGuard(() => storeRef.current.letterType !== null || isSavingRef.current)
     return () => registerReloadGuard(null)
@@ -873,6 +969,93 @@ function EditContent() {
     }
   }
 
+  // Persist the current letter to progress_notes (as a docType 'letter' doc) so it
+  // shows up under its patient in Patients/History and is searchable by the AI
+  // assistant, exactly like a clinical note. Builds the structured payload
+  // (letterData) plus a plain-text body (content) for the list/preview/search
+  // surfaces. No-ops until the letter names a patient, and skips a write when
+  // nothing has changed since the last save.
+  async function doAutoSaveLetter() {
+    const s = storeRef.current
+    const lt = s.letterType
+    if (lt === null || !user) return
+    if (isSavingRef.current) return
+    const common = s.letterCommonFields
+    const patientName = (common.patientName || '').trim()
+    if (!patientName) return
+
+    const data = buildLetterPayload({
+      letterType: lt,
+      common,
+      referral: s.referralFields,
+      records: s.recordsFields,
+      freetext: s.freetextFields,
+      customTemplate: s.customLetterTemplate,
+      customSections: s.customLetterSections,
+    })
+    const serialized = serializeLetterData(data) ?? ''
+    if (serialized === lastSavedLetterDataRef.current) return
+
+    const body = buildLetterText({
+      letterType: lt,
+      common,
+      referral: s.referralFields,
+      records: s.recordsFields,
+      freetext: s.freetextFields,
+      customSections: s.customLetterSections,
+    })
+    const now = new Date()
+    const dateStr = common.letterDate
+      || `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`
+
+    const noteData: NoteInput = {
+      userId: user.uid,
+      patient: patientName,
+      reg_number: '',
+      date: dateStr,
+      time: '',
+      clinician: profile?.displayName ?? '',
+      session_number: '', attendance: '', diagnosis: '', presentation: '', history: '',
+      medications: '', mse: '', content: body.slice(0, 15000), scales: '', risk: '',
+      referrals: '', summary: '', nextsteps: '',
+      docType: 'letter',
+      letterType: lt,
+      letterData: serialized,
+      transcript: s.lastTranscript ? s.lastTranscript.slice(0, 50000) : undefined,
+      transcriptMode: s.lastTranscriptMode,
+    }
+
+    // Only update in place when we know the current doc is THIS letter; otherwise
+    // create a new doc so we never clobber a clinical note that happens to be the
+    // current note id.
+    const targetId = s.currentNoteId && currentDocIsLetterRef.current ? s.currentNoteId : null
+    isSavingRef.current = true
+    setLetterSaveState('saving')
+    try {
+      if (targetId) {
+        await updateNote(targetId, noteData)
+      } else {
+        const id = await saveNote(noteData)
+        s.setCurrentNoteId(id)
+        currentDocIsLetterRef.current = true
+      }
+      lastSavedLetterDataRef.current = serialized
+      if (s.lastTranscript && s.lastTranscript.trim() && !draftClearedRef.current) {
+        draftClearedRef.current = true
+        deleteTranscriptDraft(user.uid).catch(() => {})
+      }
+      if (mountedRef.current) {
+        setLetterSaveState('saved')
+        setTimeout(() => { if (mountedRef.current) setLetterSaveState('idle') }, 1500)
+      }
+    } catch {
+      if (mountedRef.current) setLetterSaveState('idle')
+    } finally {
+      isSavingRef.current = false
+    }
+  }
+  doAutoSaveLetterRef.current = doAutoSaveLetter
+
   function handleFieldBlur(fieldName: string) {
     if (isLetterMode) return
     if (!autoSaveEnabledRef.current) return
@@ -1000,6 +1183,24 @@ function EditContent() {
     setChangeTemplateOpen(true)
   }
 
+  // Leaving a letter to (re)generate a note: the letter has its own saved doc, so
+  // detach from it and start the note as a fresh doc — the letter is never
+  // overwritten and stays available under the patient.
+  function leaveLetterForNewNote() {
+    store.resetLetterMode()
+    store.setCurrentNoteId(null)
+    currentDocIsLetterRef.current = false
+    lastSavedLetterDataRef.current = null
+  }
+
+  // Entering a brand-new letter (e.g. from a note via the Change Template letters
+  // tab). Detach from any current-note id so the letter's first autosave creates
+  // its own doc rather than updating the note we came from.
+  function enterFreshLetter() {
+    currentDocIsLetterRef.current = false
+    lastSavedLetterDataRef.current = null
+  }
+
   function handleTemplateChange(newTemplate: AnyTemplate, noteLength?: string) {
     setChangeTemplateOpen(false)
     const wasLetter = store.letterType !== null
@@ -1008,13 +1209,13 @@ function EditContent() {
       // An empty note (interrupted / never generated) has nothing to lose, so go
       // straight to generation.
       if (noteHasContent && !window.confirm(`Regenerate note with "${newTemplate.title}"?`)) return
-      if (wasLetter) store.resetLetterMode()
+      if (wasLetter) leaveLetterForNewNote()
       if (noteLength) store.setOverrideNoteLength(noteLength as 'brief' | 'balanced' | 'detailed')
       runGeneration(store.lastTranscript, newTemplate)
     } else {
       // No transcript to regenerate from — just leave letter mode (if any) and keep
       // the existing note fields. Used when switching a letter back to its note.
-      if (wasLetter) store.resetLetterMode()
+      if (wasLetter) leaveLetterForNewNote()
       store.setLastChosenTemplate(newTemplate)
       if (noteLength) store.setOverrideNoteLength(noteLength as 'brief' | 'balanced' | 'detailed')
     }
@@ -1028,6 +1229,8 @@ function EditContent() {
     const alreadyLetter = store.letterType !== null
     store.setLetterType(type)
     if (!alreadyLetter) {
+      // Coming from a note: this letter is a NEW doc (the note keeps its own).
+      enterFreshLetter()
       const now = new Date()
       const dd = String(now.getDate()).padStart(2, '0')
       const mm = String(now.getMonth() + 1).padStart(2, '0')
@@ -1053,6 +1256,7 @@ function EditContent() {
     store.setCustomLetterTemplate(t)
     store.setCustomLetterSections(t.sections.map(s => ({ key: s.key, heading: s.heading, content: '' })))
     if (!alreadyLetter) {
+      enterFreshLetter()
       const now = new Date()
       const dd = String(now.getDate()).padStart(2, '0')
       const mm = String(now.getMonth() + 1).padStart(2, '0')
@@ -2288,6 +2492,11 @@ function EditContent() {
                 : letterType === 'custom' ? (store.customLetterTemplate?.title ?? 'Letter')
                 : 'Free Text Letter'}
             </span>
+            {letterSaveState !== 'idle' && (
+              <span className="text-[11px] text-white/80 shrink-0" aria-live="polite">
+                {letterSaveState === 'saving' ? 'Saving…' : 'Saved'}
+              </span>
+            )}
             <button
               onClick={() => setLetterBarExpanded(v => !v)}
               aria-label={letterBarExpanded ? 'Collapse layout controls' : 'Expand layout controls'}
