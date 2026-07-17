@@ -70,8 +70,7 @@ export default function LetterPickerModal({ open, onSelect, onSelectClinicalNote
 
   return (
     <Modal open={open} onClose={onClose} title="Choose what to write" maxWidth="md">
-      <div className="px-5 pb-5">
-        <p className="text-sm text-[var(--text2)]">Generate a letter, or write a clinical note from scratch</p>
+      <div className="px-5 pb-5 pt-1">
         {showSearch && (
           <input
             type="text"
