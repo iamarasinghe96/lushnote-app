@@ -81,16 +81,17 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
   const layoutRef = useRef(layout)
   layoutRef.current = layout
 
-  // The signature is two ruled lines tall, so it starts one row past the last
-  // written line and needs a second row below it — clamp so both rows fit.
-  const SIG_ROWS = 2
+  // The signature sits on one ruled line, one row past the last written line,
+  // sized a little taller than the line so its top/bottom edges spill over it.
+  const SIG_HEIGHT_FACTOR = 1.4
   const sigRow = useMemo(() => {
     let last = -1
     for (let r = 0; r < totalRows; r++) if (layout.rows[r]?.some(run => run.text.trim())) last = r
-    return last >= 0 ? Math.min(last + 1, totalRows - SIG_ROWS) : -1
+    return last >= 0 ? Math.min(last + 1, totalRows - 1) : -1
   }, [layout, totalRows])
   const sigScaleF = (signatureScale && signatureScale > 0 ? signatureScale : 100) / 100
-  const sigHeightMm = geo.rowHeightMm * SIG_ROWS * sigScaleF
+  const sigHeightMm = geo.rowHeightMm * SIG_HEIGHT_FACTOR * sigScaleF
+  const sigOverhangMm = (sigHeightMm - geo.rowHeightMm) / 2  // spill above & below the line
   const notesRightMm = geo.tableLeftMm + geo.dateColMm + geo.notesColMm
 
   // The saved signature is an SVG in Storage. iOS Safari won't reliably render an
@@ -169,7 +170,7 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
     const L = layoutRef.current
     let lastFilled = -1
     for (let r = 0; r < totalRows; r++) if (L.rows[r] && L.rows[r].some(run => run.text.trim())) lastFilled = r
-    const sigRow = lastFilled >= 0 ? Math.min(lastFilled + 1, totalRows - SIG_ROWS) : -1
+    const sigRow = lastFilled >= 0 ? Math.min(lastFilled + 1, totalRows - 1) : -1
     let sigImg: HTMLImageElement | null = null
     const sigSrc = sigDataUrlRef.current || (signatureUrl ? proxied(signatureUrl) : null)
     if (sigSrc && sigRow >= 0) { try { sigImg = await loadImg(sigSrc) } catch { sigImg = null } }
@@ -263,15 +264,12 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
         const rowTopMm = geo.tableTopMm + geo.rowHeightMm * (1 + rowInPage)
         const notesRightMm = geo.tableLeftMm + geo.dateColMm + geo.notesColMm
         const scaleF = (signatureScale && signatureScale > 0 ? signatureScale : 100) / 100
-        const targetHmm = geo.rowHeightMm * SIG_ROWS * scaleF
+        const targetHmm = geo.rowHeightMm * SIG_HEIGHT_FACTOR * scaleF
+        const overhang = (targetHmm - geo.rowHeightMm) / 2
         const ratio = sigImg.naturalWidth / sigImg.naturalHeight || 3
         const wmm = targetHmm * ratio
         const xmm = notesRightMm - wmm - 1
-        const padMm = 0.6
-        // White backing so the ruled lines don't run through the signature.
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect((xmm - padMm) * MM_PER_PX * SCALE, (rowTopMm - padMm) * MM_PER_PX * SCALE, (wmm + padMm * 2) * MM_PER_PX * SCALE, (targetHmm + padMm * 2) * MM_PER_PX * SCALE)
-        ctx.drawImage(sigImg, xmm * MM_PER_PX * SCALE, rowTopMm * MM_PER_PX * SCALE, wmm * MM_PER_PX * SCALE, targetHmm * MM_PER_PX * SCALE)
+        ctx.drawImage(sigImg, xmm * MM_PER_PX * SCALE, (rowTopMm - overhang) * MM_PER_PX * SCALE, wmm * MM_PER_PX * SCALE, targetHmm * MM_PER_PX * SCALE)
       }
 
       page.style.transform = savedTransform
@@ -361,11 +359,9 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
                 alt="Signature"
                 className="hf-sig"
                 style={{
-                  top: `${geo.tableTopMm + geo.rowHeightMm * (1 + (sigRow % rowsPerPage))}mm`,
+                  top: `${geo.tableTopMm + geo.rowHeightMm * (1 + (sigRow % rowsPerPage)) - sigOverhangMm}mm`,
                   right: `${210 - notesRightMm + 1}mm`,
                   height: `${sigHeightMm}mm`,
-                  background: '#fff',
-                  padding: '0.6mm',
                 }}
               />
             )}
