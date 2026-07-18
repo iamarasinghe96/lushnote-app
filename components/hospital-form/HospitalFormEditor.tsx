@@ -74,6 +74,38 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
   const sigScaleF = (signatureScale && signatureScale > 0 ? signatureScale : 100) / 100
   const notesRightMm = geo.tableLeftMm + geo.dateColMm + geo.notesColMm
 
+  // The saved signature is an SVG in Storage. iOS Safari won't reliably render an
+  // SVG in an <img> sized only by a mm height inside a scaled page, and drawing a
+  // bare SVG onto the PDF canvas is unreliable too. So rasterise it to a PNG data
+  // URL once (through the same-origin proxy) and use that everywhere — the exact
+  // approach the letter export uses. sigDataUrl drives both the preview and PDF.
+  const [sigDataUrl, setSigDataUrl] = useState<string | null>(null)
+  const sigDataUrlRef = useRef<string | null>(null)
+  sigDataUrlRef.current = sigDataUrl
+  useEffect(() => {
+    let cancelled = false
+    if (!signatureUrl) { setSigDataUrl(null); return }
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      if (cancelled) return
+      const w = img.naturalWidth || 600
+      const h = img.naturalHeight || 200
+      const targetH = 240
+      const s = targetH / h
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(w * s))
+      canvas.height = Math.max(1, Math.round(h * s))
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { setSigDataUrl(null); return }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      try { setSigDataUrl(canvas.toDataURL('image/png')) } catch { setSigDataUrl(null) }
+    }
+    img.onerror = () => { if (!cancelled) setSigDataUrl(null) }
+    img.src = '/api/proxy-image?url=' + encodeURIComponent(signatureUrl)
+    return () => { cancelled = true }
+  }, [signatureUrl])
+
   useEffect(() => {
     const el = noteCellRef.current
     if (!el) return
@@ -120,7 +152,8 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
     for (let r = 0; r < totalRows; r++) if (L.rows[r] && L.rows[r].some(run => run.text.trim())) lastFilled = r
     const sigRow = lastFilled >= 0 ? Math.min(lastFilled + 1, totalRows - 1) : -1
     let sigImg: HTMLImageElement | null = null
-    if (signatureUrl && sigRow >= 0) { try { sigImg = await loadImg(proxied(signatureUrl)) } catch { sigImg = null } }
+    const sigSrc = sigDataUrlRef.current || (signatureUrl ? proxied(signatureUrl) : null)
+    if (sigSrc && sigRow >= 0) { try { sigImg = await loadImg(sigSrc) } catch { sigImg = null } }
 
     for (let p = 0; p < pageCount; p++) {
       const page = pageRefs.current[p]
@@ -295,10 +328,10 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
                 })}
               </tbody>
             </table>
-            {signatureUrl && sigRow >= 0 && Math.floor(sigRow / rowsPerPage) === p && (
+            {sigDataUrl && sigRow >= 0 && Math.floor(sigRow / rowsPerPage) === p && (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
-                src={signatureUrl}
+                src={sigDataUrl}
                 alt="Signature"
                 className="hf-sig"
                 style={{
