@@ -12,7 +12,7 @@ import { getHospitalForm } from '@/lib/firestore/hospitalForms'
 import HospitalFormView from '@/components/hospital-form/HospitalFormView'
 import { registerReloadGuard } from '@/lib/reloadGuard'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, letterSalutation, serializeLetterData, parseLetterData, buildLetterText, parseHospitalFormData } from '@/lib/utils'
+import { buildTemplatePrompt, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, serializeLetterData, parseLetterData, buildLetterText, parseHospitalFormData } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import Input from '@/components/ui/Input'
@@ -24,7 +24,6 @@ import TemplatePicker from '@/components/modals/TemplatePicker'
 import ReassignModal from '@/components/modals/ReassignModal'
 import ManualGenerateModal from '@/components/modals/ManualGenerateModal'
 import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderModal'
-import { parseBoldSegments } from '@/lib/pdf'
 import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate, ExtraSection, CustomLetterTemplate, LetterData, ReferralFields, RecordsFields, FreetextFields } from '@/types'
 
 function formatDuration(secs: number): string {
@@ -1518,33 +1517,6 @@ function EditContent() {
     }
   }
 
-  async function loadImageAsDataURL(url: string): Promise<{ dataUrl: string; w: number; h: number }> {
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      img.onload = () => {
-        const MAX_W = 1240
-        const scale = img.naturalWidth > MAX_W ? MAX_W / img.naturalWidth : 1
-        const canvas = document.createElement('canvas')
-        canvas.width = Math.round(img.naturalWidth * scale)
-        canvas.height = Math.round(img.naturalHeight * scale)
-        const ctx = canvas.getContext('2d')!
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        resolve({ dataUrl: canvas.toDataURL('image/jpeg', 0.85), w: img.naturalWidth, h: img.naturalHeight })
-      }
-      img.onerror = reject
-      img.src = url
-    })
-  }
-
-  // Load a storage image through the same-origin proxy so it can be drawn onto a
-  // canvas for PDF export without cross-origin tainting.
-  function loadPdfImage(url: string): Promise<{ dataUrl: string; w: number; h: number }> {
-    return loadImageAsDataURL('/api/proxy-image?url=' + encodeURIComponent(url))
-  }
-
   async function handleSearchAddress() {
     const query = letterCommonFields.recipientName.trim() || letterCommonFields.recipientAddress.trim()
     if (!query) { setLetterToast('Enter a recipient name first'); return }
@@ -1582,284 +1554,6 @@ function EditContent() {
     }
   }
 
-  // The exact letter body sequence, expressed as write()/para() calls. Shared by
-  // the PDF export and the page-count estimate so neither can drift from the other.
-  function flowLetterBody(write: (text: string, bold?: boolean) => void, para: () => void) {
-    write(letterCommonFields.letterDate || '')
-    para()
-    write('To:')
-    write(letterCommonFields.recipientName || '[Recipient Name]')
-    if (letterCommonFields.recipientAddress) {
-      letterCommonFields.recipientAddress.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => write(l))
-    }
-    para()
-
-    if (letterType !== 'freetext') {
-      write(`Re: ${letterCommonFields.patientName || '[Patient Name]'}`, true)
-      if (letterCommonFields.dob) write(`DOB: ${letterCommonFields.dob}`, true)
-    } else {
-      write(`Subject: ${letterCommonFields.patientName || '[Subject]'}`, true)
-    }
-    para()
-
-    if (letterType === 'referral') {
-      write(letterSalutation(letterCommonFields.recipientName))
-      para()
-      write(`I am writing to refer to you ${letterCommonFields.patientName || '[Patient Name]'}, who was admitted to the ${referralFields.admissionUnit || '[Unit]'} from the ${formatDateForLetter(referralFields.admissionDateStart)} to the ${formatDateForLetter(referralFields.admissionDateEnd)}.`)
-      para()
-      const age = calculateAgeFromDOB(letterCommonFields.dob)
-      const agePart = age !== null ? `${age} year old ` : ''
-      const firstName = (letterCommonFields.patientName || '').split(' ')[0] || 'Patient'
-      const title = referralFields.gender === 'male' ? 'Mr.' : referralFields.gender === 'female' ? 'Ms.' : ''
-      write(`Thank you for seeing ${title} ${letterCommonFields.patientName || '[Patient Name]'}. ${firstName} is a ${agePart}${referralFields.gender || '[gender]'} who presented with ${referralFields.presentingComplaint || '[presenting complaint]'}.`)
-      if (referralFields.secondParagraph) { para(); write(referralFields.secondParagraph) }
-      para()
-      write(`${referralFields.referralReason || '[reason for referral]'}${referralFields.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`)
-      if (referralFields.showPastMedicalHistory && referralFields.pastMedicalHistory) {
-        para(); write('Past Medical History:', true)
-        referralFields.pastMedicalHistory.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => write(l))
-      }
-      if (referralFields.showMedicationList && referralFields.medicationList) {
-        para(); write('Medication List:', true)
-        autoNumberLines(referralFields.medicationList).split('\n').map(l => l.trim()).filter(Boolean).forEach(l => write(l))
-      }
-      para()
-      write('Please do not hesitate to contact me if there are any queries regarding this referral.')
-    } else if (letterType === 'records') {
-      write('To whom it may concern,')
-      para()
-      write(`I am writing to request any correspondence or documentation from their previous visits at ${recordsFields.recordsLocation || '[Location]'}.`)
-      if (recordsFields.secondParagraphRecords) { para(); write(recordsFields.secondParagraphRecords) }
-    } else if (letterType === 'freetext') {
-      freetextFields.freeTextContent.split('\n').map(l => l.trim()).forEach(l => {
-        if (l) write(l); else para()
-      })
-    } else if (letterType === 'custom') {
-      write(letterSalutation(letterCommonFields.recipientName))
-      para()
-      store.customLetterSections.filter(s => s.content.trim()).forEach((s, i) => {
-        if (i > 0) para()
-        write(`${s.heading}:`, true)
-        s.content.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => write(l))
-      })
-      para()
-      write('Please do not hesitate to contact me if you require any further information.')
-    }
-  }
-
-  // The signature lines (name, provider/phone, position, workplace), built once so
-  // the PDF and the page-count estimate use an identical block height.
-  function buildSigLines(): { text: string; bold?: boolean; small?: boolean }[] {
-    const sigLines: { text: string; bold?: boolean; small?: boolean }[] = [{ text: 'Thank you and kind regards,' }]
-    const nameWithCreds = profile?.displayName
-      ? profile?.credentials ? `${profile.displayName} (${profile.credentials})` : profile.displayName
-      : ''
-    if (nameWithCreds) sigLines.push({ text: nameWithCreds, bold: true })
-    const providerLine = [
-      profile?.providerNumber ? `Provider No: ${profile.providerNumber}` : '',
-      profile?.workPhone ? `Ph no: ${profile.workPhone}` : '',
-    ].filter(Boolean).join(' | ')
-    if (providerLine) sigLines.push({ text: providerLine })
-    if (profile?.position) sigLines.push({ text: profile.position, small: true })
-    const wpName = profile?.workplaces?.find(w => w.id === profile?.activeWorkplaceId)?.name
-    if (wpName) sigLines.push({ text: wpName, small: true })
-    return sigLines
-  }
-
-
-  async function handleLetterPDF() {
-    const { jsPDF } = await import('jspdf')
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
-    const PW = 210, PH = 297
-    const ML = marginDraft > 0 ? marginDraft : 20
-    const MR = ML, CW = PW - ML - MR
-
-    const fs = fontSizeDraft > 0 ? fontSizeDraft : 11
-    const ls = lineSpacingDraft > 0 ? lineSpacingDraft : 1.4
-    const LH = fs * 0.3528 * ls          // line advance in mm (1pt ≈ 0.3528mm)
-    const PS = LH * 0.5                   // paragraph gap
-    const smallFs = Math.max(7, fs - 2)
-
-    // Load the active letterhead images (via same-origin proxy to avoid canvas taint)
-    const lh = store.activeLetterhead
-    let headerImg: { dataUrl: string; w: number; h: number } | null = null
-    let footerImg: { dataUrl: string; w: number; h: number } | null = null
-    if (lh?.headerUrl) { try { headerImg = await loadPdfImage(lh.headerUrl) } catch { headerImg = null } }
-    if (lh?.footerUrl) { try { footerImg = await loadPdfImage(lh.footerUrl) } catch { footerImg = null } }
-
-    const headerH = headerImg ? (headerImg.h / headerImg.w) * PW : 0
-    const footerH = footerImg ? (footerImg.h / footerImg.w) * PW : 0
-    const contentTop = headerImg ? headerH + 8 : 20
-    const footerY = PH - footerH
-    const maxY = footerImg ? footerY - 4 : PH - 15
-    // Signature block can overlap into the footer's white curved zone (top ~42%)
-    // so it sits right above the blue band rather than floating high above the footer.
-    const sigZoneBottom = footerImg ? footerY + footerH * 0.42 : maxY
-
-    const stampLetterhead = () => {
-      if (headerImg) doc.addImage(headerImg.dataUrl, 'JPEG', 0, 0, PW, headerH)
-      if (footerImg) doc.addImage(footerImg.dataUrl, 'JPEG', 0, footerY, PW, footerH)
-    }
-
-    let y = contentTop
-    stampLetterhead()
-
-    // Word-by-word rendering (same tokenizing approach as lib/pdf.ts's
-    // drawRich) so **bold**/*italic* markdown typed via the Bold/Italic
-    // shortcut renders inline within a wrapped paragraph, rather than the
-    // old splitTextToSize(text) approach which could only style a whole call
-    // uniformly via the `bold` flag.
-    const write = (text: string, bold = false, size = fs) => {
-      const segs = parseBoldSegments(text)
-      const tokens: { w: string; bold: boolean; italic: boolean; space: boolean }[] = []
-      for (const s of segs) {
-        for (const part of s.text.split(/(\s+)/)) {
-          if (!part) continue
-          tokens.push({ w: part, bold: bold || s.bold, italic: s.italic, space: /^\s+$/.test(part) })
-        }
-      }
-      const fontStyle = (b: boolean, i: boolean) => (b && i ? 'bolditalic' : b ? 'bold' : i ? 'italic' : 'normal')
-      doc.setFontSize(size)
-      const maxX = ML + CW
-      let x = ML
-      let atLineStart = true
-      const startNewLine = () => {
-        y += LH
-        if (y + LH > maxY) { doc.addPage(); stampLetterhead(); y = contentTop }
-        x = ML
-        atLineStart = true
-      }
-      if (y + LH > maxY) { doc.addPage(); stampLetterhead(); y = contentTop }
-      for (const tok of tokens) {
-        if (tok.space) {
-          if (atLineStart) continue
-          doc.setFont('helvetica', 'normal')
-          x += doc.getTextWidth(tok.w)
-          continue
-        }
-        doc.setFont('helvetica', fontStyle(tok.bold, tok.italic))
-        const tw = doc.getTextWidth(tok.w)
-        if (!atLineStart && x + tw > maxX) startNewLine()
-        doc.text(tok.w, x, y)
-        x += tw
-        atLineStart = false
-      }
-      y += LH
-    }
-    const nl = (n = 1) => { y += PS * n }
-
-    // Para break = one full blank line. LH is already one line advance;
-    // PS = LH*0.5, so nl(2) == PS*2 == LH == one blank line.
-    const para = () => nl(2)
-
-    flowLetterBody(write, para)
-
-    // Signature block, pinned to the bottom of the page (above the footer)
-    let sigDataUrl: string | null = null
-    if (profile?.signatureUrl) {
-      try { sigDataUrl = (await loadPdfImage(profile.signatureUrl)).dataUrl } catch { sigDataUrl = null }
-    }
-    const sigF = (sigScaleDraft > 0 ? sigScaleDraft : 100) / 100
-    const sigImgH = sigDataUrl ? 14 * sigF + 3 : 0
-    const sigLines = buildSigLines()
-
-    const blockH = sigImgH + sigLines.length * LH
-    let sy = sigZoneBottom - blockH
-    if (sy < y + PS * 2) { doc.addPage(); stampLetterhead(); sy = sigZoneBottom - blockH }
-    if (sy < contentTop) sy = contentTop
-
-    const cx = PW / 2
-    if (sigDataUrl) {
-      try { doc.addImage(sigDataUrl, 'JPEG', cx - (40 * sigF) / 2, sy, 40 * sigF, 14 * sigF) } catch {}
-      sy += 14 * sigF + 3
-    }
-    const smallLH = smallFs * 0.3528 * (lineSpacingDraft > 0 ? lineSpacingDraft : 1)
-    for (const line of sigLines) {
-      const lineSize = line.small ? smallFs : fs
-      const lineAdvance = line.small ? smallLH : LH
-      doc.setFont('helvetica', line.bold ? 'bold' : 'normal')
-      doc.setFontSize(lineSize)
-      doc.text(line.text, cx, sy, { align: 'center' })
-      sy += lineAdvance
-    }
-
-    const pname = (letterCommonFields.patientName || 'letter').replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-')
-    const typeLabel = letterType === 'referral' ? 'Referral' : letterType === 'records' ? 'RecordsRequest' : 'Letter'
-    doc.save(`${typeLabel}_${pname}_${(letterCommonFields.letterDate || '').replace(/\//g, '-')}.pdf`)
-  }
-
-  function handleLetterEmail() {
-    const subject = letterType === 'referral'
-      ? `Referral: ${letterCommonFields.patientName || ''} - DOB: ${letterCommonFields.dob || ''}`
-      : letterType === 'records'
-      ? `Medical Records Request: ${letterCommonFields.patientName || ''}`
-      : `Letter: ${letterCommonFields.patientName || ''}`
-
-    const lines: string[] = []
-    lines.push(letterCommonFields.letterDate || '')
-    lines.push('')
-    lines.push('To: ' + (letterCommonFields.recipientName || '[Recipient Name]'))
-    if (letterCommonFields.recipientAddress) lines.push(letterCommonFields.recipientAddress)
-    lines.push('')
-    if (letterType !== 'freetext') {
-      lines.push('Re: ' + (letterCommonFields.patientName || '[Patient Name]'))
-      if (letterCommonFields.dob) lines.push('DOB: ' + letterCommonFields.dob)
-    } else {
-      lines.push('Subject: ' + (letterCommonFields.patientName || '[Subject]'))
-    }
-    lines.push('')
-    if (letterType === 'referral') {
-      lines.push(letterSalutation(letterCommonFields.recipientName))
-      lines.push('')
-      lines.push(`I am writing to refer to you ${letterCommonFields.patientName || '[Patient Name]'}, who was admitted to the ${referralFields.admissionUnit || '[Unit]'} from the ${formatDateForLetter(referralFields.admissionDateStart)} to the ${formatDateForLetter(referralFields.admissionDateEnd)}.`)
-      lines.push('')
-      const age = calculateAgeFromDOB(letterCommonFields.dob)
-      const agePart = age !== null ? `${age} year old ` : ''
-      const firstName = (letterCommonFields.patientName || '').split(' ')[0] || 'Patient'
-      const title = referralFields.gender === 'male' ? 'Mr.' : referralFields.gender === 'female' ? 'Ms.' : ''
-      lines.push(`Thank you for seeing ${title} ${letterCommonFields.patientName || '[Patient Name]'}. ${firstName} is a ${agePart}${referralFields.gender || '[gender]'} who presented with ${referralFields.presentingComplaint || '[presenting complaint]'}.`)
-      if (referralFields.secondParagraph) { lines.push(''); lines.push(referralFields.secondParagraph) }
-      lines.push('')
-      lines.push(`${referralFields.referralReason || '[reason for referral]'}${referralFields.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`)
-      if (referralFields.showPastMedicalHistory && referralFields.pastMedicalHistory) {
-        lines.push(''); lines.push('Past Medical History:'); lines.push(referralFields.pastMedicalHistory)
-      }
-      if (referralFields.showMedicationList && referralFields.medicationList) {
-        lines.push(''); lines.push('Medication List:'); lines.push(referralFields.medicationList)
-      }
-      lines.push(''); lines.push('Please do not hesitate to contact me if there are any queries regarding this referral.')
-    } else if (letterType === 'records') {
-      lines.push('To whom it may concern,')
-      lines.push('')
-      lines.push(`I am writing to request any correspondence or documentation from their previous visits at ${recordsFields.recordsLocation || '[Location]'}.`)
-      if (recordsFields.secondParagraphRecords) { lines.push(''); lines.push(recordsFields.secondParagraphRecords) }
-    } else if (letterType === 'freetext') {
-      lines.push(freetextFields.freeTextContent || '')
-    } else if (letterType === 'custom') {
-      lines.push(letterSalutation(letterCommonFields.recipientName))
-      store.customLetterSections.filter(s => s.content.trim()).forEach(s => {
-        lines.push(''); lines.push(`${s.heading}:`)
-        s.content.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => lines.push(l))
-      })
-      lines.push(''); lines.push('Please do not hesitate to contact me if you require any further information.')
-    }
-    lines.push(''); lines.push('Kind regards,')
-    if (profile?.displayName) lines.push(profile.displayName)
-    if (profile?.credentials) lines.push(profile.credentials)
-
-    const body = encodeURIComponent(lines.join('\n'))
-    const sub = encodeURIComponent(subject)
-    const ua = navigator.userAgent
-    const isIOS = /iPhone|iPad/i.test(ua)
-    const isAndroid = /Android/i.test(ua)
-    const outlookUrl = isIOS
-      ? `ms-outlook://compose?subject=${sub}&body=${body}`
-      : isAndroid
-      ? `ms-outlook://emails/new?subject=${sub}&body=${body}`
-      : `https://outlook.office.com/mail/deeplink/compose?subject=${sub}&body=${body}`
-    if (isIOS || isAndroid) window.location.href = outlookUrl
-    else window.open(outlookUrl, '_blank')
-  }
 
   async function handleGenerateFromTranscript() {
     if (!store.lastTranscript || !letterType) return
@@ -2538,18 +2232,7 @@ function EditContent() {
               </svg>
             </button>
 
-            <div className="flex items-center gap-2 ml-auto shrink-0">
-              <button
-                onClick={handleLetterPDF}
-                className="text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-[var(--r)] motion-safe:active:scale-95 motion-safe:transition-transform">
-                Download PDF
-              </button>
-              <button
-                onClick={handleLetterEmail}
-                className="text-xs bg-[#10b981] text-white font-semibold px-3 py-1.5 rounded-[var(--r)] border border-white/50 motion-safe:active:scale-95 motion-safe:transition-transform">
-                Email
-              </button>
-            </div>
+            <span className="text-[11px] text-white/70 ml-auto shrink-0">Export from the Export tab</span>
           </div>
 
           {letterBarExpanded && (

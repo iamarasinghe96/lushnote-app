@@ -5,6 +5,7 @@ import { useNoteStore } from '@/hooks/useNoteStore'
 import { useAuth } from '@/hooks/useAuth'
 import { buildNoteText, buildCoverLetterEmail, buildPreviewHTML, buildLetterPreviewHTML, withTimeout } from '@/lib/utils'
 import { downloadNotePDF } from '@/lib/pdf'
+import { downloadLetterPDF, openLetterEmail, type LetterExportParams } from '@/lib/letterExport'
 import { getPatientProfiles } from '@/lib/firestore/patients'
 import HospitalFormView from '@/components/hospital-form/HospitalFormView'
 import type { PatientProfile, LetterType } from '@/types'
@@ -114,8 +115,38 @@ export default function ExportPage() {
     setMenuOpen(false)
   }
 
+  function letterParams(): LetterExportParams {
+    return {
+      letterType: letterType!,
+      common: store.letterCommonFields,
+      referral: store.referralFields,
+      records: store.recordsFields,
+      freetext: store.freetextFields,
+      customSections: store.customLetterSections,
+      letterheadHeaderUrl: store.activeLetterhead?.headerUrl ?? null,
+      letterheadFooterUrl: store.activeLetterhead?.footerUrl ?? null,
+      signatureUrl: profile?.signatureUrl ?? null,
+      signatureScale: profile?.signatureScale ?? 100,
+      fontSize: profile?.letterFontSize ?? 11,
+      lineSpacing: profile?.letterLineSpacing ?? 1.4,
+      margin: profile?.letterMargin ?? 20,
+      clinicianName: profile?.displayName,
+      credentials: profile?.credentials,
+      providerNumber: profile?.providerNumber,
+      workPhone: profile?.workPhone,
+      position: profile?.position,
+      workplaceName: profile?.workplaces?.find(w => w.id === profile?.activeWorkplaceId)?.name,
+    }
+  }
+  async function handleLetterDownload() { setMenuOpen(false); try { await downloadLetterPDF(letterParams()) } catch { showToast('Could not build the PDF.') } }
+  function handleLetterEmailExport() { setMenuOpen(false); openLetterEmail(letterParams()) }
+
   const menuItems = isLetterMode
-    ? [] // Letter exports are handled from the Edit tab toolbar
+    ? [
+        { label: 'Download PDF',        action: handleLetterDownload },
+        { label: 'Email (Outlook)',     action: handleLetterEmailExport },
+        { label: 'Print',               action: handlePrint },
+      ]
     : [
         { label: 'Copy to Clipboard',  action: handleCopyClipboard },
         { label: 'Download PDF',       action: handlePDF },
@@ -147,8 +178,8 @@ export default function ExportPage() {
         )}
       </div>
 
-      {/* Floating Export button - top-right corner (hidden in letter mode) */}
-      {!isLetterMode && (
+      {/* Floating Export button - top-right corner (notes and letters) */}
+      {(
         <div ref={menuRef} className="absolute right-4 z-10 no-print" style={{ top: 'calc(env(safe-area-inset-top) + 80px)' }}>
           <button
             onClick={() => setMenuOpen(o => !o)}
@@ -186,15 +217,6 @@ export default function ExportPage() {
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {/* In letter mode, point user to Edit tab for exports */}
-      {isLetterMode && (
-        <div className="absolute right-4 z-10 no-print" style={{ top: 'calc(env(safe-area-inset-top) + 80px)' }}>
-          <span className="text-xs text-[var(--text3)] bg-white/80 px-3 py-1.5 rounded-full border border-[var(--border)]">
-            Use Edit tab to download PDF or email
-          </span>
         </div>
       )}
 
