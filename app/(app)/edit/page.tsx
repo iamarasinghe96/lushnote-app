@@ -2222,7 +2222,7 @@ function EditContent() {
               onClick={() => setLetterBarExpanded(v => !v)}
               aria-label={letterBarExpanded ? 'Collapse layout controls' : 'Expand layout controls'}
               aria-pressed={letterBarExpanded}
-              className={`w-6 h-6 flex items-center justify-center rounded-full border motion-safe:transition-all shrink-0 ${
+              className={`w-6 h-6 flex items-center justify-center rounded-full border motion-safe:transition-all shrink-0 ml-auto ${
                 letterBarExpanded ? 'bg-white text-[var(--blue)] border-white' : 'bg-white/15 border-white/40 text-white'
               }`}
               style={{ transform: letterBarExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transitionDuration: '200ms' }}
@@ -2231,8 +2231,6 @@ function EditContent() {
                 <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
-
-            <span className="text-[11px] text-white/70 ml-auto shrink-0">Export from the Export tab</span>
           </div>
 
           {letterBarExpanded && (

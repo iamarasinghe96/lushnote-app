@@ -171,7 +171,7 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
 
   const bar = (
     <div className="sticky z-20 mx-3 mt-3 flex items-center gap-2 px-3 py-2 rounded-[var(--r-lg)] text-white text-sm"
-      style={{ top: 'calc(env(safe-area-inset-top) + 8px)', background: 'linear-gradient(to right, #1d4ed8, #2563eb)', boxShadow: '0 4px 16px rgba(15,23,42,.25)' }}>
+      style={{ top: 'calc(env(safe-area-inset-top) + 8px)', background: 'rgba(14,159,110,0.92)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.28)', boxShadow: '0 4px 16px rgba(14,159,110,0.25)' }}>
       <span className="font-medium truncate">{form.name}</span>
       {!readOnly && saveState !== 'idle' && <span className="text-[11px] text-white/80">{saveState === 'saving' ? 'Saving…' : 'Saved'}</span>}
       {isGenerating && <span className="text-[11px] text-white/90">Generating…</span>}
@@ -185,7 +185,7 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
   // Export tab: the ruled-form preview + Download.
   if (readOnly) {
     return (
-      <div className="h-full overflow-y-auto scrollbar-none pb-tabbar pt-header bg-[#888]">
+      <div className="h-full overflow-y-auto scrollbar-none pb-tabbar pt-header bg-[var(--bg)]">
         {bar}
         <div className="py-4">
           <HospitalFormEditor ref={editorRef} form={form} value={value} signatureUrl={profile?.signatureUrl} signatureScale={profile?.signatureScale} />
