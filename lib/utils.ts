@@ -625,9 +625,12 @@ export function buildLetterPreviewHTML(params: {
          ${escapeHtml(clinicianName || '')}${credentials ? ', ' + escapeHtml(credentials) : ''}
        </div>`
 
-  const sigHeight = Math.round(50 * ((signatureScale && signatureScale > 0 ? signatureScale : 100) / 100))
+  // Preview-only sizing: the signature block is kept compact here so it never
+  // collides with the footer letterhead on screen. The PDF export has its own
+  // sizing (lib/letterExport.ts) and is unaffected.
+  const sigHeight = Math.round(34 * ((signatureScale && signatureScale > 0 ? signatureScale : 100) / 100))
   const signatureHtml = signatureUrl
-    ? `<img src="${escapeHtml(signatureUrl)}" style="height:${sigHeight}px;object-fit:contain;display:block;margin:0 auto 4px;" alt="Signature" />`
+    ? `<img src="${escapeHtml(signatureUrl)}" style="height:${sigHeight}px;object-fit:contain;display:block;margin:0 auto 2px;" alt="Signature" />`
     : ''
 
   const recipientBlock = `
@@ -706,13 +709,13 @@ export function buildLetterPreviewHTML(params: {
           ${reBlock}
           ${bodyHtml}
         </div>
-        <div style="margin-top:auto;padding-top:16px;text-align:center;position:relative;z-index:2;">
+        <div style="margin-top:auto;padding-top:8px;text-align:center;position:relative;z-index:2;font-size:${Math.max(8, baseFont - 2)}pt;line-height:1.25;">
           ${signatureHtml}
-          <p style="margin:0 0 2px;">Thank you and kind regards,</p>
-          <p style="margin:0 0 2px;font-weight:700;">${escapeHtml(clinicianName || '')}${credentials ? ` (${escapeHtml(credentials)})` : ''}</p>
-          ${(providerNumber || workPhone) ? `<p style="margin:0 0 2px;">${providerNumber ? 'Provider No: ' + escapeHtml(providerNumber) : ''}${providerNumber && workPhone ? ' | ' : ''}${workPhone ? 'Ph no: ' + escapeHtml(workPhone) : ''}</p>` : ''}
-          ${position ? `<p style="margin:0 0 2px;font-size:${Math.max(7, baseFont - 2)}pt;">${escapeHtml(position)}</p>` : ''}
-          ${workplaceName ? `<p style="margin:0;font-size:${Math.max(7, baseFont - 2)}pt;">${escapeHtml(workplaceName)}</p>` : ''}
+          <p style="margin:0 0 1px;">Thank you and kind regards,</p>
+          <p style="margin:0 0 1px;font-weight:700;">${escapeHtml(clinicianName || '')}${credentials ? ` (${escapeHtml(credentials)})` : ''}</p>
+          ${(providerNumber || workPhone) ? `<p style="margin:0 0 1px;">${providerNumber ? 'Provider No: ' + escapeHtml(providerNumber) : ''}${providerNumber && workPhone ? ' | ' : ''}${workPhone ? 'Ph no: ' + escapeHtml(workPhone) : ''}</p>` : ''}
+          ${position ? `<p style="margin:0 0 1px;font-size:${Math.max(7, baseFont - 3)}pt;">${escapeHtml(position)}</p>` : ''}
+          ${workplaceName ? `<p style="margin:0;font-size:${Math.max(7, baseFont - 3)}pt;">${escapeHtml(workplaceName)}</p>` : ''}
         </div>
       </div>
       ${footerHtml}
