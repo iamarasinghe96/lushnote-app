@@ -6,12 +6,11 @@ import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote } from '@/lib/firestore/notes'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { getGroqKey, serializeHospitalFormData } from '@/lib/utils'
-import { fillFromText, paragraphsToText } from './reflow'
 import HospitalFormEditor, { type HospitalFormEditorHandle } from './HospitalFormEditor'
 import type { HospitalFormData, NoteInput } from '@/types'
 
 export function emptyFormData(formKey: string): HospitalFormData {
-  return { formKey, pid: { urNo: '', surname: '', givenNames: '', dob: '', sex: '' }, paragraphs: [''], dateTime: { date: '', time: '' } }
+  return { formKey, pid: { urNo: '', surname: '', givenNames: '', dob: '', sex: '' }, noteText: '', dateTime: { date: '', time: '' } }
 }
 
 function nowDateTime() {
@@ -20,9 +19,20 @@ function nowDateTime() {
   return { date: `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`, time: `${p(d.getHours())}:${p(d.getMinutes())}` }
 }
 
-// Renders the active hospital form inside the Edit tab (parallel to the note and
-// letter editors). All state lives in the store so the Export tab can preview the
-// same form. `readOnly` renders a non-editable preview (used by Export).
+function autoSlashDob(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8)
+  let fmt = digits.slice(0, 2)
+  if (digits.length > 2) fmt += '/' + digits.slice(2, 4)
+  if (digits.length > 4) fmt += '/' + digits.slice(4, 8)
+  return fmt
+}
+
+const INPUT = 'w-full text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2 bg-white outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors'
+
+// The hospital form inside the Edit tab (plain fields, like a letter editor) and
+// the Export tab (readOnly=true → the ruled-form preview + Download PDF). All
+// state lives in the store so both tabs share it. Generation + autosave run in
+// edit mode only.
 export default function HospitalFormView({ readOnly = false }: { readOnly?: boolean }) {
   const { user, profile } = useAuth()
   const store = useNoteStore()
@@ -45,21 +55,19 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
   const mountedRef = useRef(true)
   useEffect(() => () => { mountedRef.current = false }, [])
 
-  // Initialise blank data + run any pending generation, once.
   const initedRef = useRef(false)
   useEffect(() => {
-    if (initedRef.current || !form) return
+    if (initedRef.current || !form || readOnly) return
     initedRef.current = true
     const s = storeRef.current
     if (!s.hospitalFormData) s.setHospitalFormData({ ...emptyFormData(form.formKey), dateTime: nowDateTime() })
     else lastSavedRef.current = serializeHospitalFormData(s.hospitalFormData) ?? null
-    if (s.hospitalFormNoteId) lastSavedRef.current = serializeHospitalFormData(s.hospitalFormData!) ?? null
     if (s.pendingHospitalFormGeneration && s.lastTranscript) {
       s.setPendingHospitalFormGeneration(false)
       void generate(s.lastTranscript)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form])
+  }, [form, readOnly])
 
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3500); return () => clearTimeout(t) }, [toast])
 
@@ -83,7 +91,7 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
             urNo: str('urNo') || cur.pid.urNo, surname: str('surname') || cur.pid.surname,
             givenNames: str('givenNames') || cur.pid.givenNames, dob: str('dob') || cur.pid.dob, sex: str('sex') || cur.pid.sex,
           },
-          paragraphs: str('noteText') ? fillFromText(str('noteText')) : cur.paragraphs,
+          noteText: str('noteText') || cur.noteText,
         })
         setToast('Form populated from dictation')
       } else {
@@ -106,7 +114,7 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
       userId: user.uid, patient, reg_number: (v.pid.urNo || '').slice(0, 100),
       date: v.dateTime.date || '', time: v.dateTime.time || '', clinician: profile?.displayName ?? '',
       session_number: '', attendance: '', diagnosis: '', presentation: '', history: '',
-      medications: '', mse: '', content: paragraphsToText(v.paragraphs).slice(0, 15000),
+      medications: '', mse: '', content: (v.noteText || '').slice(0, 15000),
       scales: '', risk: '', referrals: '', summary: '', nextsteps: '',
       docType: 'hospital-form', formData: serialized,
       transcript: s.lastTranscript ? s.lastTranscript.slice(0, 50000) : undefined,
@@ -136,6 +144,9 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
 
   useEffect(() => () => { if (!readOnly) doAutoSaveRef.current() }, [readOnly])
 
+  const setPid = (k: keyof HospitalFormData['pid'], v: string) => { if (value) store.setHospitalFormData({ ...value, pid: { ...value.pid, [k]: v } }) }
+  const setField = (patch: Partial<HospitalFormData>) => { if (value) store.setHospitalFormData({ ...value, ...patch }) }
+
   function handleNew() {
     if (!form) return
     if (!window.confirm('Start a new blank form? The current one stays saved in your records.')) return
@@ -158,24 +169,74 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
     )
   }
 
-  return (
-    <div className="h-full overflow-y-auto scrollbar-none pb-tabbar pt-header bg-[#888]">
-      <div className="sticky z-20 mx-3 mt-3 flex items-center gap-2 px-3 py-2 rounded-[var(--r-lg)] text-white text-sm"
-        style={{ top: 'calc(env(safe-area-inset-top) + 8px)', background: 'linear-gradient(to right, #1d4ed8, #2563eb)', boxShadow: '0 4px 16px rgba(15,23,42,.25)' }}>
-        <span className="font-medium truncate">{form.name}</span>
-        {!readOnly && saveState !== 'idle' && <span className="text-[11px] text-white/80">{saveState === 'saving' ? 'Saving…' : 'Saved'}</span>}
-        {isGenerating && <span className="text-[11px] text-white/90">Generating…</span>}
-        <div className="flex items-center gap-2 ml-auto shrink-0">
-          {!readOnly && <button onClick={handleNew} className="text-xs px-2.5 py-1.5 rounded border border-white/40 hover:bg-white/10 motion-safe:transition-colors">New</button>}
-          <button onClick={handleDownload} className="text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded motion-safe:active:scale-95 motion-safe:transition-transform">Download PDF</button>
+  const bar = (
+    <div className="sticky z-20 mx-3 mt-3 flex items-center gap-2 px-3 py-2 rounded-[var(--r-lg)] text-white text-sm"
+      style={{ top: 'calc(env(safe-area-inset-top) + 8px)', background: 'linear-gradient(to right, #1d4ed8, #2563eb)', boxShadow: '0 4px 16px rgba(15,23,42,.25)' }}>
+      <span className="font-medium truncate">{form.name}</span>
+      {!readOnly && saveState !== 'idle' && <span className="text-[11px] text-white/80">{saveState === 'saving' ? 'Saving…' : 'Saved'}</span>}
+      {isGenerating && <span className="text-[11px] text-white/90">Generating…</span>}
+      <div className="flex items-center gap-2 ml-auto shrink-0">
+        {!readOnly && <button onClick={handleNew} className="text-xs px-2.5 py-1.5 rounded border border-white/40 hover:bg-white/10 motion-safe:transition-colors">New</button>}
+        {readOnly && <button onClick={handleDownload} className="text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded motion-safe:active:scale-95 motion-safe:transition-transform">Download PDF</button>}
+      </div>
+    </div>
+  )
+
+  // Export tab: the ruled-form preview + Download.
+  if (readOnly) {
+    return (
+      <div className="h-full overflow-y-auto scrollbar-none pb-tabbar pt-header bg-[#888]">
+        {bar}
+        <div className="py-4">
+          <HospitalFormEditor ref={editorRef} form={form} value={value} signatureUrl={profile?.signatureUrl} signatureScale={profile?.signatureScale} />
         </div>
       </div>
+    )
+  }
 
-      {genError && <div className="mx-3 mt-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-[var(--danger)]">{genError}</div>}
+  // Edit tab: plain fields (like a letter editor).
+  return (
+    <div className="h-full overflow-y-auto scrollbar-none pb-tabbar pt-header bg-[var(--bg)]">
+      {bar}
+      {genError && <div className="mx-4 mt-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-[var(--danger)]">{genError}</div>}
+      <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <label className="col-span-2 text-xs font-medium text-[var(--text2)]">UR No
+            <input className={INPUT} value={value.pid.urNo} onChange={e => setPid('urNo', e.target.value)} />
+          </label>
+          <label className="text-xs font-medium text-[var(--text2)]">Surname
+            <input className={INPUT} value={value.pid.surname} onChange={e => setPid('surname', e.target.value)} />
+          </label>
+          <label className="text-xs font-medium text-[var(--text2)]">Given Names
+            <input className={INPUT} value={value.pid.givenNames} onChange={e => setPid('givenNames', e.target.value)} />
+          </label>
+          <label className="text-xs font-medium text-[var(--text2)]">Date of Birth
+            <input className={INPUT} inputMode="numeric" placeholder="DD/MM/YYYY" value={value.pid.dob} onChange={e => setPid('dob', autoSlashDob(e.target.value))} />
+          </label>
+          <label className="text-xs font-medium text-[var(--text2)]">Sex
+            <input className={INPUT} list="hf-sex" value={value.pid.sex}
+              onChange={e => setPid('sex', e.target.value)}
+              onKeyDown={e => { if (e.key.toLowerCase() === 'm') { e.preventDefault(); setPid('sex', 'Male') } else if (e.key.toLowerCase() === 'f') { e.preventDefault(); setPid('sex', 'Female') } }} />
+            <datalist id="hf-sex"><option value="Male" /><option value="Female" /></datalist>
+          </label>
+          <label className="text-xs font-medium text-[var(--text2)]">Date
+            <input className={INPUT} value={value.dateTime.date} onChange={e => setField({ dateTime: { ...value.dateTime, date: e.target.value } })} />
+          </label>
+          <label className="text-xs font-medium text-[var(--text2)]">Time
+            <input className={INPUT} value={value.dateTime.time} onChange={e => setField({ dateTime: { ...value.dateTime, time: e.target.value } })} />
+          </label>
+        </div>
 
-      <div className="py-4">
-        <HospitalFormEditor ref={editorRef} form={form} value={value} onChange={store.setHospitalFormData} readOnly={readOnly}
-          signatureUrl={profile?.signatureUrl} signatureScale={profile?.signatureScale} onToast={setToast} />
+        <label className="block text-xs font-medium text-[var(--text2)]">Progress note
+          <textarea
+            className={INPUT + ' mt-1 min-h-[240px] leading-relaxed'}
+            value={value.noteText}
+            onChange={e => setField({ noteText: e.target.value })}
+            placeholder="Type the progress note. It wraps onto the form's ruled lines when you preview or export."
+          />
+        </label>
+
+        <p className="text-xs text-[var(--text3)]">Preview it on the form and download the PDF from the <span className="font-medium text-[var(--text2)]">Export</span> tab.</p>
       </div>
 
       {toast && <div className="fixed left-1/2 -translate-x-1/2 z-[70] bg-[var(--text)] text-white text-xs rounded-full px-4 py-2 pointer-events-none select-none" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}>{toast}</div>}

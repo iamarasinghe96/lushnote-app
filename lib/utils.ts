@@ -75,7 +75,7 @@ export function parseHospitalFormData(raw?: string | null): HospitalFormData | n
   if (!raw || typeof raw !== 'string') return null
   try {
     const obj = JSON.parse(raw) as Partial<HospitalFormData>
-    if (!obj || typeof obj !== 'object' || !obj.formKey || !Array.isArray(obj.paragraphs)) return null
+    if (!obj || typeof obj !== 'object' || !obj.formKey || typeof obj.noteText !== 'string') return null
     return obj as HospitalFormData
   } catch {
     return null

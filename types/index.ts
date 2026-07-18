@@ -185,11 +185,13 @@ interface HospitalFormDoc {
   labels: { dateCol: string; notesCol: string }
 }
 
-// The filled-in state of a hospital form (serialized into Note.formData).
+// The filled-in state of a hospital form (serialized into Note.formData). The
+// doctor edits plain fields; `noteText` is free text (like a free-text letter),
+// wrapped onto the form's ruled lines only at export/preview time.
 interface HospitalFormData {
   formKey: string
   pid: { urNo: string; surname: string; givenNames: string; dob: string; sex: string }
-  paragraphs: string[]            // the note entry as logical paragraphs (reflow source)
+  noteText: string
   dateTime: { date: string; time: string }
 }
 
