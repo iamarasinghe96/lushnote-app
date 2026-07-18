@@ -64,6 +64,16 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
   const layoutRef = useRef(layout)
   layoutRef.current = layout
 
+  // The row the signature sits on (one past the last written line), so the
+  // preview shows the signature in the same place the PDF draws it.
+  const sigRow = useMemo(() => {
+    let last = -1
+    for (let r = 0; r < totalRows; r++) if (layout.rows[r]?.some(run => run.text.trim())) last = r
+    return last >= 0 ? Math.min(last + 1, totalRows - 1) : -1
+  }, [layout, totalRows])
+  const sigScaleF = (signatureScale && signatureScale > 0 ? signatureScale : 100) / 100
+  const notesRightMm = geo.tableLeftMm + geo.dateColMm + geo.notesColMm
+
   useEffect(() => {
     const el = noteCellRef.current
     if (!el) return
@@ -285,6 +295,19 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
                 })}
               </tbody>
             </table>
+            {signatureUrl && sigRow >= 0 && Math.floor(sigRow / rowsPerPage) === p && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={signatureUrl}
+                alt="Signature"
+                className="hf-sig"
+                style={{
+                  top: `${geo.tableTopMm + geo.rowHeightMm * (1 + (sigRow % rowsPerPage))}mm`,
+                  right: `${210 - notesRightMm + 1}mm`,
+                  height: `${geo.rowHeightMm * 0.9 * sigScaleF}mm`,
+                }}
+              />
+            )}
           </div>
           </div>
         ))}
@@ -333,6 +356,7 @@ const HF_CSS = `
 .hf-note em { font-style: italic; }
 .hf-note.hf-head { text-decoration: underline; text-underline-offset: 2px; }
 .hf-date-empty { display: block; width: 100%; height: 100%; }
+.hf-sig { position: absolute; object-fit: contain; pointer-events: none; }
 .hf-pid { position: absolute; top: var(--hf-pid-top); left: var(--hf-pid-left); width: var(--hf-pid-width); font: var(--hf-font) Arial, sans-serif; }
 .hf-pid-row { display: flex; align-items: baseline; height: var(--hf-pid-row-h); gap: 1mm; }
 .hf-pid-row input, .hf-pid-dobsex input {
