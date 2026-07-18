@@ -119,6 +119,31 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
       page.style.transform = 'none'
       const pageRect = page.getBoundingClientRect()
 
+      // The ruled table grid + column headers (the PNG has no body grid — the
+      // overlay is the grid, exactly like the standalone form). Drawn from the mm
+      // geometry so it stays millimetre-aligned to the page edges.
+      const mmPx = MM_PER_PX * SCALE
+      const tLeft = geo.tableLeftMm * mmPx
+      const tTop = geo.tableTopMm * mmPx
+      const rowH = geo.rowHeightMm * mmPx
+      const dateW = geo.dateColMm * mmPx
+      const notesW = geo.notesColMm * mmPx
+      const totalW = dateW + notesW
+      const nLines = rowsPerPage + 1 // header row + data rows
+      ctx.strokeStyle = '#000'
+      ctx.lineWidth = Math.max(1, SCALE * 0.45)
+      ctx.beginPath()
+      for (let r = 0; r <= nLines; r++) { const yy = tTop + r * rowH; ctx.moveTo(tLeft, yy); ctx.lineTo(tLeft + totalW, yy) }
+      const gridBottom = tTop + nLines * rowH
+      for (const xx of [tLeft, tLeft + dateW, tLeft + totalW]) { ctx.moveTo(xx, tTop); ctx.lineTo(xx, gridBottom) }
+      ctx.stroke()
+      ctx.fillStyle = '#000'
+      ctx.textBaseline = 'middle'
+      ctx.textAlign = 'center'
+      ctx.font = `700 ${6.5 * PT_PER_PX * SCALE}px Arial, sans-serif`
+      ctx.fillText(form.labels.dateCol, tLeft + dateW / 2, tTop + rowH / 2)
+      ctx.fillText(form.labels.notesCol, tLeft + dateW + notesW / 2, tTop + rowH / 2)
+
       ctx.textBaseline = 'middle'
       ctx.font = `${fontPx}px Arial, sans-serif`
       page.querySelectorAll<HTMLInputElement>('input').forEach(inp => {
@@ -239,12 +264,12 @@ const HF_CSS = `
   border-collapse: collapse; table-layout: fixed;
 }
 .hf-table th, .hf-table td {
-  height: var(--hf-row-h); border: 1px solid transparent; padding: 0 1.5mm;
+  height: var(--hf-row-h); border: 1px solid #000; padding: 0 1.5mm;
   vertical-align: middle; overflow: hidden; background: transparent;
 }
 .hf-col-date { width: var(--hf-date-col); }
 .hf-col-notes { width: var(--hf-notes-col); }
-.hf-table thead th { font: 700 6.5pt Arial, sans-serif; text-align: center; background: transparent; color: transparent; }
+.hf-table thead th { font: 700 6.5pt Arial, sans-serif; text-align: center; background: rgba(255,255,255,0.6); color: #000; }
 .hf-table tbody td input {
   width: 100%; height: 100%; border: none; background: transparent;
   font: var(--hf-font) Arial, sans-serif; padding: 0; outline: none; box-sizing: border-box; color: #000;
