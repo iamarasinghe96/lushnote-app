@@ -114,7 +114,7 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
       userId: user.uid, patient, reg_number: (v.pid.urNo || '').slice(0, 100),
       date: v.dateTime.date || '', time: v.dateTime.time || '', clinician: profile?.displayName ?? '',
       session_number: '', attendance: '', diagnosis: '', presentation: '', history: '',
-      medications: '', mse: '', content: (v.noteText || '').slice(0, 15000),
+      medications: '', mse: '', content: (v.noteText || '').replace(/\*\*/g, '').slice(0, 15000),
       scales: '', risk: '', referrals: '', summary: '', nextsteps: '',
       docType: 'hospital-form', formData: serialized,
       transcript: s.lastTranscript ? s.lastTranscript.slice(0, 50000) : undefined,

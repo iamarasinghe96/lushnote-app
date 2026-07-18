@@ -67,8 +67,11 @@ DOSES & NUMBERS — CRITICAL FOR SAFETY:
 - Write every dose EXACTLY as dictated. Convert spoken numbers to digits precisely ("one thousand" → 1000, "eighty one" → 81). Never round, drop, or add a digit. Append "mg" only to a bare number that is clearly a milligram strength.
 - Do NOT correct, guess, or substitute drug names.
 
-STYLE:
-- Write the note in formal, professional clinical prose. Do NOT reproduce the dictation word-for-word. Preserve all clinical facts, names, and figures exactly. If the doctor structured the entry (e.g. SOAP: Subjective/Objective/Assessment/Plan), keep those headings; otherwise write clear paragraphs. Separate distinct topics with a blank line.`
+STYLE & FORMATTING:
+- Write the note in formal, professional clinical prose. Do NOT reproduce the dictation word-for-word. Preserve all clinical facts, names, and figures exactly.
+- Use **bold** (double asterisks) for subtopic headings and key emphasis. If the doctor structured the entry (e.g. SOAP: Subjective/Objective/Assessment/Plan) or spoke subtopics, make each heading its own bold line, e.g. "**Assessment:**". Keep headings the doctor used.
+- Use a numbered list (1. 2. 3., each item on its own line) where the content is naturally enumerated — a management plan, a medication list, a set of instructions or steps.
+- Put each heading and each list item on its own line (a single newline). Separate distinct sections with a blank line. Never output markdown tables or other markup — only **bold**, *italic*, and numbered/bulleted lines.`
 
       const formPrompt = `Extract information from this doctor's dictation for a hospital progress note${formName ? ` on the "${formName}" form` : ''}.
 
@@ -78,7 +81,7 @@ FIELD GUIDE:
 - givenNames: Patient given name(s), else ""
 - dob: Patient date of birth DD/MM/YYYY, else "" (leave "" if only an age is given)
 - sex: Exactly "Male", "Female", or "" — never any other value
-- noteText: The full progress-note entry as professional clinical prose. Blank line between distinct topics/paragraphs. Keep any SOAP-style headings the doctor used. Do NOT include the patient's name/UR/DOB line (those go in the identifier fields), and do NOT include a date/time line.
+- noteText: The full progress-note entry, formatted per the STYLE & FORMATTING rules — **bold** subtopic headings on their own lines, numbered lists where appropriate, a blank line between sections. Do NOT include the patient's name/UR/DOB line (those go in the identifier fields), and do NOT include a date/time line.
 
 Return ONLY valid JSON — no markdown, no explanation, no extra text:
 {

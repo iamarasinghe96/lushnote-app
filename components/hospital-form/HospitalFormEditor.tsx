@@ -2,7 +2,7 @@
 
 import { useRef, useMemo, useEffect, useState, forwardRef, useImperativeHandle, useCallback } from 'react'
 import type { HospitalFormDoc, HospitalFormData } from '@/types'
-import { layoutRows, fillFromText, type WrapConfig } from './reflow'
+import { layoutStyledRows, type StyledWrapConfig } from './reflow'
 
 const MM_PER_PX = 96 / 25.4          // 1mm in CSS px at 96dpi
 const PT_PER_PX = 96 / 72            // 1pt in CSS px
@@ -32,23 +32,30 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
 
   const rootRef = useRef<HTMLDivElement>(null)
   const pageRefs = useRef<(HTMLDivElement | null)[]>([])
-  const noteCellRef = useRef<HTMLInputElement | null>(null)
+  const noteCellRef = useRef<HTMLDivElement | null>(null)
 
   const geomWidth = (geo.notesColMm - 3) * MM_PER_PX
   const [measuredWidth, setMeasuredWidth] = useState<number | null>(null)
   const maxWidth = Math.max(20, (measuredWidth ?? geomWidth) - 2)
 
-  const cfg = useMemo<WrapConfig>(() => {
+  const fontStr = useCallback((bold: boolean, italic: boolean, px: number) =>
+    `${bold ? '700 ' : ''}${italic ? 'italic ' : ''}${px}px Arial, sans-serif`, [])
+
+  const cfg = useMemo<StyledWrapConfig>(() => {
     const fontPx = geo.fontPt * PT_PER_PX
     let ctx: CanvasRenderingContext2D | null = null
-    if (typeof document !== 'undefined') {
-      ctx = document.createElement('canvas').getContext('2d')
-      if (ctx) ctx.font = `${fontPx}px Arial, sans-serif`
+    if (typeof document !== 'undefined') ctx = document.createElement('canvas').getContext('2d')
+    return {
+      maxWidth,
+      measure: (s, bold, italic) => {
+        if (!ctx) return s.length * fontPx * 0.5
+        ctx.font = fontStr(bold, italic, fontPx)
+        return ctx.measureText(s).width
+      },
     }
-    return { maxWidth, measure: (s) => (ctx ? ctx.measureText(s).width : s.length * fontPx * 0.5) }
-  }, [geo.fontPt, maxWidth])
+  }, [geo.fontPt, maxWidth, fontStr])
 
-  const layout = useMemo(() => layoutRows(fillFromText(value.noteText || ''), totalRows, cfg), [value.noteText, totalRows, cfg])
+  const layout = useMemo(() => layoutStyledRows(value.noteText || '', totalRows, cfg), [value.noteText, totalRows, cfg])
   const layoutRef = useRef(layout)
   layoutRef.current = layout
 
@@ -95,7 +102,7 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
 
     const L = layoutRef.current
     let lastFilled = -1
-    for (let r = 0; r < totalRows; r++) if (L.rowPara[r] !== -1 && L.rows[r].trim()) lastFilled = r
+    for (let r = 0; r < totalRows; r++) if (L.rows[r] && L.rows[r].some(run => run.text.trim())) lastFilled = r
     const sigRow = lastFilled >= 0 ? Math.min(lastFilled + 1, totalRows - 1) : -1
     let sigImg: HTMLImageElement | null = null
     if (signatureUrl && sigRow >= 0) { try { sigImg = await loadImg(proxied(signatureUrl)) } catch { sigImg = null } }
@@ -158,6 +165,24 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
         if (inp.dataset.hfCenter === '1') { ctx.textAlign = 'center'; ctx.fillText(inp.value, x + w / 2, y + h / 2) }
         else { ctx.textAlign = 'left'; ctx.fillText(inp.value, x, y + h / 2) }
       })
+
+      // Notes: draw the wrapped styled lines (bold/italic runs) from the layout,
+      // positioned from the mm geometry so they land on the ruled lines.
+      const notesTextX = tLeft + dateW + 1.5 * mmPx
+      ctx.textAlign = 'left'
+      ctx.fillStyle = '#000000'
+      for (let r = 0; r < rowsPerPage; r++) {
+        const runs = L.rows[p * rowsPerPage + r]
+        if (!runs || !runs.length) continue
+        const yy = tTop + rowH * (1 + r) + rowH / 2
+        let x = notesTextX
+        for (const run of runs) {
+          if (!run.text) continue
+          ctx.font = fontStr(run.bold, run.italic, fontPx)
+          ctx.fillText(run.text, x, yy)
+          x += ctx.measureText(run.text).width
+        }
+      }
 
       if (sigImg && sigRow >= 0 && Math.floor(sigRow / rowsPerPage) === p) {
         const rowInPage = sigRow % rowsPerPage
@@ -233,7 +258,15 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
                           : <span className="hf-date-empty" />}
                       </td>
                       <td>
-                        <input {...ro} ref={globalRow === 0 ? noteCellRef : undefined} className="hf-note" value={layout.rows[globalRow] ?? ''} readOnly aria-label={`Notes line ${globalRow + 1}`} />
+                        <div ref={globalRow === 0 ? noteCellRef : undefined} className="hf-note" aria-label={`Notes line ${globalRow + 1}`}>
+                          {(layout.rows[globalRow] ?? []).map((run, ri) => (
+                            run.bold
+                              ? <strong key={ri}>{run.text}</strong>
+                              : run.italic
+                              ? <em key={ri}>{run.text}</em>
+                              : <span key={ri}>{run.text}</span>
+                          ))}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -280,6 +313,12 @@ const HF_CSS = `
   font: var(--hf-font) Arial, sans-serif; padding: 0; outline: none; box-sizing: border-box; color: #000;
 }
 .hf-table tbody td:first-child input { text-align: center; }
+.hf-note {
+  width: 100%; height: 100%; font: var(--hf-font) Arial, sans-serif; color: #000;
+  display: flex; align-items: center; white-space: pre; overflow: hidden;
+}
+.hf-note strong { font-weight: 700; }
+.hf-note em { font-style: italic; }
 .hf-date-empty { display: block; width: 100%; height: 100%; }
 .hf-pid { position: absolute; top: var(--hf-pid-top); left: var(--hf-pid-left); width: var(--hf-pid-width); font: var(--hf-font) Arial, sans-serif; }
 .hf-pid-row { display: flex; align-items: baseline; height: var(--hf-pid-row-h); gap: 1mm; }

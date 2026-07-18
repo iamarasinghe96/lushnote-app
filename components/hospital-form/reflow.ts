@@ -248,3 +248,91 @@ export function fillFromText(text: string): string[] {
 export function paragraphsToText(paragraphs: string[]): string {
   return paragraphs.map(p => p).join('\n\n').replace(/\n{3,}/g, '\n\n').trim()
 }
+
+// ── Styled (bold/italic) layout for the read-only A4 renderer ─────────────────
+// The generated note may use **bold** / *italic* markers (e.g. bold subtopic
+// headings) and explicit line breaks (numbered lists). This wraps that into a
+// fixed grid of rows where each row is a list of styled runs.
+
+export interface StyledRun { text: string; bold: boolean; italic: boolean }
+export interface StyledWrapConfig {
+  maxWidth: number
+  measure: (s: string, bold: boolean, italic: boolean) => number
+}
+
+// Parse **bold** and *italic* inline markers into styled runs (markers removed).
+function parseInline(text: string): StyledRun[] {
+  const runs: StyledRun[] = []
+  let bold = false, italic = false, buf = ''
+  const flush = () => { if (buf) { runs.push({ text: buf, bold, italic }); buf = '' } }
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '*' && text[i + 1] === '*') { flush(); bold = !bold; i++; continue }
+    if (text[i] === '*') { flush(); italic = !italic; continue }
+    buf += text[i]
+  }
+  flush()
+  return runs
+}
+
+function mergeRuns(runs: StyledRun[]): StyledRun[] {
+  const out: StyledRun[] = []
+  for (const r of runs) {
+    const last = out[out.length - 1]
+    if (last && last.bold === r.bold && last.italic === r.italic) last.text += r.text
+    else out.push({ ...r })
+  }
+  return out
+}
+
+// Greedy word-wrap a line's styled runs into visual lines of styled runs.
+function wrapRuns(runs: StyledRun[], cfg: StyledWrapConfig): StyledRun[][] {
+  const toks: StyledRun[] = []
+  for (const r of runs) {
+    for (const part of r.text.split(/(\s+)/)) {
+      if (part === '') continue
+      toks.push({ text: part, bold: r.bold, italic: r.italic })
+    }
+  }
+  const lines: StyledRun[][] = []
+  let cur: StyledRun[] = []
+  let curW = 0
+  const w = (t: StyledRun) => cfg.measure(t.text, t.bold, t.italic)
+  const trimTrailing = () => { while (cur.length && /^\s+$/.test(cur[cur.length - 1].text)) { curW -= w(cur[cur.length - 1]); cur.pop() } }
+  for (const tok of toks) {
+    const isSpace = /^\s+$/.test(tok.text)
+    const tw = w(tok)
+    if (isSpace) { if (cur.length) { cur.push(tok); curW += tw } continue }
+    if (cur.length > 0 && curW + tw > cfg.maxWidth) { trimTrailing(); lines.push(mergeRuns(cur)); cur = []; curW = 0 }
+    if (cur.length === 0 && tw > cfg.maxWidth) {
+      let chunk = ''
+      for (const ch of tok.text) {
+        if (chunk && cfg.measure(chunk + ch, tok.bold, tok.italic) > cfg.maxWidth) { lines.push([{ text: chunk, bold: tok.bold, italic: tok.italic }]); chunk = ch }
+        else chunk += ch
+      }
+      cur = [{ text: chunk, bold: tok.bold, italic: tok.italic }]; curW = cfg.measure(chunk, tok.bold, tok.italic)
+      continue
+    }
+    cur.push(tok); curW += tw
+  }
+  trimTrailing()
+  if (cur.length) lines.push(mergeRuns(cur))
+  if (lines.length === 0) lines.push([])
+  return lines
+}
+
+export function layoutStyledRows(text: string, totalRows: number, cfg: StyledWrapConfig): { rows: StyledRun[][]; overflow: boolean } {
+  const src = (text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+  const rows: StyledRun[][] = []
+  let overflow = false
+  for (const line of src) {
+    if (rows.length >= totalRows) { overflow = true; break }
+    if (line.trim() === '') { rows.push([]); continue }
+    for (const wrapped of wrapRuns(parseInline(line), cfg)) {
+      if (rows.length >= totalRows) { overflow = true; break }
+      rows.push(wrapped)
+    }
+    if (overflow) break
+  }
+  while (rows.length < totalRows) rows.push([])
+  return { rows, overflow }
+}
