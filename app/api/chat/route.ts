@@ -251,23 +251,27 @@ Return ONLY the system prompt text, nothing else - no explanation, no preamble.`
       const { title, description, sections } = body as {
         title?: string
         description?: string
-        sections?: { heading?: string; description?: string }[]
+        sections?: { heading?: string; description?: string; refine?: boolean }[]
       }
       const rawSections = Array.isArray(sections)
         ? sections
             .filter(s => s && typeof s.heading === 'string' && s.heading.trim())
             .slice(0, 12)
-            .map(s => ({ heading: String(s.heading).slice(0, 80), description: String(s.description ?? '').slice(0, 500) }))
+            .map(s => ({ heading: String(s.heading).slice(0, 80), description: String(s.description ?? '').slice(0, 500), refine: s.refine !== false }))
         : []
       if (!title || typeof title !== 'string' || !rawSections.length) {
         return NextResponse.json({ error: 'A title and at least one topic are required.' }, { status: 400 })
       }
+      // If the doctor only added/changed some topics (editing an existing
+      // template), the others are already the way they want them — leave those
+      // untouched and only clean the changed ones.
+      const someLocked = rawSections.some(s => !s.refine)
 
       const refineSystem = `You are a clinical documentation assistant helping a doctor define a custom LETTER template for a psychiatry tool.
 The doctor has given a title, an optional description, and a list of topics (each a heading + what it should contain), often with typos or dictation artifacts.
 
 Do ALL of the following:
-1. Correct spelling, grammar and dictation errors in the title, description and every topic — but preserve the doctor's meaning and the EXACT order and number of topics. Never add, merge, split or drop a topic.
+1. Each topic is tagged [CLEAN UP] or [KEEP EXACTLY]. For [KEEP EXACTLY] topics, return their heading and description UNCHANGED, character-for-character — do not reword, fix, or touch them. For [CLEAN UP] topics, correct spelling, grammar and dictation errors while preserving the doctor's meaning. Preserve the EXACT order and number of topics — never add, merge, split or drop a topic. ${someLocked ? 'Also leave the title and description unchanged unless they are clearly broken.' : 'Also correct the title and description.'}
 2. Write a concise "prompt": guidance for another AI that will later read a doctor's dictation and fill each topic. For each topic say what content belongs in it. Require formal, professional letter prose (not verbatim dictation) and that nothing is fabricated.
 
 Return ONLY strict JSON, no markdown, no commentary:
@@ -282,7 +286,7 @@ Return ONLY strict JSON, no markdown, no commentary:
         `Title: ${title}`,
         description ? `Description: ${description}` : '',
         'Topics:',
-        ...rawSections.map((s, i) => `${i + 1}. ${s.heading}${s.description ? ` — ${s.description}` : ''}`),
+        ...rawSections.map((s, i) => `${i + 1}. [${s.refine ? 'CLEAN UP' : 'KEEP EXACTLY'}] ${s.heading}${s.description ? ` — ${s.description}` : ''}`),
       ].filter(Boolean).join('\n')
 
       const parseResult = (text: string) => {
