@@ -397,7 +397,7 @@ export default function PatientsPage() {
       return
     }
     if (note.docType === 'hospital-form' && note.id) {
-      router.push('/hospital-form?noteId=' + note.id)
+      router.push('/edit?noteId=' + note.id)
       return
     }
     store.resetLetterMode()

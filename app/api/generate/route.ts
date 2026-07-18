@@ -9,6 +9,32 @@ import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY
 // default. 60s is the Hobby-plan ceiling.
 export const maxDuration = 300
 
+// LLMs frequently emit multi-line field values (e.g. a progress-note body or a
+// medication list) with RAW newlines/tabs inside a JSON string — invalid JSON
+// that makes JSON.parse throw "Bad control character in string literal". Escape
+// control characters that appear INSIDE string literals (tracking string state so
+// structural whitespace between tokens is left untouched) so the response parses.
+function repairJsonControlChars(s: string): string {
+  let out = ''
+  let inStr = false
+  let esc = false
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (esc) { out += c; esc = false; continue }
+    if (c === '\\') { out += c; esc = true; continue }
+    if (c === '"') { inStr = !inStr; out += c; continue }
+    if (inStr) {
+      if (c === '\n') { out += '\\n'; continue }
+      if (c === '\r') { out += '\\r'; continue }
+      if (c === '\t') { out += '\\t'; continue }
+      const code = c.charCodeAt(0)
+      if (code < 0x20) { out += '\\u' + code.toString(16).padStart(4, '0'); continue }
+    }
+    out += c
+  }
+  return out
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
@@ -75,7 +101,7 @@ ${transcript}`
         const { content } = await generateNoteGroq(formPrompt, systemInstruction, groqKey)
         const jsonMatch = content.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
-          const formFields = JSON.parse(jsonMatch[0]) as Record<string, unknown>
+          const formFields = JSON.parse(repairJsonControlChars(jsonMatch[0])) as Record<string, unknown>
           return NextResponse.json({ formFields })
         }
         return NextResponse.json({ error: 'Could not parse AI response' }, { status: 500 })
@@ -254,7 +280,7 @@ ${transcript}`
         const { content } = await generateNoteGroq(letterPrompt, systemInstruction, groqKey)
         const jsonMatch = content.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
-          const letterFields = JSON.parse(jsonMatch[0]) as Record<string, unknown>
+          const letterFields = JSON.parse(repairJsonControlChars(jsonMatch[0])) as Record<string, unknown>
           return NextResponse.json({ letterFields })
         }
         return NextResponse.json({ error: 'Could not parse AI response' }, { status: 500 })

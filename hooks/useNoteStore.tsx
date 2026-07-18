@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, type ReactNode } from 'react'
-import type { Note, NoteCreationMode, AnyTemplate, LetterType, LetterCommonFields, ReferralFields, RecordsFields, FreetextFields, CustomLetterTemplate, HospitalFormDoc } from '@/types'
+import type { Note, NoteCreationMode, AnyTemplate, LetterType, LetterCommonFields, ReferralFields, RecordsFields, FreetextFields, CustomLetterTemplate, HospitalFormDoc, HospitalFormData } from '@/types'
 import { parseLetterData } from '@/lib/utils'
 
 // One editable section of a custom letter in progress (content the doctor typed
@@ -50,8 +50,12 @@ interface NoteStore {
   // active the /hospital-form route renders its editor; pending generation runs
   // the dictated transcript through the AI on arrival.
   hospitalForm: HospitalFormDoc | null
+  hospitalFormData: HospitalFormData | null
+  hospitalFormNoteId: string | null      // Firestore doc id of the open form (null = unsaved)
   pendingHospitalFormGeneration: boolean
   setHospitalForm: (f: HospitalFormDoc | null) => void
+  setHospitalFormData: (d: HospitalFormData | null) => void
+  setHospitalFormNoteId: (id: string | null) => void
   setPendingHospitalFormGeneration: (v: boolean) => void
   resetHospitalForm: () => void
   setCurrentNote: (note: Partial<Note>) => void
@@ -105,10 +109,14 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   const [customLetterTemplate, setCustomLetterTemplate] = useState<CustomLetterTemplate | null>(null)
   const [customLetterSections, setCustomLetterSections] = useState<CustomLetterSectionValue[]>([])
   const [hospitalForm, setHospitalForm] = useState<HospitalFormDoc | null>(null)
+  const [hospitalFormData, setHospitalFormData] = useState<HospitalFormData | null>(null)
+  const [hospitalFormNoteId, setHospitalFormNoteId] = useState<string | null>(null)
   const [pendingHospitalFormGeneration, setPendingHospitalFormGeneration] = useState(false)
 
   function resetHospitalForm() {
     setHospitalForm(null)
+    setHospitalFormData(null)
+    setHospitalFormNoteId(null)
     setPendingHospitalFormGeneration(false)
   }
 
@@ -166,8 +174,12 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       customLetterTemplate,
       customLetterSections,
       hospitalForm,
+      hospitalFormData,
+      hospitalFormNoteId,
       pendingHospitalFormGeneration,
       setHospitalForm,
+      setHospitalFormData,
+      setHospitalFormNoteId,
       setPendingHospitalFormGeneration,
       resetHospitalForm,
       setCustomLetterTemplate,

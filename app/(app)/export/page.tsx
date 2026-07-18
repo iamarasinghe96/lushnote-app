@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { buildNoteText, buildCoverLetterEmail, buildPreviewHTML, buildLetterPreviewHTML, withTimeout } from '@/lib/utils'
 import { downloadNotePDF } from '@/lib/pdf'
 import { getPatientProfiles } from '@/lib/firestore/patients'
+import HospitalFormView from '@/components/hospital-form/HospitalFormView'
 import type { PatientProfile, LetterType } from '@/types'
 
 export default function ExportPage() {
@@ -122,6 +123,12 @@ export default function ExportPage() {
         { label: 'Email to Colleague', action: handleEmail },
         { label: 'Submit as Text',     action: handleSubmitAsText },
       ]
+
+  // A hospital form previews as the rendered form (read-only) with its own
+  // Download PDF, mirroring how letters export from the Edit toolbar.
+  if (store.hospitalForm) {
+    return <HospitalFormView readOnly />
+  }
 
   return (
     <div className="h-full relative overflow-hidden">

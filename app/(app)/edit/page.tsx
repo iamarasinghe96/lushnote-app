@@ -8,9 +8,11 @@ import { useKeyboardCloseSafety } from '@/hooks/useKeyboardCloseSafety'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
+import { getHospitalForm } from '@/lib/firestore/hospitalForms'
+import HospitalFormView from '@/components/hospital-form/HospitalFormView'
 import { registerReloadGuard } from '@/lib/reloadGuard'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, letterSalutation, serializeLetterData, parseLetterData, buildLetterText } from '@/lib/utils'
+import { buildTemplatePrompt, formatDateForLetter, calculateAgeFromDOB, autoNumberLines, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, letterSalutation, serializeLetterData, parseLetterData, buildLetterText, parseHospitalFormData } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import Input from '@/components/ui/Input'
@@ -661,6 +663,25 @@ function EditContent() {
   async function loadNote(noteId: string) {
     const note = await getNote(noteId)
     if (!note || !mountedRef.current) return
+    // A saved hospital form re-opens in the form editor (rendered by the early
+    // return above). Resolve its config; if either the payload or config is gone,
+    // fall through and show it as a plain note (body lives in `content`).
+    if (note.docType === 'hospital-form') {
+      const data = parseHospitalFormData(note.formData)
+      const cfg = data ? await getHospitalForm(data.formKey) : null
+      if (data && cfg && mountedRef.current) {
+        store.resetLetterMode()
+        store.setHospitalForm(cfg)
+        store.setHospitalFormData(data)
+        store.setHospitalFormNoteId(noteId)
+        store.setPendingHospitalFormGeneration(false)
+        store.setLastTranscript(note.transcript ?? null)
+        return
+      }
+      // fall through to note rendering
+    }
+    // Not a hospital form → make sure form mode is cleared before showing note/letter.
+    store.resetHospitalForm()
     // A saved letter re-opens in letter mode instead of the note editor. If its
     // payload is somehow unreadable, fall through and show it as a note (its body
     // still lives in `content`) rather than a blank screen.
@@ -2464,6 +2485,12 @@ function EditContent() {
       )}
     </>
   )
+
+  // A hospital form takes over the Edit tab entirely (its own editor). All the
+  // note/letter hooks above still ran; they no-op without a note/letter loaded.
+  if (store.hospitalForm) {
+    return <HospitalFormView />
+  }
 
   return (
     <div className="h-full overflow-hidden relative">

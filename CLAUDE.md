@@ -237,18 +237,28 @@ form exactly. Persists under the patient like letters.
   direct-canvas (draw background, then every input at its bounding box, then the
   signature right-aligned after the last written line) — BOTH sides always
   emitted. jsPDF; no html2canvas.
-- **Flow:** `LetterPickerModal` shows a "Hospital forms" group →
-  `HospitalFormDictateModal` (dictate via `useSegmentedRecorder`, or start blank)
-  → `/hospital-form` route runs `mode:'hospital-form'` on `/api/generate`
-  (Groq-only, dose-safety instruction; returns `{urNo,surname,givenNames,dob,sex,
-  noteText}`) → fills the form. Dictation draft encodes `hospitalform:<formKey>`;
-  recovery resolves it via `getHospitalForm` (deleted form → plain-note fallback).
+- **Entry points:** **Dictate Note** (`DictateModal`) lists the campus's forms in
+  its letter list → dictate (draft encodes `hospitalform:<formKey>`, recovery via
+  `getHospitalForm`, deleted form → plain-note fallback). **Create Document**
+  (`LetterPickerModal` "Hospital forms" group) opens a BLANK form to type. Both
+  set `store.hospitalForm` (+ `pendingHospitalFormGeneration` for dictation) and
+  route to `/edit`.
+- **Renders in the Edit tab:** the edit page early-returns `<HospitalFormView>`
+  when `store.hospitalForm` is set (parallel to note/letter modes); the Export tab
+  previews the same form read-only (`<HospitalFormView readOnly>`). All form state
+  lives in the store (`hospitalForm`, `hospitalFormData`, `hospitalFormNoteId`) so
+  both tabs share it. There is NO standalone `/hospital-form` route. Generation
+  runs `mode:'hospital-form'` on `/api/generate` (Groq-only; returns
+  `{urNo,surname,givenNames,dob,sex,noteText}`). The AI's multi-line `noteText`
+  is parsed with `repairJsonControlChars` (escapes raw newlines inside JSON
+  strings — same guard used for letters).
 - **Persistence:** `progress_notes` docs with `docType:'hospital-form'` +
   `formData` (serialized `HospitalFormData`), `patient`="Given Surname",
-  `reg_number`=UR, `content`=entry text. Autosave on `/hospital-form` uses an
-  isolated `formNoteIdRef` (never touches store.currentNoteId, so it can't clobber
-  a note/letter). Patients/History show a "Form" badge and open
-  `/hospital-form?noteId=`. `serialize/parseHospitalFormData` in lib/utils.
+  `reg_number`=UR, `content`=entry text. `HospitalFormView` autosave uses the
+  store's `hospitalFormNoteId` (never touches store.currentNoteId, so it can't
+  clobber a note/letter). Starting a note/letter calls `resetHospitalForm()`.
+  Patients/History show a "Form" badge and open `/edit?noteId=`.
+  `serialize/parseHospitalFormData` in lib/utils.
 
 ---
 

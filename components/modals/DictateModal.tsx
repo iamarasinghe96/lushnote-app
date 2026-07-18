@@ -5,14 +5,16 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useAuth } from '@/hooks/useAuth'
-import type { RecordingDefaults, LetterType, CustomLetterTemplate } from '@/types'
+import type { RecordingDefaults, LetterType, CustomLetterTemplate, HospitalFormDoc } from '@/types'
 
 interface DictateModalProps {
   open: boolean
   onClose: () => void
   onTranscriptReady: (text: string, duration: number, letterType?: LetterType | null, customTemplateId?: string) => void
+  onHospitalFormReady?: (text: string, duration: number, form: HospitalFormDoc) => void
   recordingDefaults?: RecordingDefaults
   customTemplates?: CustomLetterTemplate[]
+  hospitalForms?: HospitalFormDoc[]
   // Whether a genuinely recoverable transcript draft exists in Firestore right
   // now (the same signal that drives the Generate-page recovery banner and
   // the Patients "Unnamed patient" row) — NOT a localStorage tripwire that
@@ -106,10 +108,11 @@ function formatDuration(secs: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export default function DictateModal({ open, onClose, onTranscriptReady, recordingDefaults, hasInterruptedDraft, customTemplates = [] }: DictateModalProps) {
+export default function DictateModal({ open, onClose, onTranscriptReady, onHospitalFormReady, recordingDefaults, hasInterruptedDraft, customTemplates = [], hospitalForms = [] }: DictateModalProps) {
   const [phase, setPhase] = useState<Phase>('choice')
   const [letterType, setLetterType] = useState<LetterType | null>(null)
   const [customTemplate, setCustomTemplate] = useState<CustomLetterTemplate | null>(null)
+  const [hospitalForm, setHospitalForm] = useState<HospitalFormDoc | null>(null)
   const [interrupted, setInterrupted] = useState(false)
   const [autoStopped, setAutoStopped] = useState(false)
   const [permError, setPermError] = useState<string | null>(null)
@@ -132,6 +135,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
       setPhase('choice')
       setLetterType(null)
       setCustomTemplate(null)
+      setHospitalForm(null)
       setAutoStopped(false)
       setInterrupted(false)
       setPermError(null)
@@ -157,6 +161,10 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
       streamRef.current.getTracks().forEach(t => t.stop())
       streamRef.current = null
     }
+    if (hospitalForm && onHospitalFormReady) {
+      onHospitalFormReady(result.text, result.duration, hospitalForm)
+      return
+    }
     onTranscriptReady(result.text, result.duration, letterType, customTemplate?.id)
   }
 
@@ -181,9 +189,12 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
-      // Encode a custom template id into the draft's letterType so an interrupted
-      // custom-letter dictation can be resolved back to its template on recovery.
-      const recLetterType = letterType === 'custom' && customTemplate ? `custom:${customTemplate.id}` : letterType
+      // Encode the selected target into the draft's letterType so an interrupted
+      // dictation can be resolved back on recovery: `custom:<id>` for a custom
+      // letter, `hospitalform:<key>` for a hospital form.
+      const recLetterType = hospitalForm ? `hospitalform:${hospitalForm.formKey}`
+        : letterType === 'custom' && customTemplate ? `custom:${customTemplate.id}`
+        : letterType
       start(stream, { uid: user.uid, mode: 'dictation', letterType: recLetterType })
       setPhase('recording')
       if (autoStopMinutes !== null) {
@@ -197,13 +208,24 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
     }
   }
 
-  const selectedLabel = letterType === 'custom'
+  const selectedLabel = hospitalForm
+    ? hospitalForm.name
+    : letterType === 'custom'
     ? (customTemplate?.title ?? 'Letter')
     : letterType ? LETTER_OPTIONS.find(o => o.type === letterType)?.title : null
 
-  // Dictation guide points for the current letter: built-in list, or the custom
-  // template's topics (heading + what to include).
-  const letterGuide: string[] = letterType === 'custom'
+  const HOSPITAL_FORM_GUIDE = [
+    'Patient surname and given name(s)',
+    'UR / medical record number',
+    'Date of birth and sex',
+    'The clinical entry — assessment, findings, plan (use SOAP if you like)',
+  ]
+
+  // Dictation guide points for the current target: hospital form, custom letter
+  // template topics, or a built-in letter's list.
+  const letterGuide: string[] = hospitalForm
+    ? HOSPITAL_FORM_GUIDE
+    : letterType === 'custom'
     ? (customTemplate?.sections.map(s => s.description ? `${s.heading}: ${s.description}` : s.heading) ?? [])
     : (letterType ? LETTER_GUIDE[letterType] : [])
 
@@ -276,8 +298,8 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
                   </svg>
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-[var(--text)]">Dictate a letter</p>
-                  <p className="text-xs text-[var(--text3)] mt-0.5">Pick a letter type, then narrate it</p>
+                  <p className="text-sm font-semibold text-[var(--text)]">Dictate a {hospitalForms.length > 0 ? 'letter or form' : 'letter'}</p>
+                  <p className="text-xs text-[var(--text3)] mt-0.5">Pick a {hospitalForms.length > 0 ? 'letter or hospital form' : 'letter type'}, then narrate it</p>
                 </div>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                   strokeWidth="1.8" className="text-[var(--text3)] shrink-0" aria-hidden>
@@ -291,7 +313,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
         {/* Letter type selection */}
         {phase === 'letter-type' && (
           <>
-            <p className="text-sm text-[var(--text2)]">Which letter would you like to dictate?</p>
+            <p className="text-sm text-[var(--text2)]">Which {hospitalForms.length > 0 ? 'letter or form' : 'letter'} would you like to dictate?</p>
             <div className="space-y-2.5">
               {LETTER_OPTIONS.map(opt => (
                 <button
@@ -347,6 +369,30 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
                   </svg>
                 </button>
               ))}
+              {hospitalForms.map(form => (
+                <button
+                  key={form.formKey}
+                  onClick={() => { setHospitalForm(form); setLetterType(null); setCustomTemplate(null); setPhase('idle') }}
+                  className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[#10b981]/40
+                    text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
+                    focus:border-[var(--blue)] focus:bg-[var(--blue-lt)] focus:outline-none
+                    motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
+                  style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
+                >
+                  <span className="text-[var(--blue)] shrink-0">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/>
+                    </svg>
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[var(--text)] truncate">{form.name}</p>
+                    <p className="text-xs text-[var(--text3)] mt-0.5">Hospital progress note</p>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-[var(--text3)] shrink-0" aria-hidden>
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </button>
+              ))}
             </div>
             <button onClick={() => setPhase('choice')} className="text-xs text-[var(--text3)] hover:text-[var(--text)] transition-colors">
               ← Back
@@ -356,10 +402,10 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
 
         {phase === 'idle' && (
           <>
-            {letterType ? (
+            {(letterType || hospitalForm) ? (
               <>
                 <p className="text-sm text-[var(--text2)]">
-                  Dictating a <span className="font-semibold text-[var(--text)]">{selectedLabel}</span>. Speak these points clearly so they appear in the letter:
+                  Dictating {hospitalForm ? 'a ' : 'a '}<span className="font-semibold text-[var(--text)]">{selectedLabel}</span>. Speak these points clearly so they appear in the {hospitalForm ? 'form' : 'letter'}:
                 </p>
                 <ul className="rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--bg)] px-4 py-3 space-y-1.5">
                   {letterGuide.map((pt, i) => (
@@ -389,7 +435,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
               Start dictating
             </Button>
             <button
-              onClick={() => setPhase(letterType ? 'letter-type' : 'choice')}
+              onClick={() => setPhase(letterType || hospitalForm ? 'letter-type' : 'choice')}
               className="text-xs text-[var(--text3)] hover:text-[var(--text)] transition-colors"
             >
               ← Back
@@ -406,7 +452,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
               </span>
             </div>
             <p className="text-sm text-[var(--text3)]">
-              {letterType ? `Dictating your ${selectedLabel?.toLowerCase()}…` : 'Dictating…'}
+              {(letterType || hospitalForm) ? `Dictating your ${selectedLabel?.toLowerCase()}…` : 'Dictating…'}
             </p>
             {audioSavedMin > 0 && (
               <p className="text-xs text-[#10b981] font-medium">~{audioSavedMin} min of audio safely captured</p>
@@ -424,9 +470,9 @@ export default function DictateModal({ open, onClose, onTranscriptReady, recordi
               <p className="text-xs text-[var(--danger)] font-medium">⚠ {draftError}</p>
             )}
             <ul className="text-left rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--bg)] px-4 py-3 space-y-1.5">
-              {(letterType ? letterGuide : NOTE_GUIDE).map((pt, i) => (
+              {((letterType || hospitalForm) ? letterGuide : NOTE_GUIDE).map((pt, i) => (
                 <li key={i} className="flex gap-2 text-xs text-[var(--text2)]">
-                  <span className={`${letterType ? 'text-[var(--blue)]' : 'text-[#10b981]'} shrink-0`}>•</span>
+                  <span className={`${(letterType || hospitalForm) ? 'text-[var(--blue)]' : 'text-[#10b981]'} shrink-0`}>•</span>
                   <span>{pt}</span>
                 </li>
               ))}

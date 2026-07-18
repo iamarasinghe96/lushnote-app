@@ -138,8 +138,7 @@ export default function HistoryPage() {
   }, [notes, selectedPatient])
 
   function handleOpenNote(note: Note) {
-    const path = note.docType === 'hospital-form' ? '/hospital-form' : '/edit'
-    router.push(`${path}?noteId=${note.id}`)
+    router.push(`/edit?noteId=${note.id}`)
   }
 
   function selectPatient(name: string | null) {

@@ -21,6 +21,7 @@ interface Props {
   signatureUrl?: string | null
   signatureScale?: number
   onToast?: (msg: string) => void
+  readOnly?: boolean
 }
 
 function autoSlashDob(raw: string): string {
@@ -32,7 +33,7 @@ function autoSlashDob(raw: string): string {
 }
 
 const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function HospitalFormEditor(
-  { form, value, onChange, signatureUrl, signatureScale, onToast }, ref,
+  { form, value, onChange, signatureUrl, signatureScale, onToast, readOnly = false }, ref,
 ) {
   const geo = form.geometry
   const rowsPerPage = geo.rowsPerPage
@@ -245,16 +246,16 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
   function renderPid() {
     return (
       <div className="hf-pid">
-        <div className="hf-pid-row"><input data-hf-white="1" value={value.pid.urNo} onChange={e => setPid('urNo', e.target.value)} aria-label="UR No" /></div>
-        <div className="hf-pid-row"><input data-hf-white="1" value={value.pid.surname} onChange={e => setPid('surname', e.target.value)} aria-label="Surname" /></div>
-        <div className="hf-pid-row"><input data-hf-white="1" value={value.pid.givenNames} onChange={e => setPid('givenNames', e.target.value)} aria-label="Given Names" /></div>
+        <div className="hf-pid-row"><input readOnly={readOnly} data-hf-white="1" value={value.pid.urNo} onChange={e => setPid('urNo', e.target.value)} aria-label="UR No" /></div>
+        <div className="hf-pid-row"><input readOnly={readOnly} data-hf-white="1" value={value.pid.surname} onChange={e => setPid('surname', e.target.value)} aria-label="Surname" /></div>
+        <div className="hf-pid-row"><input readOnly={readOnly} data-hf-white="1" value={value.pid.givenNames} onChange={e => setPid('givenNames', e.target.value)} aria-label="Given Names" /></div>
         <div className="hf-pid-dobsex">
           <div className="hf-pid-dob">
-            <input data-hf-white="1" inputMode="numeric" placeholder="DD/MM/YYYY" value={value.pid.dob}
+            <input readOnly={readOnly} data-hf-white="1" inputMode="numeric" placeholder="DD/MM/YYYY" value={value.pid.dob}
               onChange={e => setPid('dob', autoSlashDob(e.target.value))} aria-label="Date of Birth" />
           </div>
           <div className="hf-pid-sex">
-            <input data-hf-white="1" list="hf-sex-options" value={value.pid.sex}
+            <input readOnly={readOnly} data-hf-white="1" list="hf-sex-options" value={value.pid.sex}
               onChange={e => setPid('sex', e.target.value)}
               onKeyDown={e => { if (e.key.toLowerCase() === 'm') { e.preventDefault(); setPid('sex', 'Male') } else if (e.key.toLowerCase() === 'f') { e.preventDefault(); setPid('sex', 'Female') } }}
               aria-label="Sex" />
@@ -290,9 +291,9 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
                     <tr key={i}>
                       <td>
                         {isDateCell ? (
-                          <input data-hf-center="1" value={value.dateTime.date} onChange={e => setDate(e.target.value)} aria-label="Date" />
+                          <input readOnly={readOnly} data-hf-center="1" value={value.dateTime.date} onChange={e => setDate(e.target.value)} aria-label="Date" />
                         ) : isTimeCell ? (
-                          <input data-hf-center="1" value={value.dateTime.time} onChange={e => setTime(e.target.value)} aria-label="Time" />
+                          <input readOnly={readOnly} data-hf-center="1" value={value.dateTime.time} onChange={e => setTime(e.target.value)} aria-label="Time" />
                         ) : (
                           <span className="hf-date-empty" />
                         )}
@@ -301,6 +302,7 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
                         <input
                           ref={el => { noteRefs.current[globalRow] = el }}
                           className="hf-note"
+                          readOnly={readOnly}
                           value={layout.rows[globalRow] ?? ''}
                           onChange={e => onNoteInput(globalRow, e)}
                           onKeyDown={e => onNoteKeyDown(globalRow, e)}
