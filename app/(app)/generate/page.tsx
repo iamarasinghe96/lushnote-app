@@ -14,10 +14,12 @@ import TranscriptConfirmModal from '@/components/modals/TranscriptConfirmModal'
 import TemplatePicker from '@/components/modals/TemplatePicker'
 import LetterPickerModal from '@/components/modals/LetterPickerModal'
 import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderModal'
+import HospitalFormDictateModal from '@/components/modals/HospitalFormDictateModal'
 import { listNotes } from '@/lib/firestore/notes'
 import { getTranscriptDraft, deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
+import { getHospitalFormsForWorkplace, getHospitalForm } from '@/lib/firestore/hospitalForms'
 import { updateProfile } from '@/lib/firestore/profiles'
-import type { AnyTemplate, NoteCreationMode, Note, LetterType, CustomLetterTemplate } from '@/types'
+import type { AnyTemplate, NoteCreationMode, Note, LetterType, CustomLetterTemplate, HospitalFormDoc } from '@/types'
 
 const GEMINI_RPD = 20
 
@@ -131,6 +133,9 @@ export default function GeneratePage() {
   const [letterPickerOpen, setLetterPickerOpen] = useState(false)
   const [customBuilderOpen, setCustomBuilderOpen] = useState(false)
   const [clinicalNoteMode, setClinicalNoteMode] = useState(false)
+  const [hospitalForms, setHospitalForms] = useState<HospitalFormDoc[]>([])
+  const [hospitalFormModalForm, setHospitalFormModalForm] = useState<HospitalFormDoc | null>(null)
+  const [hospitalFormModalOpen, setHospitalFormModalOpen] = useState(false)
   // The captured transcript didn't pass the clinical-content check, but a real
   // recording must never be thrown away — carry it through naming to the edit
   // page and save it there WITHOUT generating (the doctor can generate on
@@ -147,6 +152,16 @@ export default function GeneratePage() {
     if (!user) return
     listNotes(user.uid).then(setAllNotes).catch(() => {})
   }, [user?.uid])
+
+  // Hospital forms available to the active workplace (campus-gated). Mirrors the
+  // letterhead resolution in the app shell.
+  useEffect(() => {
+    if (!profile) { setHospitalForms([]); return }
+    const activeWp = profile.workplaces?.find(w => w.id === profile.activeWorkplaceId)
+    if (!activeWp?.name) { setHospitalForms([]); return }
+    getHospitalFormsForWorkplace(activeWp.name).then(setHospitalForms).catch(() => setHospitalForms([]))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.activeWorkplaceId, profile?.workplaces])
 
   // Refresh notes when the confirm modal opens so the daily reg counter
   // and patient index reflect anyone registered earlier this session.
@@ -220,6 +235,55 @@ export default function GeneratePage() {
     setLetterPickerOpen(false)
     setClinicalNoteMode(true)
     setPhase('template-picking')
+  }
+
+  // Hospital progress-note form flow (campus-gated). Selecting a form opens the
+  // dictate-or-blank choice; both routes land on the /hospital-form editor.
+  function handleSelectHospitalForm(form: HospitalFormDoc) {
+    setLetterPickerOpen(false)
+    setHospitalFormModalForm(form)
+    setHospitalFormModalOpen(true)
+  }
+
+  function startHospitalForm(form: HospitalFormDoc, transcript?: string) {
+    store.resetLetterMode()
+    store.resetHospitalForm()
+    store.setCurrentNoteId(null)
+    store.setHospitalForm(form)
+    store.setLastTranscript(transcript ?? null)
+    store.setLastTranscriptMode('dictation')
+    store.setPendingHospitalFormGeneration(!!transcript)
+    if (transcript && user) deleteTranscriptDraft(user.uid).catch(() => {})
+    router.push('/hospital-form')
+  }
+
+  function handleFormTranscriptReady(text: string, duration: number) {
+    setHospitalFormModalOpen(false)
+    store.setLastRecordingDuration(duration)
+    store.setLastRecordingEndTime(Date.now())
+    if (!text.trim()) { setError('Nothing was transcribed. Please try again.'); return }
+    if (hospitalFormModalForm) startHospitalForm(hospitalFormModalForm, text)
+  }
+
+  function handleFormStartBlank() {
+    setHospitalFormModalOpen(false)
+    if (hospitalFormModalForm) startHospitalForm(hospitalFormModalForm, undefined)
+  }
+
+  // A recovered dictation draft tagged 'hospitalform:<key>'. Resolve the form and
+  // resume; if the form config is gone, degrade to plain-note naming so the
+  // transcript is never lost.
+  function recoverHospitalForm(formKey: string, text: string) {
+    getHospitalForm(formKey).then(form => {
+      if (form) { startHospitalForm(form, text); return }
+      skipGenerationRef.current = !validateTranscript(text).valid
+      setPendingTranscript(text)
+      setTranscriptConfirmOpen(true)
+    }).catch(() => {
+      skipGenerationRef.current = !validateTranscript(text).valid
+      setPendingTranscript(text)
+      setTranscriptConfirmOpen(true)
+    })
   }
 
   function startMode(mode: NoteCreationMode) {
@@ -374,6 +438,10 @@ export default function GeneratePage() {
     setRecoveredDraft(null)
     store.setLastRecordingDuration(d.durationSec)
     store.setLastRecordingEndTime(Date.now())
+    if (d.letterType && d.letterType.startsWith('hospitalform:')) {
+      recoverHospitalForm(d.letterType.slice('hospitalform:'.length), d.text)
+      return
+    }
     if (d.letterType) {
       const { letterType, customTemplate } = resolveDraftLetter(d.letterType)
       startLetterFromTranscript(d.text, letterType, customTemplate)
@@ -409,6 +477,10 @@ export default function GeneratePage() {
     setRecoveredDraft(null)
     store.setLastRecordingDuration(d.durationSec)
     store.setLastRecordingEndTime(Date.now())
+    if (d.letterType && d.letterType.startsWith('hospitalform:')) {
+      recoverHospitalForm(d.letterType.slice('hospitalform:'.length), d.text)
+      return
+    }
     if (d.letterType) {
       const { letterType, customTemplate } = resolveDraftLetter(d.letterType)
       startLetterFromTranscript(d.text, letterType, customTemplate)
@@ -682,6 +754,17 @@ export default function GeneratePage() {
         customTemplates={profile?.customLetterTemplates ?? []}
         onSelectCustom={handleCustomLetterSelected}
         onCreateTemplate={() => { setLetterPickerOpen(false); setCustomBuilderOpen(true) }}
+        hospitalForms={hospitalForms}
+        onSelectHospitalForm={handleSelectHospitalForm}
+      />
+      <HospitalFormDictateModal
+        open={hospitalFormModalOpen}
+        form={hospitalFormModalForm}
+        onClose={() => setHospitalFormModalOpen(false)}
+        onTranscriptReady={handleFormTranscriptReady}
+        onStartBlank={handleFormStartBlank}
+        recordingDefaults={profile?.recordingDefaults}
+        hasInterruptedDraft={!!recoveredDraft}
       />
       <CustomLetterBuilderModal
         open={customBuilderOpen}

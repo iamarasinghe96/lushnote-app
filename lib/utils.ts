@@ -1,4 +1,4 @@
-import { WP_THEMES, type Note, type AnyTemplate, type ExtraSection, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields, type LetterData } from '@/types'
+import { WP_THEMES, type Note, type AnyTemplate, type ExtraSection, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields, type LetterData, type HospitalFormData } from '@/types'
 
 // The 11 core clinical note fields, in canonical order. Shared source of truth
 // for rendering order fallbacks and for deciding whether a section key is core.
@@ -58,6 +58,25 @@ export function parseLetterData(raw?: string | null): LetterData | null {
     const obj = JSON.parse(raw) as Partial<LetterData>
     if (!obj || typeof obj !== 'object' || !obj.common) return null
     return obj as LetterData
+  } catch {
+    return null
+  }
+}
+
+// Serialize a filled hospital form for Note.formData (≤40000, the Firestore cap).
+export function serializeHospitalFormData(data: HospitalFormData): string | undefined {
+  if (!data) return undefined
+  const json = JSON.stringify(data)
+  return json.length > 40000 ? json.slice(0, 40000) : json
+}
+
+// Tolerant parse of Note.formData → null when missing/corrupt.
+export function parseHospitalFormData(raw?: string | null): HospitalFormData | null {
+  if (!raw || typeof raw !== 'string') return null
+  try {
+    const obj = JSON.parse(raw) as Partial<HospitalFormData>
+    if (!obj || typeof obj !== 'object' || !obj.formKey || !Array.isArray(obj.paragraphs)) return null
+    return obj as HospitalFormData
   } catch {
     return null
   }

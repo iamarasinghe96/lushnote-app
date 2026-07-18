@@ -140,11 +140,57 @@ interface Note {
   // plain-text letter body is also mirrored into `content` so the Patients list,
   // History preview and AI assistant treat it exactly like a note. Absent on
   // clinical notes (docType absent = note).
-  docType?: 'note' | 'letter'
+  docType?: 'note' | 'letter' | 'hospital-form'
   letterType?: LetterType
   letterData?: string
+  // Hospital progress-note form persistence. A progress_notes doc with docType
+  // 'hospital-form' is a filled hospital form (e.g. AWH FAW0004) rather than a
+  // clinical note or letter. `formData` is the serialized HospitalFormData used
+  // to re-open it in the form editor; the entry text is also mirrored into
+  // `content` so it lists/searches like any note. Absent on notes/letters.
+  formData?: string
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
+}
+
+// Geometry of a hospital form, in millimetres, so the editor and PDF render at
+// any hospital's layout without code changes. Cloned defaults come from the AWH
+// FAW0004 form; a new hospital supplies its own via the admin panel.
+interface HospitalFormGeometry {
+  tableTopMm: number
+  tableLeftMm: number
+  dateColMm: number
+  notesColMm: number
+  rowHeightMm: number
+  rowsPerPage: number
+  fontPt: number
+  pid: {
+    topMm: number
+    leftMm: number
+    widthMm: number
+    rowHeightMm: number
+    dobSexGapMm: number
+    sexWidthMm: number
+  }
+}
+
+// A hospital's fillable form definition. Private config, admin-managed, gated to
+// the campuses in `organizationKeys` (toOrganizationKey of the workplace name).
+interface HospitalFormDoc {
+  formKey: string                 // slug id, e.g. 'awh-faw0004'
+  name: string                    // display name, e.g. 'AWH Progress Notes (FAW0004)'
+  organizationKeys: string[]      // workplace keys allowed to see this form
+  pageBackgrounds: string[]       // public Storage URLs, one full-page PNG per side
+  geometry: HospitalFormGeometry
+  labels: { dateCol: string; notesCol: string }
+}
+
+// The filled-in state of a hospital form (serialized into Note.formData).
+interface HospitalFormData {
+  formKey: string
+  pid: { urNo: string; surname: string; givenNames: string; dob: string; sex: string }
+  paragraphs: string[]            // the note entry as logical paragraphs (reflow source)
+  dateTime: { date: string; time: string }
 }
 
 // Structured payload of a saved letter (serialized into Note.letterData). Carries
@@ -372,6 +418,9 @@ export type {
   CustomLetterSection,
   CustomLetterTemplate,
   LetterData,
+  HospitalFormGeometry,
+  HospitalFormDoc,
+  HospitalFormData,
 }
 
 export { WP_THEMES }

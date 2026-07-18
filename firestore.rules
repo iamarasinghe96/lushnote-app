@@ -39,12 +39,13 @@ service cloud.firestore {
           && (!('docType'        in d) || (d.docType        is string && d.docType.size()        <= 20))
           && (!('letterType'     in d) || (d.letterType     is string && d.letterType.size()     <= 20))
           && (!('letterData'     in d) || (d.letterData     is string && d.letterData.size()     <= 40000))
+          && (!('formData'       in d) || (d.formData       is string && d.formData.size()       <= 40000))
           && request.resource.data.keys().hasOnly([
                'userId','patient','reg_number','date','time','clinician',
                'session_number','attendance','diagnosis','presentation',
                'history','medications','mse','content','scales','risk',
                'referrals','summary','nextsteps','transcript','transcriptMode',
-               'extraSections','docType','letterType','letterData',
+               'extraSections','docType','letterType','letterData','formData',
                'createdAt','updatedAt'
              ]);
     }
@@ -107,6 +108,13 @@ service cloud.firestore {
     }
 
     match /letterheads/{docId} {
+      allow read: if verified();
+    }
+
+    // Hospital form definitions (admin-managed config: page backgrounds + geometry
+    // + which campuses may use them). Read-only to any signed-in user; writes go
+    // through the admin API with the Firebase Admin SDK (bypasses these rules).
+    match /hospitalForms/{docId} {
       allow read: if verified();
     }
 

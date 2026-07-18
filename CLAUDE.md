@@ -135,7 +135,7 @@ On sign-out: all in-memory state clears. `sessionStorage` wipes on tab close.
 userId, patient, reg_number, date, time, clinician, session_number, attendance,
 diagnosis, presentation, history, medications, mse, content, scales, risk,
 referrals, summary, nextsteps, transcript, transcriptMode, extraSections,
-docType, letterType, letterData, createdAt, updatedAt
+docType, letterType, letterData, formData, createdAt, updatedAt
 ```
 
 `transcript` — raw transcript text (string, optional)
@@ -150,6 +150,10 @@ shows up in Patients / History / AI assistant exactly like a note — see **Save
 (recipient/patient common fields + per-type/section content) used to re-open it in
 the letter editor. The assembled plain-text body is also mirrored into `content` so
 letters are searchable and previewable without a special path.
+`docType: 'hospital-form'` — a filled hospital progress-note form (e.g. AWH FAW0004).
+`formData` — serialized JSON (string, ≤40000) of `HospitalFormData` (formKey, pid,
+paragraphs, dateTime) to re-open it in the form editor; the entry text is mirrored
+into `content`. See **Hospital Forms** below.
 
 Adding new fields requires updating Firestore security rules AND the validation function.
 
@@ -209,6 +213,45 @@ assistant — exactly like clinical notes. No separate collection.
 
 ---
 
+## Hospital Forms (dictate → AI-fill a hospital's ruled progress-note form)
+
+Campus-specific fillable forms (first: Albury Wodonga Health FAW0004). A doctor
+whose active workplace matches the form's campuses sees it under **Create
+Document**, dictates (or types) a progress note, and gets a PDF matching the paper
+form exactly. Persists under the patient like letters.
+
+- **Config:** `hospitalForms/{formKey}` (admin-managed, read-only to signed-in
+  users; writes via the admin API/Admin SDK). Shape `HospitalFormDoc`: `name`,
+  `organizationKeys` (campus org-keys, `toOrganizationKey`), `pageBackgrounds`
+  (full-page PNG Storage URLs, one per side), `geometry` (all mm — table/pid
+  positions, row height, rows/page, font pt), `labels`. Admin at
+  `/admin/hospital-forms` (+ API `/api/admin/hospital-form`), cloned from the
+  letterhead admin. New hospitals need no code — just a form doc.
+- **Editor:** `components/hospital-form/HospitalFormEditor.tsx` renders each page
+  from its PNG background + an absolutely-positioned overlay table, geometry as
+  CSS vars. The notes column is driven by `components/hospital-form/reflow.ts`
+  (pure, unit-tested): text wraps onto the next ruled line with real font
+  measurement (the standalone form's bug was `getComputedStyle().font` returning
+  ""). Source of truth = `paragraphs: string[]`; rows are derived by word-wrap.
+  Date/Time auto-fills the FIRST cell only (date row 1, time row 2). PDF export is
+  direct-canvas (draw background, then every input at its bounding box, then the
+  signature right-aligned after the last written line) — BOTH sides always
+  emitted. jsPDF; no html2canvas.
+- **Flow:** `LetterPickerModal` shows a "Hospital forms" group →
+  `HospitalFormDictateModal` (dictate via `useSegmentedRecorder`, or start blank)
+  → `/hospital-form` route runs `mode:'hospital-form'` on `/api/generate`
+  (Groq-only, dose-safety instruction; returns `{urNo,surname,givenNames,dob,sex,
+  noteText}`) → fills the form. Dictation draft encodes `hospitalform:<formKey>`;
+  recovery resolves it via `getHospitalForm` (deleted form → plain-note fallback).
+- **Persistence:** `progress_notes` docs with `docType:'hospital-form'` +
+  `formData` (serialized `HospitalFormData`), `patient`="Given Surname",
+  `reg_number`=UR, `content`=entry text. Autosave on `/hospital-form` uses an
+  isolated `formNoteIdRef` (never touches store.currentNoteId, so it can't clobber
+  a note/letter). Patients/History show a "Form" badge and open
+  `/hospital-form?noteId=`. `serialize/parseHospitalFormData` in lib/utils.
+
+---
+
 ## Firestore Security Rules (deployed)
 
 ```
@@ -253,12 +296,13 @@ service cloud.firestore {
           && (!('docType'        in d) || (d.docType        is string && d.docType.size()        <= 20))
           && (!('letterType'     in d) || (d.letterType     is string && d.letterType.size()     <= 20))
           && (!('letterData'     in d) || (d.letterData     is string && d.letterData.size()     <= 40000))
+          && (!('formData'       in d) || (d.formData       is string && d.formData.size()       <= 40000))
           && request.resource.data.keys().hasOnly([
                'userId','patient','reg_number','date','time','clinician',
                'session_number','attendance','diagnosis','presentation',
                'history','medications','mse','content','scales','risk',
                'referrals','summary','nextsteps','transcript','transcriptMode',
-               'extraSections','docType','letterType','letterData',
+               'extraSections','docType','letterType','letterData','formData',
                'createdAt','updatedAt'
              ]);
     }
@@ -315,6 +359,10 @@ service cloud.firestore {
     }
 
     match /letterheads/{docId} {
+      allow read: if verified();
+    }
+
+    match /hospitalForms/{docId} {
       allow read: if verified();
     }
 

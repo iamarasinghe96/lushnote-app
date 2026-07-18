@@ -24,9 +24,70 @@ export async function POST(req: NextRequest) {
         prompt?: string
         sections?: { key?: string; heading?: string; description?: string }[]
       }
+      formName?: string
     }
 
-    const { uid, transcript, templatePrompt, systemPrompt, mode, letterType, retry, customLetter } = body
+    const { uid, transcript, templatePrompt, systemPrompt, mode, letterType, retry, customLetter, formName } = body
+
+    // Hospital progress-note form — Groq-only extraction (same plumbing as
+    // letters): pull patient identifiers + compose the note entry as prose.
+    if (mode === 'hospital-form' && transcript) {
+      if (typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 300000) {
+        return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })
+      }
+      const systemInstruction = `You are an expert medical scribe transcribing a doctor's spoken dictation into a hospital progress note. Extract the patient identifiers and write the clinical entry. Never fabricate information; use "" for identifiers not mentioned.
+
+DOSES & NUMBERS — CRITICAL FOR SAFETY:
+- Write every dose EXACTLY as dictated. Convert spoken numbers to digits precisely ("one thousand" → 1000, "eighty one" → 81). Never round, drop, or add a digit. Append "mg" only to a bare number that is clearly a milligram strength.
+- Do NOT correct, guess, or substitute drug names.
+
+STYLE:
+- Write the note in formal, professional clinical prose. Do NOT reproduce the dictation word-for-word. Preserve all clinical facts, names, and figures exactly. If the doctor structured the entry (e.g. SOAP: Subjective/Objective/Assessment/Plan), keep those headings; otherwise write clear paragraphs. Separate distinct topics with a blank line.`
+
+      const formPrompt = `Extract information from this doctor's dictation for a hospital progress note${formName ? ` on the "${formName}" form` : ''}.
+
+FIELD GUIDE:
+- urNo: The patient's UR / medical record number if stated (digits), else ""
+- surname: Patient surname, else ""
+- givenNames: Patient given name(s), else ""
+- dob: Patient date of birth DD/MM/YYYY, else "" (leave "" if only an age is given)
+- sex: Exactly "Male", "Female", or "" — never any other value
+- noteText: The full progress-note entry as professional clinical prose. Blank line between distinct topics/paragraphs. Keep any SOAP-style headings the doctor used. Do NOT include the patient's name/UR/DOB line (those go in the identifier fields), and do NOT include a date/time line.
+
+Return ONLY valid JSON — no markdown, no explanation, no extra text:
+{
+  "urNo": "",
+  "surname": "",
+  "givenNames": "",
+  "dob": "",
+  "sex": "",
+  "noteText": ""
+}
+
+DICTATION:
+${transcript}`
+
+      const groqKey = req.headers.get('x-groq-key')
+      if (!groqKey) {
+        return NextResponse.json({ error: 'A Groq API key is required for form generation. Add one in Settings > API Keys.' }, { status: 401 })
+      }
+      try {
+        const { content } = await generateNoteGroq(formPrompt, systemInstruction, groqKey)
+        const jsonMatch = content.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          const formFields = JSON.parse(jsonMatch[0]) as Record<string, unknown>
+          return NextResponse.json({ formFields })
+        }
+        return NextResponse.json({ error: 'Could not parse AI response' }, { status: 500 })
+      } catch (err) {
+        if (err instanceof Error && err.message.startsWith('429:')) {
+          const waitSeconds = parseGroqWaitSeconds(err.message)
+          return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
+        }
+        const msg = err instanceof Error ? err.message : 'Form generation failed'
+        return NextResponse.json({ error: msg }, { status: 500 })
+      }
+    }
 
     // Letter AI generation — Groq-only, transient, no uid/quota tracking
     if (mode === 'letter' && letterType && transcript) {

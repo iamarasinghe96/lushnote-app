@@ -137,8 +137,9 @@ export default function HistoryPage() {
     return notes.filter(n => n.patient?.trim().toLowerCase() === norm)
   }, [notes, selectedPatient])
 
-  function handleOpenNote(noteId: string) {
-    router.push(`/edit?noteId=${noteId}`)
+  function handleOpenNote(note: Note) {
+    const path = note.docType === 'hospital-form' ? '/hospital-form' : '/edit'
+    router.push(`${path}?noteId=${note.id}`)
   }
 
   function selectPatient(name: string | null) {
@@ -261,7 +262,7 @@ export default function HistoryPage() {
               return (
                 <li key={note.id}>
                   <button
-                    onClick={() => handleOpenNote(note.id!)}
+                    onClick={() => handleOpenNote(note)}
                     className="w-full text-left rounded-[var(--r)] border border-[var(--border)] bg-white
                                p-3 hover:border-[var(--blue)]/40 hover:shadow-sm active:scale-[0.99]
                                transition-all"
@@ -279,6 +280,12 @@ export default function HistoryPage() {
                           <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--blue)]
                                            bg-[var(--blue-lt)] border border-[var(--blue)]/30 rounded-full px-1.5 py-0.5">
                             {note.letterType ? LETTER_TYPE_LABEL[note.letterType] : 'Letter'}
+                          </span>
+                        )}
+                        {note.docType === 'hospital-form' && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--blue)]
+                                           bg-[var(--blue-lt)] border border-[var(--blue)]/30 rounded-full px-1.5 py-0.5">
+                            Form
                           </span>
                         )}
                       </div>

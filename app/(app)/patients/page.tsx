@@ -62,7 +62,10 @@ interface SessionCardProps {
 function SessionCard({ note, isLatest, onClick, onDelete }: SessionCardProps) {
   const snippet = (note.content || note.summary || note.presentation || '').slice(0, 120)
   const isLetter = note.docType === 'letter'
-  const title = isLetter ? (note.letterType ? LETTER_TYPE_LABEL[note.letterType] : 'Letter') : 'Progress Note'
+  const isForm = note.docType === 'hospital-form'
+  const title = isLetter ? (note.letterType ? LETTER_TYPE_LABEL[note.letterType] : 'Letter')
+    : isForm ? 'Hospital Form' : 'Progress Note'
+  const badge = isLetter ? 'Letter' : isForm ? 'Form' : null
   return (
     <div
       onClick={onClick}
@@ -77,10 +80,10 @@ function SessionCard({ note, isLatest, onClick, onDelete }: SessionCardProps) {
       <div className="flex-1 min-w-0 border-l border-[var(--border)] pl-3">
         <div className="flex items-center gap-1.5">
           <p className="text-sm font-semibold text-[var(--text)] truncate">{title}</p>
-          {isLetter && (
+          {badge && (
             <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--blue)]
                              bg-[var(--blue-lt)] border border-[var(--blue)]/30 rounded-full px-1.5 py-0.5 shrink-0">
-              Letter
+              {badge}
             </span>
           )}
         </div>
@@ -391,6 +394,10 @@ export default function PatientsPage() {
     // would wipe the fields when the store already holds this letter.
     if (note.docType === 'letter' && note.id) {
       router.push('/edit?noteId=' + note.id)
+      return
+    }
+    if (note.docType === 'hospital-form' && note.id) {
+      router.push('/hospital-form?noteId=' + note.id)
       return
     }
     store.resetLetterMode()

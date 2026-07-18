@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, type ReactNode } from 'react'
-import type { Note, NoteCreationMode, AnyTemplate, LetterType, LetterCommonFields, ReferralFields, RecordsFields, FreetextFields, CustomLetterTemplate } from '@/types'
+import type { Note, NoteCreationMode, AnyTemplate, LetterType, LetterCommonFields, ReferralFields, RecordsFields, FreetextFields, CustomLetterTemplate, HospitalFormDoc } from '@/types'
 import { parseLetterData } from '@/lib/utils'
 
 // One editable section of a custom letter in progress (content the doctor typed
@@ -46,6 +46,14 @@ interface NoteStore {
   freetextFields: FreetextFields
   customLetterTemplate: CustomLetterTemplate | null
   customLetterSections: CustomLetterSectionValue[]
+  // Hospital progress-note form flow (parallel to letters). When a form is
+  // active the /hospital-form route renders its editor; pending generation runs
+  // the dictated transcript through the AI on arrival.
+  hospitalForm: HospitalFormDoc | null
+  pendingHospitalFormGeneration: boolean
+  setHospitalForm: (f: HospitalFormDoc | null) => void
+  setPendingHospitalFormGeneration: (v: boolean) => void
+  resetHospitalForm: () => void
   setCurrentNote: (note: Partial<Note>) => void
   setCurrentNoteId: (id: string | null) => void
   setLastTranscript: (t: string | null) => void
@@ -96,6 +104,13 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   const [freetextFields, setFreetextFieldsState] = useState<FreetextFields>(DEFAULT_FREETEXT)
   const [customLetterTemplate, setCustomLetterTemplate] = useState<CustomLetterTemplate | null>(null)
   const [customLetterSections, setCustomLetterSections] = useState<CustomLetterSectionValue[]>([])
+  const [hospitalForm, setHospitalForm] = useState<HospitalFormDoc | null>(null)
+  const [pendingHospitalFormGeneration, setPendingHospitalFormGeneration] = useState(false)
+
+  function resetHospitalForm() {
+    setHospitalForm(null)
+    setPendingHospitalFormGeneration(false)
+  }
 
   function resetNote() {
     setCurrentNoteId(null)
@@ -150,6 +165,11 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       freetextFields,
       customLetterTemplate,
       customLetterSections,
+      hospitalForm,
+      pendingHospitalFormGeneration,
+      setHospitalForm,
+      setPendingHospitalFormGeneration,
+      resetHospitalForm,
       setCustomLetterTemplate,
       setCustomLetterSections,
       updateCustomLetterSection: (key, content) =>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Modal from '@/components/ui/Modal'
-import type { LetterType, CustomLetterTemplate } from '@/types'
+import type { LetterType, CustomLetterTemplate, HospitalFormDoc } from '@/types'
 
 interface LetterPickerModalProps {
   open: boolean
@@ -12,6 +12,8 @@ interface LetterPickerModalProps {
   customTemplates?: CustomLetterTemplate[]
   onSelectCustom?: (template: CustomLetterTemplate) => void
   onCreateTemplate?: () => void
+  hospitalForms?: HospitalFormDoc[]
+  onSelectHospitalForm?: (form: HospitalFormDoc) => void
 }
 
 const CARD_CLASS = `w-full flex items-center gap-4 p-4 rounded-[var(--r-lg)] border border-[#10b981]/40
@@ -61,7 +63,7 @@ const LETTER_OPTIONS = [
   },
 ]
 
-export default function LetterPickerModal({ open, onSelect, onSelectClinicalNote, onClose, customTemplates = [], onSelectCustom, onCreateTemplate }: LetterPickerModalProps) {
+export default function LetterPickerModal({ open, onSelect, onSelectClinicalNote, onClose, customTemplates = [], onSelectCustom, onCreateTemplate, hospitalForms = [], onSelectHospitalForm }: LetterPickerModalProps) {
   const [search, setSearch] = useState('')
   const showSearch = LETTER_OPTIONS.length + customTemplates.length > 5
   const q = search.trim().toLowerCase()
@@ -79,6 +81,28 @@ export default function LetterPickerModal({ open, onSelect, onSelectClinicalNote
             placeholder="Search letter types…"
             className="w-full mt-3 text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2 bg-white outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10"
           />
+        )}
+        {onSelectHospitalForm && hospitalForms.length > 0 && !q && (
+          <div className="space-y-3 mt-4">
+            <p className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wide">Hospital forms</p>
+            {hospitalForms.map(form => (
+              <button key={form.formKey} onClick={() => onSelectHospitalForm(form)} className={CARD_CLASS} style={CARD_STYLE}>
+                <span className="text-[var(--blue)] shrink-0">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                    <line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/>
+                  </svg>
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[var(--text)] truncate">{form.name}</p>
+                  <p className="text-xs text-[var(--text3)] mt-0.5">Dictate or type a progress note on this hospital form</p>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-[var(--text3)] shrink-0" aria-hidden>
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
+            ))}
+          </div>
         )}
         <div className="space-y-3 mt-4">
           {builtins.map(opt => (
