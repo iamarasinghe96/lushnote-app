@@ -388,6 +388,11 @@ export default function PatientsPage() {
   }, [groupedPatients, search, sortBy, quickFilter])
 
   function loadNote(note: Note) {
+    // Clear any hospital form the edit page is currently showing so opening a note
+    // or letter doesn't get stuck on the previous form (the edit page early-returns
+    // the form editor whenever store.hospitalForm is set). The form path below
+    // re-loads its own form via ?noteId, so this reset is safe for it too.
+    store.resetHospitalForm()
     // A saved letter re-opens in the letter editor. Route via ?noteId so the edit
     // page owns hydration (and primes its "already saved" guard so merely opening
     // the letter doesn't re-write it). Don't touch letter state here — resetting it

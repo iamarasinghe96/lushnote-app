@@ -643,7 +643,9 @@ function EditContent() {
         if (s.letterType !== null) s.resetLetterMode()
         loadNote(noteIdParam)
       } else if (s.letterType === null) {
-        // Same doc, note mode — keep the fields already in the store.
+        // Same doc, note mode — keep the fields already in the store. Clear any
+        // lingering hospital form so a stale form can't hijack this note view.
+        if (s.hospitalForm) s.resetHospitalForm()
         latestFieldsRef.current = s.currentNote
         setFields(s.currentNote)
       } else {
