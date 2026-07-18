@@ -67,10 +67,16 @@ export function PullToRefresh() {
       if (scroller && scroller.scrollTop > 0) { startY = null; reset(true); return }
       const dy = e.touches[0].clientY - startY
       if (dy <= 0) { if (active) reset(false); active = false; return }
+      // Pulling DOWN while already at the top — there's nothing to scroll above,
+      // so the only native behaviour is the rubber-band overscroll. Suppress it
+      // from the very first move: iOS WebKit (Safari, and Brave/Chrome on iOS)
+      // decides a touch sequence is a native scroll on the first move and then
+      // marks the rest non-cancelable, so a late preventDefault (the old
+      // `pull > 4` gate) never worked there and the gesture was hijacked.
+      if (e.cancelable) e.preventDefault()
       active = true
       pull = Math.min(MAX_PULL, dy * RESISTANCE)
       paint()
-      if (pull > 4 && e.cancelable) e.preventDefault()   // stop the scroller/rubber-band
     }
 
     function onEnd() {
