@@ -188,9 +188,15 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
     { label: 'Print', action: handlePrint },
   ]
 
-  // Green bar matched to the note/letter bars (same glass, radius, height).
-  const BAR_CLS = 'ln-glass ln-glass-note no-print sticky z-20 mx-4 mt-3 flex items-center gap-2 px-3 py-2 text-white text-sm'
-  const BAR_STYLE = { top: 'calc(env(safe-area-inset-top) + 8px)', borderRadius: 20, boxShadow: '0 4px 16px rgba(14,159,110,0.25)' } as React.CSSProperties
+  // Green bar geometry matched EXACTLY to the note/letter edit bars: it floats
+  // below the header (safe-area + 76px, the .pt-header height), inset left-4/right-4,
+  // radius 20, same glass + shadow. Content scrolls behind it.
+  const HEADER_BOTTOM = 76
+  const BAR_H = 44
+  const barTop = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM}px)`
+  const contentPt = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM + BAR_H + 16}px)`
+  const BAR_CLS = 'ln-glass ln-glass-note no-print absolute left-4 right-4 z-20 flex items-center gap-2 px-3 py-2 text-white text-sm'
+  const BAR_STYLE = { top: barTop, borderRadius: 20, boxShadow: '0 4px 16px rgba(14,159,110,0.25)' } as React.CSSProperties
 
   if (!form || !value) {
     return (
@@ -200,49 +206,62 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
     )
   }
 
-  // Export tab: the ruled-form preview + the green Export ▾ menu (Download / Email
-  // / Print), matching the note & letter export.
+  // Export tab: the ruled-form preview fills the pane, with a floating Export ▾
+  // pill in the top-right corner — identical to the note & letter export page.
   if (readOnly) {
     return (
-      <div className="hf-export-scroll h-full overflow-y-auto scrollbar-none pb-tabbar pt-header bg-[var(--bg)]">
-        <div className={BAR_CLS} style={BAR_STYLE}>
-          <span className="font-medium truncate">{form.name}</span>
-          <div ref={menuRef} className="relative ml-auto shrink-0">
-            <button onClick={() => setMenuOpen(o => !o)} className="text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-full flex items-center gap-1 motion-safe:active:scale-95 motion-safe:transition-transform">
-              Export ▾
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-[var(--border)] rounded-[var(--r-lg)] overflow-hidden z-50"
-                style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}>
-                {EXPORT_ITEMS.map(item => (
-                  <button key={item.label} onClick={item.action}
-                    className="w-full text-left px-4 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--bg)] border-b border-[var(--border)] last:border-0 active:scale-[0.98] transition-colors">
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            )}
+      <div className="h-full relative overflow-hidden">
+        <div className="hf-export-scroll absolute inset-0 overflow-y-auto scrollbar-none pb-tabbar pt-header bg-[var(--bg)]">
+          <div className="py-4">
+            <HospitalFormEditor ref={editorRef} form={form} value={value} signatureUrl={profile?.signatureUrl} signatureScale={profile?.signatureScale} />
           </div>
         </div>
-        <div className="py-4">
-          <HospitalFormEditor ref={editorRef} form={form} value={value} signatureUrl={profile?.signatureUrl} signatureScale={profile?.signatureScale} />
+
+        <div ref={menuRef} className="absolute right-4 z-10 no-print" style={{ top: 'calc(env(safe-area-inset-top) + 80px)' }}>
+          <button
+            onClick={() => setMenuOpen(o => !o)}
+            className="text-white text-xs font-semibold px-4 py-2 rounded-full flex items-center gap-1.5 motion-safe:transition-colors motion-safe:active:scale-[0.97]"
+            style={{
+              background: 'rgba(14,159,110,0.90)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,255,255,0.25)',
+              boxShadow: '0 2px 8px rgba(14,159,110,0.30)',
+            }}
+          >
+            Export ▾
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-[var(--border)] rounded-[var(--r-lg)] z-50 overflow-hidden"
+              style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}>
+              {EXPORT_ITEMS.map(item => (
+                <button key={item.label} onClick={item.action}
+                  className="w-full text-left px-4 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--bg)] border-b border-[var(--border)] last:border-0 active:scale-[0.98] transition-colors">
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
         {toast && <div className="fixed left-1/2 -translate-x-1/2 z-[70] bg-[var(--text)] text-white text-xs rounded-full px-4 py-2 pointer-events-none select-none no-print" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}>{toast}</div>}
       </div>
     )
   }
 
-  // Edit tab: plain fields (like a letter editor). The bar's action is Export,
-  // which jumps to the Export tab (where the preview + Download/Email/Print live).
+  // Edit tab: plain fields (like a letter editor). The bar floats below the
+  // header exactly like the note/letter bar; content scrolls behind it. The
+  // bar's action is Export, which jumps to the Export tab (preview + PDF/email).
   return (
-    <div className="h-full overflow-y-auto scrollbar-none pb-tabbar pt-header bg-[var(--bg)]">
+    <div className="h-full overflow-hidden relative bg-[var(--bg)]">
       <div className={BAR_CLS} style={BAR_STYLE}>
         <span className="font-medium truncate">{form.name}</span>
         {saveState !== 'idle' && <span className="text-[11px] text-white/80">{saveState === 'saving' ? 'Saving…' : 'Saved'}</span>}
         {isGenerating && <span className="text-[11px] text-white/90">Generating…</span>}
         <button onClick={() => router.push('/export')} className="ml-auto shrink-0 text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-full motion-safe:active:scale-95 motion-safe:transition-transform">Export</button>
       </div>
-      {genError && <div className="mx-4 mt-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-[var(--danger)]">{genError}</div>}
+      <div className="absolute inset-0 overflow-y-auto scrollbar-none pb-tabbar" style={{ paddingTop: contentPt }}>
+      {genError && <div className="max-w-lg mx-auto px-4 rounded-lg bg-red-50 border border-red-200 py-2 text-sm text-[var(--danger)]">{genError}</div>}
       <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <label className="col-span-2 text-xs font-medium text-[var(--text2)]">UR No
@@ -281,6 +300,7 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
         </label>
 
         <p className="text-xs text-[var(--text3)]">Preview it on the form and download the PDF from the <span className="font-medium text-[var(--text2)]">Export</span> tab.</p>
+      </div>
       </div>
 
       {toast && <div className="fixed left-1/2 -translate-x-1/2 z-[70] bg-[var(--text)] text-white text-xs rounded-full px-4 py-2 pointer-events-none select-none" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}>{toast}</div>}

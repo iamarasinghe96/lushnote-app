@@ -1,7 +1,13 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { usePathname } from 'next/navigation'
 import { isReloadRisky } from '@/lib/reloadGuard'
+
+// Routes where pull-to-refresh must stay OFF. The Export tab scrolls a scaled
+// A4 form preview; a top-of-scroll pull there fights the preview scroll and
+// would reload mid-review. Everywhere else (Generate, Edit, Patients…) keeps it.
+const DISABLED_ROUTES = ['/export']
 
 // The app uses a fixed 100dvh layout with `overflow: hidden` on <body>, so the
 // browser's native pull-to-refresh never fires (it needs the document itself to
@@ -15,6 +21,9 @@ const RESISTANCE = 0.5 // finger travel → indicator travel (rubber-band feel)
 export function PullToRefresh() {
   const indicatorRef = useRef<HTMLDivElement>(null)
   const spinnerRef = useRef<HTMLDivElement>(null)
+  const pathname = usePathname()
+  const disabledRef = useRef(false)
+  disabledRef.current = DISABLED_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'))
 
   useEffect(() => {
     let startY: number | null = null
@@ -53,7 +62,7 @@ export function PullToRefresh() {
     }
 
     function onStart(e: TouchEvent) {
-      if (refreshing || e.touches.length !== 1) return
+      if (disabledRef.current || refreshing || e.touches.length !== 1) return
       const target = e.target as Element
       if (target.closest('[role="dialog"]')) return   // modals handle their own scroll
       scroller = scrollableAncestor(target)
