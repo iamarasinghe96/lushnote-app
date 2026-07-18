@@ -216,7 +216,12 @@ export async function downloadLetterPDF(p: LetterExportParams) {
 
   const blockH = sigImgH + sigLines.length * LH
   let sy = sigZoneBottom - blockH
-  if (sy < y + PS * 2) { doc.addPage(); stampLetterhead(); sy = sigZoneBottom - blockH }
+  // The signature block is anchored just above the footer, leaving generous
+  // whitespace above it. We used to reserve a full blank line (PS*2 === LH) of
+  // clearance and spill to a second page once the body reached it; let the body
+  // use that line too, breaking only when it truly meets the block — one more
+  // line fits before a second page.
+  if (sy < y) { doc.addPage(); stampLetterhead(); sy = sigZoneBottom - blockH }
   if (sy < contentTop) sy = contentTop
 
   const cx = PW / 2
