@@ -7,6 +7,7 @@ import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote } from '@/lib/firestore/notes'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { getGroqKey, serializeHospitalFormData } from '@/lib/utils'
+import { GeneratingOverlay } from '@/components/ui/GeneratingOverlay'
 import HospitalFormEditor, { type HospitalFormEditorHandle } from './HospitalFormEditor'
 import type { HospitalFormData, NoteInput } from '@/types'
 
@@ -260,6 +261,7 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
         {isGenerating && <span className="text-[11px] text-white/90">Generating…</span>}
         <button onClick={() => router.push('/export')} className="ml-auto shrink-0 text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-full motion-safe:active:scale-95 motion-safe:transition-transform">Export</button>
       </div>
+      {isGenerating && <GeneratingOverlay noun="progress note" />}
       <div className="absolute inset-0 overflow-y-auto scrollbar-none pb-tabbar" style={{ paddingTop: contentPt }}>
       {genError && <div className="max-w-lg mx-auto px-4 rounded-lg bg-red-50 border border-red-200 py-2 text-sm text-[var(--danger)]">{genError}</div>}
       <div className="max-w-lg mx-auto px-4 py-4 space-y-4">

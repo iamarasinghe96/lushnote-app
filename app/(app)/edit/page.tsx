@@ -16,6 +16,7 @@ import { buildTemplatePrompt, stripRedundantSectionLabel, autoSessionTime, getGr
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import Input from '@/components/ui/Input'
+import { GeneratingOverlay } from '@/components/ui/GeneratingOverlay'
 import Textarea from '@/components/ui/Textarea'
 import Button from '@/components/ui/Button'
 import DatePicker from '@/components/ui/DatePicker'
@@ -2367,6 +2368,10 @@ function EditContent() {
         </div>
       )}
 
+
+      {/* Generating overlay — letters fill in one jump after a short wait, so
+          give the doctor calm feedback instead of empty fields. */}
+      {isLetterMode && isGeneratingLetter && <GeneratingOverlay noun="letter" />}
 
       {/* Form — fills the tab content area; contentPt pushes the first item below the floating bars */}
       <div
