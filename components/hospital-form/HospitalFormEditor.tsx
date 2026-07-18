@@ -214,9 +214,10 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
   return (
     <div ref={rootRef} className="hf-root">
       <style>{HF_CSS}</style>
-      <div className="hf-pages" style={{ ['--hf-scale' as string]: String(scale) } as React.CSSProperties}>
+      <div className="hf-pages">
         {form.pageBackgrounds.map((bg, p) => (
-          <div key={p} ref={el => { pageRefs.current[p] = el }} className="hf-page" style={{ ...pageVars, backgroundImage: bg ? `url(${bg})` : undefined }}>
+          <div key={p} className="hf-page-wrap" style={{ width: `${210 * scale}mm`, height: `${297 * scale}mm` }}>
+          <div ref={el => { pageRefs.current[p] = el }} className="hf-page" style={{ ...pageVars, backgroundImage: bg ? `url(${bg})` : undefined, transform: `scale(${scale})` }}>
             {renderPid()}
             <table className="hf-table">
               <colgroup><col className="hf-col-date" /><col className="hf-col-notes" /></colgroup>
@@ -240,6 +241,7 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
               </tbody>
             </table>
           </div>
+          </div>
         ))}
       </div>
     </div>
@@ -249,14 +251,17 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
 export default HospitalFormEditor
 
 const HF_CSS = `
-.hf-root { --hf-scale: 1; display: flex; flex-direction: column; align-items: center; }
-.hf-pages { display: flex; flex-direction: column; align-items: center; gap: 8mm; }
+.hf-root { display: flex; flex-direction: column; align-items: center; width: 100%; }
+.hf-pages { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+/* Wrapper is sized to the SCALED page so layout matches what's shown — the inner
+   page keeps its true A4 size and is scaled from the top-left, so there's no
+   horizontal overflow and the preview scrolls naturally like the letter one. */
+.hf-page-wrap { position: relative; flex: none; }
 .hf-page {
-  position: relative; width: 210mm; height: 297mm; background: #fff;
+  position: absolute; top: 0; left: 0; width: 210mm; height: 297mm; background: #fff;
   background-size: 100% 100%; background-position: top left; background-repeat: no-repeat;
   box-shadow: 0 4px 16px rgba(0,0,0,.35);
-  transform: scale(var(--hf-scale)); transform-origin: top center;
-  margin-bottom: calc((var(--hf-scale) - 1) * 297mm);
+  transform-origin: top left;
 }
 .hf-table {
   position: absolute; top: var(--hf-table-top); left: var(--hf-table-left);
