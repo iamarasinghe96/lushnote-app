@@ -32,11 +32,16 @@ export function PullToRefresh() {
     let active = false
     let refreshing = false
 
+    // The nearest scroll region (the app's pages each use one overflow-y-auto
+    // container). We do NOT require it to currently overflow: a short page (e.g.
+    // Generate when everything fits on screen) still has a scroll container sitting
+    // at scrollTop 0, which is exactly the "pull from the top" condition. Requiring
+    // overflow meant PTR silently did nothing on pages that fit.
     function scrollableAncestor(el: Element | null): HTMLElement | null {
       let node = el as HTMLElement | null
       while (node && node !== document.body) {
         const oy = getComputedStyle(node).overflowY
-        if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight + 1) return node
+        if (oy === 'auto' || oy === 'scroll') return node
         node = node.parentElement
       }
       return null
