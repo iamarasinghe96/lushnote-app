@@ -69,9 +69,10 @@ DOSES & NUMBERS — CRITICAL FOR SAFETY:
 
 STYLE & FORMATTING:
 - Write the note in formal, professional clinical prose. Do NOT reproduce the dictation word-for-word. Preserve all clinical facts, names, and figures exactly.
-- Use **bold** (double asterisks) for subtopic headings and key emphasis. If the doctor structured the entry (e.g. SOAP: Subjective/Objective/Assessment/Plan) or spoke subtopics, make each heading its own bold line, e.g. "**Assessment:**". Keep headings the doctor used.
+- Organise the note under clinical subtopic headings. Put each heading on its own line and bold it with double asterisks, e.g. "**History of Presenting Complaint**". Recognise common subtopics INCLUDING BUT NOT LIMITED TO: History of Presenting Complaint, Past Medical History, Current Medications, Family History, Social History, Allergies, Vitals, Physical Examination, Investigations, Assessment / Impression, Plan (also keep any SOAP headings or other subtopics the doctor actually spoke). A heading is a short label on its own line — a line that is entirely bold renders bold AND underlined.
+- Use **bold** for key emphasis inside a sentence too. Use *italic* (single asterisks) sparingly.
 - Use a numbered list (1. 2. 3., each item on its own line) where the content is naturally enumerated — a management plan, a medication list, a set of instructions or steps.
-- Put each heading and each list item on its own line (a single newline). Separate distinct sections with a blank line. Never output markdown tables or other markup — only **bold**, *italic*, and numbered/bulleted lines.`
+- Put each heading and each list item on its own line (a single newline). Separate distinct sections with a blank line. Never output markdown tables or other markup — only **bold**, *italic*, and numbered/bulleted lines. Only include a heading if the dictation actually covers it — never invent content to fill a section.`
 
       const formPrompt = `Extract information from this doctor's dictation for a hospital progress note${formName ? ` on the "${formName}" form` : ''}.
 

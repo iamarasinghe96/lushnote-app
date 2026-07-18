@@ -41,6 +41,11 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
   const fontStr = useCallback((bold: boolean, italic: boolean, px: number) =>
     `${bold ? '700 ' : ''}${italic ? 'italic ' : ''}${px}px Arial, sans-serif`, [])
 
+  // A row that is entirely bold is a subtopic heading — render it bold AND
+  // underlined (per the clinician's request), without needing a separate marker.
+  const isHeadingRow = (runs: { text: string; bold: boolean }[]) =>
+    runs.some(r => r.text.trim() !== '') && runs.every(r => r.bold || r.text.trim() === '')
+
   const cfg = useMemo<StyledWrapConfig>(() => {
     const fontPx = geo.fontPt * PT_PER_PX
     let ctx: CanvasRenderingContext2D | null = null
@@ -182,6 +187,13 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
           ctx.fillText(run.text, x, yy)
           x += ctx.measureText(run.text).width
         }
+        // Underline heading rows (entirely bold) to match the on-screen preview.
+        if (isHeadingRow(runs)) {
+          const uy = yy + fontPx * 0.42
+          ctx.strokeStyle = '#000'
+          ctx.lineWidth = Math.max(1, fontPx * 0.06)
+          ctx.beginPath(); ctx.moveTo(notesTextX, uy); ctx.lineTo(x, uy); ctx.stroke()
+        }
       }
 
       if (sigImg && sigRow >= 0 && Math.floor(sigRow / rowsPerPage) === p) {
@@ -258,7 +270,7 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
                           : <span className="hf-date-empty" />}
                       </td>
                       <td>
-                        <div ref={globalRow === 0 ? noteCellRef : undefined} className="hf-note" aria-label={`Notes line ${globalRow + 1}`}>
+                        <div ref={globalRow === 0 ? noteCellRef : undefined} className={`hf-note${isHeadingRow(layout.rows[globalRow] ?? []) ? ' hf-head' : ''}`} aria-label={`Notes line ${globalRow + 1}`}>
                           {(layout.rows[globalRow] ?? []).map((run, ri) => (
                             run.bold
                               ? <strong key={ri}>{run.text}</strong>
@@ -319,6 +331,7 @@ const HF_CSS = `
 }
 .hf-note strong { font-weight: 700; }
 .hf-note em { font-style: italic; }
+.hf-note.hf-head { text-decoration: underline; text-underline-offset: 2px; }
 .hf-date-empty { display: block; width: 100%; height: 100%; }
 .hf-pid { position: absolute; top: var(--hf-pid-top); left: var(--hf-pid-left); width: var(--hf-pid-width); font: var(--hf-font) Arial, sans-serif; }
 .hf-pid-row { display: flex; align-items: baseline; height: var(--hf-pid-row-h); gap: 1mm; }
