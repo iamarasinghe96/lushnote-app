@@ -27,8 +27,10 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
 ) {
   const geo = form.geometry
   const rowsPerPage = geo.rowsPerPage
-  const pageCount = Math.max(1, form.pageBackgrounds.length)
-  const totalRows = rowsPerPage * pageCount
+  const bgCount = Math.max(1, form.pageBackgrounds.length)
+  // Extra sheets reuse the campus backgrounds in order (front, back, front, …),
+  // exactly as a doctor would continue a long entry onto another physical form.
+  const pageBg = (p: number) => form.pageBackgrounds[p % bgCount]
 
   const rootRef = useRef<HTMLDivElement>(null)
   const pageRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -60,18 +62,35 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
     }
   }, [geo.fontPt, maxWidth, fontStr])
 
-  const layout = useMemo(() => layoutStyledRows(value.noteText || '', totalRows, cfg), [value.noteText, totalRows, cfg])
+  // Grow the form by whole sheets (front+back) until the note fits, so a long
+  // entry continues onto additional pages instead of being cut off — and a
+  // subtopic heading always has a following page to fall onto.
+  const MAX_PAGES = 12
+  const pageCount = useMemo(() => {
+    let pages = bgCount
+    while (pages < MAX_PAGES) {
+      const l = layoutStyledRows(value.noteText || '', rowsPerPage * pages, cfg, rowsPerPage)
+      if (!l.overflow) break
+      pages += bgCount
+    }
+    return pages
+  }, [value.noteText, cfg, rowsPerPage, bgCount])
+  const totalRows = rowsPerPage * pageCount
+
+  const layout = useMemo(() => layoutStyledRows(value.noteText || '', totalRows, cfg, rowsPerPage), [value.noteText, totalRows, cfg, rowsPerPage])
   const layoutRef = useRef(layout)
   layoutRef.current = layout
 
-  // The row the signature sits on (one past the last written line), so the
-  // preview shows the signature in the same place the PDF draws it.
+  // The signature is two ruled lines tall, so it starts one row past the last
+  // written line and needs a second row below it — clamp so both rows fit.
+  const SIG_ROWS = 2
   const sigRow = useMemo(() => {
     let last = -1
     for (let r = 0; r < totalRows; r++) if (layout.rows[r]?.some(run => run.text.trim())) last = r
-    return last >= 0 ? Math.min(last + 1, totalRows - 1) : -1
+    return last >= 0 ? Math.min(last + 1, totalRows - SIG_ROWS) : -1
   }, [layout, totalRows])
   const sigScaleF = (signatureScale && signatureScale > 0 ? signatureScale : 100) / 100
+  const sigHeightMm = geo.rowHeightMm * SIG_ROWS * sigScaleF
   const notesRightMm = geo.tableLeftMm + geo.dateColMm + geo.notesColMm
 
   // The saved signature is an SVG in Storage. iOS Safari won't reliably render an
@@ -150,7 +169,7 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
     const L = layoutRef.current
     let lastFilled = -1
     for (let r = 0; r < totalRows; r++) if (L.rows[r] && L.rows[r].some(run => run.text.trim())) lastFilled = r
-    const sigRow = lastFilled >= 0 ? Math.min(lastFilled + 1, totalRows - 1) : -1
+    const sigRow = lastFilled >= 0 ? Math.min(lastFilled + 1, totalRows - SIG_ROWS) : -1
     let sigImg: HTMLImageElement | null = null
     const sigSrc = sigDataUrlRef.current || (signatureUrl ? proxied(signatureUrl) : null)
     if (sigSrc && sigRow >= 0) { try { sigImg = await loadImg(sigSrc) } catch { sigImg = null } }
@@ -167,7 +186,7 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
       const ctx = canvas.getContext('2d')!
       ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H)
 
-      const bgUrl = form.pageBackgrounds[p]
+      const bgUrl = form.pageBackgrounds[p % bgCount]
       if (bgUrl) { try { const bg = await loadImg(proxied(bgUrl)); ctx.drawImage(bg, 0, 0, W, H) } catch { /* keep white */ } }
 
       const savedTransform = page.style.transform
@@ -243,10 +262,15 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
         const rowInPage = sigRow % rowsPerPage
         const rowTopMm = geo.tableTopMm + geo.rowHeightMm * (1 + rowInPage)
         const notesRightMm = geo.tableLeftMm + geo.dateColMm + geo.notesColMm
-        const targetHmm = geo.rowHeightMm * 0.9 * ((signatureScale && signatureScale > 0 ? signatureScale : 100) / 100)
+        const scaleF = (signatureScale && signatureScale > 0 ? signatureScale : 100) / 100
+        const targetHmm = geo.rowHeightMm * SIG_ROWS * scaleF
         const ratio = sigImg.naturalWidth / sigImg.naturalHeight || 3
         const wmm = targetHmm * ratio
         const xmm = notesRightMm - wmm - 1
+        const padMm = 0.6
+        // White backing so the ruled lines don't run through the signature.
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect((xmm - padMm) * MM_PER_PX * SCALE, (rowTopMm - padMm) * MM_PER_PX * SCALE, (wmm + padMm * 2) * MM_PER_PX * SCALE, (targetHmm + padMm * 2) * MM_PER_PX * SCALE)
         ctx.drawImage(sigImg, xmm * MM_PER_PX * SCALE, rowTopMm * MM_PER_PX * SCALE, wmm * MM_PER_PX * SCALE, targetHmm * MM_PER_PX * SCALE)
       }
 
@@ -295,7 +319,9 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
     <div ref={rootRef} className="hf-root">
       <style>{HF_CSS}</style>
       <div className="hf-pages">
-        {form.pageBackgrounds.map((bg, p) => (
+        {Array.from({ length: pageCount }, (_, p) => {
+          const bg = pageBg(p)
+          return (
           <div key={p} className="hf-page-wrap" style={{ width: `${210 * scale}mm`, height: `${297 * scale}mm` }}>
           <div ref={el => { pageRefs.current[p] = el }} className="hf-page" style={{ ...pageVars, backgroundImage: bg ? `url(${bg})` : undefined, transform: `scale(${scale})` }}>
             {renderPid()}
@@ -337,13 +363,16 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
                 style={{
                   top: `${geo.tableTopMm + geo.rowHeightMm * (1 + (sigRow % rowsPerPage))}mm`,
                   right: `${210 - notesRightMm + 1}mm`,
-                  height: `${geo.rowHeightMm * 0.9 * sigScaleF}mm`,
+                  height: `${sigHeightMm}mm`,
+                  background: '#fff',
+                  padding: '0.6mm',
                 }}
               />
             )}
           </div>
           </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

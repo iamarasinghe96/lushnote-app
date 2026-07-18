@@ -320,18 +320,54 @@ function wrapRuns(runs: StyledRun[], cfg: StyledWrapConfig): StyledRun[][] {
   return lines
 }
 
-export function layoutStyledRows(text: string, totalRows: number, cfg: StyledWrapConfig): { rows: StyledRun[][]; overflow: boolean } {
+// A line whose every non-blank run is bold is a subtopic heading.
+function isHeadingLine(runs: StyledRun[]): boolean {
+  return runs.some(r => r.text.trim() !== '') && runs.every(r => r.bold || r.text.trim() === '')
+}
+
+// When `rowsPerPage` is given, a subtopic heading is never left dangling at the
+// bottom of a page: if the heading's own row(s) plus its first content row would
+// not fit before the page break, the layout pads out the rest of the current
+// page so the heading falls to the top of the next page, staying with its
+// content. `rowsPerPage` omitted → plain sequential layout (used by tests).
+export function layoutStyledRows(
+  text: string, totalRows: number, cfg: StyledWrapConfig, rowsPerPage?: number,
+): { rows: StyledRun[][]; overflow: boolean } {
   const src = (text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+
+  // Pre-wrap every source line so we can look ahead for a heading's content.
+  const blocks = src.map(line => {
+    if (line.trim() === '') return { wrapped: [[]] as StyledRun[][], heading: false, blank: true }
+    const runs = parseInline(line)
+    return { wrapped: wrapRuns(runs, cfg), heading: isHeadingLine(runs), blank: false }
+  })
+  const hasLaterContent = (from: number) => {
+    for (let j = from; j < blocks.length; j++) if (!blocks[j].blank) return true
+    return false
+  }
+
   const rows: StyledRun[][] = []
   let overflow = false
-  for (const line of src) {
-    if (rows.length >= totalRows) { overflow = true; break }
-    if (line.trim() === '') { rows.push([]); continue }
-    for (const wrapped of wrapRuns(parseInline(line), cfg)) {
-      if (rows.length >= totalRows) { overflow = true; break }
-      rows.push(wrapped)
+  const push = (row: StyledRun[]): boolean => {
+    if (rows.length >= totalRows) { overflow = true; return false }
+    rows.push(row)
+    return true
+  }
+
+  for (let bi = 0; bi < blocks.length && !overflow; bi++) {
+    const b = blocks[bi]
+    if (b.heading && rowsPerPage && rowsPerPage > 0) {
+      const need = b.wrapped.length + (hasLaterContent(bi + 1) ? 1 : 0)
+      const local = rows.length % rowsPerPage
+      const remaining = rowsPerPage - local
+      // Only bump forward — never on the very first row of a page, and only if
+      // there's a next page to bump into (keeps the last page from padding away).
+      if (local > 0 && remaining < need && rows.length + remaining < totalRows) {
+        for (let k = 0; k < remaining && push([]); k++) { /* pad to page break */ }
+      }
     }
-    if (overflow) break
+    if (b.blank) { push([]); continue }
+    for (const wrapped of b.wrapped) if (!push(wrapped)) break
   }
   while (rows.length < totalRows) rows.push([])
   return { rows, overflow }
