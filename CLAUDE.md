@@ -225,8 +225,8 @@ form exactly. Persists under the patient like letters.
   `organizationKeys` (campus org-keys, `toOrganizationKey`), `pageBackgrounds`
   (full-page PNG Storage URLs, one per side), `geometry` (all mm — table/pid
   positions, row height, rows/page, font pt), `labels`. Admin at
-  `/admin/hospital-forms` (+ API `/api/admin/hospital-form`), cloned from the
-  letterhead admin. New hospitals need no code — just a form doc.
+  the **Admin Console** at `/admin` (Hospital Forms section; + API
+  `/api/admin/hospital-form`). New hospitals need no code — just a form doc.
 - **Editor:** `components/hospital-form/HospitalFormEditor.tsx` renders each page
   from its PNG background + an absolutely-positioned overlay table, geometry as
   CSS vars. The notes column is driven by `components/hospital-form/reflow.ts`
