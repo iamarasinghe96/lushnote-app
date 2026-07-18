@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote } from '@/lib/firestore/notes'
@@ -36,8 +37,17 @@ const INPUT = 'w-full text-sm border border-[var(--border)] rounded-[var(--r)] p
 export default function HospitalFormView({ readOnly = false }: { readOnly?: boolean }) {
   const { user, profile } = useAuth()
   const store = useNoteStore()
+  const router = useRouter()
   const storeRef = useRef(store)
   storeRef.current = store
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDown = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [menuOpen])
 
   const form = store.hospitalForm
   const value = store.hospitalFormData
@@ -147,19 +157,40 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
   const setPid = (k: keyof HospitalFormData['pid'], v: string) => { if (value) store.setHospitalFormData({ ...value, pid: { ...value.pid, [k]: v } }) }
   const setField = (patch: Partial<HospitalFormData>) => { if (value) store.setHospitalFormData({ ...value, ...patch }) }
 
-  function handleNew() {
-    if (!form) return
-    if (!window.confirm('Start a new blank form? The current one stays saved in your records.')) return
-    store.setHospitalFormNoteId(null)
-    lastSavedRef.current = null
-    draftClearedRef.current = false
-    store.setLastTranscript(null)
-    store.setHospitalFormData({ ...emptyFormData(form.formKey), dateTime: nowDateTime() })
-  }
-
   async function handleDownload() {
+    setMenuOpen(false)
     try { await editorRef.current?.downloadPdf() } catch { setToast('Could not build the PDF.') }
   }
+
+  function handlePrint() { setMenuOpen(false); window.print() }
+
+  function handleEmail() {
+    setMenuOpen(false)
+    const v = storeRef.current.hospitalFormData
+    if (!v) return
+    const name = [v.pid.givenNames, v.pid.surname].filter(Boolean).join(' ')
+    const lines: string[] = []
+    if (v.pid.urNo) lines.push('UR No: ' + v.pid.urNo)
+    if (name) lines.push('Patient: ' + name)
+    if (v.pid.dob) lines.push('DOB: ' + v.pid.dob)
+    if (v.pid.sex) lines.push('Sex: ' + v.pid.sex)
+    if (v.dateTime.date || v.dateTime.time) lines.push('Date/Time: ' + [v.dateTime.date, v.dateTime.time].filter(Boolean).join(' '))
+    lines.push('')
+    lines.push((v.noteText || '').replace(/\*\*/g, '').replace(/\*/g, ''))
+    const subject = encodeURIComponent(`${form?.name || 'Progress Notes'}${name ? ' — ' + name : ''}`)
+    const body = encodeURIComponent(lines.join('\n'))
+    window.location.href = `mailto:?subject=${subject}&body=${body}`
+  }
+
+  const EXPORT_ITEMS: { label: string; action: () => void }[] = [
+    { label: 'Download PDF', action: handleDownload },
+    { label: 'Email', action: handleEmail },
+    { label: 'Print', action: handlePrint },
+  ]
+
+  // Green bar matched to the note/letter bars (same glass, radius, height).
+  const BAR_CLS = 'ln-glass ln-glass-note no-print sticky z-20 mx-4 mt-3 flex items-center gap-2 px-3 py-2 text-white text-sm'
+  const BAR_STYLE = { top: 'calc(env(safe-area-inset-top) + 8px)', borderRadius: 20, boxShadow: '0 4px 16px rgba(14,159,110,0.25)' } as React.CSSProperties
 
   if (!form || !value) {
     return (
@@ -169,35 +200,48 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
     )
   }
 
-  const bar = (
-    <div className="sticky z-20 mx-3 mt-3 flex items-center gap-2 px-3 py-2 rounded-[var(--r-lg)] text-white text-sm"
-      style={{ top: 'calc(env(safe-area-inset-top) + 8px)', background: 'rgba(14,159,110,0.92)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.28)', boxShadow: '0 4px 16px rgba(14,159,110,0.25)' }}>
-      <span className="font-medium truncate">{form.name}</span>
-      {!readOnly && saveState !== 'idle' && <span className="text-[11px] text-white/80">{saveState === 'saving' ? 'Saving…' : 'Saved'}</span>}
-      {isGenerating && <span className="text-[11px] text-white/90">Generating…</span>}
-      <div className="flex items-center gap-2 ml-auto shrink-0">
-        {!readOnly && <button onClick={handleNew} className="text-xs px-2.5 py-1.5 rounded border border-white/40 hover:bg-white/10 motion-safe:transition-colors">New</button>}
-        {readOnly && <button onClick={handleDownload} className="text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded motion-safe:active:scale-95 motion-safe:transition-transform">Download PDF</button>}
-      </div>
-    </div>
-  )
-
-  // Export tab: the ruled-form preview + Download.
+  // Export tab: the ruled-form preview + the green Export ▾ menu (Download / Email
+  // / Print), matching the note & letter export.
   if (readOnly) {
     return (
-      <div className="h-full overflow-y-auto scrollbar-none pb-tabbar pt-header bg-[var(--bg)]">
-        {bar}
+      <div className="hf-export-scroll h-full overflow-y-auto scrollbar-none pb-tabbar pt-header bg-[var(--bg)]">
+        <div className={BAR_CLS} style={BAR_STYLE}>
+          <span className="font-medium truncate">{form.name}</span>
+          <div ref={menuRef} className="relative ml-auto shrink-0">
+            <button onClick={() => setMenuOpen(o => !o)} className="text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-full flex items-center gap-1 motion-safe:active:scale-95 motion-safe:transition-transform">
+              Export ▾
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-[var(--border)] rounded-[var(--r-lg)] overflow-hidden z-50"
+                style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}>
+                {EXPORT_ITEMS.map(item => (
+                  <button key={item.label} onClick={item.action}
+                    className="w-full text-left px-4 py-2.5 text-sm text-[var(--text)] hover:bg-[var(--bg)] border-b border-[var(--border)] last:border-0 active:scale-[0.98] transition-colors">
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
         <div className="py-4">
           <HospitalFormEditor ref={editorRef} form={form} value={value} signatureUrl={profile?.signatureUrl} signatureScale={profile?.signatureScale} />
         </div>
+        {toast && <div className="fixed left-1/2 -translate-x-1/2 z-[70] bg-[var(--text)] text-white text-xs rounded-full px-4 py-2 pointer-events-none select-none no-print" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}>{toast}</div>}
       </div>
     )
   }
 
-  // Edit tab: plain fields (like a letter editor).
+  // Edit tab: plain fields (like a letter editor). The bar's action is Export,
+  // which jumps to the Export tab (where the preview + Download/Email/Print live).
   return (
     <div className="h-full overflow-y-auto scrollbar-none pb-tabbar pt-header bg-[var(--bg)]">
-      {bar}
+      <div className={BAR_CLS} style={BAR_STYLE}>
+        <span className="font-medium truncate">{form.name}</span>
+        {saveState !== 'idle' && <span className="text-[11px] text-white/80">{saveState === 'saving' ? 'Saving…' : 'Saved'}</span>}
+        {isGenerating && <span className="text-[11px] text-white/90">Generating…</span>}
+        <button onClick={() => router.push('/export')} className="ml-auto shrink-0 text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-full motion-safe:active:scale-95 motion-safe:transition-transform">Export</button>
+      </div>
       {genError && <div className="mx-4 mt-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-[var(--danger)]">{genError}</div>}
       <div className="max-w-lg mx-auto px-4 py-4 space-y-4">
         <div className="grid grid-cols-2 gap-3">

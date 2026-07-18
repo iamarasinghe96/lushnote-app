@@ -342,4 +342,10 @@ const HF_CSS = `
 .hf-pid-dobsex { display: flex; align-items: baseline; height: var(--hf-pid-row-h); gap: var(--hf-pid-gap); }
 .hf-pid-dob { display: flex; align-items: baseline; gap: 1mm; flex: 2; max-width: 35mm; }
 .hf-pid-sex { display: flex; align-items: baseline; gap: 1mm; flex: 0 0 var(--hf-pid-sex-w); min-width: 0; overflow: hidden; }
+@media print {
+  .hf-export-scroll { overflow: visible !important; height: auto !important; padding: 0 !important; }
+  .hf-pages { gap: 0 !important; }
+  .hf-page-wrap { width: 210mm !important; height: 297mm !important; }
+  .hf-page { transform: none !important; box-shadow: none !important; break-after: page; }
+}
 `
