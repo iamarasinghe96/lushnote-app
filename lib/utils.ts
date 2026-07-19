@@ -708,7 +708,7 @@ export function buildLetterPreviewHTML(params: {
         </div>
         <!-- margin-bottom lifts the block off the footer letterhead in the on-screen
              preview only; the PDF export (lib/letterExport.ts) positions its own. -->
-        <div style="margin-top:auto;margin-bottom:24mm;padding-top:16px;text-align:center;position:relative;z-index:2;">
+        <div style="margin-top:auto;margin-bottom:12mm;padding-top:16px;text-align:center;position:relative;z-index:2;">
           ${signatureHtml}
           <p style="margin:0 0 2px;">Thank you and kind regards,</p>
           <p style="margin:0 0 2px;font-weight:700;">${escapeHtml(clinicianName || '')}${credentials ? ` (${escapeHtml(credentials)})` : ''}</p>
