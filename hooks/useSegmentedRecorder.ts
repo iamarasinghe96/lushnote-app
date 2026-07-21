@@ -34,6 +34,14 @@ interface SegResult {
   ms: number
 }
 
+// Screen Wake Lock — mobile OSes (and installed PWAs) suspend the page when the
+// screen locks, which stops the MediaRecorder so only the audio captured while
+// the screen was on gets transcribed. Holding a wake lock keeps the screen from
+// auto-locking during a recording. It is auto-released when the tab is hidden,
+// so it must be re-acquired whenever the app returns to the foreground.
+interface WakeLockSentinelLike { release: () => Promise<void>; addEventListener?: (t: string, cb: () => void) => void }
+interface WakeLockLike { request: (type: 'screen') => Promise<WakeLockSentinelLike> }
+
 function shortErr(e?: string): string {
   if (!e) return 'unknown error'
   return e.length > 80 ? e.slice(0, 80) : e
@@ -63,18 +71,41 @@ export function useSegmentedRecorder() {
   const sessionIdRef = useRef<string>('')
   const segNoRef = useRef(0)
   const logRef = useRef<SegmentLogEntry[]>([])
+  const wakeLockRef = useRef<WakeLockSentinelLike | null>(null)
+
+  const acquireWakeLock = useCallback(async () => {
+    try {
+      const wl = (navigator as Navigator & { wakeLock?: WakeLockLike }).wakeLock
+      if (!wl || wakeLockRef.current || document.visibilityState !== 'visible') return
+      const sentinel = await wl.request('screen')
+      wakeLockRef.current = sentinel
+      sentinel.addEventListener?.('release', () => { if (wakeLockRef.current === sentinel) wakeLockRef.current = null })
+    } catch { /* denied / unsupported — best effort; recording still runs while visible */ }
+  }, [])
+  const acquireRef = useRef(acquireWakeLock)
+  acquireRef.current = acquireWakeLock
+
+  const releaseWakeLock = useCallback(() => {
+    const s = wakeLockRef.current
+    wakeLockRef.current = null
+    if (s) { try { void s.release() } catch { /* already gone */ } }
+  }, [])
 
   useEffect(() => {
     return () => {
       if (cycleRef.current) clearInterval(cycleRef.current)
       if (timerRef.current) clearInterval(timerRef.current)
+      releaseWakeLock()
     }
-  }, [])
+  }, [releaseWakeLock])
 
   useEffect(() => {
     function onVisibility() {
       if (!streamRef.current) return
       setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000))
+      // The wake lock drops when the app is backgrounded; re-take it the moment
+      // the doctor brings the app back so the next screen-off keeps recording.
+      if (document.visibilityState === 'visible') void acquireRef.current()
     }
     document.addEventListener('visibilitychange', onVisibility)
     return () => document.removeEventListener('visibilitychange', onVisibility)
@@ -224,6 +255,7 @@ export function useSegmentedRecorder() {
     startTimeRef.current = Date.now()
     startSegmentRecorder()
     setIsRecording(true)
+    void acquireWakeLock()
     timerRef.current = setInterval(() => {
       setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000))
     }, 1000)
@@ -232,11 +264,12 @@ export function useSegmentedRecorder() {
       if (old && old.state !== 'inactive') old.stop()
       startSegmentRecorder()
     }, SEGMENT_MS)
-  }, [drainQueue])
+  }, [drainQueue, acquireWakeLock])
 
   const stop = useCallback(async (): Promise<StopResult> => {
     if (cycleRef.current) { clearInterval(cycleRef.current); cycleRef.current = null }
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    releaseWakeLock()
     const dur = Math.floor((Date.now() - startTimeRef.current) / 1000)
 
     const rec = recorderRef.current
@@ -257,7 +290,7 @@ export function useSegmentedRecorder() {
     recorderRef.current = null
     setIsRecording(false)
     return { text: textRef.current, duration: dur }
-  }, [])
+  }, [releaseWakeLock])
 
   return { isRecording, duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, error, start, stop }
 }
