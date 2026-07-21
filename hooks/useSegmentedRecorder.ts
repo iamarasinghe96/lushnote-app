@@ -57,6 +57,7 @@ export function useSegmentedRecorder() {
   const [audioError, setAudioError] = useState<string | null>(null)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [micLost, setMicLost] = useState(false)
 
   const streamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
@@ -66,6 +67,7 @@ export function useSegmentedRecorder() {
   const cycleRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const queueRef = useRef<Blob[]>([])
   const workingRef = useRef(false)
+  const pausedRef = useRef(false)
   const textRef = useRef('')
   const optsRef = useRef<StartOpts | null>(null)
   const sessionIdRef = useRef<string>('')
@@ -235,6 +237,51 @@ export function useSegmentedRecorder() {
     recorderRef.current = rec
   }
 
+  function startCycle() {
+    cycleRef.current = setInterval(() => {
+      const old = recorderRef.current
+      if (old && old.state !== 'inactive') old.stop()
+      startSegmentRecorder()
+    }, SEGMENT_MS)
+  }
+
+  // A phone call, another app grabbing the mic, or an OS audio interruption fires
+  // 'mute' (temporary) or 'ended' (gone for good) on the audio track. In BOTH
+  // cases we flush the in-progress segment right away so everything up to the
+  // interruption is transcribed and written to the recovery draft — nothing after
+  // the last 4-min checkpoint is lost — and we surface it so the doctor sees the
+  // recording paused rather than silently capturing nothing.
+  function pauseForMicLoss() {
+    if (pausedRef.current) return
+    pausedRef.current = true
+    setMicLost(true)
+    if (cycleRef.current) { clearInterval(cycleRef.current); cycleRef.current = null }
+    const rec = recorderRef.current
+    if (rec && rec.state !== 'inactive') { try { rec.stop() } catch { /* already stopping */ } }
+  }
+
+  // The mic came back (e.g. the call ended, or an unanswered call stopped ringing
+  // on Android) — resume capturing into a fresh segment. iOS often ENDS the track
+  // instead of un-muting it, so this may never fire there; the doctor then just
+  // taps Stop and keeps the transcript captured so far.
+  function resumeAfterMicBack() {
+    if (!pausedRef.current) return
+    const track = streamRef.current?.getAudioTracks()[0]
+    if (!track || track.readyState !== 'live') return
+    pausedRef.current = false
+    setMicLost(false)
+    startSegmentRecorder()
+    startCycle()
+  }
+
+  function watchTrack(stream: MediaStream) {
+    const track = stream.getAudioTracks()[0]
+    if (!track) return
+    track.addEventListener('mute', pauseForMicLoss)
+    track.addEventListener('ended', pauseForMicLoss)
+    track.addEventListener('unmute', resumeAfterMicBack)
+  }
+
   const start = useCallback((stream: MediaStream, opts: StartOpts) => {
     setError(null)
     setAudioError(null)
@@ -251,19 +298,18 @@ export function useSegmentedRecorder() {
     setTranscribedMin(0)
     setFailures(0)
     setDuration(0)
+    setMicLost(false)
+    pausedRef.current = false
     mimeRef.current = pickMime()
     startTimeRef.current = Date.now()
     startSegmentRecorder()
+    watchTrack(stream)
     setIsRecording(true)
     void acquireWakeLock()
     timerRef.current = setInterval(() => {
       setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000))
     }, 1000)
-    cycleRef.current = setInterval(() => {
-      const old = recorderRef.current
-      if (old && old.state !== 'inactive') old.stop()
-      startSegmentRecorder()
-    }, SEGMENT_MS)
+    startCycle()
   }, [drainQueue, acquireWakeLock])
 
   const stop = useCallback(async (): Promise<StopResult> => {
@@ -288,9 +334,11 @@ export function useSegmentedRecorder() {
       streamRef.current = null
     }
     recorderRef.current = null
+    pausedRef.current = false
     setIsRecording(false)
+    setMicLost(false)
     return { text: textRef.current, duration: dur }
   }, [releaseWakeLock])
 
-  return { isRecording, duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, error, start, stop }
+  return { isRecording, duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, error, micLost, start, stop }
 }

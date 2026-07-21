@@ -119,7 +119,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
   const streamRef = useRef<MediaStream | null>(null)
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stopRef = useRef<(() => void) | null>(null)
-  const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, start, stop, error: recError } = useSegmentedRecorder()
+  const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, micLost, start, stop, error: recError } = useSegmentedRecorder()
   const { user } = useAuth()
 
   const autoStopMinutes = recordingDefaults?.autoStop === false
@@ -446,14 +446,19 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
         {phase === 'recording' && (
           <div className="text-center py-2 space-y-4">
             <div className="flex items-center justify-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+              <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${micLost ? 'bg-amber-500' : 'bg-red-500'}`} />
               <span className="text-2xl font-mono font-semibold text-[var(--text)]">
                 {formatDuration(duration)}
               </span>
             </div>
             <p className="text-sm text-[var(--text3)]">
-              {(letterType || hospitalForm) ? `Dictating your ${selectedLabel?.toLowerCase()}…` : 'Dictating…'}
+              {micLost ? 'Paused — waiting for the microphone…' : (letterType || hospitalForm) ? `Dictating your ${selectedLabel?.toLowerCase()}…` : 'Dictating…'}
             </p>
+            {micLost && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 text-left">
+                The microphone was interrupted (e.g. a phone call). Everything captured so far is saved. Dictation resumes automatically when the mic is free — or tap Stop to finish now.
+              </div>
+            )}
             {audioSavedMin > 0 && (
               <p className="text-xs text-[#10b981] font-medium">~{audioSavedMin} min of audio safely captured</p>
             )}
