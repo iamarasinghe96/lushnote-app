@@ -54,15 +54,19 @@ export default function Page() {
   }
 
   return (
-    <div className="h-dvh overflow-y-auto text-[var(--text)] relative" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      {/* Full-bleed hero background painted on the ROOT <html> box so it fills the
-          whole screen INCLUDING the home-indicator safe-area strip (iOS fills that
-          strip from the root element's background — a flat body colour left a band).
-          Scoped to the landing via this <style>: it is server-rendered (no flash)
-          and React removes it on unmount, so the signed-in app keeps its own bg.
-          <html> stays fixed while content scrolls, so glass cards scroll over it. */}
-      <style>{`html{background:${HERO_BG} !important}body{background:transparent !important}`}</style>
-      <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: -1, background: HERO_BG }} />
+    <div className="min-h-dvh text-[var(--text)] relative" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {/* Replicate the BYD full-bleed: the landing scrolls at the DOCUMENT level
+          (override the app shell's fixed-height/overflow:hidden model) so Safari
+          collapses its toolbar and content bleeds behind it. The hero gradient is
+          painted on the ROOT <html>, whose background — per spec — covers the whole
+          canvas incl. the home-indicator safe area, even when content is short.
+          <body> is transparent so it shows through. Scoped to the landing via this
+          server-rendered <style>; React removes it on unmount so the app shell
+          keeps its own fixed-height background. */}
+      <style>{`
+        html{background:${HERO_BG} !important;height:auto !important;min-height:100dvh !important;overflow:visible !important}
+        body{background:transparent !important;height:auto !important;overflow:visible !important}
+      `}</style>
 
       {/* ── Nav ── */}
       <nav
