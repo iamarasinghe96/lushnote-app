@@ -37,11 +37,11 @@
 }
 
 * { box-sizing: border-box; }
-/* Fixed-height app shell: the authenticated app never scrolls the document; each
-   page owns an inner scroll container. (The landing overrides this to native
-   document scrolling via its own scoped <style>, incl. its own min-height:100dvh
-   for the full-bleed gradient — so this stays clean and can't destabilise the
-   app's 100dvh shell / fixed tab bar after keyboard/viewport recalcs.) */
+/* Fixed-height shell for the whole site: the document never scrolls; each page
+   owns an inner scroll container, and the tab bar/header are fixed to the
+   viewport. Kept global and untouched — earlier attempts to override this on the
+   landing (for a full-bleed gradient) leaked into the app and broke the fixed
+   tab bar, so the landing now paints its gradient with a self-contained element. */
 html, body { height: 100%; overflow: hidden; }
 /* The body background propagates to the canvas (and so fills the PWA's
    home-indicator safe-area strip). It must stay on <body>, NOT <html>: giving

@@ -54,19 +54,12 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-dvh text-[var(--text)] relative" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      {/* Replicate the BYD full-bleed: the landing scrolls at the DOCUMENT level
-          (override the app shell's fixed-height/overflow:hidden model) so Safari
-          collapses its toolbar and content bleeds behind it. The hero gradient is
-          painted on the ROOT <html>, whose background — per spec — covers the whole
-          canvas incl. the home-indicator safe area, even when content is short.
-          <body> is transparent so it shows through. Scoped to the landing via this
-          server-rendered <style>; React removes it on unmount so the app shell
-          keeps its own fixed-height background. */}
-      <style>{`
-        html{background:${HERO_BG} !important;height:auto !important;min-height:100dvh !important;overflow:visible !important}
-        body{background:transparent !important;height:auto !important;overflow:visible !important}
-      `}</style>
+    <div className="h-dvh overflow-y-auto text-[var(--text)] relative" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {/* Fixed full-viewport gradient behind the scrolling content. Kept as a
+          self-contained element — NO global html/body overrides — because a
+          landing <style>/effect that mutated html/body got hoisted/left applied
+          and leaked into the authenticated app, breaking the fixed tab bar. */}
+      <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: -1, background: HERO_BG }} />
 
       {/* ── Nav ── */}
       <nav
