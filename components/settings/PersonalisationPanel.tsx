@@ -4,6 +4,11 @@ import { useState, useEffect } from 'react'
 import Button from '@/components/ui/Button'
 import type { User, Personalisation, NoteLength } from '@/types'
 
+// The "Add to Home Screen" / install option is intentionally hidden from the UI
+// (doctors shouldn't install the standalone PWA — the browser experience is the
+// supported one). The code is kept intact; flip this to re-enable it.
+const SHOW_ADD_TO_HOME = false
+
 interface PersonalisationPanelProps {
   profile: User
   onSave: (data: Partial<User>) => Promise<void>
@@ -231,7 +236,8 @@ export default function PersonalisationPanel({ profile, onSave, onToast }: Perso
         Save personalisation
       </Button>
 
-      {/* Add to Home Screen */}
+      {/* Add to Home Screen — hidden from the UI (see SHOW_ADD_TO_HOME); code kept. */}
+      {SHOW_ADD_TO_HOME && (
       <div className="mt-6 pt-6 border-t border-[var(--border)]">
         <h3 className="text-sm font-semibold text-[var(--text)] mb-1">Add to Home Screen</h3>
         <p className="text-xs text-[var(--text3)] mb-3">
@@ -256,6 +262,7 @@ export default function PersonalisationPanel({ profile, onSave, onToast }: Perso
           </button>
         )}
       </div>
+      )}
 
       {/* Desktop install sheet */}
       {desktopSheetOpen && (

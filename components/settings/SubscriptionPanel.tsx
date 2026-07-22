@@ -5,7 +5,7 @@ import Button from '@/components/ui/Button'
 import { withTimeout } from '@/lib/utils'
 import type { User } from '@/types'
 
-const APP_URL = 'https://lushnote.app'
+const APP_URL = 'https://www.lushnote.com.au/'
 
 interface SubscriptionPanelProps {
   profile: User
