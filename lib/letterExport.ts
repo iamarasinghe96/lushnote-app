@@ -133,7 +133,7 @@ function buildSigLines(p: LetterExportParams): { text: string; bold?: boolean; s
   return sigLines
 }
 
-export async function downloadLetterPDF(p: LetterExportParams) {
+export async function downloadLetterPDF(p: LetterExportParams, shareCaption?: string) {
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const PW = 210, PH = 297
@@ -241,7 +241,20 @@ export async function downloadLetterPDF(p: LetterExportParams) {
 
   const pname = (p.common.patientName || 'letter').replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-')
   const typeLabel = p.letterType === 'referral' ? 'Referral' : p.letterType === 'records' ? 'RecordsRequest' : 'Letter'
-  doc.save(`${typeLabel}_${pname}_${(p.common.letterDate || '').replace(/\//g, '-')}.pdf`)
+  const filename = `${typeLabel}_${pname}_${(p.common.letterDate || '').replace(/\//g, '-')}.pdf`
+
+  // Share the actual PDF FILE (not a blob: URL) so apps like WhatsApp attach a
+  // clean "Name.pdf" card with a readable caption; fall back to a download.
+  if (shareCaption !== undefined) {
+    const file = new File([doc.output('blob')], filename, { type: 'application/pdf' })
+    const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
+    if (typeof nav.share === 'function' && (!nav.canShare || nav.canShare({ files: [file] }))) {
+      try { await navigator.share({ files: [file], title: filename, text: shareCaption }) }
+      catch (e) { if ((e as Error)?.name !== 'AbortError') doc.save(filename) }
+      return
+    }
+  }
+  doc.save(filename)
 }
 
 export function openLetterEmail(p: LetterExportParams) {

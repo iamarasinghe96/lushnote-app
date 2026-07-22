@@ -163,6 +163,15 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
     try { await editorRef.current?.downloadPdf() } catch { setToast('Could not build the PDF.') }
   }
 
+  async function handleShare() {
+    setMenuOpen(false)
+    const v = storeRef.current.hospitalFormData
+    const name = [v?.pid.givenNames, v?.pid.surname].filter(Boolean).join(' ')
+    const date = v?.dateTime.date || ''
+    const caption = [`${form?.name || 'Progress Notes'}${name ? ' — ' + name : ''}`, date].filter(Boolean).join(' · ')
+    try { await editorRef.current?.sharePdf(caption) } catch { setToast('Could not share the PDF.') }
+  }
+
   function handlePrint() { setMenuOpen(false); window.print() }
 
   function handleEmail() {
@@ -183,8 +192,10 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
     window.location.href = `mailto:?subject=${subject}&body=${body}`
   }
 
+  const canShareFiles = typeof navigator !== 'undefined' && !!navigator.share
   const EXPORT_ITEMS: { label: string; action: () => void }[] = [
     { label: 'Download PDF', action: handleDownload },
+    ...(canShareFiles ? [{ label: 'Share PDF', action: handleShare }] : []),
     { label: 'Email', action: handleEmail },
     { label: 'Print', action: handlePrint },
   ]

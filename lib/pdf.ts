@@ -269,8 +269,32 @@ export function downloadNotePDF(
 ): void {
   if (typeof window === 'undefined') return
   const doc = generateNotePDF(note, clinicianName, patientInfo)
-  const filename = `LushNote_${note.patient || 'Note'}_${note.date || ''}`
+  doc.save(`${noteFilename(note)}.pdf`)
+}
+
+function noteFilename(note: Partial<Note>): string {
+  return `LushNote_${note.patient || 'Note'}_${note.date || ''}`
     .replace(/\s+/g, '_')
     .replace(/[^a-zA-Z0-9_\-.]/g, '')
+}
+
+// Share the actual PDF FILE via the OS share sheet (not a blob: URL), so apps
+// like WhatsApp attach a clean "Name.pdf" card with a readable caption. Falls
+// back to a normal download where file-sharing isn't supported.
+export async function shareNotePDF(
+  note: Partial<Note>,
+  clinicianName?: string,
+  patientInfo?: { dob?: string; gender?: string }
+): Promise<void> {
+  if (typeof window === 'undefined') return
+  const doc = generateNotePDF(note, clinicianName, patientInfo)
+  const filename = noteFilename(note)
+  const file = new File([doc.output('blob')], `${filename}.pdf`, { type: 'application/pdf' })
+  const caption = ['Progress note', note.patient, note.date].filter(Boolean).join(' · ')
+  const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
+  if (typeof nav.share === 'function' && (!nav.canShare || nav.canShare({ files: [file] }))) {
+    try { await navigator.share({ files: [file], title: `${filename}.pdf`, text: caption }); return }
+    catch (e) { if ((e as Error)?.name === 'AbortError') return }
+  }
   doc.save(`${filename}.pdf`)
 }

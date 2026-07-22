@@ -9,6 +9,7 @@ const PT_PER_PX = 96 / 72            // 1pt in CSS px
 
 export interface HospitalFormEditorHandle {
   downloadPdf: () => Promise<void>
+  sharePdf: (caption: string) => Promise<void>
 }
 
 interface Props {
@@ -161,7 +162,7 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
   }
   const proxied = (url: string) => '/api/proxy-image?url=' + encodeURIComponent(url)
 
-  const downloadPdf = useCallback(async () => {
+  const outputPdf = useCallback(async (shareCaption?: string) => {
     const { jsPDF } = await import('jspdf')
     const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
     const SCALE = 3
@@ -277,10 +278,24 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
     }
 
     const name = [value.pid.surname, value.pid.givenNames].filter(Boolean).join('_') || 'progress-notes'
+    // Share the actual PDF FILE (not a blob: URL) so the OS share sheet / apps
+    // like WhatsApp attach a clean "Name.pdf" card with a readable caption. Falls
+    // back to a normal download where file-sharing isn't supported.
+    if (shareCaption !== undefined) {
+      const file = new File([pdf.output('blob')], `${name}.pdf`, { type: 'application/pdf' })
+      const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
+      if (typeof nav.share === 'function' && (!nav.canShare || nav.canShare({ files: [file] }))) {
+        try { await navigator.share({ files: [file], title: `${name}.pdf`, text: shareCaption }) }
+        catch (e) { if ((e as Error)?.name !== 'AbortError') pdf.save(`${name}.pdf`) }
+        return
+      }
+    }
     pdf.save(`${name}.pdf`)
   }, [form, geo, pageCount, rowsPerPage, totalRows, signatureUrl, signatureScale, value.pid])
 
-  useImperativeHandle(ref, () => ({ downloadPdf }), [downloadPdf])
+  const downloadPdf = useCallback(() => outputPdf(), [outputPdf])
+  const sharePdf = useCallback((caption: string) => outputPdf(caption), [outputPdf])
+  useImperativeHandle(ref, () => ({ downloadPdf, sharePdf }), [downloadPdf, sharePdf])
 
   const pageVars = {
     ['--hf-table-top' as string]: `${geo.tableTopMm}mm`,

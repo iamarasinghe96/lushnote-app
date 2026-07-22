@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { useAuth } from '@/hooks/useAuth'
 import { buildNoteText, buildCoverLetterEmail, buildPreviewHTML, buildLetterPreviewHTML, withTimeout } from '@/lib/utils'
-import { downloadNotePDF } from '@/lib/pdf'
+import { downloadNotePDF, shareNotePDF } from '@/lib/pdf'
 import { downloadLetterPDF, openLetterEmail, type LetterExportParams } from '@/lib/letterExport'
 import { getPatientProfiles } from '@/lib/firestore/patients'
 import HospitalFormView from '@/components/hospital-form/HospitalFormView'
@@ -141,15 +141,33 @@ export default function ExportPage() {
   async function handleLetterDownload() { setMenuOpen(false); try { await downloadLetterPDF(letterParams()) } catch { showToast('Could not build the PDF.') } }
   function handleLetterEmailExport() { setMenuOpen(false); openLetterEmail(letterParams()) }
 
+  function handleShareNote() {
+    const matchedProfile = currentNote.patient
+      ? Object.values(patientProfiles).find(p => p.displayName.trim().toLowerCase() === currentNote.patient!.trim().toLowerCase())
+      : undefined
+    setMenuOpen(false)
+    shareNotePDF(currentNote, profile?.displayName, matchedProfile ? { dob: matchedProfile.dob, gender: matchedProfile.gender } : undefined)
+      .catch(() => showToast('Could not share the PDF.'))
+  }
+  async function handleLetterShare() {
+    setMenuOpen(false)
+    const label = letterType === 'referral' ? 'Referral' : letterType === 'records' ? 'Medical records request' : 'Letter'
+    const caption = [label, store.letterCommonFields.patientName, store.letterCommonFields.letterDate].filter(Boolean).join(' · ')
+    try { await downloadLetterPDF(letterParams(), caption) } catch { showToast('Could not share the PDF.') }
+  }
+  const canShareFiles = typeof navigator !== 'undefined' && !!navigator.share
+
   const menuItems = isLetterMode
     ? [
         { label: 'Download PDF',        action: handleLetterDownload },
+        ...(canShareFiles ? [{ label: 'Share PDF', action: handleLetterShare }] : []),
         { label: 'Email (Outlook)',     action: handleLetterEmailExport },
         { label: 'Print',               action: handlePrint },
       ]
     : [
         { label: 'Copy to Clipboard',  action: handleCopyClipboard },
         { label: 'Download PDF',       action: handlePDF },
+        ...(canShareFiles ? [{ label: 'Share PDF', action: handleShareNote }] : []),
         { label: 'Print',              action: handlePrint },
         { label: 'Email to Colleague', action: handleEmail },
         { label: 'Submit as Text',     action: handleSubmitAsText },
