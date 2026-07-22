@@ -33,14 +33,23 @@ export default function Page() {
     }
   }, [loading, user, profile, router])
 
-  // The body background propagates to the canvas and fills the PWA's
-  // home-indicator safe-area strip. Paint the SAME hero gradient there (on
-  // <body>, not <html> — that would break propagation) so the strip continues
-  // the gradient instead of showing a flat band; restore on unmount.
+  // Full-bleed background, the way production PWAs do it: iOS fills the
+  // home-indicator safe-area strip from the ROOT <html> element's box, so paint
+  // the hero gradient directly on <html> (its box spans the whole screen incl.
+  // the safe areas). <body> is made transparent so the gradient shows through in
+  // the content area too. (Propagating from <body> only fills the strip with the
+  // solid colour layer, not the gradient — that was the leftover flat band.)
+  // Restored on unmount so the app shell keeps its own background.
   useEffect(() => {
-    const prev = document.body.style.background
-    document.body.style.background = HERO_BG
-    return () => { document.body.style.background = prev }
+    const html = document.documentElement
+    const prevHtmlBg = html.style.background
+    const prevBodyBg = document.body.style.background
+    html.style.background = HERO_BG
+    document.body.style.background = 'transparent'
+    return () => {
+      html.style.background = prevHtmlBg
+      document.body.style.background = prevBodyBg
+    }
   }, [])
 
   if (loading || user) {
