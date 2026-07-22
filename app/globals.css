@@ -43,6 +43,14 @@
    landing (for a full-bleed gradient) leaked into the app and broke the fixed
    tab bar, so the landing now paints its gradient with a self-contained element. */
 html, body { height: 100%; overflow: hidden; }
+/* Stretch the root box to the FULL physical screen so the fixed tab bar's
+   bottom:0 lands at the real bottom edge (height:100% alone can resolve to the
+   smaller "safe" viewport in a standalone PWA, leaving a gap below the tab bar).
+   Use lvh (the large, STATIC viewport) — unlike dvh it doesn't shrink when the
+   keyboard opens during note generation, so the tab bar can't drift. Older
+   engines ignore the lvh line and keep the dvh value. overflow stays hidden, so
+   the document never scrolls and this can't turn into a document-scroll layout. */
+html { min-height: 100dvh; min-height: 100lvh; }
 /* The body background propagates to the canvas (and so fills the PWA's
    home-indicator safe-area strip). It must stay on <body>, NOT <html>: giving
    <html> its own background stops that propagation and paints over the landing's
