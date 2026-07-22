@@ -66,40 +66,65 @@ export function generateNotePDF(
   // Draws text containing **bold** markdown segments with word wrapping.
   // The first line starts at startX; wrapped lines align to wrapX.
   // Bold segments render in the sub-heading weight/colour; normal text in body
-  // colour. Advances y past the last line.
-  function drawRich(text: string, startX: number, wrapX: number) {
-    const segs = parseBoldSegments(text)
-    const tokens: { w: string; bold: boolean; italic: boolean; space: boolean }[] = []
-    for (const s of segs) {
-      for (const part of s.text.split(/(\s+)/)) {
-        if (!part) continue
-        tokens.push({ w: part, bold: s.bold, italic: s.italic, space: /^\s+$/.test(part) })
-      }
-    }
+  // colour. Advances y past the last line. When `justify` is true, every line
+  // except a paragraph's last is stretched flush to the right margin (jsPDF has
+  // no native justify) — used for prose paragraphs, not list items.
+  function drawRich(text: string, startX: number, wrapX: number, justify = false) {
     const fontStyle = (bold: boolean, italic: boolean) =>
       bold && italic ? 'bolditalic' : bold ? 'bold' : italic ? 'italic' : 'normal'
     const maxX = PAGE_W - MARGIN
-    let x = startX
-    let atLineStart = true
-    for (const tok of tokens) {
-      if (tok.space) {
-        if (atLineStart) continue
-        doc.setFont('helvetica', 'normal')
-        x += doc.getTextWidth(tok.w)
-        continue
+    const partW = (p: { w: string; bold: boolean; italic: boolean }) => {
+      doc.setFont('helvetica', fontStyle(p.bold, p.italic)); return doc.getTextWidth(p.w)
+    }
+
+    // Group consecutive non-space tokens into word "units" (so mid-word bold
+    // like **Trans**ference stays glued and justification only spaces words).
+    const units: { parts: { w: string; bold: boolean; italic: boolean }[]; width: number }[] = []
+    let cur: (typeof units)[number] | null = null
+    for (const s of parseBoldSegments(text)) {
+      for (const part of s.text.split(/(\s+)/)) {
+        if (!part) continue
+        if (/^\s+$/.test(part)) { cur = null; continue }
+        const p = { w: part, bold: s.bold, italic: s.italic }
+        if (!cur) { cur = { parts: [], width: 0 }; units.push(cur) }
+        cur.parts.push(p); cur.width += partW(p)
       }
-      doc.setFont('helvetica', fontStyle(tok.bold, tok.italic))
-      const tw = doc.getTextWidth(tok.w)
-      if (!atLineStart && x + tw > maxX) {
-        y += 4.5
-        ensureSpace(5)
-        x = wrapX
-        atLineStart = true
+    }
+    if (units.length === 0) return
+
+    doc.setFont('helvetica', 'normal')
+    const sw = doc.getTextWidth(' ')
+
+    // Greedy wrap into visual lines.
+    const lines: { units: typeof units; width: number; startX: number }[] = []
+    let line: (typeof lines)[number] | null = null
+    for (const u of units) {
+      if (!line) { line = { units: [u], width: u.width, startX }; continue }
+      if (line.startX + line.width + sw + u.width > maxX) {
+        lines.push(line); line = { units: [u], width: u.width, startX: wrapX }
+      } else { line.units.push(u); line.width += sw + u.width }
+    }
+    if (line) lines.push(line)
+
+    for (let li = 0; li < lines.length; li++) {
+      const ln = lines[li]
+      const isLast = li === lines.length - 1
+      ensureSpace(5)
+      let gap = sw
+      if (justify && !isLast && ln.units.length > 1) {
+        gap = sw + (maxX - ln.startX - ln.width) / (ln.units.length - 1)
       }
-      doc.setTextColor(tok.bold ? 80 : 60)
-      doc.text(tok.w, x, y)
-      x += tw
-      atLineStart = false
+      let x = ln.startX
+      for (let ui = 0; ui < ln.units.length; ui++) {
+        for (const p of ln.units[ui].parts) {
+          doc.setFont('helvetica', fontStyle(p.bold, p.italic))
+          doc.setTextColor(p.bold ? 80 : 60)
+          doc.text(p.w, x, y)
+          x += partW(p)
+        }
+        if (ui < ln.units.length - 1) x += gap
+      }
+      if (!isLast) y += 4.5
     }
     y += 4.5
     doc.setFont('helvetica', 'normal')
@@ -242,8 +267,9 @@ export function generateNotePDF(
         doc.text(label, MARGIN, y)
         drawRich(inlineMatch[2], MARGIN + labelW, MARGIN)
       } else {
+        // Plain prose paragraph — justify (list items/headings above stay left).
         ensureSpace(5)
-        drawRich(trimmed, MARGIN, MARGIN)
+        drawRich(trimmed, MARGIN, MARGIN, true)
       }
     }
 
