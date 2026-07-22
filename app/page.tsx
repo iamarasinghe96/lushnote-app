@@ -33,25 +33,6 @@ export default function Page() {
     }
   }, [loading, user, profile, router])
 
-  // Full-bleed background, the way production PWAs do it: iOS fills the
-  // home-indicator safe-area strip from the ROOT <html> element's box, so paint
-  // the hero gradient directly on <html> (its box spans the whole screen incl.
-  // the safe areas). <body> is made transparent so the gradient shows through in
-  // the content area too. (Propagating from <body> only fills the strip with the
-  // solid colour layer, not the gradient — that was the leftover flat band.)
-  // Restored on unmount so the app shell keeps its own background.
-  useEffect(() => {
-    const html = document.documentElement
-    const prevHtmlBg = html.style.background
-    const prevBodyBg = document.body.style.background
-    html.style.background = HERO_BG
-    document.body.style.background = 'transparent'
-    return () => {
-      html.style.background = prevHtmlBg
-      document.body.style.background = prevBodyBg
-    }
-  }, [])
-
   if (loading || user) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
@@ -74,16 +55,14 @@ export default function Page() {
 
   return (
     <div className="h-dvh overflow-y-auto text-[var(--text)] relative" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      {/* Fixed full-viewport background so glass cards scroll over it */}
-      <div
-        aria-hidden
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: -1,
-          background: HERO_BG,
-        }}
-      />
+      {/* Full-bleed hero background painted on the ROOT <html> box so it fills the
+          whole screen INCLUDING the home-indicator safe-area strip (iOS fills that
+          strip from the root element's background — a flat body colour left a band).
+          Scoped to the landing via this <style>: it is server-rendered (no flash)
+          and React removes it on unmount, so the signed-in app keeps its own bg.
+          <html> stays fixed while content scrolls, so glass cards scroll over it. */}
+      <style>{`html{background:${HERO_BG} !important}body{background:transparent !important}`}</style>
+      <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: -1, background: HERO_BG }} />
 
       {/* ── Nav ── */}
       <nav
