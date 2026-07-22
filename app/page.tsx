@@ -4,6 +4,20 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 
+// The hero background, shared by the in-page fixed layer AND the <body> so the
+// same gradient also fills the PWA home-indicator safe-area strip (the fixed
+// layer is clipped to the small viewport and never reaches it).
+const HERO_BG = [
+  'radial-gradient(ellipse 90% 55% at 50% 0%,   rgba(90,214,167,0.85) 0%, transparent 58%)',
+  'radial-gradient(ellipse 65% 40% at 92% 18%,  rgba(37,99,235,0.60)  0%, transparent 52%)',
+  'radial-gradient(ellipse 55% 35% at 0%   0%,  rgba(37,99,235,0.45)  0%, transparent 55%)',
+  'radial-gradient(ellipse 70% 38% at 6%  50%,  rgba(90,214,167,0.55) 0%, transparent 52%)',
+  'radial-gradient(ellipse 65% 38% at 90% 70%,  rgba(37,99,235,0.55)  0%, transparent 52%)',
+  'radial-gradient(ellipse 60% 30% at 18% 90%,  rgba(90,214,167,0.50) 0%, transparent 48%)',
+  'radial-gradient(ellipse 100% 45% at 50% 100%, rgba(90,214,167,0.55) 0%, transparent 60%)',
+  '#d8f0e8',
+].join(', ')
+
 export default function Page() {
   const { user, profile, loading, signInWithGoogle } = useAuth()
   const router = useRouter()
@@ -19,14 +33,13 @@ export default function Page() {
     }
   }, [loading, user, profile, router])
 
-  // In the installed PWA, the body background propagates to the canvas and fills
-  // the home-indicator safe-area strip — the app default (#f8fafc) showed as a
-  // white band under the landing's mint gradient. Swap the BODY background (not
-  // <html>, which would break gradient propagation) to the gradient's mint base
-  // while the landing is shown; restore on unmount (into the app shell).
+  // The body background propagates to the canvas and fills the PWA's
+  // home-indicator safe-area strip. Paint the SAME hero gradient there (on
+  // <body>, not <html> — that would break propagation) so the strip continues
+  // the gradient instead of showing a flat band; restore on unmount.
   useEffect(() => {
     const prev = document.body.style.background
-    document.body.style.background = '#d8f0e8'
+    document.body.style.background = HERO_BG
     return () => { document.body.style.background = prev }
   }, [])
 
@@ -59,16 +72,7 @@ export default function Page() {
           position: 'fixed',
           inset: 0,
           zIndex: -1,
-          background: [
-            'radial-gradient(ellipse 90% 55% at 50% 0%,   rgba(90,214,167,0.85) 0%, transparent 58%)',
-            'radial-gradient(ellipse 65% 40% at 92% 18%,  rgba(37,99,235,0.60)  0%, transparent 52%)',
-            'radial-gradient(ellipse 55% 35% at 0%   0%,  rgba(37,99,235,0.45)  0%, transparent 55%)',
-            'radial-gradient(ellipse 70% 38% at 6%  50%,  rgba(90,214,167,0.55) 0%, transparent 52%)',
-            'radial-gradient(ellipse 65% 38% at 90% 70%,  rgba(37,99,235,0.55)  0%, transparent 52%)',
-            'radial-gradient(ellipse 60% 30% at 18% 90%,  rgba(90,214,167,0.50) 0%, transparent 48%)',
-            'radial-gradient(ellipse 100% 45% at 50% 100%, rgba(90,214,167,0.55) 0%, transparent 60%)',
-            '#d8f0e8',
-          ].join(', '),
+          background: HERO_BG,
         }}
       />
 
