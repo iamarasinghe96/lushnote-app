@@ -3,6 +3,7 @@ import type { Note } from '@/types'
 import { orderedNoteSections } from '@/lib/utils'
 
 const MARGIN = 20
+const BULLET_INDENT = 6   // mm — sub-bullets sit one level right of the numbering
 const PAGE_W = 210
 const PAGE_H = 297
 const TEXT_W = PAGE_W - MARGIN * 2
@@ -249,15 +250,18 @@ export function generateNotePDF(
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(60)
         doc.text(prefix, MARGIN, y)
-        drawRich(numMatch[2], MARGIN + prefixW, MARGIN + prefixW)
+        drawRich(numMatch[2], MARGIN + prefixW, MARGIN + prefixW, true)
       } else if (bulletMatch) {
+        // Bullets are sub-items — indent them a level right of the numbering
+        // (Word's "increase indent"), so they read as nested under the list.
+        const bx = MARGIN + BULLET_INDENT
         const prefix = '•  '
         const prefixW = doc.getTextWidth(prefix)
         ensureSpace(5)
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(60)
-        doc.text(prefix, MARGIN, y)
-        drawRich(bulletMatch[1], MARGIN + prefixW, MARGIN + prefixW)
+        doc.text(prefix, bx, y)
+        drawRich(bulletMatch[1], bx + prefixW, bx + prefixW, true)
       } else if (inlineMatch) {
         const label = inlineMatch[1] + ': '
         doc.setFont('helvetica', 'bold')
@@ -265,7 +269,7 @@ export function generateNotePDF(
         const labelW = doc.getTextWidth(label)
         ensureSpace(5)
         doc.text(label, MARGIN, y)
-        drawRich(inlineMatch[2], MARGIN + labelW, MARGIN)
+        drawRich(inlineMatch[2], MARGIN + labelW, MARGIN, true)
       } else {
         // Plain prose paragraph — justify (list items/headings above stay left).
         ensureSpace(5)
