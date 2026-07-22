@@ -454,9 +454,12 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
             <p className="text-sm text-[var(--text3)]">
               {micLost ? 'Paused — waiting for the microphone…' : (letterType || hospitalForm) ? `Dictating your ${selectedLabel?.toLowerCase()}…` : 'Dictating…'}
             </p>
+            {!micLost && (
+              <p className="text-[11px] text-[var(--text3)]">Keep your screen on — iOS pauses recording if the phone is locked.</p>
+            )}
             {micLost && (
               <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 text-left">
-                The microphone was interrupted (e.g. a phone call). Everything captured so far is saved. Dictation resumes automatically when the mic is free — or tap Stop to finish now.
+                The microphone was interrupted (e.g. a phone call, or the screen was locked). Everything captured so far is saved. Dictation resumes automatically when the mic is free — or tap Stop to finish now.
               </div>
             )}
             {audioSavedMin > 0 && (
