@@ -38,6 +38,10 @@
 
 * { box-sizing: border-box; }
 html, body { height: 100%; overflow: hidden; }
+/* Also set the background on <html>: in an installed PWA, iOS paints the
+   home-indicator safe-area strip with the ROOT element's background, so without
+   this it shows white below the app. The landing overrides it to its mint base. */
+html { background: #f8fafc; }
 body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 
 /* iOS safe-area bottom padding - used by tab bar */

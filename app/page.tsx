@@ -19,6 +19,17 @@ export default function Page() {
     }
   }, [loading, user, profile, router])
 
+  // In the installed PWA, iOS paints the home-indicator safe-area strip with the
+  // root element's background — the app default (#f8fafc) shows as a white band
+  // under the landing's mint gradient. Match the root to the gradient's base
+  // colour while the landing is shown; restore on unmount (into the app shell).
+  useEffect(() => {
+    const el = document.documentElement
+    const prev = el.style.background
+    el.style.background = '#d8f0e8'
+    return () => { el.style.background = prev }
+  }, [])
+
   if (loading || user) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
