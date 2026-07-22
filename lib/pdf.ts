@@ -304,6 +304,22 @@ function noteFilename(note: Partial<Note>): string {
     .replace(/[^a-zA-Z0-9_\-.]/g, '')
 }
 
+// Print the SAME PDF the export produces (not the HTML preview, which has a
+// different layout) so print output matches the downloaded PDF exactly. Opens
+// the generated PDF with an auto-print action; falls back to a download if the
+// viewer can't be opened.
+export function printNotePDF(
+  note: Partial<Note>,
+  clinicianName?: string,
+  patientInfo?: { dob?: string; gender?: string }
+): void {
+  if (typeof window === 'undefined') return
+  const doc = generateNotePDF(note, clinicianName, patientInfo)
+  doc.autoPrint()
+  const win = window.open(doc.output('bloburl'), '_blank')
+  if (!win) doc.save(`${noteFilename(note)}.pdf`)
+}
+
 // Share the actual PDF FILE via the OS share sheet (not a blob: URL), so apps
 // like WhatsApp attach a clean "Name.pdf" card with a readable caption. Falls
 // back to a normal download where file-sharing isn't supported.

@@ -133,7 +133,8 @@ function buildSigLines(p: LetterExportParams): { text: string; bold?: boolean; s
   return sigLines
 }
 
-export async function downloadLetterPDF(p: LetterExportParams, shareCaption?: string) {
+export async function downloadLetterPDF(p: LetterExportParams, opts?: { shareCaption?: string; print?: boolean }) {
+  const shareCaption = opts?.shareCaption
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const PW = 210, PH = 297
@@ -242,6 +243,15 @@ export async function downloadLetterPDF(p: LetterExportParams, shareCaption?: st
   const pname = (p.common.patientName || 'letter').replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-')
   const typeLabel = p.letterType === 'referral' ? 'Referral' : p.letterType === 'records' ? 'RecordsRequest' : 'Letter'
   const filename = `${typeLabel}_${pname}_${(p.common.letterDate || '').replace(/\//g, '-')}.pdf`
+
+  // Print the SAME PDF (not the HTML preview) so print output matches the
+  // downloaded PDF exactly. Opens the PDF with an auto-print action.
+  if (opts?.print) {
+    doc.autoPrint()
+    const win = window.open(doc.output('bloburl'), '_blank')
+    if (!win) doc.save(filename)
+    return
+  }
 
   // Share the actual PDF FILE (not a blob: URL) so apps like WhatsApp attach a
   // clean "Name.pdf" card with a readable caption; fall back to a download.

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { useAuth } from '@/hooks/useAuth'
 import { buildNoteText, buildCoverLetterEmail, buildPreviewHTML, buildLetterPreviewHTML, withTimeout } from '@/lib/utils'
-import { downloadNotePDF, shareNotePDF } from '@/lib/pdf'
+import { downloadNotePDF, shareNotePDF, printNotePDF } from '@/lib/pdf'
 import { downloadLetterPDF, openLetterEmail, type LetterExportParams } from '@/lib/letterExport'
 import { getPatientProfiles } from '@/lib/firestore/patients'
 import HospitalFormView from '@/components/hospital-form/HospitalFormView'
@@ -96,8 +96,16 @@ export default function ExportPage() {
   }
 
   function handlePrint() {
-    window.print()
+    // Print the actual note PDF so it matches the Download PDF output exactly.
+    const matchedProfile = currentNote.patient
+      ? Object.values(patientProfiles).find(p => p.displayName.trim().toLowerCase() === currentNote.patient!.trim().toLowerCase())
+      : undefined
+    printNotePDF(currentNote, profile?.displayName, matchedProfile ? { dob: matchedProfile.dob, gender: matchedProfile.gender } : undefined)
     setMenuOpen(false)
+  }
+  function handleLetterPrint() {
+    setMenuOpen(false)
+    downloadLetterPDF(letterParams(), { print: true }).catch(() => showToast('Could not print the PDF.'))
   }
 
   function handleEmail() {
@@ -153,7 +161,7 @@ export default function ExportPage() {
     setMenuOpen(false)
     const label = letterType === 'referral' ? 'Referral' : letterType === 'records' ? 'Medical records request' : 'Letter'
     const caption = [label, store.letterCommonFields.patientName, store.letterCommonFields.letterDate].filter(Boolean).join(' · ')
-    try { await downloadLetterPDF(letterParams(), caption) } catch { showToast('Could not share the PDF.') }
+    try { await downloadLetterPDF(letterParams(), { shareCaption: caption }) } catch { showToast('Could not share the PDF.') }
   }
   const canShareFiles = typeof navigator !== 'undefined' && !!navigator.share
 
@@ -162,7 +170,7 @@ export default function ExportPage() {
         { label: 'Download PDF',        action: handleLetterDownload },
         ...(canShareFiles ? [{ label: 'Share PDF', action: handleLetterShare }] : []),
         { label: 'Email (Outlook)',     action: handleLetterEmailExport },
-        { label: 'Print',               action: handlePrint },
+        { label: 'Print',               action: handleLetterPrint },
       ]
     : [
         { label: 'Copy to Clipboard',  action: handleCopyClipboard },
