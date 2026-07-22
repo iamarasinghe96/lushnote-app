@@ -4,6 +4,22 @@ const nextConfig = {
   images: {
     domains: ['lh3.googleusercontent.com'],
   },
+  // Serve Firebase Auth's sign-in helper from our OWN origin by proxying the
+  // reserved __/auth and __/firebase paths to the project's firebaseapp.com
+  // handler. Combined with authDomain === our own host (see lib/firebase.ts),
+  // signInWithPopup/Redirect runs same-origin and is no longer broken by Safari /
+  // in-app-browser storage partitioning ("missing initial state"). The
+  // destination is ALWAYS the firebaseapp.com handler (never authDomain, which is
+  // now our own host) to avoid a proxy loop.
+  async rewrites() {
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    if (!projectId) return []
+    const handler = `https://${projectId}.firebaseapp.com`
+    return [
+      { source: '/__/auth/:path*', destination: `${handler}/__/auth/:path*` },
+      { source: '/__/firebase/:path*', destination: `${handler}/__/firebase/:path*` },
+    ]
+  },
   async headers() {
     const csp = [
       "default-src 'self'",
