@@ -35,7 +35,7 @@ export default function Page() {
 
   if (loading || user) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-white">
+      <div className="fixed inset-0 flex items-center justify-center bg-[#f8fafc]">
         <Spinner />
       </div>
     )
