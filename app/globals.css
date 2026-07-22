@@ -37,12 +37,12 @@
 }
 
 * { box-sizing: border-box; }
+/* Fixed-height app shell: the authenticated app never scrolls the document; each
+   page owns an inner scroll container. (The landing overrides this to native
+   document scrolling via its own scoped <style>, incl. its own min-height:100dvh
+   for the full-bleed gradient — so this stays clean and can't destabilise the
+   app's 100dvh shell / fixed tab bar after keyboard/viewport recalcs.) */
 html, body { height: 100%; overflow: hidden; }
-/* height:100% can resolve to the SAFE viewport in a standalone PWA, so a
-   background on <html> stops right above the home indicator. min-height:100dvh
-   stretches the root box (and its background) to the physical bottom edge, which
-   is what lets the landing's gradient bleed fully behind the home indicator. */
-html { min-height: 100dvh; }
 /* The body background propagates to the canvas (and so fills the PWA's
    home-indicator safe-area strip). It must stay on <body>, NOT <html>: giving
    <html> its own background stops that propagation and paints over the landing's
