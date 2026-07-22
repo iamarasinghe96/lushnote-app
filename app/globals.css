@@ -38,6 +38,11 @@
 
 * { box-sizing: border-box; }
 html, body { height: 100%; overflow: hidden; }
+/* height:100% can resolve to the SAFE viewport in a standalone PWA, so a
+   background on <html> stops right above the home indicator. min-height:100dvh
+   stretches the root box (and its background) to the physical bottom edge, which
+   is what lets the landing's gradient bleed fully behind the home indicator. */
+html { min-height: 100dvh; }
 /* The body background propagates to the canvas (and so fills the PWA's
    home-indicator safe-area strip). It must stay on <body>, NOT <html>: giving
    <html> its own background stops that propagation and paints over the landing's
