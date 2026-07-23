@@ -112,8 +112,8 @@ Keep responses concise and practical.`
 
     // ── Support triage: can the bot resolve it, or escalate to a human? ──────────
     if (type === 'support-triage') {
-      const { topic, description, kb, uid } = body as {
-        topic?: string; description?: string; kb?: string; uid?: string
+      const { topic, description, kb } = body as {
+        topic?: string; description?: string; kb?: string
       }
       const desc = (description ?? '').toString().trim()
       if (!desc || desc.length > 4000) {
@@ -149,25 +149,16 @@ Respond ONLY as strict JSON with no other text:
         }
       }
 
-      const groqKey = req.headers.get('x-groq-key')
-      if (groqKey) {
+      // Uses LushNote's OWN Groq key — never the doctor's Groq/Gemini keys or the
+      // shared Gemini quota — so support triage never touches the user's AI
+      // allowance. If it's absent or fails, hand straight to a human.
+      const supportGroqKey = process.env.LUSHNOTE_GROQ_KEY
+      if (supportGroqKey) {
         try {
-          const { content } = await generateNoteGroq(prompt, triageSystem, groqKey, 700)
+          const { content } = await generateNoteGroq(prompt, triageSystem, supportGroqKey, 700)
           return NextResponse.json(parseTriage(content))
-        } catch { /* fall through to Gemini */ }
+        } catch { /* fall through → escalate to a human */ }
       }
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          const { text, totalTokens } = await chatResponse([{ role: 'user', parts: [{ text: prompt }] }], triageSystem)
-          if (uid && typeof uid === 'string') await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
-          return NextResponse.json(parseTriage(text))
-        } catch (err) {
-          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR && typeof uid === 'string') {
-            await markGeminiLimitReached(uid, 'chat').catch(() => {})
-          }
-        }
-      }
-      // No AI available → send it to a human.
       return NextResponse.json({ canHelp: false, answer: '' })
     }
 

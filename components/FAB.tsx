@@ -487,13 +487,12 @@ export function FAB() {
     setAwaitingDescription(false)
     setSupportSending(true)
     try {
-      const groqKey = getGroqKey()
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (groqKey) headers['x-groq-key'] = groqKey
+      // No x-groq-key: support triage runs on LushNote's own Groq key server-side,
+      // so it never spends the doctor's Groq/Gemini allowance.
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers,
-        body: JSON.stringify({ type: 'support-triage', topic: supportTopic, description: text, kb: LUSHNOTE_KB, uid: user?.uid }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'support-triage', topic: supportTopic, description: text, kb: LUSHNOTE_KB }),
       })
       const data = await res.json() as { canHelp?: boolean; answer?: string }
       if (data.canHelp && data.answer?.trim()) {
