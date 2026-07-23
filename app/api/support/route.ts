@@ -14,6 +14,13 @@ interface SlackMessage {
   subtype?: string
 }
 
+// Human-readable ticket for follow-up over email/anywhere, e.g. LN-3F9K2.
+function makeTicket(): string {
+  const t = Date.now().toString(36).toUpperCase().slice(-4)
+  const r = Math.floor(Math.random() * 1296).toString(36).toUpperCase().padStart(2, '0')
+  return `LN-${t}${r}`
+}
+
 async function slackApi(method: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
   const res = await fetch(`https://slack.com/api/${method}`, {
     method: 'POST',
@@ -31,11 +38,13 @@ async function slackApi(method: string, payload: Record<string, unknown>): Promi
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
-      action: 'send' | 'poll'
+      action: 'send' | 'poll' | 'escalate'
       uid: string
       name?: string
       email?: string
       message?: string
+      topic?: string
+      transcript?: string
     }
 
     const { action, uid } = body
@@ -82,6 +91,46 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ twoWay: true })
     }
 
+    // Escalate to a human: open (or reuse) the doctor's thread with a ticket
+    // number and post the bot conversation transcript for context.
+    if (action === 'escalate') {
+      const topic = (body.topic ?? '').toString().slice(0, 120)
+      const transcript = (body.transcript ?? '').toString().slice(0, 8000)
+
+      if (!BOT_TOKEN || !CHANNEL) {
+        const ticket = makeTicket()
+        await fetch(SLACK_WEBHOOK, {
+          method: 'POST',
+          body: JSON.stringify({
+            text: `🎫 *New support ticket ${ticket}* — ${topic || 'Support'}\n*From:* ${body.name || 'Doctor'} (${body.email || uid})\n\n${transcript}`,
+          }),
+        })
+        return NextResponse.json({ twoWay: false, ticket })
+      }
+
+      const ref = adminDb().collection('support_threads').doc(uid)
+      const snap = await ref.get()
+      let threadTs = snap.exists ? (snap.data()?.threadTs as string) : null
+      let ticket = snap.exists ? (snap.data()?.ticket as string | undefined) : undefined
+      if (!ticket) ticket = makeTicket()
+
+      if (!threadTs) {
+        const parent = await slackApi('chat.postMessage', {
+          channel: CHANNEL,
+          text: `🎫 *${ticket}* — ${topic || 'Support'}\n*From:* ${body.name || 'Doctor'} (${body.email || uid})\nReply in this thread and it appears in their app.`,
+        })
+        threadTs = parent.ts as string
+        await ref.set({ threadTs, channel: parent.channel as string, name: body.name ?? '', email: body.email ?? '', ticket, topic })
+      } else {
+        await ref.set({ ticket, topic }, { merge: true })
+      }
+
+      if (transcript) {
+        await slackApi('chat.postMessage', { channel: CHANNEL, thread_ts: threadTs, text: `*Conversation so far:*\n${transcript}` })
+      }
+      return NextResponse.json({ twoWay: true, ticket })
+    }
+
     if (action === 'poll') {
       if (!BOT_TOKEN || !CHANNEL) {
         return NextResponse.json({ twoWay: false, messages: [] })
@@ -89,7 +138,7 @@ export async function POST(req: NextRequest) {
 
       const snap = await adminDb().collection('support_threads').doc(uid).get()
       if (!snap.exists) {
-        return NextResponse.json({ twoWay: true, messages: [] })
+        return NextResponse.json({ twoWay: true, messages: [], threadExists: false })
       }
 
       const threadTs = snap.data()?.threadTs as string
@@ -110,7 +159,7 @@ export async function POST(req: NextRequest) {
           ts: m.ts,
         }))
 
-      return NextResponse.json({ twoWay: true, messages })
+      return NextResponse.json({ twoWay: true, messages, threadExists: true, ticket: snap.data()?.ticket ?? null })
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })

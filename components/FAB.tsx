@@ -62,6 +62,32 @@ const SAMPLE_QUESTIONS: { group: string; items: string[] }[] = [
   },
 ]
 
+// Canned first-step topics for Live Support (no AI at this stage).
+const SUPPORT_TOPICS: { key: string; label: string; prompt: string }[] = [
+  { key: 'bug', label: 'Report a bug', prompt: 'Please describe the bug in a few sentences — what you did, what happened, and paste any error message you saw.' },
+  { key: 'feature', label: 'Feature or UX suggestion', prompt: "Great — tell us your idea in a few sentences: what you'd like and why it would help." },
+  { key: 'question', label: 'Ask a question', prompt: "Sure — describe your question in a sentence or two and we'll help." },
+  { key: 'account', label: 'Account or privacy', prompt: 'Please describe your account or privacy question in a few sentences.' },
+  { key: 'other', label: 'Something else', prompt: 'Please describe what you need help with, and paste any error you saw.' },
+]
+
+// Short chime when a new human reply arrives while the support chat is closed.
+function playSupportChime() {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const o = ctx.createOscillator(); const g = ctx.createGain()
+    o.type = 'sine'; o.frequency.value = 880
+    o.connect(g); g.connect(ctx.destination)
+    g.gain.setValueAtTime(0.0001, ctx.currentTime)
+    g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.02)
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35)
+    o.start(); o.stop(ctx.currentTime + 0.36)
+    o.onended = () => ctx.close()
+  } catch { /* audio not available */ }
+}
+
 const STOP_WORDS = new Set([
   'the', 'who', 'what', 'when', 'where', 'which', 'that', 'this', 'with', 'from',
   'had', 'has', 'have', 'was', 'were', 'did', 'does', 'and', 'for', 'are', 'is',
@@ -261,10 +287,27 @@ export function FAB() {
   const [supportInput, setSupportInput] = useState('')
   const [supportSending, setSupportSending] = useState(false)
   const [supportTwoWay, setSupportTwoWay] = useState<boolean | null>(null)
+  const [supportStage, setSupportStage] = useState<'menu' | 'chat'>('menu')
+  const [supportTopic, setSupportTopic] = useState('')
+  const [supportTicket, setSupportTicket] = useState<string | null>(null)
+  const [supportYesNo, setSupportYesNo] = useState(false)
+  const [supportEscalated, setSupportEscalated] = useState(false)
+  const [awaitingDescription, setAwaitingDescription] = useState(false)
+  const [hasUnread, setHasUnread] = useState(false)
   const { user, profile } = useAuth()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const supportEndRef = useRef<HTMLDivElement>(null)
   const notesCacheRef = useRef<{ notes: Note[]; fetchedAt: number } | null>(null)
+  const seenSupportTsRef = useRef<Set<string>>(new Set())
+  const threadActiveRef = useRef(false)
+  const primedRef = useRef(false)
+  const localSeqRef = useRef(0)
+  const panelRef = useRef(panel)
+  panelRef.current = panel
+
+  const pushSupport = useCallback((role: 'user' | 'support', text: string) => {
+    setSupportMessages(prev => [...prev, { role, text, ts: `local-${Date.now()}-${localSeqRef.current++}` }])
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -286,6 +329,10 @@ export function FAB() {
     return () => document.removeEventListener('mousedown', onMouseDown)
   }, [expanded])
 
+  // Poll the Slack thread for human replies. We only APPEND admin ('support')
+  // messages we haven't seen — the doctor's own messages and the pre-escalation
+  // bot conversation are local, so this never clobbers them. A new admin reply
+  // while the chat is closed raises the red badge + chime.
   const pollSupport = useCallback(async () => {
     if (!user) return
     try {
@@ -294,21 +341,55 @@ export function FAB() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'poll', uid: user.uid }),
       })
-      const data = await res.json() as { twoWay: boolean; messages?: SupportMessage[] }
+      const data = await res.json() as { twoWay: boolean; messages?: SupportMessage[]; threadExists?: boolean; ticket?: string | null }
       setSupportTwoWay(data.twoWay)
-      if (data.twoWay && data.messages) setSupportMessages(data.messages)
+      if (data.threadExists) threadActiveRef.current = true
+      if (data.ticket) setSupportTicket(prev => prev ?? data.ticket ?? null)
+      if (!data.twoWay || !data.messages) return
+
+      const seen = seenSupportTsRef.current
+      const admin = data.messages.filter(m => m.role === 'support')
+      if (!primedRef.current) {
+        // First load this session: show existing replies without alerting.
+        if (admin.length) setSupportMessages(prev => [...prev, ...admin])
+        data.messages.forEach(m => seen.add(m.ts))
+        primedRef.current = true
+        return
+      }
+      const fresh = admin.filter(m => !seen.has(m.ts))
+      data.messages.forEach(m => seen.add(m.ts))
+      if (fresh.length) {
+        setSupportMessages(prev => [...prev, ...fresh])
+        if (panelRef.current !== 'support') { setHasUnread(true); playSupportChime() }
+      }
     } catch {
       // transient network failure - next poll retries
     }
   }, [user])
 
-  // Load the support thread when the panel opens, then poll for admin replies
+  // Prime once on mount + a light background poll so a reply raises the badge
+  // even when the chat is closed (only if the doctor has an active thread).
+  useEffect(() => {
+    if (!user) return
+    pollSupport()
+    const id = setInterval(() => {
+      if (panelRef.current !== 'support' && threadActiveRef.current) pollSupport()
+    }, 20000)
+    return () => clearInterval(id)
+  }, [user, pollSupport])
+
+  // While the panel is open: clear the badge, resume an existing thread (or show
+  // the topic menu), and poll faster for live replies.
   useEffect(() => {
     if (panel !== 'support' || !user) return
-    pollSupport()
+    setHasUnread(false)
+    pollSupport().then(() => {
+      if (threadActiveRef.current) { setSupportEscalated(true); setSupportStage('chat') }
+    })
     const interval = setInterval(pollSupport, 5000)
     return () => clearInterval(interval)
-  }, [panel, user, pollSupport])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panel, user])
 
   function openPanel(type: 'ai' | 'support') {
     setPanel(type)
@@ -392,46 +473,117 @@ export function FAB() {
     }
   }
 
-  async function handleSupportSend() {
-    if (!supportInput.trim() || supportSending || !user) return
-    const message = supportInput.trim()
-    setSupportInput('')
-    setSupportSending(true)
-    setSupportMessages(prev => [...prev, { role: 'user', text: message, ts: `local-${Date.now()}` }])
+  // Step 1: doctor taps a topic (no AI) → we ask for a description.
+  function pickTopic(t: typeof SUPPORT_TOPICS[number]) {
+    setSupportTopic(t.label)
+    setSupportStage('chat')
+    setAwaitingDescription(true)
+    pushSupport('support', t.prompt)
+  }
 
+  // Step 2: doctor describes the issue → AI decides if it can answer or escalate.
+  async function submitDescription(text: string) {
+    pushSupport('user', text)
+    setAwaitingDescription(false)
+    setSupportSending(true)
+    try {
+      const groqKey = getGroqKey()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (groqKey) headers['x-groq-key'] = groqKey
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ type: 'support-triage', topic: supportTopic, description: text, kb: LUSHNOTE_KB, uid: user?.uid }),
+      })
+      const data = await res.json() as { canHelp?: boolean; answer?: string }
+      if (data.canHelp && data.answer?.trim()) {
+        pushSupport('support', data.answer.trim())
+        setSupportYesNo(true)   // ask "did this solve it?"
+      } else {
+        await escalate()
+      }
+    } catch {
+      await escalate()
+    } finally {
+      setSupportSending(false)
+    }
+  }
+
+  // Step 3: yes/no after an AI answer. No → escalate to a human.
+  async function answerYesNo(solved: boolean) {
+    setSupportYesNo(false)
+    if (solved) {
+      pushSupport('user', 'Yes, that solved it')
+      pushSupport('support', 'Great — glad that sorted it! Pick a topic below any time you need us again.')
+      setSupportStage('menu')
+    } else {
+      pushSupport('user', "No, it didn't help")
+      await escalate()
+    }
+  }
+
+  // Escalate: open/reuse the Slack thread with a ticket number + the transcript.
+  async function escalate() {
+    if (!user) return
+    const transcript = supportMessages
+      .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`).join('\n')
+    setSupportSending(true)
     try {
       const res = await fetch('/api/support', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'send',
-          uid: user.uid,
-          name: profile?.displayName ?? '',
-          email: user.email ?? '',
-          message,
+          action: 'escalate', uid: user.uid, name: profile?.displayName ?? '',
+          email: user.email ?? '', topic: supportTopic, transcript,
         }),
+      })
+      const data = await res.json() as { twoWay: boolean; ticket?: string }
+      const ticket = data.ticket ?? null
+      setSupportTicket(ticket)
+      setSupportEscalated(true)
+      setSupportStage('chat')
+      threadActiveRef.current = true
+      setSupportTwoWay(data.twoWay)
+      pushSupport('support', `Thanks — I've passed this to our team.${ticket ? ` Your ticket is ${ticket}.` : ''} We'll reply right here, and you can follow up any time at admin@lushnote.com.au${ticket ? ` quoting ${ticket}` : ''}. Add anything else below.`)
+      if (data.twoWay) pollSupport()
+    } catch {
+      pushSupport('support', "Sorry — I couldn't reach our team just now. Please email admin@lushnote.com.au and we'll help.")
+    } finally {
+      setSupportSending(false)
+    }
+  }
+
+  // Post-escalation: doctor's typed message goes to the human thread.
+  async function sendToHuman(text: string) {
+    if (!user) return
+    pushSupport('user', text)
+    setSupportSending(true)
+    try {
+      const res = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send', uid: user.uid, name: profile?.displayName ?? '', email: user.email ?? '', message: text }),
       })
       const data = await res.json() as { twoWay: boolean; error?: string }
       if (data.error) throw new Error(data.error)
       setSupportTwoWay(data.twoWay)
-      if (data.twoWay) {
-        pollSupport()
-      } else {
-        setSupportMessages(prev => [...prev, {
-          role: 'support',
-          text: "Message received. We'll get back to you by email shortly.",
-          ts: `local-${Date.now()}`,
-        }])
-      }
+      if (data.twoWay) pollSupport()
+      else pushSupport('support', "Message received. We'll get back to you by email shortly.")
     } catch {
-      setSupportMessages(prev => [...prev, {
-        role: 'support',
-        text: 'Message could not be sent. Please email admin@lushnote.com.au directly.',
-        ts: `local-${Date.now()}`,
-      }])
+      pushSupport('support', 'Message could not be sent. Please email admin@lushnote.com.au directly.')
     } finally {
       setSupportSending(false)
     }
+  }
+
+  // The input send button — routes to the right step.
+  function handleSupportInput() {
+    const text = supportInput.trim()
+    if (!text || supportSending) return
+    setSupportInput('')
+    if (awaitingDescription) submitDescription(text)
+    else if (supportEscalated) sendToHuman(text)
+    else submitDescription(text)
   }
 
   if (pathname === '/transcript') return null
@@ -470,17 +622,20 @@ export function FAB() {
         )}
         <button
           onClick={() => setExpanded(o => !o)}
-          className="w-14 h-14 rounded-full text-white flex items-center justify-center
+          className="relative w-14 h-14 rounded-full text-white flex items-center justify-center
                      motion-safe:transition-colors motion-safe:active:scale-[0.97]"
           style={{
-            background: '#10b981',
+            background: hasUnread ? '#dc2626' : '#10b981',
             boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
           }}
-          aria-label="Open chat"
+          aria-label={hasUnread ? 'Open chat — new reply' : 'Open chat'}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
+          {hasUnread && (
+            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-600 border-2 border-white motion-safe:animate-pulse" aria-hidden />
+          )}
         </button>
       </div>
 
@@ -591,8 +746,12 @@ export function FAB() {
           >
             <div>
               <span className="font-semibold text-[var(--text)]">Live Support</span>
-              {supportTwoWay && (
+              {supportTicket ? (
+                <p className="text-[11px] text-[var(--text3)]">Ticket {supportTicket} · replies appear here</p>
+              ) : supportEscalated ? (
                 <p className="text-[11px] text-[var(--text3)]">Replies appear here as they arrive</p>
+              ) : (
+                <p className="text-[11px] text-[var(--text3)]">We&rsquo;re here to help</p>
               )}
             </div>
             <button
@@ -607,9 +766,9 @@ export function FAB() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {supportMessages.length === 0 && (
-              <p className="text-sm text-[var(--text3)] text-center mt-8">
-                Need help? Send us a message and chat with the LushNote team.
+            {supportStage === 'menu' && supportMessages.length === 0 && (
+              <p className="text-sm text-[var(--text3)] text-center mt-2">
+                Hi{profile?.displayName ? `, ${profile.displayName.split(' ')[0]}` : ''}! What can we help you with?
               </p>
             )}
             {supportMessages.map((m) => (
@@ -623,31 +782,90 @@ export function FAB() {
                 </div>
               </div>
             ))}
+
+            {supportSending && (
+              <div className="flex justify-start">
+                <div className="bg-[var(--bg)] border border-[var(--border)] rounded-[var(--r-lg)] rounded-bl-sm px-4 py-3">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-[var(--text3)] rounded-full motion-safe:animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-2 h-2 bg-[var(--text3)] rounded-full motion-safe:animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-2 h-2 bg-[var(--text3)] rounded-full motion-safe:animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 1: canned topic menu (no AI) */}
+            {supportStage === 'menu' && !supportSending && (
+              <div className="flex flex-col gap-2 pt-1">
+                {SUPPORT_TOPICS.map(t => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => pickTopic(t)}
+                    className="text-left text-sm text-[var(--text)] bg-[var(--bg)] border border-[var(--border)]
+                               rounded-[var(--r)] px-3 py-2.5 hover:border-[var(--blue)]/50 hover:bg-white
+                               motion-safe:transition-colors motion-safe:active:scale-[0.99]"
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Step 3: did the AI answer solve it? */}
+            {supportYesNo && !supportSending && (
+              <div className="flex flex-col gap-2 pt-1">
+                <p className="text-xs text-[var(--text3)] text-center">Did this solve your issue?</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => answerYesNo(true)}
+                    className="flex-1 text-sm font-medium text-white bg-[#10b981] rounded-[var(--r)] py-2.5
+                               motion-safe:transition-transform motion-safe:active:scale-[0.97]"
+                  >
+                    Yes, solved
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => answerYesNo(false)}
+                    className="flex-1 text-sm font-medium text-[var(--text)] bg-[var(--bg)] border border-[var(--border)]
+                               rounded-[var(--r)] py-2.5 hover:border-[var(--blue)]/50 motion-safe:transition-transform motion-safe:active:scale-[0.97]"
+                  >
+                    No, still need help
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div ref={supportEndRef} />
           </div>
 
-          <div
-            className="border-t border-[var(--border)] p-3 flex gap-2 shrink-0"
-            style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
-          >
-            <input
-              type="text"
-              value={supportInput}
-              onChange={e => setSupportInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSupportSend()}
-              placeholder="Type a message..."
-              className="flex-1 text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2 bg-white
-                         focus:outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
-            />
-            <button
-              onClick={handleSupportSend}
-              disabled={supportSending || !supportInput.trim()}
-              className="bg-[var(--blue)] text-white text-sm font-medium px-4 py-2 rounded-[var(--r)] disabled:opacity-50
-                         motion-safe:transition-transform motion-safe:active:scale-[0.97]"
+          {/* Input — shown only when we're expecting free text (describe / live chat) */}
+          {supportStage === 'chat' && !supportYesNo && (
+            <div
+              className="border-t border-[var(--border)] p-3 flex gap-2 shrink-0"
+              style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
             >
-              Send
-            </button>
-          </div>
+              <input
+                type="text"
+                value={supportInput}
+                onChange={e => setSupportInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSupportInput()}
+                placeholder={awaitingDescription ? 'Describe it…' : 'Type a message…'}
+                className="flex-1 text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2 bg-white
+                           focus:outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
+              />
+              <button
+                onClick={handleSupportInput}
+                disabled={supportSending || !supportInput.trim()}
+                className="bg-[var(--blue)] text-white text-sm font-medium px-4 py-2 rounded-[var(--r)] disabled:opacity-50
+                           motion-safe:transition-transform motion-safe:active:scale-[0.97]"
+              >
+                Send
+              </button>
+            </div>
+          )}
         </div>
       )}
     </>

@@ -110,6 +110,67 @@ Keep responses concise and practical.`
       return NextResponse.json({ error: 'No API key available' }, { status: 401 })
     }
 
+    // ── Support triage: can the bot resolve it, or escalate to a human? ──────────
+    if (type === 'support-triage') {
+      const { topic, description, kb, uid } = body as {
+        topic?: string; description?: string; kb?: string; uid?: string
+      }
+      const desc = (description ?? '').toString().trim()
+      if (!desc || desc.length > 4000) {
+        return NextResponse.json({ error: 'Invalid description' }, { status: 400 })
+      }
+
+      const triageSystem = `You are LushNote's first-line support triage assistant. A clinician has raised a support item.
+Topic: ${topic || 'General'}
+
+Decide whether you can resolve it yourself with a short, correct answer based ONLY on the LushNote knowledge base below, or whether it needs a human (the developer).
+
+Set canHelp = false when:
+- It is a bug report, crash, or something broken you cannot confidently fix with a known step.
+- It is a feature request, UX suggestion, or feedback — those go to the team, not answered.
+- It concerns the user's account, billing, data, or anything needing an action you cannot take.
+- You are not confident the answer is correct and complete.
+
+Set canHelp = true only for straightforward how-to / usage / FAQ questions you can answer accurately from the knowledge base. For privacy or policy questions, answer ONLY from the knowledge base. Keep the answer concise and practical (2-4 sentences).
+
+KNOWLEDGE BASE:
+${kb ?? ''}
+
+Respond ONLY as strict JSON with no other text:
+{"canHelp": true or false, "answer": "your concise answer (empty string if canHelp is false)"}`
+
+      const prompt = `Topic: ${topic || 'General'}\nDescription: ${desc}`
+      const parseTriage = (raw: string): { canHelp: boolean; answer: string } => {
+        try {
+          const obj = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as { canHelp?: unknown; answer?: unknown }
+          return { canHelp: obj.canHelp === true, answer: typeof obj.answer === 'string' ? obj.answer : '' }
+        } catch {
+          return { canHelp: false, answer: '' }
+        }
+      }
+
+      const groqKey = req.headers.get('x-groq-key')
+      if (groqKey) {
+        try {
+          const { content } = await generateNoteGroq(prompt, triageSystem, groqKey, 700)
+          return NextResponse.json(parseTriage(content))
+        } catch { /* fall through to Gemini */ }
+      }
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const { text, totalTokens } = await chatResponse([{ role: 'user', parts: [{ text: prompt }] }], triageSystem)
+          if (uid && typeof uid === 'string') await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
+          return NextResponse.json(parseTriage(text))
+        } catch (err) {
+          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR && typeof uid === 'string') {
+            await markGeminiLimitReached(uid, 'chat').catch(() => {})
+          }
+        }
+      }
+      // No AI available → send it to a human.
+      return NextResponse.json({ canHelp: false, answer: '' })
+    }
+
     // ── Transcript Q&A ──────────────────────────────────────────────────────────
     if (type === 'transcript-qa') {
       const { question, transcript, uid } = body as {
