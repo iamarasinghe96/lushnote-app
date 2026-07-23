@@ -38,13 +38,14 @@ async function slackApi(method: string, payload: Record<string, unknown>): Promi
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
-      action: 'send' | 'poll' | 'escalate' | 'close'
+      action: 'send' | 'poll' | 'escalate' | 'close' | 'markRead'
       uid: string
       name?: string
       email?: string
       message?: string
       topic?: string
       transcript?: string
+      ts?: string
     }
 
     const { action, uid } = body
@@ -148,6 +149,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
+    // Advance the doctor's read marker so already-seen replies don't resurface
+    // as "unread" on the next fresh page load.
+    if (action === 'markRead') {
+      const ts = (body.ts ?? '').toString().slice(0, 40)
+      if (ts) {
+        await adminDb().collection('support_threads').doc(uid)
+          .set({ lastReadTs: ts }, { merge: true })
+          .catch(() => {})
+      }
+      return NextResponse.json({ ok: true })
+    }
+
     if (action === 'poll') {
       if (!BOT_TOKEN || !CHANNEL) {
         return NextResponse.json({ twoWay: false, messages: [] })
@@ -176,7 +189,7 @@ export async function POST(req: NextRequest) {
           ts: m.ts,
         }))
 
-      return NextResponse.json({ twoWay: true, messages, threadExists: true, ticket: snap.data()?.ticket ?? null })
+      return NextResponse.json({ twoWay: true, messages, threadExists: true, ticket: snap.data()?.ticket ?? null, lastReadTs: snap.data()?.lastReadTs ?? null })
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })

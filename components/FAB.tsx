@@ -329,10 +329,25 @@ export function FAB() {
     return () => document.removeEventListener('mousedown', onMouseDown)
   }, [expanded])
 
-  // Poll the Slack thread for human replies. We only APPEND admin ('support')
-  // messages we haven't seen — the doctor's own messages and the pre-escalation
-  // bot conversation are local, so this never clobbers them. A new admin reply
-  // while the chat is closed raises the red badge + chime.
+  // Tell the server the doctor has read up to this Slack ts, so already-seen
+  // replies don't come back as "unread" on the next fresh page load.
+  const markSupportRead = useCallback(async (ts: string) => {
+    if (!user || !ts) return
+    try {
+      await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'markRead', uid: user.uid, ts }),
+      })
+    } catch { /* best-effort; next open retries */ }
+  }, [user])
+
+  // Poll the Slack thread for human replies. A FRESH page load never replays the
+  // whole thread — the doctor lands on the clean topic menu and only genuinely
+  // new admin replies (newer than their server-side read marker) surface. Within
+  // a session we append only unseen admin messages, so local bot/doctor messages
+  // are never clobbered. A new reply while the chat is closed raises the badge +
+  // chime; while the panel is open we advance the read marker.
   const pollSupport = useCallback(async () => {
     if (!user) return
     try {
@@ -341,7 +356,7 @@ export function FAB() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'poll', uid: user.uid }),
       })
-      const data = await res.json() as { twoWay: boolean; messages?: SupportMessage[]; threadExists?: boolean; ticket?: string | null }
+      const data = await res.json() as { twoWay: boolean; messages?: SupportMessage[]; threadExists?: boolean; ticket?: string | null; lastReadTs?: string | null }
       setSupportTwoWay(data.twoWay)
       if (data.threadExists) threadActiveRef.current = true
       if (data.ticket) setSupportTicket(prev => prev ?? data.ticket ?? null)
@@ -349,23 +364,43 @@ export function FAB() {
 
       const seen = seenSupportTsRef.current
       const admin = data.messages.filter(m => m.role === 'support')
+      const panelOpen = panelRef.current === 'support'
+      let newestTs = ''
+      for (const m of data.messages) {
+        if (!newestTs || parseFloat(m.ts) > parseFloat(newestTs)) newestTs = m.ts
+      }
+
       if (!primedRef.current) {
-        // First load this session: show existing replies without alerting.
-        if (admin.length) setSupportMessages(prev => [...prev, ...admin])
-        data.messages.forEach(m => seen.add(m.ts))
         primedRef.current = true
-        return
+        data.messages.forEach(m => seen.add(m.ts))
+        const lastRead = data.lastReadTs ? parseFloat(data.lastReadTs) : null
+        const unread = lastRead === null ? [] : admin.filter(m => parseFloat(m.ts) > lastRead)
+        if (unread.length) {
+          setSupportMessages(prev => [...prev, ...unread])
+          setSupportEscalated(true)
+          setSupportStage('chat')
+          if (!panelOpen) { setHasUnread(true); playSupportChime() }
+        } else if (lastRead === null && newestTs) {
+          // Legacy thread with no read marker: catch it up silently so the old
+          // (resolved) conversation never resurfaces on future loads.
+          markSupportRead(newestTs)
+        }
+      } else {
+        const fresh = admin.filter(m => !seen.has(m.ts))
+        data.messages.forEach(m => seen.add(m.ts))
+        if (fresh.length) {
+          setSupportMessages(prev => [...prev, ...fresh])
+          setSupportEscalated(true)
+          setSupportStage('chat')
+          if (!panelOpen) { setHasUnread(true); playSupportChime() }
+        }
       }
-      const fresh = admin.filter(m => !seen.has(m.ts))
-      data.messages.forEach(m => seen.add(m.ts))
-      if (fresh.length) {
-        setSupportMessages(prev => [...prev, ...fresh])
-        if (panelRef.current !== 'support') { setHasUnread(true); playSupportChime() }
-      }
+
+      if (panelOpen && newestTs) markSupportRead(newestTs)
     } catch {
       // transient network failure - next poll retries
     }
-  }, [user])
+  }, [user, markSupportRead])
 
   // Prime once on mount + a light background poll so a reply raises the badge
   // even when the chat is closed (only if the doctor has an active thread).
@@ -378,14 +413,14 @@ export function FAB() {
     return () => clearInterval(id)
   }, [user, pollSupport])
 
-  // While the panel is open: clear the badge, resume an existing thread (or show
-  // the topic menu), and poll faster for live replies.
+  // While the panel is open: clear the badge and poll faster for live replies.
+  // We do NOT force the escalated chat view here — a fresh open lands on the
+  // clean topic menu; only a genuinely new admin reply (handled in pollSupport)
+  // switches to chat, so an old resolved thread never resurfaces.
   useEffect(() => {
     if (panel !== 'support' || !user) return
     setHasUnread(false)
-    pollSupport().then(() => {
-      if (threadActiveRef.current) { setSupportEscalated(true); setSupportStage('chat') }
-    })
+    pollSupport()
     const interval = setInterval(pollSupport, 5000)
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
