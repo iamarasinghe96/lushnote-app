@@ -138,23 +138,37 @@ const SETTINGS_TAB_BY_LABEL: Record<string, string> = {
   'profile': 'profile',
   'subscription': 'subscription',
 }
-const SETTINGS_RX = /Settings\s*[>›→]\s*(Personalisation|API Keys|Transcripts|Templates|Workplaces|Profile|Subscription)/gi
+// Main tab/section names → their route. Only linked when qualified by
+// tab/section/screen/page/view so ordinary verbs ("edit the note") aren't touched.
+const TAB_ROUTE: Record<string, string> = {
+  generate: '/generate', edit: '/edit', export: '/export',
+  history: '/history', patients: '/patients', transcript: '/transcript',
+}
+// Order matters (alternation is tried left-to-right at each position): the
+// specific "Settings > Tab" wins over a qualified main tab, which wins over a
+// bare "Settings".
+const NAV_RX = /Settings\s*[>›→]\s*(Personalisation|API Keys|Transcripts|Templates|Workplaces|Profile|Subscription)|(Generate|Edit|Export|History|Patients|Transcript)\s+(?:tab|section|screen|page|view)|\bSettings\b/gi
 
-// Turn "Settings > API Keys" (etc.) into a clickable link to that settings tab.
-function linkifySettings(text: string, onOpen: (tab: string) => void): ReactNode[] {
+// Turn any in-app destination the assistant names ("Settings > API Keys", the
+// "Patients tab", "Settings", …) into a clickable link to that route/tab.
+function linkifyNav(text: string, onNav: (href: string) => void): ReactNode[] {
   const out: ReactNode[] = []
   let last = 0, k = 0
   let m: RegExpExecArray | null
-  SETTINGS_RX.lastIndex = 0
-  while ((m = SETTINGS_RX.exec(text)) !== null) {
-    const tab = SETTINGS_TAB_BY_LABEL[m[1].toLowerCase()]
-    if (!tab) continue
+  NAV_RX.lastIndex = 0
+  while ((m = NAV_RX.exec(text)) !== null) {
+    let href: string | undefined
+    if (m[1]) { const tab = SETTINGS_TAB_BY_LABEL[m[1].toLowerCase()]; if (tab) href = '/settings?tab=' + tab }
+    else if (m[2]) href = TAB_ROUTE[m[2].toLowerCase()]
+    else href = '/settings'
+    if (!href) continue
     if (m.index > last) out.push(text.slice(last, m.index))
+    const to = href
     out.push(
       <button
-        key={`s${k++}`}
+        key={`n${k++}`}
         type="button"
-        onClick={() => onOpen(tab)}
+        onClick={() => onNav(to)}
         className="text-[var(--blue)] font-medium underline underline-offset-2 hover:opacity-80"
       >
         {m[0]}
@@ -166,14 +180,14 @@ function linkifySettings(text: string, onOpen: (tab: string) => void): ReactNode
   return out
 }
 
-// Compose both linkifiers: settings phrases first, patient names within the
+// Compose both linkifiers: nav destinations first, patient names within the
 // remaining plain-text runs. Keys are namespaced per run so siblings stay unique.
 function linkifyMessage(
-  text: string, names: string[], onName: (n: string) => void, onSettings: (tab: string) => void,
+  text: string, names: string[], onName: (n: string) => void, onNav: (href: string) => void,
 ): ReactNode[] {
   const out: ReactNode[] = []
-  linkifySettings(text, onSettings).forEach((part, i) => {
-    if (typeof part !== 'string') { out.push(<Fragment key={`s${i}`}>{part}</Fragment>); return }
+  linkifyNav(text, onNav).forEach((part, i) => {
+    if (typeof part !== 'string') { out.push(<Fragment key={`n${i}`}>{part}</Fragment>); return }
     linkifyPatients(part, names, onName).forEach((node, j) => {
       out.push(typeof node === 'string' ? node : <Fragment key={`${i}-${j}`}>{node}</Fragment>)
     })
@@ -269,10 +283,10 @@ export function FAB() {
     router.push('/patients?patient=' + encodeURIComponent(name))
   }
 
-  function handleSettingsClick(tab: string) {
+  function handleNavClick(href: string) {
     setPanel(null)
     setExpanded(false)
-    router.push('/settings?tab=' + tab)
+    router.push(href)
   }
 
   async function getNotes(): Promise<Note[]> {
@@ -456,7 +470,7 @@ export function FAB() {
                     : 'bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] rounded-bl-sm'
                 }`}>
                   <p className="whitespace-pre-wrap">
-                    {m.role === 'ai' ? linkifyMessage(m.content, patientNames, handlePatientClick, handleSettingsClick) : m.content}
+                    {m.role === 'ai' ? linkifyMessage(m.content, patientNames, handlePatientClick, handleNavClick) : m.content}
                   </p>
                 </div>
               </div>
