@@ -276,6 +276,11 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
    was hiding the tab bar on every field focus for no reason (reported). */
 @media (max-width: 639.98px) {
   body.keyboard-input-focused [data-tab-bar] { display: none; }
+  /* The bar is hidden on focus here, so a page reserving space for it should
+     reclaim that space. On desktop the bar stays visible, so .pb-tabbar keeps
+     its clearance — otherwise a bottom-anchored input drops behind the tab bar
+     (reported on the transcript chat). */
+  body.keyboard-input-focused .pb-tabbar { padding-bottom: 0; }
 }
 
 /* Top clearance so scroll containers fill behind the floating header pill.

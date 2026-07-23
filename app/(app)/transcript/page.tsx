@@ -234,7 +234,7 @@ export default function TranscriptPage() {
   }
 
   return (
-    <div className={`h-full flex flex-col overflow-hidden ${chatFocused ? '' : 'pb-tabbar'}`}>
+    <div className="h-full flex flex-col overflow-hidden pb-tabbar">
       {/* Raw transcript section */}
       <div
         className="border-b border-[var(--border)] px-4 pb-4 pt-header flex-none"

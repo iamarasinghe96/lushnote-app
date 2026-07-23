@@ -2376,7 +2376,7 @@ function EditContent() {
       {/* Form — fills the tab content area; contentPt pushes the first item below the floating bars */}
       <div
         ref={formScrollRef}
-        className={`absolute inset-0 overflow-y-auto scrollbar-none px-4 ${fieldFocused ? '' : 'pb-tabbar'}`}
+        className="absolute inset-0 overflow-y-auto scrollbar-none px-4 pb-tabbar"
         style={{ paddingTop: contentPt }}
         onFocus={handleFormFocus}
         onBlur={handleFormBlur}
