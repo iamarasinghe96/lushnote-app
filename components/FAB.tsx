@@ -663,14 +663,21 @@ export function FAB() {
           <>
             <button
               onClick={() => openPanel('support')}
-              className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-[var(--text)]
-                         border border-[var(--border)] motion-safe:transition-transform motion-safe:active:scale-[0.97]"
+              className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium border
+                         motion-safe:transition-transform motion-safe:active:scale-[0.97] ${
+                hasUnread ? 'text-white border-transparent' : 'text-[var(--text)] border-[var(--border)]'
+              }`}
               style={{
-                background: 'rgba(255,255,255,0.85)',
+                background: hasUnread ? '#dc2626' : 'rgba(255,255,255,0.85)',
                 backdropFilter: 'blur(12px)',
                 boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                animation: 'fab-pop-in 0.18s cubic-bezier(0.22,1,0.36,1) both',
+                animationDelay: '70ms',
+                transformOrigin: 'bottom right',
               }}
+              aria-label={hasUnread ? 'Live Support — new reply' : 'Live Support'}
             >
+              {hasUnread && <span className="w-2 h-2 rounded-full bg-white motion-safe:animate-pulse" aria-hidden />}
               Live Support
             </button>
             <button
@@ -681,6 +688,8 @@ export function FAB() {
                 background: 'rgba(255,255,255,0.85)',
                 backdropFilter: 'blur(12px)',
                 boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                animation: 'fab-pop-in 0.18s cubic-bezier(0.22,1,0.36,1) both',
+                transformOrigin: 'bottom right',
               }}
             >
               AI Assistant

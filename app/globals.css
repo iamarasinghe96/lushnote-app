@@ -291,6 +291,14 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
   .sm\:pt-header { padding-top: calc(env(safe-area-inset-top) + 76px); }
 }
 
+/* FAB sub-buttons popping up from the main chat bubble. Origin bottom-right so
+   they appear to spring out of the green button. Disabled under reduced motion
+   by the clamp below. */
+@keyframes fab-pop-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.85); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
 /* Reduced motion - disables ALL transitions and animations */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
