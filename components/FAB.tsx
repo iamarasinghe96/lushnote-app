@@ -382,15 +382,22 @@ export function FAB() {
         primedRef.current = true
         data.messages.forEach(m => seen.add(m.ts))
         const lastRead = data.lastReadTs ? parseFloat(data.lastReadTs) : null
-        const unread = lastRead === null ? [] : admin.filter(m => parseFloat(m.ts) > lastRead)
-        if (unread.length) {
-          setSupportMessages(prev => [...prev, ...unread])
+        // Rehydrate an ONGOING conversation from the thread so a page refresh
+        // keeps the history (local bubbles are lost on reload). Ended or
+        // auto-ended chats have no thread, so nothing resurfaces — the doctor
+        // lands on the clean topic menu. Only rehydrate when we have no local
+        // chat yet (a fresh load), never clobbering an in-session conversation.
+        if (data.threadExists && data.messages.length && supportMessagesRef.current.length === 0) {
+          setSupportMessages(data.messages)
+          supportMessagesRef.current = data.messages
           setSupportEscalated(true)
           setSupportStage('chat')
-          if (!panelOpen) { setHasUnread(true); playSupportChime() }
-        } else if (lastRead === null && newestTs) {
-          // Legacy thread with no read marker: catch it up silently so the old
-          // (resolved) conversation never resurfaces on future loads.
+          const hasNewAdmin = lastRead !== null && admin.some(m => parseFloat(m.ts) > lastRead)
+          if (hasNewAdmin && !panelOpen) { setHasUnread(true); playSupportChime() }
+        }
+        if (lastRead === null && newestTs) {
+          // Legacy thread with no read marker: catch it up so it doesn't badge
+          // forever (history is still shown via the rehydration above).
           markSupportRead(newestTs)
         }
       } else {

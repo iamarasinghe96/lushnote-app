@@ -184,10 +184,16 @@ export async function POST(req: NextRequest) {
       const data = await res.json() as { ok: boolean; error?: string; messages?: SlackMessage[] }
       if (!data.ok) throw new Error(`Slack conversations.replies: ${data.error}`)
 
-      // Skip the thread parent (our header). Bot-posted messages are the
-      // doctor's own (sent via this route); human messages are admin replies.
+      // Skip the thread parent (our header) and the internal machine posts (the
+      // ticket banner + "Conversation so far" summary), which are context for the
+      // team, not chat bubbles. Remaining bot-posted messages are the doctor's own
+      // (sent via this route); human messages are admin replies.
       const messages = (data.messages ?? [])
         .filter(m => m.ts !== threadTs && !m.subtype && (m.text ?? '').trim())
+        .filter(m => {
+          const t = (m.text ?? '').trimStart()
+          return !t.startsWith('🎫') && !t.startsWith('*Conversation so far') && !t.startsWith('✅')
+        })
         .map(m => ({
           role: m.bot_id ? 'user' : 'support',
           text: m.text ?? '',
