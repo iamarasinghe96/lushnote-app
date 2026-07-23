@@ -49,8 +49,15 @@ html, body { height: 100%; overflow: hidden; }
    Use lvh (the large, STATIC viewport) — unlike dvh it doesn't shrink when the
    keyboard opens during note generation, so the tab bar can't drift. Older
    engines ignore the lvh line and keep the dvh value. overflow stays hidden, so
-   the document never scrolls and this can't turn into a document-scroll layout. */
-html { min-height: 100dvh; min-height: 100lvh; }
+   the document never scrolls and this can't turn into a document-scroll layout.
+   SCOPED to the installed PWA: in a browser tab 100lvh is TALLER than the visible
+   viewport (the address bar is showing), which made <html> overflow the viewport
+   and the absolutely-positioned header drift out of view on client navigation
+   (browser-only, fixed by a hard refresh). In standalone mode lvh == the screen,
+   so it's both needed and safe there. */
+@media (display-mode: standalone) {
+  html { min-height: 100dvh; min-height: 100lvh; }
+}
 /* The body background propagates to the canvas (and so fills the PWA's
    home-indicator safe-area strip). It must stay on <body>, NOT <html>: giving
    <html> its own background stops that propagation and paints over the landing's
