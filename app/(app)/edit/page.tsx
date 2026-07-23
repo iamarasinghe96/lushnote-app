@@ -895,6 +895,16 @@ function EditContent() {
     return patientIndex.filter(p => p.name.toLowerCase().includes(q)).slice(0, 8)
   }, [fields.patient, patientIndex])
 
+  // A dictated/typed letter is saved under its patient name, so an identical name
+  // silently groups it with a historical patient — but two people can share a
+  // name (two David Millars). Flag an exact name match so the doctor can confirm
+  // it's the same person or rename to keep the records separate.
+  const letterPatientDuplicate = useMemo<PatientEntry | null>(() => {
+    const q = (letterCommonFields.patientName ?? '').trim().toLowerCase()
+    if (!q) return null
+    return patientIndex.find(p => p.name.toLowerCase() === q) ?? null
+  }, [letterCommonFields.patientName, patientIndex])
+
   function handlePatientInput(value: string) {
     setField('patient', value)
     setVisitCount(null)
@@ -2404,7 +2414,18 @@ function EditContent() {
                     label={letterType === 'freetext' ? 'Subject' : 'Patient name'}
                     value={letterCommonFields.patientName}
                     onChange={e => store.setLetterCommonFields({ patientName: e.target.value })}
+                    className={letterType !== 'freetext' && letterPatientDuplicate
+                      ? '!border-amber-500 focus:!border-amber-500 focus:!ring-amber-500/20'
+                      : ''}
                   />
+                  {letterType !== 'freetext' && letterPatientDuplicate && (
+                    <div className="rounded-[var(--r)] bg-amber-50 border border-amber-300 px-3 py-2 text-xs text-amber-800 leading-relaxed">
+                      <strong>Heads up:</strong> a patient named &ldquo;{letterPatientDuplicate.name}&rdquo; already exists
+                      {letterPatientDuplicate.visits ? ` (${letterPatientDuplicate.visits} record${letterPatientDuplicate.visits > 1 ? 's' : ''})` : ''}.
+                      If it&rsquo;s the <strong>same</strong> person, no action needed. If it&rsquo;s a <strong>different</strong> patient
+                      with the same name, edit the name here (e.g. add a middle name or initial) so their records don&rsquo;t merge.
+                    </div>
+                  )}
                   {letterType !== 'freetext' && (
                     <Input
                       label="Date of birth (DD/MM/YYYY)"
