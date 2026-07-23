@@ -7,18 +7,60 @@ import { listNotes } from '@/lib/firestore/notes'
 import { getGroqKey } from '@/lib/utils'
 import type { Note } from '@/types'
 
-const LUSHNOTE_KB = `LushNote is a clinical note builder for psychiatrists.
-Features: 116 clinical note templates, voice recording and transcription, AI note generation, patient management, PDF/clipboard/email export, custom templates.
-API: Users bring their own Gemini API key (free from aistudio.google.com) and optionally Groq key.
-Gemini limit: 20 notes/day free tier. Groq key extends this significantly.
-Security: Notes stored in Firebase Firestore, encrypted at rest. Audio is never stored - transcribed then immediately discarded.
-Privacy: Transcript redaction available in Settings > Transcripts.
-Add to home screen: iOS - tap Share button then "Add to Home Screen". Android - tap the install prompt banner.
-Common issues: Generation fails → check API key in Settings > API Keys. Recording won't start → check microphone permissions in browser settings.
-Templates: 116 built-in templates across Progress Notes, Assessments, Therapy Notes, Risk & Safety.
-Export: PDF (formatted A4), clipboard copy, email via mailto with professional cover letter.
-Custom templates: Create in Settings > Templates.
-Personalisation: Set your professional identity, treatment approaches, and document style in Settings > Personalisation.`
+const LUSHNOTE_KB = `LushNote is a clinical note builder for clinicians.
+Features: 116 clinical note templates, voice recording and transcription, AI note generation, patient management, referral/records/custom letters, hospital progress-note forms, and PDF/clipboard/email/Share export.
+API: Users bring their own Gemini API key (free from aistudio.google.com) and optionally a Groq key.
+Gemini limit: 20 notes/day free tier. A Groq key extends this significantly.
+Templates: 116 built-in templates across Progress Notes, Assessments, Therapy Notes, Risk & Safety. Create your own in Settings > Templates.
+Export: PDF (formatted A4), clipboard copy, email, and Share (attaches the PDF file). Print produces the same PDF as the download.
+Personalisation: Set your professional identity, treatment approaches, and document style in Settings > Personalisation.
+Common issues: Generation fails → check your API key in Settings > API Keys. Recording won't start → check microphone permissions in your browser settings. Recording stops when the phone is locked → iOS suspends web apps when the screen turns off, so keep the screen on during a session.
+
+LushNote official policy (Terms of Service & Privacy Policy) — this is the ONLY source of truth for any privacy, data, security, storage, or terms question. Full policy: https://www.lushnote.com.au/terms
+- Audio recordings: audio is streamed for transcription, converted to text, then immediately discarded. The audio file is NEVER stored, uploaded, or archived. Only the resulting transcript TEXT is kept, saved as part of the note in your account; you can review, edit, or delete it like any other note content.
+- Clinical notes & letters: stored securely and encrypted, accessible only by you. No LushNote team member, developer, or administrator can view your patient data — there is no admin view.
+- AI training: your notes, transcripts, and patient information are NEVER used to train or improve any AI model. Data is sent to AI providers only to fulfil your immediate request.
+- Transcript redaction: optional (Settings > Transcripts) — removes patient names, DOB, phone numbers, and other identifiers before anything is sent to an AI provider.
+- Account deletion: delete your account any time from Settings > Profile; all notes, patient profiles, and account details are permanently and irreversibly removed (no backups).
+- Compliance: designed to comply with the Australian Privacy Act 1988 (Cth) and the Australian Privacy Principles; governed by Australian law.
+- API keys: your Gemini/Groq keys are stored securely and used only for AI requests on your behalf.
+- Contact: admin@lushnote.com.au.`
+
+// Tappable starter questions shown in the empty AI Assistant — a mix of app
+// FAQ, functionality/how-to, privacy/policy, and patient-recall examples.
+const SAMPLE_QUESTIONS: { group: string; items: string[] }[] = [
+  {
+    group: 'Getting started',
+    items: [
+      'How do I create a note from a recording?',
+      'How do I add my Gemini API key?',
+      'How do I write a referral letter?',
+    ],
+  },
+  {
+    group: 'Features & how-to',
+    items: [
+      'How do I make a custom template?',
+      'How do I export a note as a PDF?',
+      'How do I change my credentials?',
+    ],
+  },
+  {
+    group: 'Privacy & data',
+    items: [
+      'Is my audio recording saved anywhere?',
+      'Who can see my patient notes?',
+      'How do I delete my account and all my data?',
+    ],
+  },
+  {
+    group: 'Your patients',
+    items: [
+      'Who is the patient with PTSD from a car accident?',
+      'How many of my patients have anxiety?',
+    ],
+  },
+]
 
 const STOP_WORDS = new Set([
   'the', 'who', 'what', 'when', 'where', 'which', 'that', 'this', 'with', 'from',
@@ -309,9 +351,9 @@ export function FAB() {
     return notes
   }
 
-  async function handleAiSend() {
-    if (!aiInput.trim() || aiLoading) return
-    const question = aiInput.trim()
+  async function handleAiSend(preset?: string) {
+    const question = (typeof preset === 'string' ? preset : aiInput).trim()
+    if (!question || aiLoading) return
     setAiInput('')
     const history = aiMessages.slice(-8)
     setAiMessages(prev => [...prev, { role: 'user', content: question }])
@@ -463,14 +505,29 @@ export function FAB() {
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {aiMessages.length === 0 && (
-              <div className="text-center mt-8 space-y-2">
-                <p className="text-sm text-[var(--text3)]">
-                  Ask about LushNote, or ask about your patients.
+              <div className="mt-2 space-y-4">
+                <p className="text-sm text-[var(--text3)] text-center">
+                  Ask about LushNote — how it works, privacy, or your patients. Tap a question to try it.
                 </p>
-                <p className="text-xs text-[var(--text3)]">
-                  e.g. &quot;Who is the patient with PTSD from a car accident?&quot;<br />
-                  &quot;How many of my patients have anxiety?&quot;
-                </p>
+                {SAMPLE_QUESTIONS.map(({ group, items }) => (
+                  <div key={group} className="space-y-1.5">
+                    <p className="text-[11px] font-semibold text-[var(--text3)] uppercase tracking-wide px-1">{group}</p>
+                    <div className="flex flex-col gap-1.5">
+                      {items.map(q => (
+                        <button
+                          key={q}
+                          type="button"
+                          onClick={() => handleAiSend(q)}
+                          className="text-left text-sm text-[var(--text)] bg-[var(--bg)] border border-[var(--border)]
+                                     rounded-[var(--r)] px-3 py-2 hover:border-[var(--blue)]/50 hover:bg-white
+                                     motion-safe:transition-colors motion-safe:active:scale-[0.99]"
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
             {aiMessages.map((m, i) => (
@@ -514,7 +571,7 @@ export function FAB() {
                          focus:outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
             />
             <button
-              onClick={handleAiSend}
+              onClick={() => handleAiSend()}
               disabled={aiLoading || !aiInput.trim()}
               className="bg-[var(--blue)] text-white text-sm font-medium px-4 py-2 rounded-[var(--r)] disabled:opacity-50
                          motion-safe:transition-transform motion-safe:active:scale-[0.97]"

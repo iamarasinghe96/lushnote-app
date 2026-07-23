@@ -42,10 +42,12 @@ export async function POST(req: NextRequest) {
 
       const safeNotes = typeof notesContext === 'string' ? notesContext.slice(0, 30000) : ''
 
-      const systemPrompt = `You are the LushNote AI assistant for a psychiatrist. You have two jobs:
+      const systemPrompt = `You are the LushNote AI assistant for a clinician. You have two jobs:
 
 1. Help with the LushNote app itself, using this knowledge base:
 ${kb ?? ''}
+
+For any question about privacy, data handling, security, storage, audio recordings, AI training, account deletion, or terms, answer ONLY from LushNote's official policy information in the knowledge base above. Do NOT invent, assume, or generalise policy details from outside it. If the knowledge base does not cover the specific question, say so plainly and refer the clinician to the full Terms of Service & Privacy Policy at lushnote.com.au/terms or admin@lushnote.com.au.
 
 2. Answer questions about the doctor's own patients using their clinical notes below. Each entry starts with the patient name, session date and diagnosis, followed by a summary and excerpts relevant to the question.
 
