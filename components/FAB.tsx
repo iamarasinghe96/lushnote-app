@@ -575,6 +575,32 @@ export function FAB() {
     }
   }
 
+  // End chat: close the Slack thread (fresh ticket next time) and reset to the
+  // topic menu so the old conversation no longer shows.
+  async function endChat() {
+    if (user) {
+      try {
+        await fetch('/api/support', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'close', uid: user.uid }),
+        })
+      } catch { /* reset locally regardless */ }
+    }
+    setSupportMessages([])
+    setSupportStage('menu')
+    setSupportTopic('')
+    setSupportTicket(null)
+    setSupportYesNo(false)
+    setSupportEscalated(false)
+    setAwaitingDescription(false)
+    setSupportInput('')
+    setHasUnread(false)
+    seenSupportTsRef.current = new Set()
+    primedRef.current = true
+    threadActiveRef.current = false
+  }
+
   // The input send button — routes to the right step.
   function handleSupportInput() {
     const text = supportInput.trim()
@@ -753,15 +779,25 @@ export function FAB() {
                 <p className="text-[11px] text-[var(--text3)]">We&rsquo;re here to help</p>
               )}
             </div>
-            <button
-              onClick={() => setPanel(null)}
-              className="text-[var(--text3)] hover:text-[var(--text)] w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--bg)] motion-safe:transition-colors"
-              aria-label="Close"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
+            <div className="flex items-center gap-1">
+              {(supportMessages.length > 0 || supportEscalated) && (
+                <button
+                  onClick={endChat}
+                  className="text-xs font-medium text-[var(--text3)] hover:text-[var(--danger)] px-2.5 py-1 rounded-full hover:bg-[var(--bg)] motion-safe:transition-colors"
+                >
+                  End chat
+                </button>
+              )}
+              <button
+                onClick={() => setPanel(null)}
+                className="text-[var(--text3)] hover:text-[var(--text)] w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--bg)] motion-safe:transition-colors"
+                aria-label="Close"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3">

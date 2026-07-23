@@ -38,7 +38,7 @@ async function slackApi(method: string, payload: Record<string, unknown>): Promi
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
-      action: 'send' | 'poll' | 'escalate'
+      action: 'send' | 'poll' | 'escalate' | 'close'
       uid: string
       name?: string
       email?: string
@@ -129,6 +129,23 @@ export async function POST(req: NextRequest) {
         await slackApi('chat.postMessage', { channel: CHANNEL, thread_ts: threadTs, text: `*Conversation so far:*\n${transcript}` })
       }
       return NextResponse.json({ twoWay: true, ticket })
+    }
+
+    // End the chat: drop the thread mapping so the next escalation opens a fresh
+    // thread with a new ticket. Leave a note on the old Slack thread for context.
+    if (action === 'close') {
+      if (BOT_TOKEN && CHANNEL) {
+        const ref = adminDb().collection('support_threads').doc(uid)
+        const snap = await ref.get()
+        if (snap.exists) {
+          const threadTs = snap.data()?.threadTs as string | undefined
+          if (threadTs) {
+            try { await slackApi('chat.postMessage', { channel: CHANNEL, thread_ts: threadTs, text: '✅ The doctor ended this chat.' }) } catch { /* ignore */ }
+          }
+          await ref.delete().catch(() => {})
+        }
+      }
+      return NextResponse.json({ ok: true })
     }
 
     if (action === 'poll') {
