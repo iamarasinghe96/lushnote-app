@@ -191,8 +191,13 @@ export async function POST(req: NextRequest) {
       const messages = (data.messages ?? [])
         .filter(m => m.ts !== threadTs && !m.subtype && (m.text ?? '').trim())
         .filter(m => {
-          const t = (m.text ?? '').trimStart()
-          return !t.startsWith('🎫') && !t.startsWith('*Conversation so far') && !t.startsWith('✅')
+          // Match on stable phrases, not the leading emoji — Slack returns emoji
+          // as :shortcodes: (e.g. :ticket:), so a 🎫 prefix check misses them.
+          const t = m.text ?? ''
+          return !t.includes('Escalated to the team')
+              && !t.includes('Conversation so far')
+              && !t.includes('The doctor ended this chat')
+              && !t.includes('Support chat with')
         })
         .map(m => ({
           role: m.bot_id ? 'user' : 'support',
