@@ -43,7 +43,7 @@ export default function SubscriptionPanel({ profile: _profile }: SubscriptionPan
     if (!feedbackText.trim()) return
     const subject = encodeURIComponent('LushNote Feedback')
     const body = encodeURIComponent(feedbackText)
-    window.open(`mailto:iamarasinghe96@gmail.com?subject=${subject}&body=${body}`)
+    window.open(`mailto:admin@lushnote.com.au?subject=${subject}&body=${body}`)
   }
 
   const hasShare = typeof navigator !== 'undefined' && !!navigator.share

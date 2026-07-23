@@ -273,6 +273,17 @@ export function FAB() {
     setExpanded(false)
   }
 
+  // Open the AI assistant automatically when arriving from a "ask the AI agent"
+  // link elsewhere (e.g. the Terms page), which sets this flag before navigating.
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('ln-open-assistant') === '1') {
+        sessionStorage.removeItem('ln-open-assistant')
+        setPanel('ai')
+      }
+    } catch { /* ignore */ }
+  }, [])
+
   // Open a patient's overview from a linkified name in an AI answer. Dispatch an
   // event for the Patients page if it's already mounted, and navigate with a
   // ?patient= param that the page reads on a fresh mount — covers both cases.
@@ -373,7 +384,7 @@ export function FAB() {
     } catch {
       setSupportMessages(prev => [...prev, {
         role: 'support',
-        text: 'Message could not be sent. Please email iamarasinghe96@gmail.com directly.',
+        text: 'Message could not be sent. Please email admin@lushnote.com.au directly.',
         ts: `local-${Date.now()}`,
       }])
     } finally {

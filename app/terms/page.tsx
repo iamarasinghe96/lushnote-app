@@ -1,9 +1,15 @@
 'use client'
 
 const EFFECTIVE_DATE = '26 June 2025'
-const CONTACT_EMAIL = 'iamarasinghe96@gmail.com'
+const CONTACT_EMAIL = 'admin@lushnote.com.au'
 
 export default function TermsPage() {
+  // "Ask the AI agent" lives in the app (the FAB assistant), which isn't on this
+  // standalone page — flag it and navigate; the FAB opens it on the next load.
+  function openAssistant() {
+    try { sessionStorage.setItem('ln-open-assistant', '1') } catch { /* ignore */ }
+    window.location.href = '/generate'
+  }
   return (
     <div className="h-dvh overflow-y-auto print:h-auto print:overflow-visible bg-[#f8fafc] text-[#0f172a]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
 
@@ -348,8 +354,10 @@ export default function TermsPage() {
         {/* Contact */}
         <div className="mt-14 pt-8 border-t border-[#e2e8f0]">
           <p className="text-sm text-[#475569]">
-            Any questions about these terms or a privacy concern? Email us at{' '}
-            <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#2563eb] underline">{CONTACT_EMAIL}</a>.
+            If you have any questions about these terms or a privacy concern, please reach out to{' '}
+            <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#2563eb] underline">{CONTACT_EMAIL}</a>{' '}
+            or{' '}
+            <button type="button" onClick={openAssistant} className="text-[#2563eb] underline">ask the AI agent</button>.
             We aim to respond within 5 business days.
           </p>
           <p className="text-xs text-[#94a3b8] mt-3">

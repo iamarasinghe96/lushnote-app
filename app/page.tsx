@@ -266,7 +266,7 @@ export default function Page() {
           <div className="flex items-center gap-4 text-xs text-[var(--text3)]">
             <a href="/terms" className="hover:text-[var(--text)] motion-safe:transition-colors">Privacy &amp; Terms</a>
             <a
-              href="mailto:iamarasinghe96@gmail.com"
+              href="mailto:admin@lushnote.com.au"
               className="hover:text-[var(--text)] motion-safe:transition-colors"
             >
               Contact
