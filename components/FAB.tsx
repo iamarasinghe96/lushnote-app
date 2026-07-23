@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react'
+import { useEffect, useRef, useState, useCallback, Fragment, type ReactNode } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { listNotes } from '@/lib/firestore/notes'
@@ -128,6 +128,59 @@ function linkifyPatients(text: string, names: string[], onNameClick: (name: stri
   return out
 }
 
+// "Settings > <Tab>" phrases the assistant emits → the matching deep-link tab.
+const SETTINGS_TAB_BY_LABEL: Record<string, string> = {
+  'personalisation': 'personalisation',
+  'api keys': 'api-keys',
+  'transcripts': 'transcripts',
+  'templates': 'templates',
+  'workplaces': 'workplaces',
+  'profile': 'profile',
+  'subscription': 'subscription',
+}
+const SETTINGS_RX = /Settings\s*[>›→]\s*(Personalisation|API Keys|Transcripts|Templates|Workplaces|Profile|Subscription)/gi
+
+// Turn "Settings > API Keys" (etc.) into a clickable link to that settings tab.
+function linkifySettings(text: string, onOpen: (tab: string) => void): ReactNode[] {
+  const out: ReactNode[] = []
+  let last = 0, k = 0
+  let m: RegExpExecArray | null
+  SETTINGS_RX.lastIndex = 0
+  while ((m = SETTINGS_RX.exec(text)) !== null) {
+    const tab = SETTINGS_TAB_BY_LABEL[m[1].toLowerCase()]
+    if (!tab) continue
+    if (m.index > last) out.push(text.slice(last, m.index))
+    out.push(
+      <button
+        key={`s${k++}`}
+        type="button"
+        onClick={() => onOpen(tab)}
+        className="text-[var(--blue)] font-medium underline underline-offset-2 hover:opacity-80"
+      >
+        {m[0]}
+      </button>
+    )
+    last = m.index + m[0].length
+  }
+  if (last < text.length) out.push(text.slice(last))
+  return out
+}
+
+// Compose both linkifiers: settings phrases first, patient names within the
+// remaining plain-text runs. Keys are namespaced per run so siblings stay unique.
+function linkifyMessage(
+  text: string, names: string[], onName: (n: string) => void, onSettings: (tab: string) => void,
+): ReactNode[] {
+  const out: ReactNode[] = []
+  linkifySettings(text, onSettings).forEach((part, i) => {
+    if (typeof part !== 'string') { out.push(<Fragment key={`s${i}`}>{part}</Fragment>); return }
+    linkifyPatients(part, names, onName).forEach((node, j) => {
+      out.push(typeof node === 'string' ? node : <Fragment key={`${i}-${j}`}>{node}</Fragment>)
+    })
+  })
+  return out
+}
+
 interface ChatMessage {
   role: string
   content: string
@@ -214,6 +267,12 @@ export function FAB() {
     setExpanded(false)
     window.dispatchEvent(new CustomEvent('ln-open-patient', { detail: { name } }))
     router.push('/patients?patient=' + encodeURIComponent(name))
+  }
+
+  function handleSettingsClick(tab: string) {
+    setPanel(null)
+    setExpanded(false)
+    router.push('/settings?tab=' + tab)
   }
 
   async function getNotes(): Promise<Note[]> {
@@ -397,7 +456,7 @@ export function FAB() {
                     : 'bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] rounded-bl-sm'
                 }`}>
                   <p className="whitespace-pre-wrap">
-                    {m.role === 'ai' ? linkifyPatients(m.content, patientNames, handlePatientClick) : m.content}
+                    {m.role === 'ai' ? linkifyMessage(m.content, patientNames, handlePatientClick, handleSettingsClick) : m.content}
                   </p>
                 </div>
               </div>
