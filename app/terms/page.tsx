@@ -40,9 +40,8 @@ export default function TermsPage() {
 
         <Section title="1. Our Purpose">
           <p>
-            LushNote is a clinical documentation tool built for psychiatrists and other doctors.
-            Our goal is to reduce the time spent on paperwork so clinicians can focus on their
-            patients.
+            LushNote is a clinical documentation tool built for clinicians. Our goal is to
+            reduce the time spent on paperwork so you can focus on your patients.
           </p>
           <p>
             Protecting patient privacy is central to everything we do. Every decision about how
@@ -53,7 +52,11 @@ export default function TermsPage() {
         <Section title="2. Accepting These Terms">
           <p>
             By creating a LushNote account, you agree to these Terms of Service and Privacy
-            Policy. If you do not agree, please do not use LushNote.
+            Policy. If these terms aren&rsquo;t the right fit for you, that&rsquo;s completely
+            understandable — simply choose not to create an account. And if you already have one
+            and change your mind, you can{' '}
+            <a href="/settings?tab=profile" className="text-[#2563eb] underline">delete your account</a>{' '}
+            at any time, and all of your data is permanently removed.
           </p>
           <p>
             These terms are governed by Australian law. LushNote is designed to comply with
@@ -89,9 +92,12 @@ export default function TermsPage() {
 
           <SubHeading>Audio recordings</SubHeading>
           <p>
-            If you record a session or dictate a note, the audio is sent directly for
-            transcription and then immediately discarded. Audio is never stored by LushNote.
-            There is no recording archive.
+            If you record a session or dictate a note, the audio is streamed straight to the
+            transcription service, converted to text, and then immediately discarded. Only the
+            resulting text — the transcript — is kept, and it is saved as part of the note in your
+            account, where you can review, edit, or delete it like any other note content. The
+            audio file itself is never saved, never uploaded to storage, and never archived, so
+            there is no recording that could be replayed or retrieved after transcription.
           </p>
 
           <SubHeading>Letters and generated documents</SubHeading>
@@ -135,8 +141,9 @@ export default function TermsPage() {
 
           <SubHeading>Transcript redaction</SubHeading>
           <p>
-            LushNote includes an optional redaction feature (Settings, Transcripts) that
-            automatically removes patient names, dates of birth, phone numbers, and other
+            LushNote includes an optional redaction feature
+            (<a href="/settings?tab=transcripts" className="text-[#2563eb] underline">Settings → Transcripts</a>)
+            that automatically removes patient names, dates of birth, phone numbers, and other
             identifiers from transcripts before they are sent to any AI provider. We recommend
             enabling this feature.
           </p>
@@ -178,7 +185,7 @@ export default function TermsPage() {
           <ul className="list-disc pl-5 space-y-2 text-[#475569]">
             <li>Access the personal information we hold about you</li>
             <li>Correct any inaccurate information</li>
-            <li>Delete your account and all associated data at any time</li>
+            <li><a href="/settings?tab=profile" className="text-[#2563eb] underline">Delete your account</a> and all associated data at any time</li>
             <li>Lodge a complaint with the Office of the Australian Information Commissioner at{' '}
               <a href="https://www.oaic.gov.au" className="text-[#2563eb] underline" target="_blank" rel="noopener noreferrer">oaic.gov.au</a>{' '}
               if you believe your privacy has been mishandled</li>
@@ -207,6 +214,11 @@ export default function TermsPage() {
             Deletion is permanent and cannot be undone. We do not keep backups of deleted
             accounts. Once deleted, your data cannot be recovered by you or by LushNote.
           </p>
+          <p>
+            You can{' '}
+            <a href="/settings?tab=profile" className="text-[#2563eb] underline">delete your account</a>{' '}
+            at any time from your profile settings.
+          </p>
         </Section>
 
         <Section title="9. Your Responsibilities as a Clinician">
@@ -224,8 +236,10 @@ export default function TermsPage() {
         <Section title="10. How Long We Keep Your Data">
           <p>
             Your notes stay in your account for as long as your account is active. You can
-            delete individual notes at any time from the History tab, or delete everything
-            by deleting your account.
+            delete individual notes at any time from the{' '}
+            <a href="/history" className="text-[#2563eb] underline">History tab</a>, or delete
+            everything by{' '}
+            <a href="/settings?tab=profile" className="text-[#2563eb] underline">deleting your account</a>.
           </p>
           <p>
             Audio recordings are not stored at all. Letters you generate are saved to your
@@ -298,8 +312,9 @@ export default function TermsPage() {
             </FAQ>
 
             <FAQ q="What happens to the audio after a session recording?">
-              The audio is transcribed immediately and then discarded. It is never saved to a
-              file, never uploaded to storage, and cannot be retrieved or replayed after
+              The audio is transcribed to text immediately and then discarded. Only that text —
+              the transcript — is kept, as part of your note in your account. The audio file is
+              never saved, never uploaded to storage, and cannot be retrieved or replayed after
               transcription is complete.
             </FAQ>
 
@@ -323,7 +338,7 @@ export default function TermsPage() {
             </FAQ>
 
             <FAQ q="I am a patient. How do I request my records?">
-              Patient records are stored under the account of the treating doctor. Please contact
+              Patient records are stored under the account of the treating clinician. Please contact
               your clinician directly to request access to or deletion of your records. If you
               have a privacy concern, you can also contact the OAIC at oaic.gov.au.
             </FAQ>
