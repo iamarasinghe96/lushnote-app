@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { LETTER_TYPE_LABEL } from '@/lib/utils'
+import { LETTER_TYPE_LABEL, notePatientDob } from '@/lib/utils'
 import { getPatientProfiles, deletePatientProfile } from '@/lib/firestore/patients'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
 import { getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
@@ -15,12 +15,17 @@ import PatientModal from '@/components/modals/PatientModal'
 import type { Note, PatientProfile } from '@/types'
 
 interface PatientGroup {
+  // Identity key: a plain name normally, or `name|dob` when the same name has
+  // records with conflicting DOBs (so two same-named patients stay separate).
+  key: string
   name: string
   reg: string
   visits: number
   lastDate: string
   gender?: 'male' | 'female' | 'other' | 'prefer-not-to-say' | null
   dob?: string
+  // True when another patient shares this name — the DOB is shown to tell them apart.
+  ambiguous?: boolean
 }
 
 function parseDateStr(s: string): Date | null {
@@ -309,35 +314,69 @@ export default function PatientsPage() {
     return () => window.removeEventListener('tabbar-reselect', onReselect)
   }, [])
 
+  // A name is "split" only when its records carry 2+ distinct DOBs — i.e. two
+  // different people share the name. Everyone else groups by name exactly as
+  // before (no behaviour change for normal data).
+  const splitNames = useMemo(() => {
+    const dobsByName = new Map<string, Set<string>>()
+    for (const n of notes) {
+      const nm = n.patient?.trim().toLowerCase()
+      if (!nm) continue
+      const d = notePatientDob(n)
+      if (!d) continue
+      if (!dobsByName.has(nm)) dobsByName.set(nm, new Set())
+      dobsByName.get(nm)!.add(d)
+    }
+    const split = new Set<string>()
+    dobsByName.forEach((set, nm) => { if (set.size >= 2) split.add(nm) })
+    return split
+  }, [notes])
+
+  // The group a record belongs to: `name|dob` for a split name, else just `name`.
+  const groupKeyFor = useCallback((n: Pick<Note, 'patient' | 'docType' | 'letterData'>) => {
+    const nm = (n.patient ?? '').trim().toLowerCase()
+    return splitNames.has(nm) ? `${nm}|${notePatientDob(n)}` : nm
+  }, [splitNames])
+
   const groupedPatients = useMemo<PatientGroup[]>(() => {
     const map = new Map<string, PatientGroup>()
 
     for (const n of notes) {
       if (!n.patient?.trim()) continue
-      const key = n.patient.trim().toLowerCase()
+      const nm = n.patient.trim().toLowerCase()
+      const key = groupKeyFor(n)
+      const dob = notePatientDob(n)
       const existing = map.get(key)
       if (existing) {
         existing.visits++
         if (compareDateStrs(n.date, existing.lastDate) > 0) existing.lastDate = n.date
         if (!existing.reg && n.reg_number) existing.reg = n.reg_number
+        if (!existing.dob && dob) existing.dob = dob
       } else {
-        map.set(key, { name: n.patient.trim(), reg: n.reg_number || '', visits: 1, lastDate: n.date || '' })
+        map.set(key, { key, name: n.patient.trim(), reg: n.reg_number || '', visits: 1, lastDate: n.date || '', dob: dob || undefined, ambiguous: splitNames.has(nm) })
       }
     }
 
     for (const p of Object.values(profiles)) {
-      const key = p.displayName.trim().toLowerCase()
-      const existing = map.get(key)
-      if (existing) {
-        if (!existing.gender) existing.gender = p.gender
-        if (!existing.dob) existing.dob = p.dob
+      const nm = p.displayName.trim().toLowerCase()
+      if (splitNames.has(nm)) {
+        // Attach a name-keyed profile's gender to the DOB-matching subgroup only;
+        // never spawn a phantom group for an ambiguous name.
+        const existing = map.get(`${nm}|${(p.dob || '').trim()}`)
+        if (existing && !existing.gender) existing.gender = p.gender
       } else {
-        map.set(key, { name: p.displayName, reg: '', visits: 0, lastDate: '', gender: p.gender, dob: p.dob })
+        const existing = map.get(nm)
+        if (existing) {
+          if (!existing.gender) existing.gender = p.gender
+          if (!existing.dob) existing.dob = p.dob
+        } else {
+          map.set(nm, { key: nm, name: p.displayName, reg: '', visits: 0, lastDate: '', gender: p.gender, dob: p.dob })
+        }
       }
     }
 
     return Array.from(map.values())
-  }, [notes, profiles])
+  }, [notes, profiles, groupKeyFor, splitNames])
 
   // Deep-link into a patient's overview from the AI Assistant. The FAB dispatches
   // 'ln-open-patient' (caught if this page is already mounted) and navigates to
@@ -433,9 +472,9 @@ export default function PatientsPage() {
 
   const patientNotes = useMemo(
     () => selectedPatient
-      ? notes.filter(n => n.patient?.trim().toLowerCase() === selectedPatient.name.toLowerCase())
+      ? notes.filter(n => groupKeyFor(n) === selectedPatient.key)
       : [],
-    [notes, selectedPatient]
+    [notes, selectedPatient, groupKeyFor]
   )
 
   // Derive first-seen date from sorted patient notes
@@ -446,9 +485,13 @@ export default function PatientsPage() {
   }, [patientNotes])
   const selectedProfile = useMemo(() => {
     if (!selectedPatient) return undefined
-    return Object.values(profiles).find(
-      p => p.displayName.trim().toLowerCase() === selectedPatient.name.toLowerCase()
-    )
+    const nm = selectedPatient.name.trim().toLowerCase()
+    return Object.values(profiles).find(p => {
+      if (p.displayName.trim().toLowerCase() !== nm) return false
+      // For an ambiguous (same-name) patient, only the DOB-matching profile is theirs.
+      if (selectedPatient.ambiguous && selectedPatient.dob) return (p.dob || '').trim() === selectedPatient.dob
+      return true
+    })
   }, [selectedPatient, profiles])
 
   function handleEditPatient() {
@@ -473,9 +516,7 @@ export default function PatientsPage() {
           onDeletePatient={async () => {
             // Delete all session notes for this patient
             await Promise.all(patientNotes.filter(n => n.id).map(n => deleteNote(n.id!)))
-            setNotes(prev => prev.filter(n =>
-              n.patient?.trim().toLowerCase() !== selectedPatient.name.toLowerCase()
-            ))
+            setNotes(prev => prev.filter(n => groupKeyFor(n) !== selectedPatient.key))
             // Delete the patient profile if one exists
             if (selectedProfile?.id && user) {
               await deletePatientProfile(user.uid, selectedProfile.id)
@@ -497,19 +538,24 @@ export default function PatientsPage() {
             if (saved.id) setProfiles(prev => ({ ...prev, [saved.id!]: saved }))
             const oldName = editingProfile?.displayName?.trim() ?? ''
             const newName = saved.displayName.trim()
-            if (oldName && newName && oldName.toLowerCase() !== newName.toLowerCase()) {
-              const toRename = notes.filter(n => n.patient?.trim().toLowerCase() === oldName.toLowerCase()).map(n => n.id!)
+            const renamed = !!(oldName && newName && oldName.toLowerCase() !== newName.toLowerCase())
+            if (renamed) {
+              // Rename only THIS patient's records (the selected group), so renaming
+              // one of two same-named patients never touches the other.
+              const toRename = notes.filter(n => n.id && groupKeyFor(n) === selectedPatient.key).map(n => n.id!)
               if (toRename.length) {
                 await renamePatientInNotes(toRename, newName)
-                setNotes(prev => prev.map(n =>
-                  n.patient?.trim().toLowerCase() === oldName.toLowerCase() ? { ...n, patient: newName } : n
-                ))
+                const renameSet = new Set(toRename)
+                setNotes(prev => prev.map(n => (n.id && renameSet.has(n.id)) ? { ...n, patient: newName } : n))
               }
             }
-            setSelectedPatient(prev => prev
-              ? { ...prev, name: newName || prev.name, gender: saved.gender, dob: saved.dob }
-              : prev
-            )
+            setSelectedPatient(prev => {
+              if (!prev) return prev
+              const finalName = newName || prev.name
+              // After a rename the collision is resolved, so the record keys under a
+              // plain name; keep the existing key otherwise.
+              return { ...prev, name: finalName, key: renamed ? finalName.trim().toLowerCase() : prev.key, gender: saved.gender, dob: saved.dob }
+            })
             setEditingProfile(undefined)
           }}
           onClose={() => setEditingProfile(undefined)}
@@ -633,14 +679,21 @@ export default function PatientsPage() {
         ) : (
           filteredPatients.map(p => (
             <div
-              key={p.name}
+              key={p.key}
               onClick={() => setSelectedPatient(p)}
               className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)]
                          hover:bg-[var(--bg)] cursor-pointer transition-colors"
             >
               <GenderAvatar gender={p.gender} size={40} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-[var(--text)] truncate">{p.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-[var(--text)] truncate">{p.name}</p>
+                  {p.ambiguous && p.dob && (
+                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-300 rounded-full px-1.5 py-0.5 shrink-0">
+                      DOB {p.dob}
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className="text-xs text-[var(--text3)]">
                     {p.visits} visit{p.visits !== 1 ? 's' : ''}

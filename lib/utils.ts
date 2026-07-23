@@ -63,6 +63,17 @@ export function parseLetterData(raw?: string | null): LetterData | null {
   }
 }
 
+// The patient's date of birth carried by a single record, when known. Only
+// letters store a per-record DOB (inside letterData); notes/forms have none, so
+// they return ''. Used to tell same-named patients apart — two "David Miller"s
+// with different DOBs are different people and must not be merged.
+export function notePatientDob(note: { docType?: string | null; letterData?: string | null }): string {
+  if (note.docType === 'letter') {
+    return (parseLetterData(note.letterData)?.common?.dob || '').trim()
+  }
+  return ''
+}
+
 // Serialize a filled hospital form for Note.formData (≤40000, the Firestore cap).
 export function serializeHospitalFormData(data: HospitalFormData): string | undefined {
   if (!data) return undefined

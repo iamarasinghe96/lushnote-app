@@ -12,7 +12,7 @@ import { getHospitalForm } from '@/lib/firestore/hospitalForms'
 import HospitalFormView from '@/components/hospital-form/HospitalFormView'
 import { registerReloadGuard } from '@/lib/reloadGuard'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildTemplatePrompt, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, serializeLetterData, parseLetterData, buildLetterText, parseHospitalFormData } from '@/lib/utils'
+import { buildTemplatePrompt, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, serializeLetterData, parseLetterData, buildLetterText, parseHospitalFormData, notePatientDob } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import Input from '@/components/ui/Input'
@@ -902,8 +902,23 @@ function EditContent() {
   const letterPatientDuplicate = useMemo<PatientEntry | null>(() => {
     const q = (letterCommonFields.patientName ?? '').trim().toLowerCase()
     if (!q) return null
-    return patientIndex.find(p => p.name.toLowerCase() === q) ?? null
-  }, [letterCommonFields.patientName, patientIndex])
+    const match = patientIndex.find(p => p.name.toLowerCase() === q)
+    if (!match) return null
+    // Suppress the warning when this letter's DOB matches an existing record for
+    // the same name — that's clearly the same person. Warn only when the DOB
+    // differs or isn't known yet (a possible second patient with the same name).
+    const letterDob = (letterCommonFields.dob ?? '').trim()
+    if (letterDob) {
+      const knownDobs = new Set<string>()
+      allNotes.forEach(n => {
+        if ((n.patient ?? '').trim().toLowerCase() !== q) return
+        const d = notePatientDob(n)
+        if (d) knownDobs.add(d)
+      })
+      if (knownDobs.size > 0 && knownDobs.has(letterDob)) return null
+    }
+    return match
+  }, [letterCommonFields.patientName, letterCommonFields.dob, patientIndex, allNotes])
 
   function handlePatientInput(value: string) {
     setField('patient', value)
