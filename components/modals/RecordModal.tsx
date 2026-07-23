@@ -180,13 +180,9 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
                 ? 'Share the browser tab your telehealth call is in. When the picker appears, select the tab and tick "Share tab audio".'
                 : 'Your microphone will be recorded.'}
             </p>
-            <div className="rounded-[var(--r)] bg-red-100 border border-red-500 px-3 py-2.5 flex items-center justify-center gap-2 motion-safe:animate-pulse">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-red-600 shrink-0" aria-hidden>
-                <path d="M12 9v4" /><path d="M12 17h.01" />
-                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-              </svg>
-              <p className="text-xs text-red-700 leading-relaxed font-semibold text-center">
-                Please obtain the patient&rsquo;s consent before recording this session.
+            <div className="rounded-[var(--r)] bg-red-100 border border-red-500 px-3 py-2.5 motion-safe:animate-pulse">
+              <p className="text-sm text-red-700 leading-relaxed font-semibold text-center">
+                ⚠️ Please obtain the patient&rsquo;s consent before recording this session.
               </p>
             </div>
             <Button onClick={handleStart} variant="primary" className="w-full">
