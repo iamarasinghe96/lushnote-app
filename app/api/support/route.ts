@@ -97,13 +97,15 @@ export async function POST(req: NextRequest) {
     if (action === 'escalate') {
       const topic = (body.topic ?? '').toString().slice(0, 120)
       const transcript = (body.transcript ?? '').toString().slice(0, 8000)
+      const name = (body.name || 'Doctor').toString().slice(0, 200)
+      const email = (body.email || uid).toString().slice(0, 300)
 
       if (!BOT_TOKEN || !CHANNEL) {
         const ticket = makeTicket()
         await fetch(SLACK_WEBHOOK, {
           method: 'POST',
           body: JSON.stringify({
-            text: `🎫 *New support ticket ${ticket}* — ${topic || 'Support'}\n*From:* ${body.name || 'Doctor'} (${body.email || uid})\n\n${transcript}`,
+            text: `🎫 *New support ticket ${ticket}* — ${topic || 'Support'}\n*From:* ${name} (${email})\n\n${transcript}`,
           }),
         })
         return NextResponse.json({ twoWay: false, ticket })
@@ -115,15 +117,18 @@ export async function POST(req: NextRequest) {
       let ticket = snap.exists ? (snap.data()?.ticket as string | undefined) : undefined
       if (!ticket) ticket = makeTicket()
 
+      // Always post the full escalation banner (ticket + doctor + email + topic)
+      // so a human sees who to reply to — as the thread parent for a new thread,
+      // or as a reply when re-escalating an existing thread.
+      const banner = `🎫 *Ticket ${ticket}* — ${topic || 'Support'}\n*From:* ${name}\n*Email:* ${email}\n*Escalated to the team* — reply in this thread and it appears in the doctor's app.`
+
       if (!threadTs) {
-        const parent = await slackApi('chat.postMessage', {
-          channel: CHANNEL,
-          text: `🎫 *${ticket}* — ${topic || 'Support'}\n*From:* ${body.name || 'Doctor'} (${body.email || uid})\nReply in this thread and it appears in their app.`,
-        })
+        const parent = await slackApi('chat.postMessage', { channel: CHANNEL, text: banner })
         threadTs = parent.ts as string
         await ref.set({ threadTs, channel: parent.channel as string, name: body.name ?? '', email: body.email ?? '', ticket, topic })
       } else {
-        await ref.set({ ticket, topic }, { merge: true })
+        await slackApi('chat.postMessage', { channel: CHANNEL, thread_ts: threadTs, text: banner })
+        await ref.set({ ticket, topic, name: body.name ?? '', email: body.email ?? '' }, { merge: true })
       }
 
       if (transcript) {
