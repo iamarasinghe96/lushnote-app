@@ -109,6 +109,21 @@ export default function SubscriptionPanel({ profile: _profile }: SubscriptionPan
           Send feedback
         </Button>
       </section>
+
+      {/* Legal */}
+      <section>
+        <h3 className="text-sm font-semibold text-[var(--text)] mb-2">Legal</h3>
+        <a
+          href="/terms"
+          className="flex items-center justify-between rounded-[var(--r)] border border-[var(--border)] bg-white
+                     px-3 py-2.5 text-sm text-[var(--text)] hover:border-[var(--blue)]/50 transition-colors"
+        >
+          <span>Terms of Service &amp; Privacy Policy</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--text3)]" aria-hidden>
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </a>
+      </section>
     </div>
   )
 }
