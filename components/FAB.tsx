@@ -599,6 +599,7 @@ export function FAB() {
           email: user.email ?? '', topic: supportTopic, transcript,
         }),
       })
+      if (!res.ok) throw new Error('escalate failed')
       const data = await res.json() as { twoWay: boolean; ticket?: string }
       const ticket = data.ticket ?? null
       setSupportTicket(ticket)
@@ -609,7 +610,19 @@ export function FAB() {
       pushSupport('support', `Thanks — I've passed this to our team.${ticket ? ` Your ticket is ${ticket}.` : ''} We'll reply right here, and you can follow up any time at admin@lushnote.com.au${ticket ? ` quoting ${ticket}` : ''}. Add anything else below.`)
       if (data.twoWay) pollSupport()
     } catch {
-      pushSupport('support', "Sorry — I couldn't reach our team just now. Please email admin@lushnote.com.au and we'll help.")
+      // The Slack post can succeed even when the response is lost (e.g. a
+      // serverless timeout). Check whether a thread actually got created before
+      // alarming the doctor — if it did, the escalation worked.
+      setSupportEscalated(true)
+      setSupportStage('chat')
+      try {
+        await pollSupport()
+      } catch { /* ignore */ }
+      if (threadActiveRef.current) {
+        pushSupport('support', "Thanks — I've passed this to our team. We'll reply right here, and you can follow up any time at admin@lushnote.com.au. Add anything else below.")
+      } else {
+        pushSupport('support', "Sorry — I couldn't reach our team just now. Please email admin@lushnote.com.au and we'll help.")
+      }
     } finally {
       setSupportSending(false)
     }

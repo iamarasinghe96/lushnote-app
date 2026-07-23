@@ -117,23 +117,22 @@ export async function POST(req: NextRequest) {
       let ticket = snap.exists ? (snap.data()?.ticket as string | undefined) : undefined
       if (!ticket) ticket = makeTicket()
 
-      // Always post the full escalation banner (ticket + doctor + email + topic)
-      // so a human sees who to reply to — as the thread parent for a new thread,
-      // or as a reply when re-escalating an existing thread.
+      // Post the banner (ticket + doctor + email + topic) AND the transcript in a
+      // SINGLE Slack call — one round-trip keeps escalate fast and well under the
+      // serverless timeout (multiple sequential posts occasionally timed out,
+      // surfacing a false "couldn't reach our team" to the doctor).
       const banner = `🎫 *Ticket ${ticket}* — ${topic || 'Support'}\n*From:* ${name}\n*Email:* ${email}\n*Escalated to the team* — reply in this thread and it appears in the doctor's app.`
+      const full = transcript ? `${banner}\n\n*Conversation so far:*\n${transcript}` : banner
 
       if (!threadTs) {
-        const parent = await slackApi('chat.postMessage', { channel: CHANNEL, text: banner })
+        const parent = await slackApi('chat.postMessage', { channel: CHANNEL, text: full })
         threadTs = parent.ts as string
         await ref.set({ threadTs, channel: parent.channel as string, name: body.name ?? '', email: body.email ?? '', ticket, topic })
       } else {
-        await slackApi('chat.postMessage', { channel: CHANNEL, thread_ts: threadTs, text: banner })
+        await slackApi('chat.postMessage', { channel: CHANNEL, thread_ts: threadTs, text: full })
         await ref.set({ ticket, topic, name: body.name ?? '', email: body.email ?? '' }, { merge: true })
       }
 
-      if (transcript) {
-        await slackApi('chat.postMessage', { channel: CHANNEL, thread_ts: threadTs, text: `*Conversation so far:*\n${transcript}` })
-      }
       return NextResponse.json({ twoWay: true, ticket })
     }
 
