@@ -304,9 +304,15 @@ export function FAB() {
   const localSeqRef = useRef(0)
   const panelRef = useRef(panel)
   panelRef.current = panel
+  // Mirror of the conversation, updated synchronously so escalate() can build the
+  // transcript including a message pushed in the same handler run (React state
+  // updates are async, so reading supportMessages there misses the latest line).
+  const supportMessagesRef = useRef<SupportMessage[]>([])
 
   const pushSupport = useCallback((role: 'user' | 'support', text: string) => {
-    setSupportMessages(prev => [...prev, { role, text, ts: `local-${Date.now()}-${localSeqRef.current++}` }])
+    const msg: SupportMessage = { role, text, ts: `local-${Date.now()}-${localSeqRef.current++}` }
+    supportMessagesRef.current = [...supportMessagesRef.current, msg]
+    setSupportMessages(prev => [...prev, msg])
   }, [])
 
   useEffect(() => {
@@ -559,7 +565,7 @@ export function FAB() {
   // Escalate: open/reuse the Slack thread with a ticket number + the transcript.
   async function escalate() {
     if (!user) return
-    const transcript = supportMessages
+    const transcript = supportMessagesRef.current
       .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`).join('\n')
     setSupportSending(true)
     try {
@@ -623,6 +629,7 @@ export function FAB() {
       } catch { /* reset locally regardless */ }
     }
     setSupportMessages([])
+    supportMessagesRef.current = []
     setSupportStage('menu')
     setSupportTopic('')
     setSupportTicket(null)
