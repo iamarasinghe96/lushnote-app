@@ -308,6 +308,8 @@ export function FAB() {
   // transcript including a message pushed in the same handler run (React state
   // updates are async, so reading supportMessages there misses the latest line).
   const supportMessagesRef = useRef<SupportMessage[]>([])
+  // Auto-ends an abandoned support chat after 30 min of no user activity.
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const pushSupport = useCallback((role: 'user' | 'support', text: string) => {
     const msg: SupportMessage = { role, text, ts: `local-${Date.now()}-${localSeqRef.current++}` }
@@ -514,17 +516,29 @@ export function FAB() {
     }
   }
 
+  // Reset the 30-minute inactivity countdown on any user action in the support
+  // chat. When it fires (no user activity for 30 min) the chat auto-ends, closing
+  // the Slack thread so the next visit starts fresh.
+  function bumpSupportActivity() {
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
+    inactivityTimerRef.current = setTimeout(() => { endChat() }, 30 * 60 * 1000)
+  }
+
+  useEffect(() => () => { if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current) }, [])
+
   // Step 1: doctor taps a topic (no AI) → we ask for a description.
   function pickTopic(t: typeof SUPPORT_TOPICS[number]) {
     setSupportTopic(t.label)
     setSupportStage('chat')
     setAwaitingDescription(true)
     pushSupport('support', t.prompt)
+    bumpSupportActivity()
   }
 
   // Step 2: doctor describes the issue → AI decides if it can answer or escalate.
   async function submitDescription(text: string) {
     pushSupport('user', text)
+    bumpSupportActivity()
     setAwaitingDescription(false)
     setSupportSending(true)
     try {
@@ -552,6 +566,7 @@ export function FAB() {
   // Step 3: yes/no after an AI answer. No → escalate to a human.
   async function answerYesNo(solved: boolean) {
     setSupportYesNo(false)
+    bumpSupportActivity()
     if (solved) {
       pushSupport('user', 'Yes, that solved it')
       pushSupport('support', 'Great — glad that sorted it! Pick a topic below any time you need us again.')
@@ -597,6 +612,7 @@ export function FAB() {
   async function sendToHuman(text: string) {
     if (!user) return
     pushSupport('user', text)
+    bumpSupportActivity()
     setSupportSending(true)
     try {
       const res = await fetch('/api/support', {
@@ -619,6 +635,7 @@ export function FAB() {
   // End chat: close the Slack thread (fresh ticket next time) and reset to the
   // topic menu so the old conversation no longer shows.
   async function endChat() {
+    if (inactivityTimerRef.current) { clearTimeout(inactivityTimerRef.current); inactivityTimerRef.current = null }
     if (user) {
       try {
         await fetch('/api/support', {
@@ -830,11 +847,12 @@ export function FAB() {
                 <p className="text-[11px] text-[var(--text3)]">We&rsquo;re here to help</p>
               )}
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               {(supportMessages.length > 0 || supportEscalated) && (
                 <button
                   onClick={endChat}
-                  className="text-xs font-medium text-[var(--text3)] hover:text-[var(--danger)] px-2.5 py-1 rounded-full hover:bg-[var(--bg)] motion-safe:transition-colors"
+                  className="text-xs font-medium text-[var(--text2)] border border-[var(--border)] px-3 py-1 rounded-full
+                             hover:text-[var(--danger)] hover:border-[var(--danger)]/50 hover:bg-[var(--bg)] motion-safe:transition-colors"
                 >
                   End chat
                 </button>
@@ -842,10 +860,11 @@ export function FAB() {
               <button
                 onClick={() => setPanel(null)}
                 className="text-[var(--text3)] hover:text-[var(--text)] w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--bg)] motion-safe:transition-colors"
-                aria-label="Close"
+                aria-label="Minimize"
+                title="Minimize"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
               </button>
             </div>
