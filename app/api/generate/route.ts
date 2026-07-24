@@ -323,6 +323,9 @@ ${transcript}`
     }
 
     const profile = await getProfile(uid).catch(() => null)
+    if (profile?.status === 'disabled') {
+      return NextResponse.json({ error: 'Account suspended' }, { status: 403 })
+    }
 
     // Redact identifiable information before the transcript reaches any AI model.
     // Defaults to redact-all when the user has never configured privacy settings,

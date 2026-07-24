@@ -60,6 +60,7 @@ service cloud.firestore {
           && (!('emailPretext'       in d) || (d.emailPretext       is string && d.emailPretext.size()       <= 1000))
           && (!('activeWorkplaceId'  in d) || (d.activeWorkplaceId  is string && d.activeWorkplaceId.size()  <= 100))
           && (!('onboardingComplete' in d) || (d.onboardingComplete is bool))
+          && (!('marketingConsent'   in d) || (d.marketingConsent   is bool))
           && (!('notesMigrated'      in d) || (d.notesMigrated      is bool))
           && (!('workplaces'         in d) || (d.workplaces         is list   && d.workplaces.size()         <= 30))
           && (!('favoriteTemplateIds'in d) || (d.favoriteTemplateIds is list  && d.favoriteTemplateIds.size() <= 200))

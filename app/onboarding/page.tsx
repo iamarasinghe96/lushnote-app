@@ -56,6 +56,7 @@ export default function OnboardingPage() {
   const [groqApiKey, setGroqApiKey] = useState('')
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null)
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const [marketingConsent, setMarketingConsent] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -148,6 +149,7 @@ export default function OnboardingPage() {
         ...(signatureUrl ? { signatureUrl } : {}),
         termsAccepted: true,
         termsAcceptedAt: new Date().toISOString(),
+        marketingConsent,
       })
 
       if (geminiApiKey.trim()) {
@@ -280,6 +282,8 @@ export default function OnboardingPage() {
               hasGroq={groqApiKey.trim().length > 0}
               termsAccepted={termsAccepted}
               onTermsAccepted={setTermsAccepted}
+              marketingConsent={marketingConsent}
+              onMarketingConsent={setMarketingConsent}
               error={error}
             />
           )}
@@ -657,6 +661,8 @@ function Step5({
   hasGroq,
   termsAccepted,
   onTermsAccepted,
+  marketingConsent,
+  onMarketingConsent,
   error,
 }: {
   displayName: string
@@ -670,6 +676,8 @@ function Step5({
   hasGroq: boolean
   termsAccepted: boolean
   onTermsAccepted: (v: boolean) => void
+  marketingConsent: boolean
+  onMarketingConsent: (v: boolean) => void
   error: string
 }) {
   const aiKeys = hasGemini && hasGroq ? 'Gemini · Groq'
@@ -725,6 +733,19 @@ function Step5({
           </a>
           , including how patient data is stored, my rights under Australian privacy law,
           and my obligations as a treating clinician.
+        </span>
+      </label>
+
+      {/* Marketing opt-in (optional) */}
+      <label className="flex items-start gap-3 rounded-xl border border-[#e2e8f0] bg-white p-4 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={marketingConsent}
+          onChange={(e) => onMarketingConsent(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded accent-[#10b981] shrink-0 cursor-pointer"
+        />
+        <span className="text-sm text-[#475569] leading-relaxed">
+          Keep me updated with occasional product news and tips by email. Optional — you can opt out any time.
         </span>
       </label>
 

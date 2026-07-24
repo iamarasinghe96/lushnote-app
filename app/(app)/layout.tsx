@@ -89,6 +89,19 @@ function AppContent({ children }: { children: React.ReactNode }) {
   if (loading) return <LoadingScreen />
   if (!user || !profile?.onboardingComplete) return null
 
+  // Suspended by an admin: block the app entirely (the account's sign-in is also
+  // disabled server-side, so this is the in-session backstop). Only a sign-out.
+  if (profile.status === 'disabled') {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center bg-[var(--bg)]">
+        <div className="w-12 h-12 rounded-full bg-red-100 border border-red-300 flex items-center justify-center text-red-600 text-xl">⚠️</div>
+        <h1 className="text-lg font-semibold text-[var(--text)]">Your account is suspended</h1>
+        <p className="text-sm text-[var(--text2)] max-w-sm">Access to LushNote has been paused. If you think this is a mistake, contact admin@lushnote.com.au.</p>
+        <button onClick={handleSignOut} className="mt-2 px-4 py-2 rounded-[var(--r)] bg-[var(--blue)] text-white text-sm font-medium">Sign out</button>
+      </div>
+    )
+  }
+
   const activeWorkplace = profile?.workplaces?.find(w => w.id === profile.activeWorkplaceId)
   const avatarBg = resolveThemePrimary(activeWorkplace?.themeIndex ?? 1, activeWorkplace?.themeColor)
   const initials = getInitials(profile?.displayName || '')

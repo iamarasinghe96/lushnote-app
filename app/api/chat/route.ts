@@ -444,6 +444,9 @@ Return ONLY strict JSON, no markdown, no commentary:
     }
 
     const profile = await getProfile(uid)
+    if (profile?.status === 'disabled') {
+      return NextResponse.json({ error: 'Account suspended' }, { status: 403 })
+    }
 
     if (process.env.GEMINI_API_KEY) {
       const quota = profile?.geminiUsage ?? {}

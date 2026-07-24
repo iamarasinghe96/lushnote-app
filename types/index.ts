@@ -31,6 +31,7 @@ interface User {
   geminiUsage?: GeminiUsage
   termsAccepted?: boolean
   termsAcceptedAt?: string
+  marketingConsent?: boolean   // opt-in for newsletters/product emails (default off)
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
 }
