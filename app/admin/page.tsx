@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import type { ReactNode } from 'react'
+import UsersPanel from '@/components/admin/UsersPanel'
 import LetterheadsPanel from '@/components/admin/LetterheadsPanel'
 import HospitalFormsPanel from '@/components/admin/HospitalFormsPanel'
 import LogsPanel from '@/components/admin/LogsPanel'
@@ -14,6 +15,7 @@ const ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
 // here AND a panel in PANELS below — nav, deep-link and render all derive from
 // SECTIONS, so there are no other spots to touch.
 const SECTIONS = [
+  { key: 'users', label: 'Users' },
   { key: 'letterheads', label: 'Letterheads' },
   { key: 'forms', label: 'Hospital Forms' },
   { key: 'logs', label: 'Logs & Errors' },
@@ -21,6 +23,7 @@ const SECTIONS = [
 type SectionKey = (typeof SECTIONS)[number]['key']
 
 const PANELS: Record<SectionKey, ReactNode> = {
+  users: <UsersPanel />,
   letterheads: <LetterheadsPanel />,
   forms: <HospitalFormsPanel />,
   logs: <LogsPanel />,
@@ -29,7 +32,7 @@ const PANELS: Record<SectionKey, ReactNode> = {
 export default function AdminPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
-  const [section, setSection] = useState<SectionKey>('letterheads')
+  const [section, setSection] = useState<SectionKey>('users')
 
   useEffect(() => {
     if (loading) return
