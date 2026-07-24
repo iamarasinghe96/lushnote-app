@@ -9,6 +9,7 @@ import TabBar from '@/components/tabs/TabBar'
 import { FAB } from '@/components/FAB'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { RateLimitBanner } from '@/components/ui/RateLimitBanner'
+import WhatsNewPopup from '@/components/WhatsNewPopup'
 import { getInitials, applyWorkspaceTheme, resolveThemePrimary } from '@/lib/utils'
 import { getLetterhead } from '@/lib/firestore/letterheads'
 
@@ -234,6 +235,9 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
       {/* ── FAB ── */}
       <FAB />
+
+      {/* ── One-time "What's New" popup ── */}
+      <WhatsNewPopup />
 
       {/* ── Pull-to-refresh (touch only) ── */}
       <PullToRefresh />

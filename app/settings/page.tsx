@@ -13,9 +13,10 @@ import TranscriptsPanel from '@/components/settings/TranscriptsPanel'
 import ApiKeysPanel from '@/components/settings/ApiKeysPanel'
 import PersonalisationPanel from '@/components/settings/PersonalisationPanel'
 import SubscriptionPanel from '@/components/settings/SubscriptionPanel'
+import WhatsNewPanel from '@/components/settings/WhatsNewPanel'
 import type { User, Workplace } from '@/types'
 
-type TabKey = 'profile' | 'workplaces' | 'templates' | 'transcripts' | 'api-keys' | 'personalisation' | 'subscription'
+type TabKey = 'profile' | 'workplaces' | 'templates' | 'transcripts' | 'api-keys' | 'personalisation' | 'subscription' | 'whats-new'
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   {
@@ -88,6 +89,15 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+      </svg>
+    ),
+  },
+  {
+    key: 'whats-new',
+    label: "What's New",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
       </svg>
     ),
   },
@@ -214,6 +224,8 @@ function SettingsContent() {
         )
       case 'subscription':
         return <SubscriptionPanel profile={profile!} />
+      case 'whats-new':
+        return <WhatsNewPanel />
     }
   }
 

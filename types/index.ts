@@ -36,6 +36,20 @@ interface User {
   updatedAt?: FirestoreTimestamp
 }
 
+// A "What's New" release note, managed in the admin console and shown to doctors
+// (a one-time popup for the latest, plus a detailed Settings tab). Stored in the
+// `announcements` collection; only `published` ones reach doctors.
+interface Announcement {
+  id: string
+  title: string
+  summary: string       // 1-2 sentence brief (popup body)
+  details: string       // longer body for the What's New tab (lines; "- " = bullet)
+  version?: string      // optional label, e.g. "v1.4" or a date
+  published: boolean
+  createdAt?: number | null
+  publishedAt?: number | null
+}
+
 type LetterType = 'referral' | 'records' | 'freetext' | 'custom'
 
 // A doctor-defined letter type, saved privately to their own profile. Each
@@ -413,6 +427,7 @@ export type {
   ViewName,
   DeletionFeedback,
   FirestoreTimestamp,
+  Announcement,
   LetterType,
   LetterCommonFields,
   ReferralFields,

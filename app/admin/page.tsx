@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import type { ReactNode } from 'react'
 import DashboardPanel from '@/components/admin/DashboardPanel'
 import UsersPanel from '@/components/admin/UsersPanel'
+import AnnouncementsPanel from '@/components/admin/AnnouncementsPanel'
 import FeedbackPanel from '@/components/admin/FeedbackPanel'
 import LetterheadsPanel from '@/components/admin/LetterheadsPanel'
 import HospitalFormsPanel from '@/components/admin/HospitalFormsPanel'
@@ -19,6 +20,7 @@ const ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
 const SECTIONS = [
   { key: 'dashboard', label: 'Dashboard' },
   { key: 'users', label: 'Users' },
+  { key: 'whats-new', label: "What's New" },
   { key: 'feedback', label: 'Feedback' },
   { key: 'letterheads', label: 'Letterheads' },
   { key: 'forms', label: 'Hospital Forms' },
@@ -29,6 +31,7 @@ type SectionKey = (typeof SECTIONS)[number]['key']
 const PANELS: Record<SectionKey, ReactNode> = {
   dashboard: <DashboardPanel />,
   users: <UsersPanel />,
+  'whats-new': <AnnouncementsPanel />,
   feedback: <FeedbackPanel />,
   letterheads: <LetterheadsPanel />,
   forms: <HospitalFormsPanel />,
