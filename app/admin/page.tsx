@@ -3,18 +3,28 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import type { ReactNode } from 'react'
 import LetterheadsPanel from '@/components/admin/LetterheadsPanel'
 import HospitalFormsPanel from '@/components/admin/HospitalFormsPanel'
+import LogsPanel from '@/components/admin/LogsPanel'
 
 const ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
 
-// One admin console for every managed resource. Add a section by dropping a panel
-// component here and a nav entry below — no new routes.
+// One admin console for every managed resource. Add a section by adding an entry
+// here AND a panel in PANELS below — nav, deep-link and render all derive from
+// SECTIONS, so there are no other spots to touch.
 const SECTIONS = [
   { key: 'letterheads', label: 'Letterheads' },
   { key: 'forms', label: 'Hospital Forms' },
+  { key: 'logs', label: 'Logs & Errors' },
 ] as const
 type SectionKey = (typeof SECTIONS)[number]['key']
+
+const PANELS: Record<SectionKey, ReactNode> = {
+  letterheads: <LetterheadsPanel />,
+  forms: <HospitalFormsPanel />,
+  logs: <LogsPanel />,
+}
 
 export default function AdminPage() {
   const { user, loading } = useAuth()
@@ -26,7 +36,7 @@ export default function AdminPage() {
     if (!user || user.uid !== ADMIN_UID) router.replace('/')
     else if (typeof window !== 'undefined') {
       const s = new URLSearchParams(window.location.search).get('section')
-      if (s === 'forms' || s === 'letterheads') setSection(s)
+      if (s && SECTIONS.some(sec => sec.key === s)) setSection(s as SectionKey)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user])
@@ -66,7 +76,7 @@ export default function AdminPage() {
         </nav>
       </header>
 
-      {section === 'letterheads' ? <LetterheadsPanel /> : <HospitalFormsPanel />}
+      {PANELS[section]}
     </div>
   )
 }

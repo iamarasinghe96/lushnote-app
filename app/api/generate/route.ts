@@ -4,6 +4,7 @@ import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
+import { logToSink } from '@/lib/firestore/systemLogs'
 
 // Generating a note from a long transcript can exceed Vercel's 10s Hobby
 // default. 60s is the Hobby-plan ceiling.
@@ -317,6 +318,7 @@ ${transcript}`
 
     const limit = rateLimit(`${uid}:generate`, 40, 60 * 60 * 1000)
     if (!limit.allowed) {
+      logToSink({ level: 'warn', tag: 'generate', message: 'rate limit exceeded', route: '/api/generate', status: 429, uid })
       return NextResponse.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 })
     }
 
@@ -430,6 +432,7 @@ ${transcript}`
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err)
     console.error(`[generate] fatal: ${detail}`)
+    logToSink({ level: 'error', tag: 'generate', message: detail, route: '/api/generate', status: 500 })
     return NextResponse.json({ error: `Generation failed: ${detail}` }, { status: 500 })
   }
 }

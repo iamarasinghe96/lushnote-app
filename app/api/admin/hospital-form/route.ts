@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb, adminStorage } from '@/lib/firebase-admin'
-import { adminAuth } from '@/lib/firebase-admin-auth'
+import { requireAdmin, unauthorized } from '@/lib/adminGuard'
+import { logToSink } from '@/lib/firestore/systemLogs'
 import { toOrganizationKey } from '@/lib/utils'
 import type { HospitalFormDoc, HospitalFormGeometry } from '@/types'
-
-const ADMIN_UID = process.env.ADMIN_UID ?? process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
-
-function unauthorized() { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
 
 // Validate the geometry blob the admin supplies (mm numbers). Rejects anything
 // missing or non-numeric so a bad paste can't render a broken form.
@@ -34,13 +31,7 @@ export async function POST(req: NextRequest) {
     }
     const { action } = body
 
-    const authHeader = req.headers.get('authorization') || ''
-    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-    if (!idToken) return unauthorized()
-    try {
-      const decoded = await adminAuth().verifyIdToken(idToken)
-      if (decoded.uid !== ADMIN_UID) return unauthorized()
-    } catch { return unauthorized() }
+    try { await requireAdmin(req) } catch { return unauthorized() }
 
     const db = adminDb()
     const bucket = adminStorage().bucket()
@@ -115,6 +106,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Internal error'
     console.error('[admin/hospital-form]', msg)
+    logToSink({ level: 'error', tag: 'admin/hospital-form', message: msg, route: '/api/admin/hospital-form', status: 500 })
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

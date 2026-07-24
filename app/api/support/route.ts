@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase-admin'
+import { logToSink } from '@/lib/firestore/systemLogs'
 
 // Split string prevents GitHub secret scanning (same pattern as the FAB webhook)
 const SLACK_WEBHOOK = 'https://hooks.slack.com' + '/services/T0B5HRCD3QT/B0B5X3GJYBW/wmD9BaIPKisWj0rQ67vWdmnQ'
@@ -211,6 +212,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Support request failed'
     console.error('[support]', msg)
+    logToSink({ level: 'error', tag: 'support', message: msg, route: '/api/support', status: 500 })
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { transcribeAudio } from '@/lib/gemini'
 import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { rateLimit } from '@/lib/rateLimit'
+import { logToSink } from '@/lib/firestore/systemLogs'
 
 // Recordings are transcribed live in short (~4 min) segments, so each request
 // handles only a small independent audio file that finishes in a few seconds —
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
 
     const limit = rateLimit(`${uidField}:transcribe`, 120, 60 * 60 * 1000)
     if (!limit.allowed) {
+      logToSink({ level: 'warn', tag: 'transcribe', message: 'rate limit exceeded', route: '/api/transcribe', status: 429, uid: uidField })
       return NextResponse.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 })
     }
 
@@ -80,7 +82,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Transcription failed' }, { status: 500 })
     }
   } catch (err) {
-    console.error(`[transcribe] error seg=${seg} uid=${uid} elapsedMs=${Date.now() - startedAt}: ${err instanceof Error ? err.message : String(err)}`)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[transcribe] error seg=${seg} uid=${uid} elapsedMs=${Date.now() - startedAt}: ${msg}`)
+    logToSink({ level: 'error', tag: 'transcribe', message: msg, route: '/api/transcribe', status: 500, uid })
     return NextResponse.json({ error: 'Transcription failed' }, { status: 500 })
   }
 }

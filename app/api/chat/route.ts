@@ -3,6 +3,7 @@ import { chatResponse, checkQuota, GEMINI_RATE_LIMIT_ERROR, GEMINI_DAILY_LIMIT_E
 import { generateNoteGroq } from '@/lib/groq'
 import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
+import { logToSink } from '@/lib/firestore/systemLogs'
 
 const TRANSCRIPT_QA_SYSTEM_PROMPT = `You are a clinical documentation assistant. The user is a psychiatrist reviewing a session transcript.
 Answer questions using ONLY information explicitly present in the transcript below.
@@ -438,6 +439,7 @@ Return ONLY strict JSON, no markdown, no commentary:
 
     const limit = rateLimit(`${uid}:chat`, 60, 60 * 60 * 1000)
     if (!limit.allowed) {
+      logToSink({ level: 'warn', tag: 'chat', message: 'rate limit exceeded', route: '/api/chat', status: 429, uid })
       return NextResponse.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 })
     }
 
@@ -473,8 +475,10 @@ Return ONLY strict JSON, no markdown, no commentary:
     const { content: reply } = await generateNoteGroq(prompt, systemPrompt, groqKey)
     return NextResponse.json({ reply, provider: 'groq' })
 
-  } catch {
-    console.error('Chat error')
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Chat failed'
+    console.error('[chat]', msg)
+    logToSink({ level: 'error', tag: 'chat', message: msg, route: '/api/chat', status: 500 })
     return NextResponse.json({ error: 'Chat failed' }, { status: 500 })
   }
 }

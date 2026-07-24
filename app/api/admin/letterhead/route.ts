@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb, adminStorage } from '@/lib/firebase-admin'
-import { adminAuth } from '@/lib/firebase-admin-auth'
+import { requireAdmin, unauthorized } from '@/lib/adminGuard'
+import { logToSink } from '@/lib/firestore/systemLogs'
 import { toOrganizationKey } from '@/lib/utils'
-
-const ADMIN_UID = process.env.ADMIN_UID ?? process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
-
-function unauthorized() {
-  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,18 +18,8 @@ export async function POST(req: NextRequest) {
 
     const { action } = body
 
-    // Verify a real Firebase ID token rather than trusting a client-supplied
-    // uid. The admin uid being public (NEXT_PUBLIC_) no longer matters — an
-    // attacker cannot forge a Google-signed token for it.
-    const authHeader = req.headers.get('authorization') || ''
-    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-    if (!idToken) return unauthorized()
-    try {
-      const decoded = await adminAuth().verifyIdToken(idToken)
-      if (decoded.uid !== ADMIN_UID) return unauthorized()
-    } catch {
-      return unauthorized()
-    }
+    // Central admin gate: verifies a Google-signed ID token + admin claim.
+    try { await requireAdmin(req) } catch { return unauthorized() }
 
     const db = adminDb()
     const bucket = adminStorage().bucket()
@@ -113,6 +98,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Internal error'
     console.error('[admin/letterhead]', msg)
+    logToSink({ level: 'error', tag: 'admin/letterhead', message: msg, route: '/api/admin/letterhead', status: 500 })
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
