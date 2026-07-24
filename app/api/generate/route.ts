@@ -354,9 +354,12 @@ ${transcript}`
     let geminiDaily = false
 
     // 1. User's own Gemini key (primary) — their Google account governs quota.
+    // Still count it against the per-user daily counter so the "X / 20" display
+    // reflects real usage (their key hits the same free-tier RPD).
     if (userGeminiKey) {
       try {
-        const { text: content } = await generateNote(prompt, effectiveSystemPrompt, userGeminiKey)
+        const { text: content, totalTokens } = await generateNote(prompt, effectiveSystemPrompt, userGeminiKey)
+        await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
         return NextResponse.json({ content, provider: 'gemini' })
       } catch (err) {
         if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) geminiDaily = true
