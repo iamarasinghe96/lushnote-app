@@ -60,22 +60,22 @@ export default function AdminPage() {
   if (!user || user.uid !== ADMIN_UID) return null
 
   return (
-    <div className="h-dvh overflow-y-auto bg-[#f8fafc]">
-      <header className="sticky top-0 z-30" style={{ background: 'linear-gradient(to right, #1d4ed8, #2563eb)', boxShadow: '0 2px 8px rgba(15,23,42,.12)' }}>
-        <div className="flex items-center justify-between px-4" style={{ height: 52 }}>
-          <div className="flex items-center gap-2">
+    <div className="h-dvh overflow-y-auto overflow-x-hidden bg-[#f8fafc]">
+      <header className="sticky top-0 z-30" style={{ background: 'linear-gradient(to right, #1d4ed8, #2563eb)', boxShadow: '0 2px 8px rgba(15,23,42,.12)', paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="flex items-center justify-between gap-2 px-4" style={{ height: 52 }}>
+          <div className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 rounded-full bg-[#5ad6a7] flex items-center justify-center shrink-0"><span className="text-white text-xs font-bold select-none">LN</span></div>
-            <span className="text-white font-semibold text-sm select-none">Admin Console</span>
+            <span className="text-white font-semibold text-sm select-none truncate">Admin Console</span>
           </div>
-          <button onClick={() => router.push('/generate')} className="text-white/80 text-sm hover:text-white motion-safe:transition-colors">← Back to app</button>
+          <button onClick={() => router.push('/generate')} className="text-white/80 text-sm hover:text-white motion-safe:transition-colors shrink-0 whitespace-nowrap">← Back to app</button>
         </div>
-        {/* Section navbar */}
-        <nav className="flex gap-1 px-3 pb-2">
+        {/* Section navbar — horizontally scrollable on narrow screens */}
+        <nav className="flex gap-1 px-3 pb-2 overflow-x-auto scrollbar-none">
           {SECTIONS.map(s => (
             <button
               key={s.key}
               onClick={() => setSection(s.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium motion-safe:transition-colors ${
+              className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium motion-safe:transition-colors ${
                 section === s.key ? 'bg-white text-[#1d4ed8]' : 'text-white/85 hover:bg-white/10'
               }`}
             >

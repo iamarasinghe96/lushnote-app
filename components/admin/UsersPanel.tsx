@@ -110,7 +110,7 @@ export default function UsersPanel() {
             <StatusBadge status={selected.status} />
             {selected.tier === 'admin' && <span className="text-[10px] font-semibold uppercase border rounded-full px-1.5 py-0.5 bg-blue-50 text-[#2563eb] border-blue-200">admin</span>}
           </div>
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <Field label="Email" value={selected.email} />
             <Field label="Credentials" value={selected.credentials || '—'} />
             <Field label="Workplace" value={selected.workplaces[0]?.name || '—'} />
