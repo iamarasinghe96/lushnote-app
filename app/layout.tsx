@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   description: 'Clinical note builder for psychiatrists',
   applicationName: 'LushNote',
   manifest: '/manifest.json',
+  // Stop iOS Safari data detectors from auto-linkifying emails/phones/addresses in
+  // the UI (e.g. underlining the "Signed in as …@gmail.com" line and its lead-in).
+  formatDetection: { telephone: false, email: false, address: false, date: false },
   appleWebApp: {
     capable: true,
     title: 'LushNote',
