@@ -146,6 +146,7 @@ export async function cascadeDeleteUser(uid: string, actorUid: string, meta: Rec
   await deleteQueryChunked(db.collection('users').doc(uid).collection('transcriptDrafts'))
   await db.collection('deletion_feedback').doc(uid).delete().catch(() => {})
   await db.collection('support_threads').doc(uid).delete().catch(() => {})
+  await deleteQueryChunked(db.collection('support_tickets').where('uid', '==', uid))
   await deleteQueryChunked(db.collection('letterheadRequests').where('requestedBy', '==', uid))
   await db.collection('users').doc(uid).delete().catch(() => {})
   await clearUserStorageRaw(uid)

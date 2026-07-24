@@ -414,12 +414,21 @@ Gemini usage), suspend/reactivate, clear storage, remove, export.
   layout (Suspended screen) AND server 403 in generate/chat (`status==='disabled'`).
 - **Remove** = complete cascade (`cascadeDeleteUser`): `progress_notes where
   userId==uid` (chunked) + `patientProfiles` + `transcriptDrafts` +
-  `deletion_feedback/{uid}` + `support_threads/{uid}` + `letterheadRequests where
+  `deletion_feedback/{uid}` + `support_threads/{uid}` + `support_tickets where
+  uid==uid` + `letterheadRequests where
   requestedBy==uid` + `users/{uid}` + Storage `signatures/{uid}/`,`recordings/{uid}/`,
   `letterhead-requests/{uid}/` + `adminAuth().deleteUser()`. Requires a typed-email
   match; writes an audit entry. (This is the complete version of the incomplete
   self-delete in `ProfilePanel.tsx`.)
 - **Export** = consented users only (`marketingConsent`), name/email/workplace CSV.
+
+**Feedback + tickets:** every escalation creates a durable `support_tickets/{id}`
+doc (`{uid,ticket,name,email,topic,status:'open'|'resolved'|'closed',threadTs,
+channel,createdAt,updatedAt}`) that is NEVER deleted — End chat sets
+`status:'closed'`, the admin toggles resolved/reopen (`setTicketStatus` on
+`/api/admin/overview`, audited). `support_threads/{uid}` stays the active-thread
+pointer (deleted on End chat) and carries `ticketId`. Dashboard "open tickets" =
+`support_tickets where status=='open'`.
 
 **Logs & audit** (`lib/firestore/systemLogs.ts`): `logToSink({level,tag,message,
 route,status?,uid?})` fire-and-forget → `system_logs`; `writeAudit(...)` →

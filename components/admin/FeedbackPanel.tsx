@@ -6,9 +6,15 @@ import { useAuth } from '@/hooks/useAuth'
 const CARD = { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' } as const
 
 interface Feedback { id: string; email: string; reasons: string[]; message: string; deletedAt: number | null }
-interface Ticket { uid: string; name: string; email: string; ticket: string | null; topic: string | null }
+interface Ticket { id: string; uid: string; name: string; email: string; ticket: string | null; topic: string | null; status: string; createdAt: number | null; updatedAt: number | null }
 
 const dt = (ms: number | null) => (ms ? new Date(ms).toLocaleString() : '—')
+
+const TICKET_STATUS_STYLE: Record<string, string> = {
+  open: 'bg-amber-50 text-amber-700 border-amber-200',
+  resolved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  closed: 'bg-[#f1f5f9] text-[#94a3b8] border-[var(--border)]',
+}
 
 export default function FeedbackPanel() {
   const { user } = useAuth()
@@ -17,19 +23,29 @@ export default function FeedbackPanel() {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [fetching, setFetching] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'resolved' | 'closed'>('all')
+  const [busyId, setBusyId] = useState<string | null>(null)
 
-  async function call(action: string) {
+  async function call(body: Record<string, unknown>) {
     const token = user ? await user.getIdToken() : ''
-    const res = await fetch('/api/admin/overview', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action }) })
+    const res = await fetch('/api/admin/overview', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
     if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error((j as { error?: string }).error ?? 'Request failed') }
     return res.json()
+  }
+
+  async function setTicketStatus(id: string, status: string) {
+    setBusyId(id)
+    try {
+      await call({ action: 'setTicketStatus', id, status })
+      setTickets(prev => prev.map(t => t.id === id ? { ...t, status } : t))
+    } catch (e) { setError(e instanceof Error ? e.message : 'Update failed') } finally { setBusyId(null) }
   }
 
   async function fetchTab(which: 'feedback' | 'tickets') {
     setFetching(true); setError(null)
     try {
-      if (which === 'feedback') setFeedback((await call('deletionFeedback')).items)
-      else setTickets((await call('tickets')).items)
+      if (which === 'feedback') setFeedback((await call({ action: 'deletionFeedback' })).items)
+      else setTickets((await call({ action: 'tickets' })).items)
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed to load') } finally { setFetching(false) }
   }
 
@@ -72,19 +88,36 @@ export default function FeedbackPanel() {
           </div>
         )
       ) : (
-        tickets.length === 0 ? <p className="text-center text-[#94a3b8] text-sm py-6">No open support threads.</p> : (
-          <div className="space-y-2">
-            {tickets.map(t => (
-              <div key={t.uid} className="rounded-xl p-3 text-sm" style={CARD}>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {t.ticket && <span className="text-xs font-mono text-[#2563eb]">{t.ticket}</span>}
-                  {t.topic && <span className="text-xs text-[#475569]">{t.topic}</span>}
-                </div>
-                <div className="text-[11px] text-[#94a3b8] mt-1">{t.name || '(no name)'} · {t.email || 'no email'}</div>
+        (() => {
+          const shown = statusFilter === 'all' ? tickets : tickets.filter(t => t.status === statusFilter)
+          return (
+            <div className="space-y-2">
+              <div className="flex gap-1">
+                {(['all', 'open', 'resolved', 'closed'] as const).map(s => (
+                  <button key={s} onClick={() => setStatusFilter(s)} className={`text-xs px-2.5 py-1 rounded-full border ${statusFilter === s ? 'bg-[#2563eb] text-white border-[#2563eb]' : 'border-[var(--border)] text-[#475569]'}`}>
+                    {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-        )
+              {shown.length === 0 ? <p className="text-center text-[#94a3b8] text-sm py-6">No tickets.</p> : shown.map(t => (
+                <div key={t.id} className="rounded-xl p-3 text-sm" style={CARD}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {t.ticket && <span className="text-xs font-mono text-[#2563eb]">{t.ticket}</span>}
+                    {t.topic && <span className="text-xs text-[#475569]">{t.topic}</span>}
+                    <span className={`text-[10px] font-semibold uppercase border rounded-full px-1.5 py-0.5 ${TICKET_STATUS_STYLE[t.status] ?? TICKET_STATUS_STYLE.open}`}>{t.status}</span>
+                    <span className="text-[11px] text-[#94a3b8] ml-auto">{dt(t.updatedAt ?? t.createdAt)}</span>
+                  </div>
+                  <div className="text-[11px] text-[#94a3b8] mt-1">{t.name || '(no name)'} · {t.email || 'no email'}</div>
+                  <div className="flex gap-2 mt-2">
+                    {t.status !== 'resolved'
+                      ? <button disabled={busyId === t.id} onClick={() => setTicketStatus(t.id, 'resolved')} className="text-xs text-emerald-700 disabled:opacity-50">Mark resolved</button>
+                      : <button disabled={busyId === t.id} onClick={() => setTicketStatus(t.id, 'open')} className="text-xs text-[#2563eb] disabled:opacity-50">Reopen</button>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        })()
       )}
     </div>
   )

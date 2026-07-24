@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase-admin'
+import { FieldValue } from 'firebase-admin/firestore'
 import { logToSink } from '@/lib/firestore/systemLogs'
 
 // One-way incoming webhook, used only when the two-way bot isn't configured.
@@ -133,10 +134,18 @@ export async function POST(req: NextRequest) {
       if (!threadTs) {
         const parent = await slackApi('chat.postMessage', { channel: CHANNEL, text: full })
         threadTs = parent.ts as string
-        await ref.set({ threadTs, channel: parent.channel as string, name: body.name ?? '', email: body.email ?? '', ticket, topic })
+        // Persist a durable ticket record (never deleted — status changes instead).
+        const ticketRef = await adminDb().collection('support_tickets').add({
+          uid, ticket, name: body.name ?? '', email: body.email ?? '', topic, status: 'open',
+          threadTs, channel: parent.channel as string,
+          createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
+        })
+        await ref.set({ threadTs, channel: parent.channel as string, name: body.name ?? '', email: body.email ?? '', ticket, topic, ticketId: ticketRef.id })
       } else {
         await slackApi('chat.postMessage', { channel: CHANNEL, thread_ts: threadTs, text: full })
         await ref.set({ ticket, topic, name: body.name ?? '', email: body.email ?? '' }, { merge: true })
+        const ticketId = snap.data()?.ticketId as string | undefined
+        if (ticketId) await adminDb().collection('support_tickets').doc(ticketId).set({ topic, status: 'open', updatedAt: FieldValue.serverTimestamp() }, { merge: true }).catch(() => {})
       }
 
       return NextResponse.json({ twoWay: true, ticket })
@@ -153,6 +162,9 @@ export async function POST(req: NextRequest) {
           if (threadTs) {
             try { await slackApi('chat.postMessage', { channel: CHANNEL, thread_ts: threadTs, text: '✅ The doctor ended this chat.' }) } catch { /* ignore */ }
           }
+          // Mark the ticket closed (the doctor ended it) but KEEP the record.
+          const ticketId = snap.data()?.ticketId as string | undefined
+          if (ticketId) await adminDb().collection('support_tickets').doc(ticketId).set({ status: 'closed', updatedAt: FieldValue.serverTimestamp() }, { merge: true }).catch(() => {})
           await ref.delete().catch(() => {})
         }
       }
