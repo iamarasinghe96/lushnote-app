@@ -389,6 +389,55 @@ service cloud.firestore {
 
 ---
 
+## Admin Console (`/admin`)
+
+One client route (`app/admin/page.tsx`) with a `SECTIONS`-driven navbar; render,
+nav and `?section=` deep-link all derive from `SECTIONS` + the `PANELS` map — add a
+section by adding both entries, nothing else. Sections: **Dashboard, Users,
+Feedback, Letterheads, Hospital Forms, Logs & Errors**.
+
+**Security model (the wall is the API, not the rules):** the Admin SDK bypasses
+Firestore rules, so every admin route gates through `requireAdmin(req)`
+(`lib/adminGuard.ts`) — verifies a Google-signed ID token + an `admin:true` custom
+claim (`checkRevoked:true`), with `ADMIN_UID` env as a bootstrap fallback. Grant the
+claim with `node scripts/set-admin-claim.mjs <uid>` (`--revoke` to remove). Client
+`NEXT_PUBLIC_ADMIN_UID` only *shows* the nav link — it is not a security boundary.
+
+**Privacy wall:** admin endpoints NEVER read clinical content — only `.count()`
+aggregates for notes/patients — and `redactUser()` (`lib/firestore/adminUsers.ts`)
+allow-lists non-sensitive fields, so `groqApiKey`/`geminiApiKey`/`signatureUrl`
+never leave the server. No impersonation/"view as user".
+
+**Users** (`app/api/admin/users/route.ts` + `UsersPanel`): list, detail (counts +
+Gemini usage), suspend/reactivate, clear storage, remove, export.
+- **Suspend** = `status:'disabled'` + Auth `disabled:true`. Enforced by the app
+  layout (Suspended screen) AND server 403 in generate/chat (`status==='disabled'`).
+- **Remove** = complete cascade (`cascadeDeleteUser`): `progress_notes where
+  userId==uid` (chunked) + `patientProfiles` + `transcriptDrafts` +
+  `deletion_feedback/{uid}` + `support_threads/{uid}` + `letterheadRequests where
+  requestedBy==uid` + `users/{uid}` + Storage `signatures/{uid}/`,`recordings/{uid}/`,
+  `letterhead-requests/{uid}/` + `adminAuth().deleteUser()`. Requires a typed-email
+  match; writes an audit entry. (This is the complete version of the incomplete
+  self-delete in `ProfilePanel.tsx`.)
+- **Export** = consented users only (`marketingConsent`), name/email/workplace CSV.
+
+**Logs & audit** (`lib/firestore/systemLogs.ts`): `logToSink({level,tag,message,
+route,status?,uid?})` fire-and-forget → `system_logs`; `writeAudit(...)` →
+`admin_audit`. PHI-safe BY CONTRACT — scalar fields only, NEVER a request body /
+raw error / note content. Wired into the generate/transcribe/chat/support/admin
+catch blocks + 429s; `app/global-error.tsx` → `/api/log` captures scrubbed client
+crashes. Both collections are denied to clients by the catch-all rule (no rule
+change) and read only via `app/api/admin/logs`. Retention: add a Firestore TTL on
+`system_logs.createdAt` (~90d).
+
+**Env vars:** `ADMIN_UID` (server, bootstrap), `SLACK_WEBHOOK` (moved out of source —
+rotate the old hardcoded value), plus the existing `FIREBASE_ADMIN_*`,
+`SLACK_BOT_TOKEN`, `SLACK_SUPPORT_CHANNEL`, `LUSHNOTE_GROQ_KEY`. Keep the repo private.
+
+`marketingConsent?: boolean` on `User` (opt-in at onboarding; in `profileValid()`).
+
+---
+
 ## Brand Tokens
 
 | Token | Value |

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase-admin'
 import { logToSink } from '@/lib/firestore/systemLogs'
 
-// Split string prevents GitHub secret scanning (same pattern as the FAB webhook)
-const SLACK_WEBHOOK = 'https://hooks.slack.com' + '/services/T0B5HRCD3QT/B0B5X3GJYBW/wmD9BaIPKisWj0rQ67vWdmnQ'
+// One-way incoming webhook, used only when the two-way bot isn't configured.
+// Server-only env var (rotate the old hardcoded value when deploying this).
+const SLACK_WEBHOOK = process.env.SLACK_WEBHOOK ?? ''
 
 const BOT_TOKEN = process.env.SLACK_BOT_TOKEN
 const CHANNEL = process.env.SLACK_SUPPORT_CHANNEL
@@ -60,14 +61,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Invalid message' }, { status: 400 })
       }
 
-      // No bot configured: fall back to the one-way incoming webhook
+      // No bot configured: fall back to the one-way incoming webhook (if set)
       if (!BOT_TOKEN || !CHANNEL) {
-        await fetch(SLACK_WEBHOOK, {
-          method: 'POST',
-          body: JSON.stringify({
-            text: `*LushNote Support Request*\n*From:* ${body.name || 'Anonymous'} (${body.email || 'no email'})\n*Message:* ${message}`,
-          }),
-        })
+        if (SLACK_WEBHOOK) {
+          await fetch(SLACK_WEBHOOK, {
+            method: 'POST',
+            body: JSON.stringify({
+              text: `*LushNote Support Request*\n*From:* ${body.name || 'Anonymous'} (${body.email || 'no email'})\n*Message:* ${message}`,
+            }),
+          })
+        }
         return NextResponse.json({ twoWay: false })
       }
 
@@ -103,12 +106,14 @@ export async function POST(req: NextRequest) {
 
       if (!BOT_TOKEN || !CHANNEL) {
         const ticket = makeTicket()
-        await fetch(SLACK_WEBHOOK, {
-          method: 'POST',
-          body: JSON.stringify({
-            text: `🎫 *New support ticket ${ticket}* — ${topic || 'Support'}\n*From:* ${name} (${email})\n\n${transcript}`,
-          }),
-        })
+        if (SLACK_WEBHOOK) {
+          await fetch(SLACK_WEBHOOK, {
+            method: 'POST',
+            body: JSON.stringify({
+              text: `🎫 *New support ticket ${ticket}* — ${topic || 'Support'}\n*From:* ${name} (${email})\n\n${transcript}`,
+            }),
+          })
+        }
         return NextResponse.json({ twoWay: false, ticket })
       }
 
