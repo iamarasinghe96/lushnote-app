@@ -2882,6 +2882,7 @@ function EditContent() {
         onSelectLetter={handleSelectLetterType}
         onCancel={() => setChangeTemplateOpen(false)}
         defaultTab={changeTemplateDefaultTab}
+        currentTemplate={store.lastChosenTemplate}
         customLetterTemplates={profile?.customLetterTemplates ?? []}
         onSelectCustomLetter={handleSelectCustomLetter}
         onEditCustomLetter={(t) => { setChangeTemplateOpen(false); setLetterBuilderInitial(t); setLetterBuilderOpen(true) }}

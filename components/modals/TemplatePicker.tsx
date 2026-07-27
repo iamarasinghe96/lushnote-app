@@ -18,6 +18,8 @@ interface TemplatePickerProps {
   onCreateLetterTemplate?: () => void
   /** Tab to show when the picker opens. Defaults to 'all'. */
   defaultTab?: Tab
+  /** The template the current note was generated with — shown as "Currently using" + a badge. */
+  currentTemplate?: AnyTemplate | null
 }
 
 const USAGE_KEY = 'lnTemplateUsage'
@@ -120,7 +122,7 @@ function matchesTab(t: AnyTemplate, tab: Tab, customIds: Set<string>): boolean {
   return true
 }
 
-export default function TemplatePicker({ open, onSelect, onCancel, onSelectLetter, customLetterTemplates = [], onSelectCustomLetter, onEditCustomLetter, onCreateLetterTemplate, defaultTab }: TemplatePickerProps) {
+export default function TemplatePicker({ open, onSelect, onCancel, onSelectLetter, customLetterTemplates = [], onSelectCustomLetter, onEditCustomLetter, onCreateLetterTemplate, defaultTab, currentTemplate }: TemplatePickerProps) {
   const { profile, user, refreshProfile } = useAuth()
   const [builtins, setBuiltins] = useState<Template[]>([])
   const [search, setSearch] = useState('')
@@ -250,9 +252,12 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
   function renderCard(t: AnyTemplate, showCategory = false) {
     const isFav = favIds.includes(t.id)
     const isRecent = recentIds.includes(t.id)
+    const isCurrent = currentTemplate != null && String(t.id) === String(currentTemplate.id)
     return (
       <li key={String(t.id)}>
-        <div className="flex items-stretch gap-1 rounded-[var(--r)] hover:bg-[var(--bg)] motion-safe:transition-colors">
+        <div className={`flex items-stretch gap-1 rounded-[var(--r)] motion-safe:transition-colors ${
+          isCurrent ? 'bg-[var(--blue-lt)] ring-1 ring-[var(--blue)]/40' : 'hover:bg-[var(--bg)]'
+        }`}>
           <button
             onClick={() => handleSelect(t)}
             className="flex-1 min-w-0 text-left rounded-[var(--r)] px-3 py-2.5
@@ -269,6 +274,11 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
                 )}
               </div>
               <div className="flex gap-1 shrink-0 mt-0.5">
+                {isCurrent && (
+                  <span className="text-[10px] bg-[var(--blue)] text-white rounded-full px-1.5 py-0.5 font-medium">
+                    Current
+                  </span>
+                )}
                 {isRecent && !isFav && (
                   <span className="text-[10px] bg-[var(--bg)] text-[var(--text3)] rounded-full px-1.5 py-0.5 border border-[var(--border)]">
                     Recent
@@ -362,6 +372,17 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
             </button>
           ))}
         </div>
+
+        {/* Which template this note currently uses */}
+        {!isLettersTab && currentTemplate && (
+          <div className="px-5 pt-3 shrink-0">
+            <div className="flex items-center gap-2 text-xs rounded-[var(--r)] bg-[var(--blue-lt)] border border-[var(--blue)]/30 px-3 py-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--blue)] shrink-0" aria-hidden><path d="M20 6 9 17l-5-5" /></svg>
+              <span className="text-[var(--text2)] shrink-0">Currently using:</span>
+              <span className="font-semibold text-[var(--blue)] truncate">{currentTemplate.title}</span>
+            </div>
+          </div>
+        )}
 
         {isLettersTab ? (
           /* Letters tab — choose a letter type for this patient */
