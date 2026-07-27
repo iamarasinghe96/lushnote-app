@@ -40,13 +40,15 @@ service cloud.firestore {
           && (!('letterType'     in d) || (d.letterType     is string && d.letterType.size()     <= 20))
           && (!('letterData'     in d) || (d.letterData     is string && d.letterData.size()     <= 40000))
           && (!('formData'       in d) || (d.formData       is string && d.formData.size()       <= 40000))
+          && (!('templateId'     in d) || (d.templateId     is string && d.templateId.size()     <= 100))
+          && (!('templateName'   in d) || (d.templateName   is string && d.templateName.size()   <= 200))
           && request.resource.data.keys().hasOnly([
                'userId','patient','reg_number','date','time','clinician',
                'session_number','attendance','diagnosis','presentation',
                'history','medications','mse','content','scales','risk',
                'referrals','summary','nextsteps','transcript','transcriptMode',
                'extraSections','docType','letterType','letterData','formData',
-               'createdAt','updatedAt'
+               'templateId','templateName','createdAt','updatedAt'
              ]);
     }
 

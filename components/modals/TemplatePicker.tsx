@@ -18,8 +18,9 @@ interface TemplatePickerProps {
   onCreateLetterTemplate?: () => void
   /** Tab to show when the picker opens. Defaults to 'all'. */
   defaultTab?: Tab
-  /** The template the current note was generated with — shown as "Currently using" + a badge. */
-  currentTemplate?: AnyTemplate | null
+  /** The template the current note was generated with (id + title enough) — shown
+   *  as "Currently using" + a row badge. Survives reload via the note's saved template. */
+  currentTemplate?: { id: string | number; title: string } | null
 }
 
 const USAGE_KEY = 'lnTemplateUsage'

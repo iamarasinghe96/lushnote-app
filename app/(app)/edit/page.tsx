@@ -375,6 +375,10 @@ function EditContent() {
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [changeTemplateOpen, setChangeTemplateOpen] = useState(false)
+  // The template a REOPENED note was generated with (from note.templateId/Name),
+  // so the picker shows "Currently using" even after a reload when the in-memory
+  // lastChosenTemplate is gone.
+  const [loadedTemplateMeta, setLoadedTemplateMeta] = useState<{ id: string; title: string } | null>(null)
   const [letterBuilderOpen, setLetterBuilderOpen] = useState(false)
   const [letterBuilderInitial, setLetterBuilderInitial] = useState<CustomLetterTemplate | null>(null)
   const [changeTemplateDefaultTab, setChangeTemplateDefaultTab] = useState<'all' | 'letters'>('all')
@@ -678,6 +682,8 @@ function EditContent() {
         store.setHospitalFormNoteId(noteId)
         store.setPendingHospitalFormGeneration(false)
         store.setLastTranscript(note.transcript ?? null)
+        store.setLastChosenTemplate(null)
+        setLoadedTemplateMeta(null)
         return
       }
       // fall through to note rendering
@@ -707,6 +713,8 @@ function EditContent() {
         latestFieldsRef.current = cn
         setFields(cn)
         store.setCurrentNote(cn)
+        store.setLastChosenTemplate(null)
+        setLoadedTemplateMeta(null)
         return
       }
     }
@@ -738,6 +746,13 @@ function EditContent() {
     setExtras(parsedExtra.extras)
     setSectionOrder(parsedExtra.order)
     setExpandedEmpty(new Set())
+    // Show the note's own template in the picker. Keep the full in-memory template
+    // only when it IS this note's template (so re-generate/custom-field flows keep
+    // working); otherwise clear the stale one from a previously-generated note and
+    // fall back to the note's saved id+name for the "Currently using" label.
+    const keepTemplate = store.lastChosenTemplate && note.templateId && String(store.lastChosenTemplate.id) === String(note.templateId)
+    if (!keepTemplate) store.setLastChosenTemplate(null)
+    setLoadedTemplateMeta(note.templateId && note.templateName ? { id: note.templateId, title: note.templateName } : null)
     store.setCurrentNote(noteFields)
     store.setCurrentNoteId(noteId)
     if (note.transcript) {
@@ -847,6 +862,7 @@ function EditContent() {
           nextsteps:      data.nextsteps      ?? '',
           transcript:     s.lastTranscript    ? s.lastTranscript.slice(0, 50000) : undefined,
           transcriptMode: s.lastTranscriptMode,
+          ...(s.lastChosenTemplate ? { templateId: String(s.lastChosenTemplate.id), templateName: s.lastChosenTemplate.title } : {}),
         }
         if (s.currentNoteId) {
           await updateNote(s.currentNoteId, noteData)
@@ -986,6 +1002,7 @@ function EditContent() {
         extraSections:  serializeExtraSections(latestOrderRef.current, latestExtrasRef.current) ?? '',
         transcript:     s.lastTranscript    ? s.lastTranscript.slice(0, 50000) : undefined,
         transcriptMode: s.lastTranscriptMode,
+        ...(s.lastChosenTemplate ? { templateId: String(s.lastChosenTemplate.id), templateName: s.lastChosenTemplate.title } : {}),
       }
       if (s.currentNoteId) {
         await updateNote(s.currentNoteId, noteData)
@@ -2882,7 +2899,7 @@ function EditContent() {
         onSelectLetter={handleSelectLetterType}
         onCancel={() => setChangeTemplateOpen(false)}
         defaultTab={changeTemplateDefaultTab}
-        currentTemplate={store.lastChosenTemplate}
+        currentTemplate={store.lastChosenTemplate ?? loadedTemplateMeta}
         customLetterTemplates={profile?.customLetterTemplates ?? []}
         onSelectCustomLetter={handleSelectCustomLetter}
         onEditCustomLetter={(t) => { setChangeTemplateOpen(false); setLetterBuilderInitial(t); setLetterBuilderOpen(true) }}

@@ -164,6 +164,11 @@ interface Note {
   // to re-open it in the form editor; the entry text is also mirrored into
   // `content` so it lists/searches like any note. Absent on notes/letters.
   formData?: string
+  // The clinical template this note was generated with, so the Edit tab and the
+  // template picker can show "Currently using: …" even after a reload / when the
+  // note is reopened from Patients or History (absent on old notes).
+  templateId?: string
+  templateName?: string
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
 }
