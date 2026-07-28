@@ -753,6 +753,14 @@ function EditContent() {
     const keepTemplate = store.lastChosenTemplate && note.templateId && String(store.lastChosenTemplate.id) === String(note.templateId)
     if (!keepTemplate) store.setLastChosenTemplate(null)
     setLoadedTemplateMeta(note.templateId && note.templateName ? { id: note.templateId, title: note.templateName } : null)
+    // Diagnostic (shows in admin Logs → filter tag "template"): reveals whether a
+    // reopened note actually carries its template. PHI-safe — booleans + doc id only.
+    try {
+      fetch('/api/log', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: 'info', tag: 'template', route: '/edit', uid: user?.uid, message: `note ${noteId} opened · templateId=${!!note.templateId} templateName=${!!note.templateName}` }),
+      }).catch(() => {})
+    } catch { /* diagnostic must never break loading */ }
     store.setCurrentNote(noteFields)
     store.setCurrentNoteId(noteId)
     if (note.transcript) {

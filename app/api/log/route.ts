@@ -8,16 +8,18 @@ import { rateLimit } from '@/lib/rateLimit'
 // content. Always returns { ok:true } (never echoes anything back).
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({})) as { uid?: string; message?: string; route?: string }
+    const body = await req.json().catch(() => ({})) as { uid?: string; message?: string; route?: string; level?: string; tag?: string }
     const uid = (body.uid ?? '').toString().slice(0, 128)
 
     // Cap abuse: per-user bucket when identified, a shared bucket otherwise.
-    const ok = uid ? rateLimit(`${uid}:log`, 20, 60_000) : rateLimit('anon:log', 60, 60_000)
+    const ok = uid ? rateLimit(`${uid}:log`, 30, 60_000) : rateLimit('anon:log', 60, 60_000)
     if (!ok) return NextResponse.json({ ok: true })
 
+    const level = (['error', 'warn', 'info'].includes(body.level ?? '') ? body.level : 'error') as 'error' | 'warn' | 'info'
+    const tag = (body.tag ?? 'client').toString().slice(0, 80)
     const message = (body.message ?? '').toString().slice(0, 1000)
     const route = (body.route ?? 'client').toString().slice(0, 120)
-    if (message) logToSink({ level: 'error', tag: 'client', message, route, uid: uid || undefined })
+    if (message) logToSink({ level, tag, message, route, uid: uid || undefined })
 
     return NextResponse.json({ ok: true })
   } catch {
