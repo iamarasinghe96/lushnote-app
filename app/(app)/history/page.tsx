@@ -111,11 +111,12 @@ export default function HistoryPage() {
   const [selectedPatient, setSelectedPatient] = useState<string | null>(null) // null = All
   const [showNoteList, setShowNoteList] = useState(false) // mobile: toggle panel
 
-  // Read ?patient= URL param on load
+  // A single-patient link opens that patient's full record under Patients, not the
+  // plainer per-patient list here — one patient view, reached the same way everywhere.
   useEffect(() => {
     const param = searchParams.get('patient')
-    if (param) { setSelectedPatient(param); setShowNoteList(true) }
-  }, [searchParams])
+    if (param) router.replace('/patients?patient=' + encodeURIComponent(param))
+  }, [searchParams, router])
 
   useEffect(() => {
     if (!user) return
@@ -142,7 +143,15 @@ export default function HistoryPage() {
   }
 
   function selectPatient(name: string | null) {
-    setSelectedPatient(name)
+    // Selecting a specific patient opens their full record under the Patients tab
+    // (the rich detail with sessions/badges), so there's one patient view — not a
+    // separate, plainer one buried under History. "All patients" stays here as the
+    // chronological all-notes view.
+    if (name) {
+      router.push('/patients?patient=' + encodeURIComponent(name))
+      return
+    }
+    setSelectedPatient(null)
     setShowNoteList(true)
   }
 
