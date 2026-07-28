@@ -237,7 +237,9 @@ export default function TranscriptPage() {
     <div className="h-full flex flex-col overflow-hidden pb-tabbar">
       {/* Raw transcript section */}
       <div
-        className="border-b border-[var(--border)] px-4 pb-4 pt-header flex-none"
+        className={`border-b border-[var(--border)] px-4 pb-4 pt-header ${
+          expanded ? 'flex-[2] min-h-0 flex flex-col' : 'flex-none'
+        }`}
         style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
       >
         <div className="flex items-center justify-between mb-2">
@@ -277,7 +279,7 @@ export default function TranscriptPage() {
         </div>
         <div
           className={`relative text-sm text-[var(--text2)] leading-relaxed whitespace-pre-wrap select-text ${
-            !expanded ? 'max-h-28 overflow-hidden scrollbar-none' : 'max-h-[38dvh] sm:max-h-[62dvh] overflow-y-auto'
+            !expanded ? 'max-h-28 overflow-hidden scrollbar-none' : 'flex-1 min-h-0 overflow-y-auto'
           }`}
           ref={transcriptRef}
         >
@@ -330,7 +332,7 @@ export default function TranscriptPage() {
 
       {/* Input */}
       <div
-        className="border-t border-[var(--border)] p-3 flex gap-2"
+        className="border-t border-[var(--border)] p-3 flex gap-2 shrink-0"
         style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
       >
         <input
