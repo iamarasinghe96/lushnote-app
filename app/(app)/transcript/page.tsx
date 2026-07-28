@@ -234,11 +234,11 @@ export default function TranscriptPage() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden pb-tabbar">
+    <div className="relative h-full flex flex-col overflow-hidden">
       {/* Raw transcript section */}
       <div
         className={`border-b border-[var(--border)] px-4 pb-4 pt-header ${
-          expanded ? 'flex-[2] min-h-0 flex flex-col' : 'flex-none'
+          expanded ? 'flex-1 min-h-0 flex flex-col' : 'flex-none'
         }`}
         style={{ background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)' }}
       >
@@ -281,6 +281,7 @@ export default function TranscriptPage() {
           className={`relative text-sm text-[var(--text2)] leading-relaxed whitespace-pre-wrap select-text ${
             !expanded ? 'max-h-28 overflow-hidden scrollbar-none' : 'flex-1 min-h-0 overflow-y-auto'
           }`}
+          style={expanded ? { paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' } : undefined}
           ref={transcriptRef}
         >
           {lastTranscript}
@@ -293,13 +294,13 @@ export default function TranscriptPage() {
         </div>
       </div>
 
-      {/* AI Q&A messages */}
-      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none p-4 space-y-3">
-        {messages.length === 0 && (
-          <p className="text-sm text-[var(--text3)] text-center mt-8">
-            Ask a question about this transcript.
-          </p>
-        )}
+      {/* AI Q&A messages — only occupies space once a conversation exists, so the
+          transcript can fill the panel and scroll behind the floating input. */}
+      {(messages.length > 0 || loading) && (
+      <div
+        className="flex-1 min-h-0 overflow-y-auto scrollbar-none p-4 space-y-3"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}
+      >
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] rounded-[var(--r-lg)] px-4 py-3 text-sm ${
@@ -329,29 +330,37 @@ export default function TranscriptPage() {
         )}
         <div ref={messagesEndRef} />
       </div>
+      )}
 
-      {/* Input */}
+      {/* Floating chat pill — frosted glass like the tab bar, sitting above it, so
+          the transcript / Q&A text scrolls behind it through the blur. Drops to the
+          bottom when focused (the tab bar hides on mobile then). */}
       <div
-        className="border-t border-[var(--border)] p-3 flex gap-2 shrink-0"
-        style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
+        className="absolute left-0 right-0 px-3 z-20 pointer-events-none"
+        style={{ bottom: chatFocused ? 'calc(env(safe-area-inset-bottom) + 12px)' : 'calc(env(safe-area-inset-bottom) + 80px)' }}
       >
-        <input
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAsk()}
-          onFocus={() => { setExpanded(false); setChatFocused(true) }}
-          onBlur={() => setChatFocused(false)}
-          placeholder="Ask about this transcript..."
-          className="flex-1 text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2 bg-white focus:outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
-        />
-        <button
-          onClick={handleAsk}
-          disabled={loading || !input.trim()}
-          className="bg-[var(--blue)] text-white text-sm font-medium px-4 py-2 rounded-[var(--r)] disabled:opacity-50 active:scale-[0.97] transition-transform"
+        <div
+          className="pointer-events-auto flex items-center gap-2 rounded-full pl-4 pr-2 py-2 border border-white/50"
+          style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(16px)', boxShadow: '0 2px 8px rgba(15,23,42,.08), 0 0 0 1px rgba(15,23,42,.04)' }}
         >
-          Ask
-        </button>
+          <input
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAsk()}
+            onFocus={() => { setExpanded(false); setChatFocused(true) }}
+            onBlur={() => setChatFocused(false)}
+            placeholder="Ask about this transcript..."
+            className="flex-1 min-w-0 text-sm bg-transparent px-1 py-1 text-[var(--text)] placeholder:text-[var(--text3)] focus:outline-none"
+          />
+          <button
+            onClick={handleAsk}
+            disabled={loading || !input.trim()}
+            className="shrink-0 bg-[var(--blue)] text-white text-sm font-medium px-4 py-1.5 rounded-full disabled:opacity-50 motion-safe:active:scale-[0.97] motion-safe:transition-transform"
+          >
+            Ask
+          </button>
+        </div>
       </div>
     </div>
   )
