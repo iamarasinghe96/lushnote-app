@@ -33,13 +33,31 @@ export function parseExtraSectionsField(raw?: string | null): ParsedExtraSection
 // Serialize section order + extras for storage. Returns undefined when there is
 // nothing template-specific to store (keeps old-shape notes and no-template
 // notes free of the field). Capped at the Firestore rule limit.
-export function serializeExtraSections(order: string[], extras: ExtraSection[]): string | undefined {
+export function serializeExtraSections(order: string[], extras: ExtraSection[], template?: { id: string; title: string } | null): string | undefined {
   const cleanExtras = extras
     .filter(e => e && e.key)
     .map(e => ({ key: e.key, label: e.label || e.key, content: e.content || '' }))
-  if (order.length === 0 && cleanExtras.length === 0) return undefined
-  const json = JSON.stringify({ order, extras: cleanExtras })
+  const tpl = template && template.id && template.title ? { id: template.id, title: template.title } : null
+  if (order.length === 0 && cleanExtras.length === 0 && !tpl) return undefined
+  // `tpl` records which template the note was generated with, embedded here (an
+  // already-permitted field) so it survives a reload even if the standalone
+  // templateId note field isn't allowed by the deployed rules. parseExtraSectionsField
+  // ignores unknown keys, so this is backward/forward compatible.
+  const json = JSON.stringify(tpl ? { order, extras: cleanExtras, tpl } : { order, extras: cleanExtras })
   return json.length > 30000 ? json.slice(0, 30000) : json
+}
+
+// Extract the template a note was generated with from its extraSections blob (see
+// serializeExtraSections). Null when absent/malformed.
+export function parseNoteTemplate(raw?: string | null): { id: string; title: string } | null {
+  if (!raw || typeof raw !== 'string') return null
+  try {
+    const obj = JSON.parse(raw) as { tpl?: { id?: unknown; title?: unknown } }
+    if (obj.tpl && typeof obj.tpl.id === 'string' && typeof obj.tpl.title === 'string' && obj.tpl.title) {
+      return { id: obj.tpl.id, title: obj.tpl.title }
+    }
+  } catch { /* ignore */ }
+  return null
 }
 
 // Serialize a saved letter's structured fields for Note.letterData. Capped at the

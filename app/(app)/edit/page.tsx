@@ -12,7 +12,7 @@ import { getHospitalForm } from '@/lib/firestore/hospitalForms'
 import HospitalFormView from '@/components/hospital-form/HospitalFormView'
 import { registerReloadGuard } from '@/lib/reloadGuard'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildTemplatePrompt, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, serializeLetterData, parseLetterData, buildLetterText, parseHospitalFormData, notePatientDob } from '@/lib/utils'
+import { buildTemplatePrompt, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, parseNoteTemplate, serializeLetterData, parseLetterData, buildLetterText, parseHospitalFormData, notePatientDob } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import Input from '@/components/ui/Input'
@@ -750,17 +750,14 @@ function EditContent() {
     // only when it IS this note's template (so re-generate/custom-field flows keep
     // working); otherwise clear the stale one from a previously-generated note and
     // fall back to the note's saved id+name for the "Currently using" label.
-    const keepTemplate = store.lastChosenTemplate && note.templateId && String(store.lastChosenTemplate.id) === String(note.templateId)
+    // Template comes from the standalone fields if allowed by the rules, else from
+    // the copy embedded in extraSections (an already-permitted field) — so it shows
+    // on reopen regardless of the deployed rules.
+    const noteTpl = (note.templateId && note.templateName ? { id: note.templateId, title: note.templateName } : null)
+      ?? parseNoteTemplate(note.extraSections)
+    const keepTemplate = store.lastChosenTemplate && noteTpl && String(store.lastChosenTemplate.id) === String(noteTpl.id)
     if (!keepTemplate) store.setLastChosenTemplate(null)
-    setLoadedTemplateMeta(note.templateId && note.templateName ? { id: note.templateId, title: note.templateName } : null)
-    // Diagnostic (shows in admin Logs → filter tag "template"): reveals whether a
-    // reopened note actually carries its template. PHI-safe — booleans + doc id only.
-    try {
-      fetch('/api/log', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level: 'info', tag: 'template', route: '/edit', uid: user?.uid, message: `note ${noteId} opened · templateId=${!!note.templateId} templateName=${!!note.templateName}` }),
-      }).catch(() => {})
-    } catch { /* diagnostic must never break loading */ }
+    setLoadedTemplateMeta(noteTpl)
     store.setCurrentNote(noteFields)
     store.setCurrentNoteId(noteId)
     if (note.transcript) {
@@ -870,7 +867,6 @@ function EditContent() {
           nextsteps:      data.nextsteps      ?? '',
           transcript:     s.lastTranscript    ? s.lastTranscript.slice(0, 50000) : undefined,
           transcriptMode: s.lastTranscriptMode,
-          ...(s.lastChosenTemplate ? { templateId: String(s.lastChosenTemplate.id), templateName: s.lastChosenTemplate.title } : {}),
         }
         const savedId = await persistNoteData(noteData, s.currentNoteId ?? null)
         if (savedId && !s.currentNoteId) s.setCurrentNoteId(savedId)
@@ -1025,10 +1021,9 @@ function EditContent() {
         // clears any previously-stored sections — undefined would be dropped by
         // ignoreUndefinedProperties, leaving the old extras stale. Requires the
         // extraSections Firestore rule to be published (deploy is gated on it).
-        extraSections:  serializeExtraSections(latestOrderRef.current, latestExtrasRef.current) ?? '',
+        extraSections:  serializeExtraSections(latestOrderRef.current, latestExtrasRef.current, s.lastChosenTemplate ? { id: String(s.lastChosenTemplate.id), title: s.lastChosenTemplate.title } : null) ?? '',
         transcript:     s.lastTranscript    ? s.lastTranscript.slice(0, 50000) : undefined,
         transcriptMode: s.lastTranscriptMode,
-        ...(s.lastChosenTemplate ? { templateId: String(s.lastChosenTemplate.id), templateName: s.lastChosenTemplate.title } : {}),
       }
       const savedId = await persistNoteData(noteData, s.currentNoteId ?? null)
       if (savedId && !s.currentNoteId) s.setCurrentNoteId(savedId)
