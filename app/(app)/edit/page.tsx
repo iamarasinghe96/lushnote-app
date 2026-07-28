@@ -2202,7 +2202,10 @@ function EditContent() {
   // when the chevron is expanded.
   const BAR_H = 44
     + (isLetterMode && letterBarExpanded ? 48 : 0)
-    + (!isLetterMode && !isGenerating && noteBarExpanded ? 48 : 0)
+    // Mobile note actions wrap to two rows (Change Template / Transcript / Reassign,
+    // then Manual AI), so the expanded bar is ~96px tall — enough to clear the
+    // "Edit note" heading below it.
+    + (!isLetterMode && !isGenerating && noteBarExpanded ? 96 : 0)
   const hasTopBar = isLetterMode || (!isLetterMode && (!!store.currentNoteId || isGenerating))
   const barTop = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM}px)`
   const contentPt = `calc(env(safe-area-inset-top) + ${HEADER_BOTTOM + (hasTopBar ? BAR_H : 0) + 16}px)`
