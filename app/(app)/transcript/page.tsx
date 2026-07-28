@@ -276,7 +276,7 @@ export default function TranscriptPage() {
           className={`relative text-sm text-[var(--text2)] leading-relaxed whitespace-pre-wrap select-text ${
             !expanded ? 'max-h-28 overflow-hidden scrollbar-none' : 'flex-1 min-h-0 overflow-y-auto'
           }`}
-          style={expanded ? { paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' } : undefined}
+          style={expanded ? { paddingBottom: 'calc(env(safe-area-inset-bottom) + 140px)' } : undefined}
           ref={transcriptRef}
         >
           {lastTranscript}
@@ -294,7 +294,7 @@ export default function TranscriptPage() {
       {(messages.length > 0 || loading) && (
       <div
         className="flex-1 min-h-0 overflow-y-auto scrollbar-none p-4 space-y-3"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 140px)' }}
       >
         {messages.map((m, i) => {
           const clickable = m.role === 'ai' && !!m.quote
@@ -338,8 +338,8 @@ export default function TranscriptPage() {
           the transcript / Q&A text scrolls behind it through the blur. Drops to the
           bottom when focused (the tab bar hides on mobile then). */}
       <div
-        className="absolute left-0 right-0 px-3 z-20 pointer-events-none"
-        style={{ bottom: chatFocused ? 'calc(env(safe-area-inset-bottom) + 12px)' : 'calc(env(safe-area-inset-bottom) + 80px)' }}
+        className="transcript-chat-pill absolute left-0 right-0 px-4 z-20 pointer-events-none"
+        style={{ bottom: 'calc(max(env(safe-area-inset-bottom), 8px) + 70px)' }}
       >
         <div
           className="pointer-events-auto flex items-center gap-2 rounded-full pl-4 pr-2 py-2 border border-white/50"
