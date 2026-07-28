@@ -187,11 +187,9 @@ export default function TranscriptPage() {
     }
     if (matchIdx === -1) return
 
-    // Mark the quote in the transcript text regardless of collapsed state, so
-    // it's already highlighted whenever the doctor chooses to expand it. Do
-    // NOT force the transcript open here — the collapsed transcript's 28px
-    // preview area is too short to push the answer bubble below the tab bar
-    // (reported), so leave the collapse state exactly as the doctor left it.
+    // Open the transcript so the highlighted quote is scrollable into view, then
+    // (after the expand re-render) mark it yellow and jump to it.
+    setExpanded(true)
     setTimeout(() => {
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
       let charCount = 0
@@ -224,13 +222,10 @@ export default function TranscriptPage() {
         mark.style.cssText = 'background:#fef08a;border-radius:2px;padding:0 1px;'
         try {
           range.surroundContents(mark)
-          // Only scroll to it if the transcript is already open — scrolling
-          // inside a collapsed (clipped, non-scrolling) box does nothing
-          // useful and risks nudging the page's own scroll instead.
-          if (expandedRef.current) mark.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          mark.scrollIntoView({ behavior: 'smooth', block: 'center' })
         } catch (_) {}
       }
-    }, 100)
+    }, 160)
   }
 
   return (
@@ -301,22 +296,29 @@ export default function TranscriptPage() {
         className="flex-1 min-h-0 overflow-y-auto scrollbar-none p-4 space-y-3"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 120px)' }}
       >
-        {messages.map((m, i) => (
+        {messages.map((m, i) => {
+          const clickable = m.role === 'ai' && !!m.quote
+          return (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] rounded-[var(--r-lg)] px-4 py-3 text-sm ${
-              m.role === 'user'
-                ? 'bg-[var(--blue)] text-white rounded-br-sm'
-                : 'bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] rounded-bl-sm'
-            }`}>
+            <div
+              onClick={clickable ? () => trsHighlightQuote(m.quote!) : undefined}
+              className={`max-w-[85%] rounded-[var(--r-lg)] px-4 py-3 text-sm ${
+                m.role === 'user'
+                  ? 'bg-[var(--blue)] text-white rounded-br-sm'
+                  : `bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] rounded-bl-sm ${clickable ? 'cursor-pointer hover:border-[var(--blue)]/50 motion-safe:transition-colors' : ''}`
+              }`}
+            >
               <p className="whitespace-pre-wrap">{m.content}</p>
               {m.quote && m.role === 'ai' && (
                 <p className="text-xs mt-2 text-[var(--text3)] italic border-l-2 border-[var(--border)] pl-2">
                   &ldquo;{m.quote}&rdquo;
+                  <span className="not-italic text-[var(--blue)] ml-1">· tap to find in transcript</span>
                 </p>
               )}
             </div>
           </div>
-        ))}
+          )
+        })}
         {loading && (
           <div className="flex justify-start">
             <div className="bg-[var(--bg)] border border-[var(--border)] rounded-[var(--r-lg)] rounded-bl-sm px-4 py-3">
