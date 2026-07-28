@@ -872,12 +872,8 @@ function EditContent() {
           transcriptMode: s.lastTranscriptMode,
           ...(s.lastChosenTemplate ? { templateId: String(s.lastChosenTemplate.id), templateName: s.lastChosenTemplate.title } : {}),
         }
-        if (s.currentNoteId) {
-          await updateNote(s.currentNoteId, noteData)
-        } else {
-          const id = await saveNote(noteData)
-          s.setCurrentNoteId(id)
-        }
+        const savedId = await persistNoteData(noteData, s.currentNoteId ?? null)
+        if (savedId && !s.currentNoteId) s.setCurrentNoteId(savedId)
         if (mountedRef.current) setSaveStatus('saved')
       } catch {
         if (mountedRef.current) setSaveStatus('idle')
@@ -974,6 +970,28 @@ function EditContent() {
     [fields.reg_number, activeWorkplace]
   )
 
+  // Persist a note, degrading gracefully: if the write is rejected because the
+  // templateId/templateName fields aren't yet allowed by the deployed Firestore
+  // rules, retry WITHOUT them so a generated note is NEVER silently lost. The
+  // fallback logs a warning (admin Logs → tag "template") so the missing rule is
+  // visible. Returns the doc id (existing or newly created), or null on failure.
+  async function persistNoteData(noteData: NoteInput, currentId: string | null): Promise<string | null> {
+    try {
+      if (currentId) { await updateNote(currentId, noteData); return currentId }
+      return await saveNote(noteData)
+    } catch (err) {
+      if ('templateId' in noteData || 'templateName' in noteData) {
+        const safe: NoteInput = { ...noteData }
+        delete (safe as { templateId?: string }).templateId
+        delete (safe as { templateName?: string }).templateName
+        fetch('/api/log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level: 'warn', tag: 'template', route: '/edit', uid: user?.uid, message: 'note saved without templateId — publish the templateId/templateName Firestore rule (hasOnly)' }) }).catch(() => {})
+        if (currentId) { await updateNote(currentId, safe); return currentId }
+        return await saveNote(safe)
+      }
+      throw err
+    }
+  }
+
   async function doAutoSave(flashField?: string) {
     if (storeRef.current.letterType !== null) return
     if (isSavingRef.current) return
@@ -1012,12 +1030,8 @@ function EditContent() {
         transcriptMode: s.lastTranscriptMode,
         ...(s.lastChosenTemplate ? { templateId: String(s.lastChosenTemplate.id), templateName: s.lastChosenTemplate.title } : {}),
       }
-      if (s.currentNoteId) {
-        await updateNote(s.currentNoteId, noteData)
-      } else {
-        const id = await saveNote(noteData)
-        s.setCurrentNoteId(id)
-      }
+      const savedId = await persistNoteData(noteData, s.currentNoteId ?? null)
+      if (savedId && !s.currentNoteId) s.setCurrentNoteId(savedId)
       // The transcript is now durably in Firestore, so the recovery draft is
       // safe to remove. Do it once per transcript (not on every autosave).
       if (s.lastTranscript && s.lastTranscript.trim() && !draftClearedRef.current && user) {
