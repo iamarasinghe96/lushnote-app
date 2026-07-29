@@ -165,6 +165,22 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
     timerRef.current[id] = setTimeout(() => flush(id), 800)
   }
 
+  // Suppress the browser's pull-to-refresh while the doctor is in the table view
+  // so panning/scrolling the wide grid can't accidentally reload the page.
+  // Restored to whatever it was when the table unmounts.
+  useEffect(() => {
+    const html = document.documentElement
+    const body = document.body
+    const prevHtml = html.style.overscrollBehaviorY
+    const prevBody = body.style.overscrollBehaviorY
+    html.style.overscrollBehaviorY = 'none'
+    body.style.overscrollBehaviorY = 'none'
+    return () => {
+      html.style.overscrollBehaviorY = prevHtml
+      body.style.overscrollBehaviorY = prevBody
+    }
+  }, [])
+
   // Flush everything on unmount so nothing typed is lost on navigation.
   useEffect(() => {
     const timers = timerRef.current
@@ -260,12 +276,12 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
           </p>
         </div>
       ) : (
-        <div className="flex-1 overflow-auto scrollbar-none pb-tabbar">
+        <div className="flex-1 overflow-auto overscroll-contain scrollbar-none pb-tabbar">
           <table className="border-collapse text-sm">
             <thead>
               <tr className="text-left">
                 {!singleFocus && (
-                  <th className="sticky left-0 top-0 z-20 bg-[var(--bg)] border-b border-r border-[var(--border)] px-2 py-2 font-semibold text-xs text-[var(--text3)] uppercase tracking-wide">
+                  <th className="sticky left-0 top-0 z-20 w-24 bg-[var(--bg)] border-b border-r border-[var(--border)] px-1.5 py-2 font-semibold text-xs text-[var(--text3)] uppercase tracking-wide">
                     Patient
                   </th>
                 )}
@@ -284,16 +300,16 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
                 <tr key={p.id} className="align-top hover:bg-[var(--bg)]/60">
                   {/* Sticky identity cell: checkbox + name (hidden when focused on one patient) */}
                   {!singleFocus && (
-                    <td className="sticky left-0 z-10 bg-white border-b border-r border-[var(--border)] px-2 py-2">
-                      <div className="flex items-start gap-2 min-w-[140px]">
+                    <td className="sticky left-0 z-10 w-24 bg-white border-b border-r border-[var(--border)] px-1.5 py-2">
+                      <div className="flex items-start gap-1.5 w-24">
                         <input
                           type="checkbox"
                           checked={p.id ? selected.has(p.id) : false}
                           onChange={() => p.id && toggle(p.id)}
-                          className="mt-1 accent-[var(--blue)] shrink-0"
+                          className="mt-0.5 accent-[var(--blue)] shrink-0"
                           aria-label={`Show ${p.displayName} in table`}
                         />
-                        <span className="text-sm font-semibold text-[var(--text)] leading-snug">{p.displayName}</span>
+                        <span className="flex-1 min-w-0 text-[13px] font-semibold text-[var(--text)] leading-tight break-words line-clamp-2">{p.displayName}</span>
                       </div>
                     </td>
                   )}
