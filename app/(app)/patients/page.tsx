@@ -368,6 +368,7 @@ export default function PatientsPage() {
   const [editingProfile, setEditingProfile] = useState<PatientProfile | undefined>(undefined)
   const [unfinishedDraft, setUnfinishedDraft] = useState<{ text: string; durationSec: number } | null>(null)
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
+  const [filtersOpen, setFiltersOpen] = useState(false)
   // The patient a document is being generated for (opens the letter/note picker).
   const [generateFor, setGenerateFor] = useState<PatientProfile | null>(null)
   const [genTemplateOpen, setGenTemplateOpen] = useState(false)
@@ -791,19 +792,83 @@ export default function PatientsPage() {
         className="shrink-0 border-b border-[var(--border)] px-4 pb-3 pt-header space-y-2"
         style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="inline-flex rounded-full border border-[var(--border)] p-0.5 bg-white">
-            {(['cards', 'table'] as const).map(v => (
-              <button
-                key={v}
-                onClick={() => setViewMode(v)}
-                className={`text-xs px-3 py-1 rounded-full font-medium transition-colors
-                  ${viewMode === v ? 'bg-[#10b981] text-white' : 'text-[var(--text2)] hover:text-[var(--blue)]'}`}
-              >
-                {v === 'cards' ? 'Cards' : 'Table view'}
-              </button>
-            ))}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0 flex-1">
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="inline-flex rounded-full border border-[var(--border)] p-0.5 bg-white">
+                {(['cards', 'table'] as const).map(v => (
+                  <button
+                    key={v}
+                    onClick={() => setViewMode(v)}
+                    className={`text-xs px-3 py-1 rounded-full font-medium transition-colors
+                      ${viewMode === v ? 'bg-[#10b981] text-white' : 'text-[var(--text2)] hover:text-[var(--blue)]'}`}
+                  >
+                    {v === 'cards' ? 'Cards' : 'Table view'}
+                  </button>
+                ))}
+              </div>
+              {viewMode === 'cards' && (
+                <button
+                  onClick={() => setFiltersOpen(o => !o)}
+                  aria-expanded={filtersOpen}
+                  className={`relative flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-medium
+                    active:scale-95 transition-all shrink-0
+                    ${filtersOpen ? 'border-[var(--blue)] text-[var(--blue)] bg-[var(--blue-lt)]' : 'border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)]'}`}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                    <line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/>
+                  </svg>
+                  Filters
+                  {(sortBy !== 'recent' || quickFilter) && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#10b981] ring-2 ring-white" aria-hidden />
+                  )}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                       className={`transition-transform ${filtersOpen ? 'rotate-180' : ''}`} aria-hidden>
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {/* Filter chips: expand vertically (mobile) / horizontally (desktop) */}
+            {viewMode === 'cards' && (
+              <div className={`grid motion-safe:transition-all motion-safe:duration-300 ease-out
+                ${filtersOpen
+                  ? 'grid-rows-[1fr] sm:grid-rows-[1fr] sm:grid-cols-[1fr]'
+                  : 'grid-rows-[0fr] sm:grid-rows-[1fr] sm:grid-cols-[0fr]'}`}>
+                <div className="overflow-hidden min-h-0 min-w-0">
+                  <div className="flex flex-col items-start sm:flex-row sm:flex-wrap sm:items-center gap-2 pt-1 sm:pt-0 sm:pl-1">
+                    {(['recent', 'az', 'visits'] as const).map(s => (
+                      <button
+                        key={s}
+                        onClick={() => setSortBy(s)}
+                        className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap
+                          ${sortBy === s
+                            ? 'bg-[var(--blue)] text-white border-[var(--blue)]'
+                            : 'border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)]'}`}
+                      >
+                        {s === 'recent' ? 'Recent' : s === 'az' ? 'A–Z' : 'Most Visits'}
+                      </button>
+                    ))}
+                    <span className="hidden sm:block w-px h-4 bg-[var(--border)] mx-0.5" aria-hidden />
+                    {(['today', 'week', 'month'] as const).map(f => (
+                      <button
+                        key={f}
+                        onClick={() => setQuickFilter(quickFilter === f ? null : f)}
+                        className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap
+                          ${quickFilter === f
+                            ? 'bg-[var(--blue-lt)] text-[var(--blue)] border-[var(--blue)]'
+                            : 'border-[var(--border)] text-[var(--text3)] hover:border-[var(--blue)]'}`}
+                      >
+                        {f === 'today' ? 'Today' : f === 'week' ? 'This Week' : 'This Month'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+
           <button
             onClick={() => setAddModalOpen(true)}
             className="flex items-center gap-1.5 text-xs bg-[var(--blue)] text-white
@@ -817,49 +882,17 @@ export default function PatientsPage() {
           </button>
         </div>
 
-        {/* Card-view filters only */}
+        {/* Search stays visible (a primary action, not tucked under Filters) */}
         {viewMode === 'cards' && (
-        <>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex gap-2">
-            {(['recent', 'az', 'visits'] as const).map(s => (
-              <button
-                key={s}
-                onClick={() => setSortBy(s)}
-                className={`text-xs px-3 py-1 rounded-full border transition-colors
-                  ${sortBy === s
-                    ? 'bg-[var(--blue)] text-white border-[var(--blue)]'
-                    : 'border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)]'}`}
-              >
-                {s === 'recent' ? 'Recent' : s === 'az' ? 'A–Z' : 'Most Visits'}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {(['today', 'week', 'month'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setQuickFilter(quickFilter === f ? null : f)}
-              className={`text-xs px-3 py-1 rounded-full border transition-colors
-                ${quickFilter === f
-                  ? 'bg-[var(--blue-lt)] text-[var(--blue)] border-[var(--blue)]'
-                  : 'border-[var(--border)] text-[var(--text3)] hover:border-[var(--blue)]'}`}
-            >
-              {f === 'today' ? 'Today' : f === 'week' ? 'This Week' : 'This Month'}
-            </button>
-          ))}
-        </div>
-        <input
-          type="text"
-          placeholder="Search patients..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2
-                     focus:outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
-                     bg-white transition-colors"
-        />
-        </>
+          <input
+            type="text"
+            placeholder="Search patients..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2
+                       focus:outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
+                       bg-white transition-colors"
+          />
         )}
       </div>
 
