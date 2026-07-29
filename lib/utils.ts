@@ -788,7 +788,9 @@ export const TRACKED_CLINICAL_FIELDS: { key: keyof PatientProfile; label: string
 export function smartCapitalizeLines(text: string): string {
   if (!text) return text
   return text.split('\n').map(line => {
-    const m = line.match(/^(\s*)([a-z])(.*)$/s)
+    // No `s` (dotAll) flag: each `line` has no newline, so `.` covering the rest
+    // is enough — and the flag needs an es2018+ target the build doesn't set.
+    const m = line.match(/^(\s*)([a-z])(.*)$/)
     return m ? `${m[1]}${m[2].toUpperCase()}${m[3]}` : line
   }).join('\n')
 }
