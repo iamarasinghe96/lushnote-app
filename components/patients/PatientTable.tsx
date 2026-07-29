@@ -11,17 +11,79 @@ interface PatientTableProps {
   onDelete: (profile: PatientProfile) => void
 }
 
+type CapMode = 'none' | 'words' | 'sentences'
+
 // Editable columns, left to right. Name is a separate sticky identity column.
-const COLUMNS: { key: keyof PatientProfile; label: string; minCh: number }[] = [
-  { key: 'urNumber', label: 'UR', minCh: 10 },
-  { key: 'status', label: 'Status', minCh: 12 },
-  ...TRACKED_CLINICAL_FIELDS.map(f => ({ key: f.key, label: f.label, minCh: f.key === 'dob' || f.key === 'bedNumber' ? 10 : 22 })),
+// `cap` drives the mobile keyboard's smart capitalisation per field.
+const COLUMNS: { key: keyof PatientProfile; label: string; minCh: number; cap: CapMode }[] = [
+  { key: 'urNumber', label: 'UR', minCh: 10, cap: 'none' },
+  { key: 'status', label: 'Status', minCh: 12, cap: 'sentences' },
+  ...TRACKED_CLINICAL_FIELDS.map(f => ({
+    key: f.key,
+    label: f.label,
+    minCh: f.key === 'dob' || f.key === 'bedNumber' ? 10 : 22,
+    cap: (f.key === 'dob' ? 'none' : 'sentences') as CapMode,
+  })),
 ]
+
+// Download the currently-shown patients as a clean, printable A4 PDF (one titled
+// block per patient). jsPDF is code-split so it only loads when exporting.
+async function exportPatientsPDF(rows: PatientProfile[]) {
+  const { jsPDF } = await import('jspdf')
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const MARGIN = 15
+  const PAGE_W = 210
+  const PAGE_H = 297
+  const TEXT_W = PAGE_W - MARGIN * 2
+  let y = MARGIN
+
+  const ensure = (needed: number) => { if (y + needed > PAGE_H - MARGIN) { doc.addPage(); y = MARGIN } }
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(15, 23, 42)
+  doc.text('Patient List', MARGIN, y); y += 6
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100, 116, 139)
+  const now = new Date()
+  doc.text(`${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} · ${rows.length} patient${rows.length !== 1 ? 's' : ''}`, MARGIN, y)
+  y += 8
+
+  const fields: { label: string; key: keyof PatientProfile }[] = [
+    { label: 'UR', key: 'urNumber' },
+    { label: 'Status', key: 'status' },
+    ...TRACKED_CLINICAL_FIELDS.map(f => ({ label: f.label, key: f.key })),
+  ]
+
+  rows.forEach((p, i) => {
+    ensure(12)
+    if (i > 0) { doc.setDrawColor(226, 232, 240); doc.line(MARGIN, y - 3, PAGE_W - MARGIN, y - 3) }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(15, 23, 42)
+    doc.text(p.displayName || 'Unnamed', MARGIN, y); y += 6
+
+    for (const f of fields) {
+      const raw = p[f.key]
+      const value = typeof raw === 'string' ? raw.trim() : ''
+      if (!value) continue
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(71, 85, 105)
+      doc.text(`${f.label}:`, MARGIN, y)
+      const labelW = doc.getTextWidth(`${f.label}: `) + 1
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(15, 23, 42)
+      const lines = doc.splitTextToSize(value, TEXT_W - labelW) as string[]
+      lines.forEach((ln, li) => {
+        ensure(5)
+        doc.text(ln, li === 0 ? MARGIN + labelW : MARGIN + labelW, y)
+        y += 4.5
+      })
+      y += 1
+    }
+    y += 4
+  })
+
+  doc.save(`patients-${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}.pdf`)
+}
 
 // A textarea that grows to fit its content (the "auto stretching textbox").
 function GrowCell({
-  value, onChange, onFlush, minCh,
-}: { value: string; onChange: (v: string) => void; onFlush: () => void; minCh: number }) {
+  value, onChange, onFlush, minCh, cap,
+}: { value: string; onChange: (v: string) => void; onFlush: () => void; minCh: number; cap: CapMode }) {
   const ref = useRef<HTMLTextAreaElement>(null)
   function resize() {
     const el = ref.current
@@ -43,6 +105,9 @@ function GrowCell({
       onChange={e => { onChange(e.target.value); resize() }}
       onBlur={onFlush}
       maxLength={6000}
+      autoCapitalize={cap}
+      autoCorrect="on"
+      spellCheck
       className="w-full resize-none overflow-hidden bg-transparent text-sm text-[var(--text)]
                  leading-snug outline-none placeholder:text-[var(--text3)]
                  focus:bg-[var(--blue-lt)]/40 rounded px-1 py-0.5 transition-colors"
@@ -121,16 +186,25 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
   }
 
   function toggle(id: string) {
+    const nowChecked = !selected.has(id)
     setSelected(prev => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id); else next.add(id)
       return next
     })
+    // Checking a searched patient focuses the table on the checked set: clear the
+    // search so only the checked rows remain.
+    if (nowChecked && search.trim()) setSearch('')
   }
 
   const allIds = useMemo(() => profiles.map(p => p.id).filter(Boolean) as string[], [profiles])
   const checkAll = () => setSelected(new Set(allIds))
   const uncheckAll = () => setSelected(new Set())
+
+  // When the table is down to a single patient, drop the frozen name column and
+  // surface that patient's name in the toolbar instead — freeing horizontal room
+  // for their clinical fields.
+  const singleFocus = rows.length === 1 ? rows[0] : null
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -158,7 +232,21 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
         >
           Uncheck all
         </button>
-        <span className="text-xs text-[var(--text3)]">{selected.size} shown</span>
+        <button
+          onClick={() => exportPatientsPDF(rows)}
+          disabled={rows.length === 0}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-[#10b981]/50
+                     text-[#059669] font-medium hover:bg-[#10b981]/10 disabled:opacity-40
+                     active:scale-95 transition-all"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          PDF
+        </button>
+        {singleFocus
+          ? <span className="text-xs font-semibold text-[var(--text)] truncate max-w-[40%]">{singleFocus.displayName}</span>
+          : <span className="text-xs text-[var(--text3)]">{rows.length} shown</span>}
       </div>
 
       {rows.length === 0 ? (
@@ -176,9 +264,11 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
           <table className="border-collapse text-sm">
             <thead>
               <tr className="text-left">
-                <th className="sticky left-0 top-0 z-20 bg-[var(--bg)] border-b border-r border-[var(--border)] px-2 py-2 font-semibold text-xs text-[var(--text3)] uppercase tracking-wide">
-                  Patient
-                </th>
+                {!singleFocus && (
+                  <th className="sticky left-0 top-0 z-20 bg-[var(--bg)] border-b border-r border-[var(--border)] px-2 py-2 font-semibold text-xs text-[var(--text3)] uppercase tracking-wide">
+                    Patient
+                  </th>
+                )}
                 {COLUMNS.map(c => (
                   <th key={c.key as string} className="sticky top-0 z-10 bg-[var(--bg)] border-b border-[var(--border)] px-2 py-2 font-semibold text-xs text-[var(--text3)] uppercase tracking-wide whitespace-nowrap">
                     {c.label}
@@ -192,19 +282,21 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
             <tbody>
               {rows.map(p => (
                 <tr key={p.id} className="align-top hover:bg-[var(--bg)]/60">
-                  {/* Sticky identity cell: checkbox + name */}
-                  <td className="sticky left-0 z-10 bg-white border-b border-r border-[var(--border)] px-2 py-2">
-                    <div className="flex items-start gap-2 min-w-[140px]">
-                      <input
-                        type="checkbox"
-                        checked={p.id ? selected.has(p.id) : false}
-                        onChange={() => p.id && toggle(p.id)}
-                        className="mt-1 accent-[var(--blue)] shrink-0"
-                        aria-label={`Show ${p.displayName} in table`}
-                      />
-                      <span className="text-sm font-semibold text-[var(--text)] leading-snug">{p.displayName}</span>
-                    </div>
-                  </td>
+                  {/* Sticky identity cell: checkbox + name (hidden when focused on one patient) */}
+                  {!singleFocus && (
+                    <td className="sticky left-0 z-10 bg-white border-b border-r border-[var(--border)] px-2 py-2">
+                      <div className="flex items-start gap-2 min-w-[140px]">
+                        <input
+                          type="checkbox"
+                          checked={p.id ? selected.has(p.id) : false}
+                          onChange={() => p.id && toggle(p.id)}
+                          className="mt-1 accent-[var(--blue)] shrink-0"
+                          aria-label={`Show ${p.displayName} in table`}
+                        />
+                        <span className="text-sm font-semibold text-[var(--text)] leading-snug">{p.displayName}</span>
+                      </div>
+                    </td>
+                  )}
                   {COLUMNS.map(c => (
                     <td key={c.key as string} className="border-b border-[var(--border)] px-1.5 py-1.5">
                       <GrowCell
@@ -212,6 +304,7 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
                         onChange={v => p.id && editCell(p.id, c.key, v)}
                         onFlush={() => p.id && flush(p.id)}
                         minCh={c.minCh}
+                        cap={c.cap}
                       />
                     </td>
                   ))}

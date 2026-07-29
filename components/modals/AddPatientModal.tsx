@@ -186,6 +186,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
               onChange={e => { setName(e.target.value); setNameError(null) }}
               error={nameError ?? undefined}
               placeholder="e.g. Jane Smith"
+              autoCapitalize="words"
               autoFocus
             />
             <Input
@@ -312,7 +313,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
               {TRACKED_CLINICAL_FIELDS.map(f => (
                 <li key={f.key as string} className="flex gap-2 text-xs text-[var(--text2)]">
                   <span className="text-[#10b981] shrink-0">•</span>
-                  <span>{f.label}</span>
+                  <span><span className="font-medium text-[var(--text)]">{f.label}</span> — {f.hint}</span>
                 </li>
               ))}
             </ul>
