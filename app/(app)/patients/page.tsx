@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
@@ -117,6 +117,46 @@ function SessionCard({ note, isLatest, onClick, onDelete }: SessionCardProps) {
   )
 }
 
+// The patient name, marquee-scrolled when it's too long to fit its box (so a long
+// name is fully readable instead of being clipped under the action buttons). The
+// scroll only runs when the text actually overflows, and the global
+// prefers-reduced-motion rule disables the animation.
+function MarqueeName({ name, className }: { name: string; className?: string }) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const textRef = useRef<HTMLSpanElement>(null)
+  const [shift, setShift] = useState(0)
+
+  useEffect(() => {
+    const measure = () => {
+      const w = wrapRef.current, t = textRef.current
+      if (!w || !t) return
+      const over = t.scrollWidth - w.clientWidth
+      setShift(over > 4 ? over : 0)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    if (wrapRef.current) ro.observe(wrapRef.current)
+    return () => ro.disconnect()
+  }, [name])
+
+  const duration = Math.max(6, Math.min(18, shift / 16 + 6))
+  const style: CSSProperties = shift > 0
+    ? { ...({ '--ln-marquee-shift': `-${shift}px` } as CSSProperties), animationDuration: `${duration}s` }
+    : {}
+
+  return (
+    <div ref={wrapRef} className="overflow-hidden">
+      <span
+        ref={textRef}
+        className={`inline-block whitespace-nowrap ${shift > 0 ? 'ln-name-marquee' : ''} ${className ?? ''}`}
+        style={style}
+      >
+        {name}
+      </span>
+    </div>
+  )
+}
+
 // Editable fields shown on the expandable card section (mirrors the Table view).
 const CARD_FIELDS: { key: keyof PatientProfile; label: string }[] = [
   { key: 'urNumber', label: 'UR number' },
@@ -206,39 +246,41 @@ function PatientDetail({ patient, profile, editableProfile, notes, onBack, onLoa
               the space the buttons need and lets the name truncate around it,
               regardless of name length. */}
           <div className="flex items-start justify-between gap-3 mb-4">
-            <div className="flex items-start gap-3 min-w-0">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
               <GenderAvatar gender={patient.gender} size={56} />
-              <div className="min-w-0">
-                {/* A long name used to just get an ellipsis with no way to read
-                    the rest of it. Scroll horizontally instead so it's fully
-                    reachable by swiping, rather than permanently cut off. */}
-                <h2 className="text-xl font-bold text-[var(--text)] overflow-x-auto whitespace-nowrap scrollbar-none">{patient.name}</h2>
+              <div className="min-w-0 flex-1">
+                {/* Marquee-scrolls a long name so it's fully readable instead of
+                    being clipped under the action buttons. */}
+                <MarqueeName name={patient.name} className="text-xl font-bold text-[var(--text)]" />
                 {patient.reg && (
                   <p className="text-sm text-[var(--text3)] mt-0.5">Registration #{patient.reg}</p>
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap gap-2 shrink-0 justify-end">
+            {/* Edit + Delete on top; Generate sits directly beneath them. */}
+            <div className="flex flex-col items-stretch gap-2 shrink-0">
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={onEditPatient}
+                  className="text-xs border border-[var(--blue)] text-[var(--blue)]
+                             px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-[var(--blue-lt)] active:scale-95 transition-all"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => setConfirmDeletePatient(true)}
+                  className="text-xs border border-[var(--danger)] text-[var(--danger)]
+                             px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-red-50 active:scale-95 transition-all"
+                >
+                  Delete
+                </button>
+              </div>
               <button
                 onClick={onGenerate}
-                className="text-xs bg-[#10b981] text-white
-                           px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-[#059669] active:scale-95 transition-all"
+                className="w-full text-xs bg-[#10b981] text-white
+                           px-3 py-1.5 rounded-[var(--r-sm)] font-medium hover:bg-[#059669] active:scale-95 transition-all"
               >
                 Generate
-              </button>
-              <button
-                onClick={onEditPatient}
-                className="text-xs border border-[var(--blue)] text-[var(--blue)]
-                           px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-[var(--blue-lt)] active:scale-95 transition-all"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => setConfirmDeletePatient(true)}
-                className="text-xs border border-[var(--danger)] text-[var(--danger)]
-                           px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-red-50 active:scale-95 transition-all"
-              >
-                Delete
               </button>
             </div>
           </div>
