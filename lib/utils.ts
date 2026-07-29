@@ -1,4 +1,4 @@
-import { WP_THEMES, type Note, type AnyTemplate, type ExtraSection, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields, type LetterData, type HospitalFormData } from '@/types'
+import { WP_THEMES, type Note, type AnyTemplate, type ExtraSection, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields, type LetterData, type HospitalFormData, type PatientProfile } from '@/types'
 
 // The 11 core clinical note fields, in canonical order. Shared source of truth
 // for rendering order fallbacks and for deciding whether a section key is core.
@@ -756,6 +756,58 @@ export function formatDob(raw: string): string {
   if (digits.length >= 5) return digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4)
   if (digits.length >= 3) return digits.slice(0, 2) + '/' + digits.slice(2)
   return digits
+}
+
+// ── Tracked patients (Add Patient / Table view) ──────────────────────────────
+
+// The clinical fields a tracked patient carries, in display + dictation order.
+// Single source of truth for the Add-Patient dictation guide, the Groq
+// extraction contract (/api/generate mode:'patient-intake'), and the Table view
+// columns. `key` maps to a PatientProfile field; `hint` guides the doctor's
+// dictation. DOB is captured here too (dictated), while name + UR come from the
+// Add-Patient step-1 form.
+export const TRACKED_CLINICAL_FIELDS: { key: keyof PatientProfile; label: string; hint: string }[] = [
+  { key: 'dob', label: 'Date of birth', hint: 'Patient date of birth (DD/MM/YYYY)' },
+  { key: 'bedNumber', label: 'Bed number', hint: 'Ward and/or bed number' },
+  { key: 'presentingIssue', label: 'Presenting issue', hint: 'Reason for presentation / admission' },
+  { key: 'currentIssues', label: 'Current issues', hint: 'Active problems being managed now' },
+  { key: 'managementIP', label: 'Management (IP)', hint: 'Inpatient management to date' },
+  { key: 'pastMedicalHistory', label: 'Past medical history', hint: 'Relevant past medical/psychiatric/surgical history' },
+  { key: 'medications', label: 'Medications', hint: 'Current medications with doses' },
+  { key: 'bloodsPathology', label: 'Bloods & pathology', hint: 'Relevant blood results and pathology' },
+  { key: 'imaging', label: 'Imaging', hint: 'Relevant imaging findings' },
+  { key: 'plan', label: 'Plan', hint: 'Ongoing plan and next steps' },
+]
+
+// A profile is "tracked" (shown in the Table view, gets a Generate button) once
+// it carries a UR number, was explicitly added via Add Patient, or has any
+// structured clinical field filled in.
+export function isTrackedPatient(p: PatientProfile): boolean {
+  if (p.tracked) return true
+  if (p.urNumber && p.urNumber.trim()) return true
+  return TRACKED_CLINICAL_FIELDS.some(f => {
+    const v = p[f.key]
+    return typeof v === 'string' && v.trim().length > 0
+  })
+}
+
+// Assemble a tracked patient's stored fields into a plain-text "transcript" that
+// the letter / clinical-note generators consume verbatim (they were built to
+// read a dictation), so a document can be generated straight from the record.
+// Only non-empty fields are included.
+export function buildPatientInfoText(p: PatientProfile): string {
+  const lines: string[] = []
+  const push = (label: string, value?: string) => {
+    if (value && value.trim()) lines.push(`${label}: ${value.trim()}`)
+  }
+  push('Patient name', p.displayName)
+  push('UR number', p.urNumber)
+  if (p.status && p.status.trim()) push('Status', p.status)
+  for (const f of TRACKED_CLINICAL_FIELDS) {
+    const v = p[f.key]
+    if (typeof v === 'string') push(f.label, v)
+  }
+  return lines.join('\n')
 }
 
 // Builds the full generation prompt for a template, appending any saved

@@ -4,15 +4,19 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { LETTER_TYPE_LABEL, notePatientDob } from '@/lib/utils'
-import { getPatientProfiles, deletePatientProfile } from '@/lib/firestore/patients'
+import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatient } from '@/lib/utils'
+import { getPatientProfiles, deletePatientProfile, savePatientProfile } from '@/lib/firestore/patients'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
 import { getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { GenderAvatar } from '@/components/ui/GenderAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import PatientModal from '@/components/modals/PatientModal'
-import type { Note, PatientProfile } from '@/types'
+import AddPatientModal from '@/components/modals/AddPatientModal'
+import PatientTable from '@/components/patients/PatientTable'
+import LetterPickerModal from '@/components/modals/LetterPickerModal'
+import TemplatePicker from '@/components/modals/TemplatePicker'
+import type { Note, PatientProfile, LetterType, CustomLetterTemplate, AnyTemplate, NoteLength } from '@/types'
 
 interface PatientGroup {
   // Identity key: a plain name normally, or `name|dob` when the same name has
@@ -121,9 +125,10 @@ interface PatientDetailProps {
   onDeleteNote: (noteId: string) => void
   onEditPatient: () => void
   onDeletePatient: () => void
+  onGenerate: () => void
 }
 
-function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNote, onEditPatient, onDeletePatient }: PatientDetailProps) {
+function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNote, onEditPatient, onDeletePatient, onGenerate }: PatientDetailProps) {
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null)
   const [confirmDeletePatient, setConfirmDeletePatient] = useState(false)
 
@@ -215,6 +220,19 @@ function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNo
               <p className="text-sm font-semibold text-[var(--text)] overflow-x-auto whitespace-nowrap scrollbar-none">{clinician || '-'}</p>
             </div>
           </div>
+
+          <button
+            onClick={onGenerate}
+            className="mt-4 w-full flex items-center justify-center gap-2 bg-[#10b981] text-white
+                       py-2.5 rounded-[var(--r)] text-sm font-semibold hover:bg-[#059669]
+                       active:scale-[0.98] transition-all"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15h6"/>
+            </svg>
+            Generate a document
+          </button>
         </div>
 
         {/* Sessions section */}
@@ -276,7 +294,7 @@ function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNo
 
 export default function PatientsPage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const store = useNoteStore()
 
   const [notes, setNotes] = useState<Note[]>([])
@@ -289,6 +307,11 @@ export default function PatientsPage() {
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [editingProfile, setEditingProfile] = useState<PatientProfile | undefined>(undefined)
   const [unfinishedDraft, setUnfinishedDraft] = useState<{ text: string; durationSec: number } | null>(null)
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
+  // The patient a document is being generated for (opens the letter/note picker).
+  const [generateFor, setGenerateFor] = useState<PatientProfile | null>(null)
+  const [genTemplateOpen, setGenTemplateOpen] = useState(false)
+  const [tableDeleteTarget, setTableDeleteTarget] = useState<PatientProfile | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -502,6 +525,105 @@ export default function PatientsPage() {
     })
   }
 
+  // Tracked patients (dictated via Add Patient, or given a UR / clinical fields)
+  // are the Table view's rows, most-recently-edited first.
+  const trackedProfiles = useMemo(
+    () => Object.values(profiles)
+      .filter(isTrackedPatient)
+      .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0) || a.displayName.localeCompare(b.displayName)),
+    [profiles]
+  )
+
+  function todayStr() {
+    const t = new Date()
+    return `${String(t.getDate()).padStart(2, '0')}/${String(t.getMonth() + 1).padStart(2, '0')}/${t.getFullYear()}`
+  }
+
+  // A Table-view cell edit: merge the patch, persist, and reflect it locally.
+  async function handleTableSave(id: string, patch: Partial<PatientProfile>) {
+    if (!user) return
+    const existing = profiles[id]
+    if (!existing) return
+    const merged: PatientProfile = { ...existing, ...patch, updatedAt: Date.now() }
+    setProfiles(prev => ({ ...prev, [id]: merged }))
+    try { await savePatientProfile(user.uid, merged) } catch { /* kept in state; retried on next edit */ }
+  }
+
+  // Generate a letter from a tracked patient's stored fields: assemble them into a
+  // synthetic transcript and hand off to the edit page's letter generator — the
+  // same path a dictated letter takes.
+  function startLetterFromPatient(p: PatientProfile, type: LetterType, customTemplate?: CustomLetterTemplate | null) {
+    setGenerateFor(null)
+    store.resetHospitalForm()
+    store.resetLetterMode()
+    store.setCurrentNoteId(null)
+    store.setLastTranscript(buildPatientInfoText(p))
+    store.setLastTranscriptMode('document')
+    const effectiveType: LetterType = type === 'custom' && !customTemplate ? 'freetext' : type
+    store.setLetterType(effectiveType)
+    if (effectiveType === 'custom' && customTemplate) {
+      store.setCustomLetterTemplate(customTemplate)
+      store.setCustomLetterSections(customTemplate.sections.map(s => ({ key: s.key, heading: s.heading, content: '' })))
+    }
+    store.setLetterCommonFields({ letterDate: todayStr(), patientName: p.displayName, dob: p.dob ?? '' })
+    store.setPendingLetterGeneration(true)
+    router.push('/edit')
+  }
+
+  // Generate a clinical note from a tracked patient's stored fields: assemble them
+  // as the transcript and run standard note generation with the chosen template.
+  function startClinicalNoteFromPatient(p: PatientProfile, template: AnyTemplate, noteLength: NoteLength) {
+    setGenTemplateOpen(false)
+    setGenerateFor(null)
+    store.resetHospitalForm()
+    store.resetLetterMode()
+    store.setCurrentNote({ patient: p.displayName, reg_number: p.urNumber ?? '' })
+    store.setCurrentNoteId(null)
+    store.setLastTranscript(buildPatientInfoText(p))
+    store.setLastTranscriptMode('document')
+    store.setLastChosenTemplate(template)
+    store.setOverrideNoteLength(noteLength)
+    store.setPendingAnimation(true)
+    router.push('/edit')
+  }
+
+  async function confirmDeleteTracked() {
+    const p = tableDeleteTarget
+    setTableDeleteTarget(null)
+    if (!p || !user) return
+    const nm = p.displayName.trim().toLowerCase()
+    const noteIds = notes.filter(n => n.id && (n.patient ?? '').trim().toLowerCase() === nm).map(n => n.id!)
+    await Promise.all(noteIds.map(id => deleteNote(id))).catch(() => {})
+    if (noteIds.length) setNotes(prev => prev.filter(n => !(n.id && noteIds.includes(n.id!))))
+    if (p.id) {
+      await deletePatientProfile(user.uid, p.id).catch(() => {})
+      setProfiles(prev => { const next = { ...prev }; delete next[p.id!]; return next })
+    }
+  }
+
+  // The letter/note picker for the per-patient "Generate" button. Rendered in both
+  // the list/table view and the drilled-in detail view (which returns early).
+  function renderGenerateFlow() {
+    const p = generateFor
+    return (
+      <>
+        <LetterPickerModal
+          open={!!p && !genTemplateOpen}
+          onSelect={type => p && startLetterFromPatient(p, type)}
+          onSelectClinicalNote={() => setGenTemplateOpen(true)}
+          onClose={() => setGenerateFor(null)}
+          customTemplates={profile?.customLetterTemplates ?? []}
+          onSelectCustom={t => p && startLetterFromPatient(p, 'custom', t)}
+        />
+        <TemplatePicker
+          open={!!p && genTemplateOpen}
+          onSelect={(template, noteLength) => p && startClinicalNoteFromPatient(p, template, noteLength)}
+          onCancel={() => setGenTemplateOpen(false)}
+        />
+      </>
+    )
+  }
+
   if (selectedPatient) {
     return (
       <div className="h-full overflow-hidden">
@@ -513,6 +635,11 @@ export default function PatientsPage() {
           onLoadNote={handleLoadNote}
           onDeleteNote={handleDeleteNote}
           onEditPatient={handleEditPatient}
+          onGenerate={() => setGenerateFor(selectedProfile ?? {
+            displayName: selectedPatient.name,
+            ...(selectedPatient.reg ? { urNumber: selectedPatient.reg } : {}),
+            ...(selectedPatient.dob ? { dob: selectedPatient.dob } : {}),
+          })}
           onDeletePatient={async () => {
             // Delete all session notes for this patient
             await Promise.all(patientNotes.filter(n => n.id).map(n => deleteNote(n.id!)))
@@ -560,17 +687,47 @@ export default function PatientsPage() {
           }}
           onClose={() => setEditingProfile(undefined)}
         />
+        {renderGenerateFlow()}
       </div>
     )
   }
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* Filter bar */}
+      {/* Header: view toggle + Add Patient (always visible) */}
       <div
         className="shrink-0 border-b border-[var(--border)] px-4 pb-3 pt-header space-y-2"
         style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
       >
+        <div className="flex items-center justify-between gap-2">
+          <div className="inline-flex rounded-full border border-[var(--border)] p-0.5 bg-white">
+            {(['cards', 'table'] as const).map(v => (
+              <button
+                key={v}
+                onClick={() => setViewMode(v)}
+                className={`text-xs px-3 py-1 rounded-full font-medium transition-colors
+                  ${viewMode === v ? 'bg-[#10b981] text-white' : 'text-[var(--text2)] hover:text-[var(--blue)]'}`}
+              >
+                {v === 'cards' ? 'Cards' : 'Table view'}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setAddModalOpen(true)}
+            className="flex items-center gap-1.5 text-xs bg-[var(--blue)] text-white
+                       px-3 py-1.5 rounded-full font-medium hover:bg-[var(--blue-dk)]
+                       active:scale-95 transition-all shrink-0"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add Patient
+          </button>
+        </div>
+
+        {/* Card-view filters only */}
+        {viewMode === 'cards' && (
+        <>
         <div className="flex items-center justify-between gap-2">
           <div className="flex gap-2">
             {(['recent', 'az', 'visits'] as const).map(s => (
@@ -586,17 +743,6 @@ export default function PatientsPage() {
               </button>
             ))}
           </div>
-          <button
-            onClick={() => setAddModalOpen(true)}
-            className="flex items-center gap-1.5 text-xs bg-[var(--blue)] text-white
-                       px-3 py-1.5 rounded-full font-medium hover:bg-[var(--blue-dk)]
-                       active:scale-95 transition-all shrink-0"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Add Patient
-          </button>
         </div>
         <div className="flex gap-2 flex-wrap">
           {(['today', 'week', 'month'] as const).map(f => (
@@ -621,9 +767,20 @@ export default function PatientsPage() {
                      focus:outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
                      bg-white transition-colors"
         />
+        </>
+        )}
       </div>
 
-      {/* Patient list */}
+      {/* Table view */}
+      {viewMode === 'table' ? (
+        <PatientTable
+          profiles={trackedProfiles}
+          onSave={handleTableSave}
+          onGenerate={p => setGenerateFor(p)}
+          onDelete={p => setTableDeleteTarget(p)}
+        />
+      ) : (
+      /* Patient list (cards) */
       <div className="flex-1 overflow-y-auto scrollbar-none pb-tabbar">
         {/* An interrupted recording that never got a patient name lives only in
             the recovery draft (not in progress_notes, so it can't group like a
@@ -720,16 +877,32 @@ export default function PatientsPage() {
           ))
         )}
       </div>
+      )}
 
-      <PatientModal
+      <AddPatientModal
         open={addModalOpen}
-        patient={undefined}
-        onSave={saved => {
+        onSaved={saved => {
           if (saved.id) setProfiles(prev => ({ ...prev, [saved.id!]: saved }))
           setAddModalOpen(false)
+          setViewMode('table')
         }}
         onClose={() => setAddModalOpen(false)}
       />
+
+      {renderGenerateFlow()}
+
+      {/* Table-view delete confirmation */}
+      <Modal open={!!tableDeleteTarget} onClose={() => setTableDeleteTarget(null)} title="Delete Patient" maxWidth="sm">
+        <div className="px-5 pb-5 space-y-4">
+          <p className="text-sm text-[var(--text2)]">
+            Permanently delete <strong>{tableDeleteTarget?.displayName}</strong> and all their data? This cannot be undone.
+          </p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" onClick={() => setTableDeleteTarget(null)}>Cancel</Button>
+            <Button variant="danger" onClick={confirmDeleteTracked}>Delete</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

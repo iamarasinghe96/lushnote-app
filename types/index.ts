@@ -253,6 +253,24 @@ interface PatientProfile {
   displayName: string
   dob?: string              // DD/MM/YYYY
   gender?: 'male' | 'female' | 'other' | 'prefer-not-to-say'
+  // Structured inpatient/tracked-patient clinical fields. Populated via the
+  // "Add Patient" dictation flow (Groq extraction) or edited directly in the
+  // Patients Table view. A profile carrying a UR number (or `tracked`) is a
+  // tracked patient and appears in the Table view. patientProfiles has no
+  // Firestore-rules validation, so these fields need no rules change.
+  urNumber?: string
+  bedNumber?: string
+  presentingIssue?: string
+  currentIssues?: string
+  managementIP?: string
+  pastMedicalHistory?: string
+  medications?: string
+  bloodsPathology?: string
+  imaging?: string
+  plan?: string
+  status?: string
+  tracked?: boolean         // added via Add Patient / promoted into the Table view
+  updatedAt?: number        // client epoch ms of the last edit
 }
 
 // Derived from notes - not stored in Firestore

@@ -120,6 +120,77 @@ ${transcript}`
       }
     }
 
+    // Patient intake — Groq-only extraction (same plumbing as letters/forms):
+    // a doctor dictates a "reading note" for a new tracked patient and we pull
+    // the structured clinical fields. No uid/quota tracking; no note is stored
+    // here — the caller saves the result onto the patient profile.
+    if (mode === 'patient-intake' && transcript) {
+      if (typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 300000) {
+        return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })
+      }
+      const systemInstruction = `You are an expert medical scribe transcribing a doctor's spoken "reading note" about an inpatient into structured fields. Extract each field accurately from the dictation. The doctor may speak in any order and use informal language. Never fabricate information — use "" for anything not mentioned.
+
+DOSES & NUMBERS — CRITICAL FOR SAFETY:
+- Write every dose EXACTLY as dictated. Convert spoken numbers to digits precisely ("one thousand" → 1000, "eighty one" → 81). Never round, drop, or add a digit. Append "mg" only to a bare number that is clearly a milligram strength.
+- Do NOT correct, guess, or substitute drug names.
+
+STYLE:
+- Rewrite each field into concise, professional clinical prose (not word-for-word dictation). Preserve all clinical facts, names, and figures exactly.
+- Where a field is naturally a list (medications, current issues, plan), put one item per line.`
+
+      const intakePrompt = `Extract information from this doctor's dictation about a patient into the fields below.
+
+FIELD GUIDE:
+- dob: Patient date of birth DD/MM/YYYY, else "" (leave "" if only an age is given)
+- bedNumber: Ward and/or bed number if stated, else ""
+- presentingIssue: The reason for presentation / admission, else ""
+- currentIssues: The active problems being managed now (one per line if several), else ""
+- managementIP: Inpatient management to date, else ""
+- pastMedicalHistory: Relevant past medical, psychiatric, or surgical history, else ""
+- medications: Current medications with doses, one per line as "Name Dose Frequency" (preserve doses EXACTLY), else ""
+- bloodsPathology: Relevant blood results and pathology, else ""
+- imaging: Relevant imaging findings, else ""
+- plan: Ongoing plan and next steps (one per line if several), else ""
+
+Return ONLY valid JSON — no markdown, no explanation, no extra text:
+{
+  "dob": "",
+  "bedNumber": "",
+  "presentingIssue": "",
+  "currentIssues": "",
+  "managementIP": "",
+  "pastMedicalHistory": "",
+  "medications": "",
+  "bloodsPathology": "",
+  "imaging": "",
+  "plan": ""
+}
+
+DICTATION:
+${transcript}`
+
+      const groqKey = req.headers.get('x-groq-key')
+      if (!groqKey) {
+        return NextResponse.json({ error: 'A Groq API key is required to transcribe patient details. Add one in Settings > API Keys.' }, { status: 401 })
+      }
+      try {
+        const { content } = await generateNoteGroq(intakePrompt, systemInstruction, groqKey)
+        const jsonMatch = content.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          const patientFields = JSON.parse(repairJsonControlChars(jsonMatch[0])) as Record<string, unknown>
+          return NextResponse.json({ patientFields })
+        }
+        return NextResponse.json({ error: 'Could not parse AI response' }, { status: 500 })
+      } catch (err) {
+        if (err instanceof Error && err.message.startsWith('429:')) {
+          const waitSeconds = parseGroqWaitSeconds(err.message)
+          return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
+        }
+        const msg = err instanceof Error ? err.message : 'Patient transcription failed'
+        return NextResponse.json({ error: msg }, { status: 500 })
+      }
+    }
+
     // Letter AI generation — Groq-only, transient, no uid/quota tracking
     if (mode === 'letter' && letterType && transcript) {
       if (typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 300000) {
