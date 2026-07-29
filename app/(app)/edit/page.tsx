@@ -12,7 +12,7 @@ import { getHospitalForm } from '@/lib/firestore/hospitalForms'
 import HospitalFormView from '@/components/hospital-form/HospitalFormView'
 import { registerReloadGuard } from '@/lib/reloadGuard'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildTemplatePrompt, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, parseNoteTemplate, serializeLetterData, parseLetterData, buildLetterText, parseHospitalFormData, notePatientDob } from '@/lib/utils'
+import { buildTemplatePrompt, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, parseNoteTemplate, serializeLetterData, parseLetterData, buildLetterText, parseHospitalFormData, notePatientDob, smartCapitalizeLines } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import Input from '@/components/ui/Input'
@@ -1647,13 +1647,21 @@ function EditContent() {
           ...(patientName !== undefined && { patientName: String(patientName) }),
           ...(dob !== undefined && { dob: String(dob) }),
         })
-        if (letterType === 'referral') store.setReferralFields(typeFields as Parameters<typeof store.setReferralFields>[0])
-        else if (letterType === 'records') store.setRecordsFields(typeFields as Parameters<typeof store.setRecordsFields>[0])
-        else if (letterType === 'freetext') store.setFreetextFields(typeFields as Parameters<typeof store.setFreetextFields>[0])
+        // Smart-capitalise the AI-extracted prose fields. The model often mirrors
+        // the (lower-cased) dictation, so a medication list or history comes back
+        // starting lower-case; capitalise the first letter of each line.
+        const capKeys = (obj: Record<string, unknown>, keys: string[]): Record<string, unknown> => {
+          const out = { ...obj }
+          for (const k of keys) if (typeof out[k] === 'string') out[k] = smartCapitalizeLines(out[k] as string)
+          return out
+        }
+        if (letterType === 'referral') store.setReferralFields(capKeys(typeFields, ['presentingComplaint', 'secondParagraph', 'referralReason', 'pastMedicalHistory', 'medicationList', 'admissionUnit']) as Parameters<typeof store.setReferralFields>[0])
+        else if (letterType === 'records') store.setRecordsFields(capKeys(typeFields, ['secondParagraphRecords', 'recordsLocation']) as Parameters<typeof store.setRecordsFields>[0])
+        else if (letterType === 'freetext') store.setFreetextFields(capKeys(typeFields, ['freeTextContent']) as Parameters<typeof store.setFreetextFields>[0])
         else if (letterType === 'custom' && sections && typeof sections === 'object') {
           const secMap = sections as Record<string, unknown>
           store.setCustomLetterSections(
-            store.customLetterSections.map(s => ({ ...s, content: secMap[s.key] !== undefined ? String(secMap[s.key]) : s.content }))
+            store.customLetterSections.map(s => ({ ...s, content: secMap[s.key] !== undefined ? smartCapitalizeLines(String(secMap[s.key])) : s.content }))
           )
         }
         setLetterToast('Fields populated from transcript')
@@ -2466,6 +2474,7 @@ function EditContent() {
                     label={letterType === 'freetext' ? 'Subject' : 'Patient name'}
                     value={letterCommonFields.patientName}
                     onChange={e => store.setLetterCommonFields({ patientName: e.target.value })}
+                    autoCapitalize={letterType === 'freetext' ? 'sentences' : 'words'}
                     className={letterType !== 'freetext' && letterPatientDuplicate
                       ? '!border-amber-500 focus:!border-amber-500 focus:!ring-amber-500/20'
                       : ''}
@@ -2490,6 +2499,7 @@ function EditContent() {
                     label="To (recipient name or organisation)"
                     value={letterCommonFields.recipientName}
                     onChange={e => store.setLetterCommonFields({ recipientName: e.target.value })}
+                    autoCapitalize="words"
                   />
                   <div>
                     <label className="block text-xs font-medium text-[var(--text)] mb-1">Recipient address (optional)</label>
@@ -2499,6 +2509,7 @@ function EditContent() {
                         value={letterCommonFields.recipientAddress}
                         onChange={e => store.setLetterCommonFields({ recipientAddress: e.target.value })}
                         placeholder="e.g. 79 High St, Wodonga VIC 3690"
+                        autoCapitalize="words"
                         className="w-0 flex-1 rounded-[var(--r)] border border-[var(--border)] bg-white px-3 py-2 text-sm
                                    text-[var(--text)] placeholder:text-[var(--text3)] outline-none
                                    focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 resize-none"

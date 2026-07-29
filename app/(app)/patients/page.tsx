@@ -4,13 +4,14 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatient } from '@/lib/utils'
+import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatient, TRACKED_CLINICAL_FIELDS } from '@/lib/utils'
 import { getPatientProfiles, deletePatientProfile, savePatientProfile } from '@/lib/firestore/patients'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
 import { getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { GenderAvatar } from '@/components/ui/GenderAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
+import Textarea from '@/components/ui/Textarea'
 import PatientModal from '@/components/modals/PatientModal'
 import AddPatientModal from '@/components/modals/AddPatientModal'
 import PatientTable from '@/components/patients/PatientTable'
@@ -116,9 +117,17 @@ function SessionCard({ note, isLatest, onClick, onDelete }: SessionCardProps) {
   )
 }
 
+// Editable fields shown on the expandable card section (mirrors the Table view).
+const CARD_FIELDS: { key: keyof PatientProfile; label: string }[] = [
+  { key: 'urNumber', label: 'UR number' },
+  { key: 'status', label: 'Status' },
+  ...TRACKED_CLINICAL_FIELDS.map(f => ({ key: f.key, label: f.label })),
+]
+
 interface PatientDetailProps {
   patient: PatientGroup
   profile?: PatientProfile
+  editableProfile: PatientProfile
   notes: Note[]
   onBack: () => void
   onLoadNote: (noteId: string) => void
@@ -126,11 +135,36 @@ interface PatientDetailProps {
   onEditPatient: () => void
   onDeletePatient: () => void
   onGenerate: () => void
+  onSaveFields: (patch: Partial<PatientProfile>) => void
 }
 
-function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNote, onEditPatient, onDeletePatient, onGenerate }: PatientDetailProps) {
+function PatientDetail({ patient, profile, editableProfile, notes, onBack, onLoadNote, onDeleteNote, onEditPatient, onDeletePatient, onGenerate, onSaveFields }: PatientDetailProps) {
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null)
   const [confirmDeletePatient, setConfirmDeletePatient] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  // Local edit overlay for the expandable fields (mirrors the Table view): keeps
+  // typing responsive and debounces the save.
+  const [draft, setDraft] = useState<Partial<PatientProfile>>({})
+  const pendingRef = useRef<Partial<PatientProfile>>({})
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function fieldValue(key: keyof PatientProfile): string {
+    if (key in draft) return String(draft[key] ?? '')
+    const v = editableProfile[key]
+    return typeof v === 'string' ? v : ''
+  }
+  function flushFields() {
+    if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
+    const patch = pendingRef.current
+    if (patch && Object.keys(patch).length) { onSaveFields(patch); pendingRef.current = {} }
+  }
+  function editField(key: keyof PatientProfile, value: string) {
+    setDraft(prev => ({ ...prev, [key]: value }))
+    pendingRef.current = { ...pendingRef.current, [key]: value }
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(flushFields, 800)
+  }
+  useEffect(() => () => flushFields(), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sortedNotes = useMemo(() =>
     [...notes].sort((a, b) => compareDateStrs(b.date, a.date)),
@@ -184,7 +218,14 @@ function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNo
                 )}
               </div>
             </div>
-            <div className="flex gap-2 shrink-0">
+            <div className="flex flex-wrap gap-2 shrink-0 justify-end">
+              <button
+                onClick={onGenerate}
+                className="text-xs bg-[#10b981] text-white
+                           px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-[#059669] active:scale-95 transition-all"
+              >
+                Generate
+              </button>
               <button
                 onClick={onEditPatient}
                 className="text-xs border border-[var(--blue)] text-[var(--blue)]
@@ -222,17 +263,36 @@ function PatientDetail({ patient, profile, notes, onBack, onLoadNote, onDeleteNo
           </div>
 
           <button
-            onClick={onGenerate}
-            className="mt-4 w-full flex items-center justify-center gap-2 bg-[#10b981] text-white
-                       py-2.5 rounded-[var(--r)] text-sm font-semibold hover:bg-[#059669]
-                       active:scale-[0.98] transition-all"
+            onClick={() => { if (expanded) flushFields(); setExpanded(e => !e) }}
+            className="mt-4 w-full flex items-center justify-center gap-1.5 border border-[var(--border)]
+                       text-[var(--text2)] py-2 rounded-[var(--r)] text-sm font-medium
+                       hover:border-[var(--blue)] hover:text-[var(--blue)] active:scale-[0.99] transition-all"
+            aria-expanded={expanded}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15h6"/>
+            {expanded ? 'Hide patient details' : 'Show & edit all patient details'}
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                 className={`transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden>
+              <polyline points="6 9 12 15 18 9"/>
             </svg>
-            Generate a document
           </button>
+
+          {expanded && (
+            <div className="mt-3 pt-3 border-t border-[var(--border)] space-y-3">
+              {CARD_FIELDS.map(f => (
+                <Textarea
+                  key={f.key as string}
+                  label={f.label}
+                  autoResize
+                  rows={1}
+                  value={fieldValue(f.key)}
+                  onChange={e => editField(f.key, e.target.value)}
+                  onBlur={flushFields}
+                  autoCapitalize={f.key === 'urNumber' || f.key === 'dob' ? 'none' : 'sentences'}
+                  maxLength={6000}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Sessions section */}
@@ -601,6 +661,31 @@ export default function PatientsPage() {
     }
   }
 
+  // Editing the expandable fields on a patient's card writes to their profile,
+  // creating one lazily for a note-only patient. A ref holds the profile id for
+  // the current patient so rapid edits update one doc instead of creating many.
+  const editProfileIdRef = useRef<string | null>(null)
+  useEffect(() => { editProfileIdRef.current = selectedProfile?.id ?? null }, [selectedPatient?.key, selectedProfile?.id])
+
+  async function handleSaveSelectedFields(patch: Partial<PatientProfile>) {
+    if (!user || !selectedPatient) return
+    const existingId = editProfileIdRef.current
+    const base: PatientProfile = existingId && profiles[existingId]
+      ? profiles[existingId]
+      : {
+          displayName: selectedPatient.name,
+          ...(selectedPatient.reg ? { urNumber: selectedPatient.reg } : {}),
+          ...(selectedPatient.dob ? { dob: selectedPatient.dob } : {}),
+          ...(selectedPatient.gender ? { gender: selectedPatient.gender } : {}),
+        }
+    const merged: PatientProfile = { ...base, ...patch, tracked: true, updatedAt: Date.now(), ...(existingId ? { id: existingId } : {}) }
+    try {
+      const id = await savePatientProfile(user.uid, merged)
+      editProfileIdRef.current = id
+      setProfiles(prev => ({ ...prev, [id]: { ...merged, id } }))
+    } catch { /* kept in the card's draft; retried on the next edit */ }
+  }
+
   // The letter/note picker for the per-patient "Generate" button. Rendered in both
   // the list/table view and the drilled-in detail view (which returns early).
   function renderGenerateFlow() {
@@ -630,11 +715,18 @@ export default function PatientsPage() {
         <PatientDetail
           patient={selectedPatient}
           profile={selectedProfile}
+          editableProfile={selectedProfile ?? {
+            displayName: selectedPatient.name,
+            ...(selectedPatient.reg ? { urNumber: selectedPatient.reg } : {}),
+            ...(selectedPatient.dob ? { dob: selectedPatient.dob } : {}),
+            ...(selectedPatient.gender ? { gender: selectedPatient.gender } : {}),
+          }}
           notes={patientNotes}
           onBack={() => setSelectedPatient(null)}
           onLoadNote={handleLoadNote}
           onDeleteNote={handleDeleteNote}
           onEditPatient={handleEditPatient}
+          onSaveFields={handleSaveSelectedFields}
           onGenerate={() => setGenerateFor(selectedProfile ?? {
             displayName: selectedPatient.name,
             ...(selectedPatient.reg ? { urNumber: selectedPatient.reg } : {}),

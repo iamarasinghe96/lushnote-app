@@ -779,6 +779,20 @@ export const TRACKED_CLINICAL_FIELDS: { key: keyof PatientProfile; label: string
   { key: 'plan', label: 'Plan', hint: 'Ongoing plan and next steps' },
 ]
 
+// Capitalise the first letter of every non-empty line (a deterministic "smart
+// capitalisation" for AI-extracted letter fields — medication lists, past
+// history, prose paragraphs — which the model often returns lower-cased because
+// the dictation was). Only a leading LOWERCASE LETTER is changed: lines that
+// start with a digit or symbol (e.g. "2 units insulin") are left untouched, and
+// the rest of each line is preserved exactly.
+export function smartCapitalizeLines(text: string): string {
+  if (!text) return text
+  return text.split('\n').map(line => {
+    const m = line.match(/^(\s*)([a-z])(.*)$/s)
+    return m ? `${m[1]}${m[2].toUpperCase()}${m[3]}` : line
+  }).join('\n')
+}
+
 // A profile is "tracked" (shown in the Table view, gets a Generate button) once
 // it carries a UR number, was explicitly added via Add Patient, or has any
 // structured clinical field filled in.

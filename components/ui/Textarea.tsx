@@ -9,7 +9,7 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   autoResize?: boolean
 }
 
-export default function Textarea({ label, error, hint, autoResize, className = '', id, rows = 4, ...rest }: TextareaProps) {
+export default function Textarea({ label, error, hint, autoResize, autoCapitalize = 'sentences', autoCorrect = 'on', className = '', id, rows = 4, ...rest }: TextareaProps) {
   const inputId = id ?? (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined)
   const ref = useRef<HTMLTextAreaElement>(null)
 
@@ -34,6 +34,8 @@ export default function Textarea({ label, error, hint, autoResize, className = '
         ref={ref}
         id={inputId}
         rows={rows}
+        autoCapitalize={autoCapitalize}
+        autoCorrect={autoCorrect}
         className={`
           w-full rounded-[var(--r)] border border-[var(--border)] bg-white
           px-3 py-2.5 text-sm text-[var(--text)] placeholder:text-[var(--text3)]
