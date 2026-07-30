@@ -6,7 +6,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { savePatientProfile } from '@/lib/firestore/patients'
 import { useAuth } from '@/hooks/useAuth'
-import { formatDob } from '@/lib/utils'
+import { formatDob, capitalizeName } from '@/lib/utils'
 import type { PatientProfile } from '@/types'
 
 interface PatientModalProps {
@@ -70,9 +70,10 @@ export default function PatientModal({ open, patient, regNumber, firstSeen, onSa
         <Input
           label="Display name"
           value={displayName}
-          onChange={e => { setDisplayName(e.target.value); setNameError(null) }}
+          onChange={e => { setDisplayName(capitalizeName(e.target.value)); setNameError(null) }}
           error={nameError ?? undefined}
           placeholder="e.g. Jane Smith"
+          autoCapitalize="words"
           autoFocus
         />
 

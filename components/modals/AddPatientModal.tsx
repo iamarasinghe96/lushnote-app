@@ -8,7 +8,7 @@ import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useAuth } from '@/hooks/useAuth'
 import { savePatientProfile } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
-import { getGroqKey, openSettings, TRACKED_CLINICAL_FIELDS } from '@/lib/utils'
+import { getGroqKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName } from '@/lib/utils'
 import type { PatientProfile } from '@/types'
 
 interface AddPatientModalProps {
@@ -191,7 +191,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
             <Input
               label="Patient name"
               value={name}
-              onChange={e => { setName(e.target.value); setNameError(null) }}
+              onChange={e => { setName(capitalizeName(e.target.value)); setNameError(null) }}
               error={nameError ?? undefined}
               placeholder="e.g. Jane Smith"
               autoCapitalize="words"

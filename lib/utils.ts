@@ -795,6 +795,14 @@ export function smartCapitalizeLines(text: string): string {
   }).join('\n')
 }
 
+// Title-case a person's name: force the first letter of each word (and after an
+// apostrophe or hyphen) to upper-case, leaving the rest as typed. Deterministic
+// regardless of the keyboard's shift/caps-lock state — so a name typed with caps
+// lock accidentally off still comes out "Jane Smith", "O'Brien", "Smith-Jones".
+export function capitalizeName(raw: string): string {
+  return raw.replace(/(^|[\s'-])([a-z])/g, (_m, sep: string, ch: string) => sep + ch.toUpperCase())
+}
+
 // A profile is "tracked" (shown in the Table view, gets a Generate button) once
 // it carries a UR number, was explicitly added via Add Patient, or has any
 // structured clinical field filled in.
