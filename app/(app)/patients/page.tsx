@@ -343,6 +343,7 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
                     inputMode={numeric ? 'numeric' : undefined}
                     autoCapitalize={numeric ? 'none' : 'sentences'}
                     maxLength={f.key === 'dob' ? 10 : 6000}
+                    className="appearance-none !bg-white"
                   />
                 )
               })}
