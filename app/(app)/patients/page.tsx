@@ -906,7 +906,7 @@ export default function PatientsPage() {
             <div className={`grid motion-safe:transition-[grid-template-rows] motion-safe:duration-300 ease-out
               ${filtersOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
               <div className="overflow-hidden min-h-0">
-                <div className="flex flex-col items-start sm:flex-row sm:flex-wrap sm:items-center gap-2 pt-1 sm:pt-0.5 sm:pl-1">
+                <div className="flex flex-wrap items-center gap-2 pt-1 sm:pt-0.5 sm:pl-1">
                   <div className="inline-flex rounded-full border border-[var(--border)] p-0.5 bg-white shrink-0">
                     {(['cards', 'table'] as const).map(v => (
                       <button
