@@ -295,17 +295,6 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <div>
-              <p className="text-xs text-[var(--text3)] mb-0.5">Registration #</p>
-              <p className="text-sm font-semibold text-[var(--text)]">{reg || '-'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text3)] mb-0.5">First seen</p>
-              <p className="text-sm font-semibold text-[var(--text)]">{firstDate || '-'}</p>
-            </div>
-          </div>
-
           <button
             onClick={() => { if (expanded) flushFields(); setExpanded(e => !e) }}
             className="mt-4 w-full flex items-center justify-center gap-1.5 border border-[var(--border)]
@@ -323,6 +312,14 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
           {expanded && (
             <div className="mt-3 pt-3 border-t border-[var(--border)] space-y-3">
               <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div>
+                  <p className="text-xs text-[var(--text3)] mb-0.5">Registration #</p>
+                  <p className="text-sm font-semibold text-[var(--text)]">{reg || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text3)] mb-0.5">First seen</p>
+                  <p className="text-sm font-semibold text-[var(--text)]">{firstDate || '-'}</p>
+                </div>
                 <div>
                   <p className="text-xs text-[var(--text3)] mb-0.5">Last visit</p>
                   <p className="text-sm font-semibold text-[var(--text)]">{lastDate || '-'}</p>
