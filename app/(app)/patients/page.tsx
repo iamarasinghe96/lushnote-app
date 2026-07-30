@@ -304,14 +304,6 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
               <p className="text-xs text-[var(--text3)] mb-0.5">First seen</p>
               <p className="text-sm font-semibold text-[var(--text)]">{firstDate || '-'}</p>
             </div>
-            <div>
-              <p className="text-xs text-[var(--text3)] mb-0.5">Last visit</p>
-              <p className="text-sm font-semibold text-[var(--text)]">{lastDate || '-'}</p>
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs text-[var(--text3)] mb-0.5">Clinician</p>
-              <p className="text-sm font-semibold text-[var(--text)] overflow-x-auto whitespace-nowrap scrollbar-none">{clinician || '-'}</p>
-            </div>
           </div>
 
           <button
@@ -330,6 +322,16 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
 
           {expanded && (
             <div className="mt-3 pt-3 border-t border-[var(--border)] space-y-3">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div>
+                  <p className="text-xs text-[var(--text3)] mb-0.5">Last visit</p>
+                  <p className="text-sm font-semibold text-[var(--text)]">{lastDate || '-'}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-[var(--text3)] mb-0.5">Clinician</p>
+                  <p className="text-sm font-semibold text-[var(--text)] overflow-x-auto whitespace-nowrap scrollbar-none">{clinician || '-'}</p>
+                </div>
+              </div>
               {CARD_FIELDS.map(f => {
                 const numeric = f.key === 'urNumber' || f.key === 'dob'
                 return (
