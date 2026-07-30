@@ -129,6 +129,8 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
   const pendingRef = useRef<Record<string, Partial<PatientProfile>>>({})
   const timerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const seenRef = useRef<Set<string>>(new Set())
+  const rootRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   // Keep newly-added patients visible (union their ids into the selection) while
   // preserving any rows the doctor deliberately unchecked.
@@ -185,6 +187,32 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
     }
   }, [])
 
+  // Safari ignores overscroll-behavior for its pull-to-refresh, so also block the
+  // gesture directly: when the grid is scrolled to the top and the finger drags
+  // DOWN (a mostly-vertical move), swallow it. Horizontal panning and scrolling
+  // up/down within the grid are untouched. Native non-passive listener so
+  // preventDefault actually applies.
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    let startY = 0, startX = 0
+    const onStart = (e: TouchEvent) => { const t = e.touches[0]; startY = t.clientY; startX = t.clientX }
+    const onMove = (e: TouchEvent) => {
+      const sc = scrollRef.current
+      const t = e.touches[0]
+      const dy = t.clientY - startY
+      const dx = t.clientX - startX
+      const atTop = !sc || sc.scrollTop <= 0
+      if (atTop && dy > 0 && dy > Math.abs(dx)) e.preventDefault()
+    }
+    root.addEventListener('touchstart', onStart, { passive: true })
+    root.addEventListener('touchmove', onMove, { passive: false })
+    return () => {
+      root.removeEventListener('touchstart', onStart)
+      root.removeEventListener('touchmove', onMove)
+    }
+  }, [])
+
   // Flush everything on unmount so nothing typed is lost on navigation.
   useEffect(() => {
     const timers = timerRef.current
@@ -227,7 +255,7 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
   const singleFocus = rows.length === 1 ? rows[0] : null
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div ref={rootRef} className="flex flex-col h-full overflow-hidden">
       {/* Controls */}
       <div className="shrink-0 px-4 py-2 flex items-center gap-2 flex-wrap border-b border-[var(--border)] bg-white/70">
         <input
@@ -280,7 +308,7 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
           </p>
         </div>
       ) : (
-        <div className="flex-1 overflow-auto overscroll-contain scrollbar-none pb-tabbar">
+        <div ref={scrollRef} className="flex-1 overflow-auto overscroll-contain scrollbar-none pb-tabbar">
           <table className="border-collapse text-sm">
             <thead>
               <tr className="text-left">
