@@ -329,24 +329,28 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
                   <p className="text-sm font-semibold text-[var(--text)] overflow-x-auto whitespace-nowrap scrollbar-none">{clinician || '-'}</p>
                 </div>
               </div>
-              {CARD_FIELDS.map(f => {
-                const numeric = f.key === 'urNumber' || f.key === 'dob'
-                return (
-                  <Textarea
-                    key={f.key as string}
-                    label={f.label}
-                    autoResize
-                    rows={1}
-                    value={fieldValue(f.key)}
-                    onChange={e => editField(f.key, f.key === 'dob' ? formatDob(e.target.value) : e.target.value)}
-                    onBlur={flushFields}
-                    inputMode={numeric ? 'numeric' : undefined}
-                    autoCapitalize={numeric ? 'none' : 'sentences'}
-                    maxLength={f.key === 'dob' ? 10 : 6000}
-                    className="appearance-none !bg-white"
-                  />
-                )
-              })}
+              {/* Grey inset (bleeds to the card edges) so the white edit boxes pop,
+                  matching the note editor. */}
+              <div className="-mx-4 -mb-4 mt-1 px-4 py-4 bg-[var(--bg)] border-t border-[var(--border)] rounded-b-[var(--r-lg)] space-y-3">
+                {CARD_FIELDS.map(f => {
+                  const numeric = f.key === 'urNumber' || f.key === 'dob'
+                  return (
+                    <Textarea
+                      key={f.key as string}
+                      label={f.label}
+                      autoResize
+                      rows={1}
+                      value={fieldValue(f.key)}
+                      onChange={e => editField(f.key, f.key === 'dob' ? formatDob(e.target.value) : e.target.value)}
+                      onBlur={flushFields}
+                      inputMode={numeric ? 'numeric' : undefined}
+                      autoCapitalize={numeric ? 'none' : 'sentences'}
+                      maxLength={f.key === 'dob' ? 10 : 6000}
+                      className="appearance-none !bg-white"
+                    />
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>
