@@ -270,7 +270,8 @@ interface PatientProfile {
   plan?: string
   status?: string
   tracked?: boolean         // added via Add Patient / promoted into the Table view
-  updatedAt?: number        // client epoch ms of the last edit
+  createdAt?: number        // client epoch ms when the patient was added ("first seen")
+  updatedAt?: number        // client epoch ms of the last edit ("last change")
 }
 
 // Derived from notes - not stored in Firestore

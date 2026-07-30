@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback, type CSSProperties }
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatient, TRACKED_CLINICAL_FIELDS } from '@/lib/utils'
+import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatient, TRACKED_CLINICAL_FIELDS, formatDob } from '@/lib/utils'
 import { getPatientProfiles, deletePatientProfile, savePatientProfile } from '@/lib/firestore/patients'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
 import { getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
@@ -31,6 +31,10 @@ interface PatientGroup {
   dob?: string
   // True when another patient shares this name — the DOB is shown to tell them apart.
   ambiguous?: boolean
+  // Unified recency (epoch ms) for the Recent sort: newest note date OR the
+  // tracked profile's last-change/added time, whichever is later. Lets a
+  // freshly-added or freshly-generated patient (even with no dated note) rise.
+  recencyTs: number
 }
 
 function parseDateStr(s: string): Date | null {
@@ -169,6 +173,7 @@ interface PatientDetailProps {
   profile?: PatientProfile
   editableProfile: PatientProfile
   notes: Note[]
+  clinicianName?: string
   onBack: () => void
   onLoadNote: (noteId: string) => void
   onDeleteNote: (noteId: string) => void
@@ -178,7 +183,7 @@ interface PatientDetailProps {
   onSaveFields: (patch: Partial<PatientProfile>) => void
 }
 
-function PatientDetail({ patient, profile, editableProfile, notes, onBack, onLoadNote, onDeleteNote, onEditPatient, onDeletePatient, onGenerate, onSaveFields }: PatientDetailProps) {
+function PatientDetail({ patient, profile, editableProfile, notes, clinicianName, onBack, onLoadNote, onDeleteNote, onEditPatient, onDeletePatient, onGenerate, onSaveFields }: PatientDetailProps) {
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null)
   const [confirmDeletePatient, setConfirmDeletePatient] = useState(false)
   const [expanded, setExpanded] = useState(false)
@@ -210,9 +215,14 @@ function PatientDetail({ patient, profile, editableProfile, notes, onBack, onLoa
     [...notes].sort((a, b) => compareDateStrs(b.date, a.date)),
     [notes]
   )
-  const firstDate = sortedNotes[sortedNotes.length - 1]?.date || ''
-  const lastDate = sortedNotes[0]?.date || ''
-  const clinician = sortedNotes[0]?.clinician || ''
+  // Registration number is the UR number for a tracked patient. First seen = the
+  // date the patient was added (profile.createdAt); Last visit = the last change
+  // to their data (profile.updatedAt) — falling back to note dates for patients
+  // that only exist as notes.
+  const reg = profile?.urNumber || patient.reg
+  const firstDate = profile?.createdAt ? formatDateDD(new Date(profile.createdAt)) : (sortedNotes[sortedNotes.length - 1]?.date || '')
+  const lastDate = profile?.updatedAt ? formatDateDD(new Date(profile.updatedAt)) : (sortedNotes[0]?.date || '')
+  const clinician = sortedNotes[0]?.clinician || clinicianName || ''
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[var(--bg)]">
@@ -252,8 +262,8 @@ function PatientDetail({ patient, profile, editableProfile, notes, onBack, onLoa
                 {/* Marquee-scrolls a long name so it's fully readable instead of
                     being clipped under the action buttons. */}
                 <MarqueeName name={patient.name} className="text-xl font-bold text-[var(--text)]" />
-                {patient.reg && (
-                  <p className="text-sm text-[var(--text3)] mt-0.5">Registration #{patient.reg}</p>
+                {reg && (
+                  <p className="text-sm text-[var(--text3)] mt-0.5">Registration #{reg}</p>
                 )}
               </div>
             </div>
@@ -288,7 +298,7 @@ function PatientDetail({ patient, profile, editableProfile, notes, onBack, onLoa
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             <div>
               <p className="text-xs text-[var(--text3)] mb-0.5">Registration #</p>
-              <p className="text-sm font-semibold text-[var(--text)]">{patient.reg || '-'}</p>
+              <p className="text-sm font-semibold text-[var(--text)]">{reg || '-'}</p>
             </div>
             <div>
               <p className="text-xs text-[var(--text3)] mb-0.5">First seen</p>
@@ -320,19 +330,23 @@ function PatientDetail({ patient, profile, editableProfile, notes, onBack, onLoa
 
           {expanded && (
             <div className="mt-3 pt-3 border-t border-[var(--border)] space-y-3">
-              {CARD_FIELDS.map(f => (
-                <Textarea
-                  key={f.key as string}
-                  label={f.label}
-                  autoResize
-                  rows={1}
-                  value={fieldValue(f.key)}
-                  onChange={e => editField(f.key, e.target.value)}
-                  onBlur={flushFields}
-                  autoCapitalize={f.key === 'urNumber' || f.key === 'dob' ? 'none' : 'sentences'}
-                  maxLength={6000}
-                />
-              ))}
+              {CARD_FIELDS.map(f => {
+                const numeric = f.key === 'urNumber' || f.key === 'dob'
+                return (
+                  <Textarea
+                    key={f.key as string}
+                    label={f.label}
+                    autoResize
+                    rows={1}
+                    value={fieldValue(f.key)}
+                    onChange={e => editField(f.key, f.key === 'dob' ? formatDob(e.target.value) : e.target.value)}
+                    onBlur={flushFields}
+                    inputMode={numeric ? 'numeric' : undefined}
+                    autoCapitalize={numeric ? 'none' : 'sentences'}
+                    maxLength={f.key === 'dob' ? 10 : 6000}
+                  />
+                )
+              })}
             </div>
           )}
         </div>
@@ -466,6 +480,7 @@ export default function PatientsPage() {
 
   const groupedPatients = useMemo<PatientGroup[]>(() => {
     const map = new Map<string, PatientGroup>()
+    const tsOfDate = (s: string) => { const d = parseDateStr(s); return d ? d.getTime() : 0 }
 
     for (const n of notes) {
       if (!n.patient?.trim()) continue
@@ -476,27 +491,36 @@ export default function PatientsPage() {
       if (existing) {
         existing.visits++
         if (compareDateStrs(n.date, existing.lastDate) > 0) existing.lastDate = n.date
+        existing.recencyTs = Math.max(existing.recencyTs, tsOfDate(n.date))
         if (!existing.reg && n.reg_number) existing.reg = n.reg_number
         if (!existing.dob && dob) existing.dob = dob
       } else {
-        map.set(key, { key, name: n.patient.trim(), reg: n.reg_number || '', visits: 1, lastDate: n.date || '', dob: dob || undefined, ambiguous: splitNames.has(nm) })
+        map.set(key, { key, name: n.patient.trim(), reg: n.reg_number || '', visits: 1, lastDate: n.date || '', dob: dob || undefined, ambiguous: splitNames.has(nm), recencyTs: tsOfDate(n.date) })
       }
     }
 
     for (const p of Object.values(profiles)) {
       const nm = p.displayName.trim().toLowerCase()
+      const profTs = Math.max(p.updatedAt ?? 0, p.createdAt ?? 0)
+      const regFromUr = (p.urNumber ?? '').trim()
       if (splitNames.has(nm)) {
         // Attach a name-keyed profile's gender to the DOB-matching subgroup only;
         // never spawn a phantom group for an ambiguous name.
         const existing = map.get(`${nm}|${(p.dob || '').trim()}`)
-        if (existing && !existing.gender) existing.gender = p.gender
+        if (existing) {
+          if (!existing.gender) existing.gender = p.gender
+          if (regFromUr) existing.reg = regFromUr
+          existing.recencyTs = Math.max(existing.recencyTs, profTs)
+        }
       } else {
         const existing = map.get(nm)
         if (existing) {
           if (!existing.gender) existing.gender = p.gender
           if (!existing.dob) existing.dob = p.dob
+          if (regFromUr) existing.reg = regFromUr   // Registration # is the UR number
+          existing.recencyTs = Math.max(existing.recencyTs, profTs)
         } else {
-          map.set(nm, { key: nm, name: p.displayName, reg: '', visits: 0, lastDate: '', gender: p.gender, dob: p.dob })
+          map.set(nm, { key: nm, name: p.displayName, reg: regFromUr, visits: 0, lastDate: '', gender: p.gender, dob: p.dob, recencyTs: profTs })
         }
       }
     }
@@ -545,7 +569,7 @@ export default function PatientsPage() {
       list = list.filter(p => { const d = parseDateStr(p.lastDate); return d ? d >= monthAgo : false })
     }
 
-    if (sortBy === 'recent') list.sort((a, b) => compareDateStrs(b.lastDate, a.lastDate))
+    if (sortBy === 'recent') list.sort((a, b) => (b.recencyTs - a.recencyTs) || compareDateStrs(b.lastDate, a.lastDate))
     else if (sortBy === 'az') list.sort((a, b) => a.name.localeCompare(b.name))
     else if (sortBy === 'visits') list.sort((a, b) => b.visits - a.visits)
 
@@ -652,11 +676,24 @@ export default function PatientsPage() {
     try { await savePatientProfile(user.uid, merged) } catch { /* kept in state; retried on next edit */ }
   }
 
+  // Generating a document is a change to the patient — bump updatedAt so they
+  // rise to the top of Recent (and "Last visit" reflects it), even before the
+  // new note's date is saved.
+  function bumpProfileUpdated(p: PatientProfile) {
+    if (!user || !p.id) return
+    const existing = profiles[p.id]
+    if (!existing) return
+    const merged: PatientProfile = { ...existing, updatedAt: Date.now() }
+    setProfiles(prev => ({ ...prev, [p.id!]: merged }))
+    savePatientProfile(user.uid, merged).catch(() => {})
+  }
+
   // Generate a letter from a tracked patient's stored fields: assemble them into a
   // synthetic transcript and hand off to the edit page's letter generator — the
   // same path a dictated letter takes.
   function startLetterFromPatient(p: PatientProfile, type: LetterType, customTemplate?: CustomLetterTemplate | null) {
     setGenerateFor(null)
+    bumpProfileUpdated(p)
     store.resetHospitalForm()
     store.resetLetterMode()
     store.setCurrentNoteId(null)
@@ -675,12 +712,14 @@ export default function PatientsPage() {
 
   // Generate a clinical note from a tracked patient's stored fields: assemble them
   // as the transcript and run standard note generation with the chosen template.
+  // Clinician defaults to the logged-in doctor's name.
   function startClinicalNoteFromPatient(p: PatientProfile, template: AnyTemplate, noteLength: NoteLength) {
     setGenTemplateOpen(false)
     setGenerateFor(null)
+    bumpProfileUpdated(p)
     store.resetHospitalForm()
     store.resetLetterMode()
-    store.setCurrentNote({ patient: p.displayName, reg_number: p.urNumber ?? '' })
+    store.setCurrentNote({ patient: p.displayName, reg_number: p.urNumber ?? '', clinician: profile?.displayName ?? '' })
     store.setCurrentNoteId(null)
     store.setLastTranscript(buildPatientInfoText(p))
     store.setLastTranscriptMode('document')
@@ -721,7 +760,12 @@ export default function PatientsPage() {
           ...(selectedPatient.dob ? { dob: selectedPatient.dob } : {}),
           ...(selectedPatient.gender ? { gender: selectedPatient.gender } : {}),
         }
-    const merged: PatientProfile = { ...base, ...patch, tracked: true, updatedAt: Date.now(), ...(existingId ? { id: existingId } : {}) }
+    const now = Date.now()
+    const merged: PatientProfile = {
+      ...base, ...patch, tracked: true, updatedAt: now,
+      createdAt: (existingId && profiles[existingId]?.createdAt) || base.createdAt || now,
+      ...(existingId ? { id: existingId } : {}),
+    }
     try {
       const id = await savePatientProfile(user.uid, merged)
       editProfileIdRef.current = id
@@ -765,6 +809,7 @@ export default function PatientsPage() {
             ...(selectedPatient.gender ? { gender: selectedPatient.gender } : {}),
           }}
           notes={patientNotes}
+          clinicianName={profile?.displayName}
           onBack={() => setSelectedPatient(null)}
           onLoadNote={handleLoadNote}
           onDeleteNote={handleDeleteNote}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react'
-import { TRACKED_CLINICAL_FIELDS } from '@/lib/utils'
+import { TRACKED_CLINICAL_FIELDS, formatDob } from '@/lib/utils'
 import type { PatientProfile } from '@/types'
 
 interface PatientTableProps {
@@ -12,17 +12,20 @@ interface PatientTableProps {
 }
 
 type CapMode = 'none' | 'words' | 'sentences'
+type Col = { key: keyof PatientProfile; label: string; minCh: number; cap: CapMode; numeric?: boolean; format?: (v: string) => string }
 
 // Editable columns, left to right. Name is a separate sticky identity column.
-// `cap` drives the mobile keyboard's smart capitalisation per field.
-const COLUMNS: { key: keyof PatientProfile; label: string; minCh: number; cap: CapMode }[] = [
-  { key: 'urNumber', label: 'UR', minCh: 10, cap: 'none' },
+// `cap` drives smart capitalisation; `numeric` shows the number keyboard; DOB
+// auto-inserts the DD/MM/YYYY slashes.
+const COLUMNS: Col[] = [
+  { key: 'urNumber', label: 'UR', minCh: 10, cap: 'none', numeric: true },
   { key: 'status', label: 'Status', minCh: 12, cap: 'sentences' },
   ...TRACKED_CLINICAL_FIELDS.map(f => ({
     key: f.key,
     label: f.label,
     minCh: f.key === 'dob' || f.key === 'bedNumber' ? 10 : 22,
     cap: (f.key === 'dob' ? 'none' : 'sentences') as CapMode,
+    ...(f.key === 'dob' ? { numeric: true, format: formatDob } : {}),
   })),
 ]
 
@@ -82,8 +85,8 @@ async function exportPatientsPDF(rows: PatientProfile[]) {
 
 // A textarea that grows to fit its content (the "auto stretching textbox").
 function GrowCell({
-  value, onChange, onFlush, minCh, cap,
-}: { value: string; onChange: (v: string) => void; onFlush: () => void; minCh: number; cap: CapMode }) {
+  value, onChange, onFlush, minCh, cap, numeric,
+}: { value: string; onChange: (v: string) => void; onFlush: () => void; minCh: number; cap: CapMode; numeric?: boolean }) {
   const ref = useRef<HTMLTextAreaElement>(null)
   function resize() {
     const el = ref.current
@@ -105,6 +108,7 @@ function GrowCell({
       onChange={e => { onChange(e.target.value); resize() }}
       onBlur={onFlush}
       maxLength={6000}
+      inputMode={numeric ? 'numeric' : undefined}
       autoCapitalize={cap}
       autoCorrect="on"
       spellCheck
@@ -317,10 +321,11 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
                     <td key={c.key as string} className="border-b border-[var(--border)] px-1.5 py-1.5">
                       <GrowCell
                         value={cellValue(p, c.key)}
-                        onChange={v => p.id && editCell(p.id, c.key, v)}
+                        onChange={v => p.id && editCell(p.id, c.key, c.format ? c.format(v) : v)}
                         onFlush={() => p.id && flush(p.id)}
                         minCh={c.minCh}
                         cap={c.cap}
+                        numeric={c.numeric}
                       />
                     </td>
                   ))}

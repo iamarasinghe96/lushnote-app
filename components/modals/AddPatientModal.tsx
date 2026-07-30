@@ -41,10 +41,13 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
   const [phase, setPhase] = useState<Phase>('details')
   const [name, setName] = useState('')
   const [urNumber, setUrNumber] = useState('')
+  const [gender, setGender] = useState('')
+  const [urNumeric, setUrNumeric] = useState(true)
   const [nameError, setNameError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [permError, setPermError] = useState<string | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const urRef = useRef<HTMLInputElement>(null)
   const {
     duration, audioSavedMin, transcribedMin, failures, lastError, micLost,
     start, stop, error: recError,
@@ -55,6 +58,8 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
       setPhase('details')
       setName('')
       setUrNumber('')
+      setGender('')
+      setUrNumeric(true)
       setNameError(null)
       setSaving(false)
       setPermError(null)
@@ -76,11 +81,14 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
   // Table view. Returns the saved profile (with id) or null on failure.
   async function persist(extra: Partial<PatientProfile>): Promise<PatientProfile | null> {
     if (!user) return null
+    const now = Date.now()
     const profile: PatientProfile = {
       displayName: name.trim(),
       tracked: true,
-      updatedAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
       ...(urNumber.trim() ? { urNumber: urNumber.trim() } : {}),
+      ...(gender ? { gender: gender as PatientProfile['gender'] } : {}),
       ...extra,
     }
     try {
@@ -189,13 +197,53 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
               autoCapitalize="words"
               autoFocus
             />
-            <Input
-              label="UR number"
-              value={urNumber}
-              onChange={e => setUrNumber(e.target.value)}
-              placeholder="e.g. 1234567"
-              hint="Optional, but recommended — it links this record in the Table view."
-            />
+            <div className="w-full">
+              <label htmlFor="ur-number" className="block text-sm font-medium text-[var(--text)] mb-1">UR number</label>
+              <div className="relative">
+                <input
+                  id="ur-number"
+                  ref={urRef}
+                  value={urNumber}
+                  onChange={e => setUrNumber(e.target.value)}
+                  placeholder="e.g. 1234567"
+                  inputMode={urNumeric ? 'numeric' : 'text'}
+                  autoCapitalize="characters"
+                  className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white
+                             pl-3 pr-16 py-2.5 text-sm text-[var(--text)] placeholder:text-[var(--text3)]
+                             outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
+                />
+                {/* Numeric keypad by default (most URs are digits); tap to switch to
+                    the full keyboard for hospitals whose UR contains letters. */}
+                <button
+                  type="button"
+                  onClick={() => { setUrNumeric(v => !v); const el = urRef.current; if (el) { el.blur(); setTimeout(() => el.focus(), 0) } }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold
+                             px-2 py-1 rounded-[var(--r-sm)] border border-[var(--border)] text-[var(--text2)]
+                             hover:border-[var(--blue)] hover:text-[var(--blue)] active:scale-95 transition-all"
+                  aria-label={urNumeric ? 'Switch to letter keyboard' : 'Switch to number keyboard'}
+                >
+                  {urNumeric ? 'ABC' : '123'}
+                </button>
+              </div>
+              <p className="mt-1 text-xs text-[var(--text3)]">Optional, but recommended — it links this record in the Table view.</p>
+            </div>
+            <div className="w-full">
+              <label htmlFor="add-gender" className="block text-sm font-medium text-[var(--text)] mb-1">Gender</label>
+              <select
+                id="add-gender"
+                value={gender}
+                onChange={e => setGender(e.target.value)}
+                className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white
+                           px-3 py-2.5 text-sm text-[var(--text)]
+                           outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
+              >
+                <option value="">Not specified</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+                <option value="prefer-not-to-say">Prefer not to say</option>
+              </select>
+            </div>
             <div className="flex gap-2 pt-1">
               <Button variant="ghost" onClick={onClose} className="flex-1">Cancel</Button>
               <Button variant="primary" onClick={goToMethod} className="flex-1">Next</Button>
