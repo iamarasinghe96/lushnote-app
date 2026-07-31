@@ -19,6 +19,14 @@ interface AddPatientModalProps {
 
 type Phase = 'details' | 'method' | 'idle' | 'recording' | 'processing'
 
+const GENDER_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Not specified' },
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'other', label: 'Other' },
+  { value: 'prefer-not-to-say', label: 'Prefer not to say' },
+]
+
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60)
   const s = secs % 60
@@ -42,12 +50,14 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
   const [name, setName] = useState('')
   const [urNumber, setUrNumber] = useState('')
   const [gender, setGender] = useState('')
+  const [genderOpen, setGenderOpen] = useState(false)
   const [urNumeric, setUrNumeric] = useState(true)
   const [nameError, setNameError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [permError, setPermError] = useState<string | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const urRef = useRef<HTMLInputElement>(null)
+  const genderRef = useRef<HTMLDivElement>(null)
   const {
     duration, audioSavedMin, transcribedMin, failures, lastError, micLost,
     start, stop, error: recError,
@@ -59,6 +69,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
       setName('')
       setUrNumber('')
       setGender('')
+      setGenderOpen(false)
       setUrNumeric(true)
       setNameError(null)
       setSaving(false)
@@ -69,6 +80,19 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
       }
     }
   }, [open])
+
+  useEffect(() => {
+    if (!genderOpen) return
+    function onDown(e: Event) {
+      if (genderRef.current && !genderRef.current.contains(e.target as Node)) setGenderOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('touchstart', onDown)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('touchstart', onDown)
+    }
+  }, [genderOpen])
 
   function goToMethod() {
     if (!name.trim()) { setNameError('Name is required'); return }
@@ -227,22 +251,52 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
               </div>
               <p className="mt-1 text-xs text-[var(--text3)]">Optional, but recommended — it links this record in the Table view.</p>
             </div>
-            <div className="w-full">
-              <label htmlFor="add-gender" className="block text-sm font-medium text-[var(--text)] mb-1">Gender</label>
-              <select
-                id="add-gender"
-                value={gender}
-                onChange={e => setGender(e.target.value)}
-                className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white
-                           px-3 py-2.5 text-sm text-[var(--text)]
-                           outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
-              >
-                <option value="">Not specified</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-                <option value="prefer-not-to-say">Prefer not to say</option>
-              </select>
+            <div className="w-full" ref={genderRef}>
+              <label className="block text-sm font-medium text-[var(--text)] mb-1">Gender</label>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setGenderOpen(o => !o)}
+                  aria-haspopup="listbox"
+                  aria-expanded={genderOpen}
+                  className={`w-full flex items-center justify-between rounded-[var(--r)] border bg-white
+                             px-3 py-2.5 text-sm text-[var(--text)] text-left transition-colors
+                             ${genderOpen ? 'border-[var(--blue)] ring-2 ring-blue-500/10' : 'border-[var(--border)]'}`}
+                >
+                  <span>{GENDER_OPTIONS.find(o => o.value === gender)?.label ?? 'Not specified'}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                       className={`text-[var(--text3)] transition-transform ${genderOpen ? 'rotate-180' : ''}`} aria-hidden>
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </button>
+                {genderOpen && (
+                  <div
+                    role="listbox"
+                    className="absolute left-0 right-0 bottom-full mb-1 z-20 rounded-[var(--r)] border border-[var(--border)]
+                               bg-white overflow-hidden"
+                    style={{ boxShadow: '0 8px 24px rgba(15,23,42,.12), 0 0 0 1px rgba(15,23,42,.04)' }}
+                  >
+                    {GENDER_OPTIONS.map(o => (
+                      <button
+                        key={o.value || 'none'}
+                        type="button"
+                        role="option"
+                        aria-selected={gender === o.value}
+                        onClick={() => { setGender(o.value); setGenderOpen(false) }}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 text-sm text-left
+                                   transition-colors ${gender === o.value ? 'bg-[var(--blue-lt)] text-[var(--blue)] font-medium' : 'text-[var(--text)] hover:bg-[var(--bg)]'}`}
+                      >
+                        {o.label}
+                        {gender === o.value && (
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex gap-2 pt-1">
               <Button variant="ghost" onClick={onClose} className="flex-1">Cancel</Button>
