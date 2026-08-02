@@ -131,6 +131,7 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
   const seenRef = useRef<Set<string>>(new Set())
   const rootRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -156,6 +157,22 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
     // the table shows only the checked (selected) patients.
     return profiles.filter(p => (q ? matches(p) : (p.id ? selected.has(p.id) : true)))
   }, [profiles, q, selected])
+
+  // Search suggestions — clickable name chips so the doctor can pick the searched
+  // patient (dismisses the keyboard + selects them) without hunting for a checkbox
+  // (which is hidden once a single result is focused).
+  const matches = useMemo(() => {
+    if (!q) return []
+    return profiles
+      .filter(p => p.displayName.toLowerCase().includes(q) || (p.urNumber ?? '').toLowerCase().includes(q))
+      .slice(0, 12)
+  }, [profiles, q])
+
+  function selectMatch(p: PatientProfile) {
+    if (p.id) setSelected(prev => new Set(prev).add(p.id!))
+    setSearch('')
+    searchRef.current?.blur()
+  }
 
   function flush(id: string) {
     const patch = pendingRef.current[id]
@@ -286,6 +303,7 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
       {/* Controls */}
       <div className="shrink-0 px-4 py-2 flex items-center gap-2 flex-wrap border-b border-[var(--border)] bg-white/70">
         <input
+          ref={searchRef}
           type="text"
           placeholder="Search to find & check patients…"
           value={search}
@@ -323,6 +341,25 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
           ? <span className="text-xs font-semibold text-[var(--text)] truncate max-w-[40%]">{singleFocus.displayName}</span>
           : <span className="text-xs text-[var(--text3)]">{rows.length} shown</span>}
       </div>
+
+      {/* Search suggestions: tap a name to select that patient (dismisses the
+          keyboard and shows only them). */}
+      {q && matches.length > 0 && (
+        <div className="shrink-0 px-4 py-2 flex items-center gap-2 flex-wrap border-b border-[var(--border)] bg-[var(--bg)]">
+          <span className="text-[11px] text-[var(--text3)] shrink-0">Tap to select:</span>
+          {matches.map(p => (
+            <button
+              key={p.id}
+              onClick={() => selectMatch(p)}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-[var(--blue)]/40
+                         bg-white text-[var(--text)] font-medium hover:bg-[var(--blue-lt)] active:scale-95 transition-all"
+            >
+              {p.displayName}
+              {p.urNumber && <span className="text-[var(--text3)]">#{p.urNumber}</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <div className="flex-1 flex items-center justify-center px-4 text-center">
