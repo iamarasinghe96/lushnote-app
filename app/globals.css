@@ -73,6 +73,21 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 .scrollbar-none { scrollbar-width: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 
+/* Patients Table scroller: clean/hidden scrollbars on mobile (swipe), but a
+   thin, always-visible one on desktop so the horizontal overflow is obvious. */
+.ln-table-scroll { scrollbar-width: none; }
+.ln-table-scroll::-webkit-scrollbar { display: none; }
+@media (min-width: 640px) {
+  .ln-table-scroll { scrollbar-width: thin; scrollbar-color: rgba(15,23,42,.3) transparent; }
+  .ln-table-scroll::-webkit-scrollbar { display: block; height: 12px; width: 12px; }
+  .ln-table-scroll::-webkit-scrollbar-thumb {
+    background: rgba(15,23,42,.26); border-radius: 8px;
+    border: 3px solid transparent; background-clip: padding-box;
+  }
+  .ln-table-scroll::-webkit-scrollbar-thumb:hover { background: rgba(15,23,42,.42); background-clip: padding-box; }
+  .ln-table-scroll::-webkit-scrollbar-track { background: transparent; }
+}
+
 /* Preview pane */
 .preview-note { font-size: 13px; color: var(--text); line-height: 1.6; text-align: left !important; }
 .preview-header { border-bottom: 2px solid var(--border); padding-bottom: 12px; margin-bottom: 16px; }

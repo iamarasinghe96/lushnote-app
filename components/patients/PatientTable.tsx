@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react'
-import { TRACKED_CLINICAL_FIELDS, formatDob } from '@/lib/utils'
+import { TRACKED_CLINICAL_FIELDS, formatDob, buildPatientInfoText } from '@/lib/utils'
 import type { PatientProfile } from '@/types'
 
 interface PatientTableProps {
@@ -131,6 +131,8 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
   const seenRef = useRef<Set<string>>(new Set())
   const rootRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Keep newly-added patients visible (union their ids into the selection) while
   // preserving any rows the doctor deliberately unchecked.
@@ -162,6 +164,30 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
       pendingRef.current[id] = {}
     }
     if (timerRef.current[id]) { clearTimeout(timerRef.current[id]); delete timerRef.current[id] }
+  }
+
+  // Copy a patient's fields as plain "Topic: Content" lines (only filled ones),
+  // including any unsaved edits currently in the draft overlay.
+  async function copyRow(p: PatientProfile) {
+    const merged = p.id && drafts[p.id] ? { ...p, ...drafts[p.id] } : p
+    const text = buildPatientInfoText(merged)
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      try { document.execCommand('copy') } catch { /* ignore */ }
+      document.body.removeChild(ta)
+    }
+    if (p.id) {
+      setCopiedId(p.id)
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+      copyTimerRef.current = setTimeout(() => setCopiedId(null), 1600)
+    }
   }
 
   function editCell(id: string, key: keyof PatientProfile, value: string) {
@@ -219,6 +245,7 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
     const pending = pendingRef.current
     return () => {
       Object.keys(timers).forEach(id => clearTimeout(timers[id]))
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
       Object.entries(pending).forEach(([id, patch]) => {
         if (patch && Object.keys(patch).length) onSave(id, patch)
       })
@@ -255,7 +282,7 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
   const singleFocus = rows.length === 1 ? rows[0] : null
 
   return (
-    <div ref={rootRef} className="flex flex-col h-full overflow-hidden">
+    <div ref={rootRef} className="flex flex-col h-full overflow-hidden pb-tabbar">
       {/* Controls */}
       <div className="shrink-0 px-4 py-2 flex items-center gap-2 flex-wrap border-b border-[var(--border)] bg-white/70">
         <input
@@ -308,7 +335,7 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
           </p>
         </div>
       ) : (
-        <div ref={scrollRef} className="flex-1 overflow-auto overscroll-contain scrollbar-none pb-tabbar">
+        <div ref={scrollRef} className="flex-1 overflow-auto overscroll-contain ln-table-scroll">
           <table className="border-collapse text-sm">
             <thead>
               <tr className="text-left">
@@ -365,6 +392,16 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
                                    hover:bg-[#059669] active:scale-95 transition-all"
                       >
                         Generate
+                      </button>
+                      <button
+                        onClick={() => copyRow(p)}
+                        className={`text-xs px-2.5 py-1.5 rounded-[var(--r-sm)] font-medium border active:scale-95 transition-all
+                          ${p.id && copiedId === p.id
+                            ? 'border-[#10b981] text-[#10b981] bg-[#10b981]/10'
+                            : 'border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)]'}`}
+                        aria-label={`Copy ${p.displayName}'s details`}
+                      >
+                        {p.id && copiedId === p.id ? 'Copied' : 'Copy'}
                       </button>
                       <button
                         onClick={() => onDelete(p)}
