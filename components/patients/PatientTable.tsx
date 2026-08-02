@@ -395,13 +395,23 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
                       </button>
                       <button
                         onClick={() => copyRow(p)}
-                        className={`text-xs px-2.5 py-1.5 rounded-[var(--r-sm)] font-medium border active:scale-95 transition-all
+                        title="Copy details"
+                        className={`shrink-0 w-8 h-8 rounded-[var(--r-sm)] border flex items-center justify-center active:scale-95 transition-all
                           ${p.id && copiedId === p.id
                             ? 'border-[#10b981] text-[#10b981] bg-[#10b981]/10'
                             : 'border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)]'}`}
                         aria-label={`Copy ${p.displayName}'s details`}
                       >
-                        {p.id && copiedId === p.id ? 'Copied' : 'Copy'}
+                        {p.id && copiedId === p.id ? (
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        ) : (
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                            <rect x="9" y="9" width="11" height="11" rx="2"/>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                          </svg>
+                        )}
                       </button>
                       <button
                         onClick={() => onDelete(p)}
