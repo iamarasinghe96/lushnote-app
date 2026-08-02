@@ -916,6 +916,9 @@ function EditContent() {
   // name (two David Millars). Flag an exact name match so the doctor can confirm
   // it's the same person or rename to keep the records separate.
   const letterPatientDuplicate = useMemo<PatientEntry | null>(() => {
+    // Generated from (or re-opened for) a known patient — it IS that patient, so
+    // the "same name already exists" warning doesn't apply.
+    if (store.letterForKnownPatient) return null
     const q = (letterCommonFields.patientName ?? '').trim().toLowerCase()
     if (!q) return null
     const match = patientIndex.find(p => p.name.toLowerCase() === q)
@@ -934,7 +937,7 @@ function EditContent() {
       if (knownDobs.size > 0 && knownDobs.has(letterDob)) return null
     }
     return match
-  }, [letterCommonFields.patientName, letterCommonFields.dob, patientIndex, allNotes])
+  }, [letterCommonFields.patientName, letterCommonFields.dob, patientIndex, allNotes, store.letterForKnownPatient])
 
   function handlePatientInput(value: string) {
     setField('patient', value)

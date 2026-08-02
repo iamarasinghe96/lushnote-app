@@ -40,6 +40,10 @@ interface NoteStore {
   activeLetterhead: LetterheadDoc | null
   letterType: LetterType | null
   pendingLetterGeneration: boolean
+  // The letter is being written for an already-known patient (e.g. Generated from
+  // that patient's own card), so the duplicate-name "Heads up" warning is
+  // irrelevant and suppressed. Cleared by resetLetterMode.
+  letterForKnownPatient: boolean
   letterCommonFields: LetterCommonFields
   referralFields: ReferralFields
   recordsFields: RecordsFields
@@ -73,6 +77,7 @@ interface NoteStore {
   setActiveLetterhead: (lh: LetterheadDoc | null) => void
   setLetterType: (type: LetterType | null) => void
   setPendingLetterGeneration: (v: boolean) => void
+  setLetterForKnownPatient: (v: boolean) => void
   setLetterCommonFields: (fields: Partial<LetterCommonFields>) => void
   setReferralFields: (fields: Partial<ReferralFields>) => void
   setRecordsFields: (fields: Partial<RecordsFields>) => void
@@ -102,6 +107,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   const [activeLetterhead, setActiveLetterhead] = useState<LetterheadDoc | null>(null)
   const [letterType, setLetterType] = useState<LetterType | null>(null)
   const [pendingLetterGeneration, setPendingLetterGeneration] = useState(false)
+  const [letterForKnownPatient, setLetterForKnownPatient] = useState(false)
   const [letterCommonFields, setLetterCommonFieldsState] = useState<LetterCommonFields>(DEFAULT_LETTER_COMMON)
   const [referralFields, setReferralFieldsState] = useState<ReferralFields>(DEFAULT_REFERRAL)
   const [recordsFields, setRecordsFieldsState] = useState<RecordsFields>(DEFAULT_RECORDS)
@@ -136,6 +142,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   function resetLetterMode() {
     setLetterType(null)
     setPendingLetterGeneration(false)
+    setLetterForKnownPatient(false)
     setLetterCommonFieldsState(DEFAULT_LETTER_COMMON)
     setReferralFieldsState(DEFAULT_REFERRAL)
     setRecordsFieldsState(DEFAULT_RECORDS)
@@ -167,6 +174,8 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       letterType,
       pendingLetterGeneration,
       setPendingLetterGeneration,
+      letterForKnownPatient,
+      setLetterForKnownPatient,
       letterCommonFields,
       referralFields,
       recordsFields,
@@ -228,6 +237,7 @@ export function hydrateLetterFromNote(store: NoteStore, note: Note): boolean {
   store.setCustomLetterTemplate(data.customTemplate ?? null)
   store.setCustomLetterSections(data.customSections ?? [])
   store.setPendingLetterGeneration(false)
+  store.setLetterForKnownPatient(true)   // re-opening an existing letter → no duplicate-name warning
   store.setCurrentNoteId(note.id ?? null)
   if (note.transcript) {
     store.setLastTranscript(note.transcript)

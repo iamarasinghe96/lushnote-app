@@ -710,6 +710,7 @@ export default function PatientsPage() {
       store.setCustomLetterSections(customTemplate.sections.map(s => ({ key: s.key, heading: s.heading, content: '' })))
     }
     store.setLetterCommonFields({ letterDate: todayStr(), patientName: p.displayName, dob: p.dob ?? '' })
+    store.setLetterForKnownPatient(true)   // it's this patient's own card — no duplicate-name warning
     store.setPendingLetterGeneration(true)
     router.push('/edit')
   }
