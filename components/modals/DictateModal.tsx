@@ -432,7 +432,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
               </>
             )}
             <p className="text-[11px] text-[var(--text3)] text-center">
-              Keep this app open and the screen on while recording — switching apps or locking the phone can stop it (especially on Android).
+              Keep LushNote on-screen while recording. If you need another app, use <span className="font-medium text-[var(--text2)]">split-screen</span> so this stays visible — locking the phone or fully switching apps can stop the recording (especially on Android).
             </p>
             <Button onClick={handleStart} variant="primary" className="w-full">
               Start dictating
@@ -458,11 +458,11 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
               {micLost ? 'Paused — waiting for the microphone…' : (letterType || hospitalForm) ? `Dictating your ${selectedLabel?.toLowerCase()}…` : 'Dictating…'}
             </p>
             {!micLost && (
-              <p className="text-[11px] text-[var(--text3)]">Keep this screen open — locking the phone or switching to another app can stop the recording (especially on Android).</p>
+              <p className="text-[11px] text-[var(--text3)]">Keep LushNote on-screen — to use another app, open it in <span className="font-medium text-[var(--text2)]">split-screen</span> so this stays visible. Locking the phone or fully switching apps can stop the recording (especially on Android).</p>
             )}
             {micLost && (
               <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 text-left">
-                The microphone was interrupted (e.g. a phone call, the screen was locked, or you switched apps). Everything captured so far is saved. Dictation resumes automatically when the mic is free — or tap Stop to finish now.
+                The microphone was interrupted (e.g. a phone call, the screen was locked, or you switched apps). Everything captured so far is saved. Tip: use split-screen next time so LushNote stays visible. Dictation resumes automatically when the mic is free — or tap Stop to finish now.
               </div>
             )}
             {audioSavedMin > 0 && (
