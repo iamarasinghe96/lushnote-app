@@ -231,16 +231,19 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
   }, [])
 
   // Safari ignores overscroll-behavior for its pull-to-refresh, so also block the
-  // gesture directly: when the grid is scrolled to the top and the finger drags
+  // gesture directly. A listener on an ancestor doesn't reliably stop the inner
+  // scroller's overscroll, so bind at the DOCUMENT in the CAPTURE phase (fires
+  // before the scroller handles the move) and act only for touches inside the
+  // table view: when the grid can't scroll up any further and the finger drags
   // DOWN (a mostly-vertical move), swallow it. Horizontal panning and scrolling
-  // up/down within the grid are untouched. Native non-passive listener so
-  // preventDefault actually applies.
+  // up/down within the grid are untouched.
   useEffect(() => {
-    const root = rootRef.current
-    if (!root) return
     let startY = 0, startX = 0
     const onStart = (e: TouchEvent) => { const t = e.touches[0]; startY = t.clientY; startX = t.clientX }
     const onMove = (e: TouchEvent) => {
+      const root = rootRef.current
+      if (!root || !e.cancelable) return
+      if (!root.contains(e.target as Node)) return
       const sc = scrollRef.current
       const t = e.touches[0]
       const dy = t.clientY - startY
@@ -248,11 +251,11 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
       const atTop = !sc || sc.scrollTop <= 0
       if (atTop && dy > 0 && dy > Math.abs(dx)) e.preventDefault()
     }
-    root.addEventListener('touchstart', onStart, { passive: true })
-    root.addEventListener('touchmove', onMove, { passive: false })
+    document.addEventListener('touchstart', onStart, { passive: true, capture: true })
+    document.addEventListener('touchmove', onMove, { passive: false, capture: true })
     return () => {
-      root.removeEventListener('touchstart', onStart)
-      root.removeEventListener('touchmove', onMove)
+      document.removeEventListener('touchstart', onStart, { capture: true } as EventListenerOptions)
+      document.removeEventListener('touchmove', onMove, { capture: true } as EventListenerOptions)
     }
   }, [])
 
