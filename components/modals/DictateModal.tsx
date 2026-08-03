@@ -431,6 +431,9 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
                 </ul>
               </>
             )}
+            <p className="text-[11px] text-[var(--text3)] text-center">
+              Keep this app open and the screen on while recording — switching apps or locking the phone can stop it (especially on Android).
+            </p>
             <Button onClick={handleStart} variant="primary" className="w-full">
               Start dictating
             </Button>
@@ -455,11 +458,11 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
               {micLost ? 'Paused — waiting for the microphone…' : (letterType || hospitalForm) ? `Dictating your ${selectedLabel?.toLowerCase()}…` : 'Dictating…'}
             </p>
             {!micLost && (
-              <p className="text-[11px] text-[var(--text3)]">Keep your screen on — iOS pauses recording if the phone is locked.</p>
+              <p className="text-[11px] text-[var(--text3)]">Keep this screen open — locking the phone or switching to another app can stop the recording (especially on Android).</p>
             )}
             {micLost && (
               <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 text-left">
-                The microphone was interrupted (e.g. a phone call, or the screen was locked). Everything captured so far is saved. Dictation resumes automatically when the mic is free — or tap Stop to finish now.
+                The microphone was interrupted (e.g. a phone call, the screen was locked, or you switched apps). Everything captured so far is saved. Dictation resumes automatically when the mic is free — or tap Stop to finish now.
               </div>
             )}
             {audioSavedMin > 0 && (
