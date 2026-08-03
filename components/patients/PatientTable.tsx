@@ -340,29 +340,29 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
           </svg>
           PDF
         </button>
-        {singleFocus
-          ? <span className="text-xs font-semibold text-[var(--text)] truncate max-w-[40%]">{singleFocus.displayName}</span>
-          : <span className="text-xs text-[var(--text3)]">{rows.length} shown</span>}
-      </div>
-
-      {/* Search suggestions: tap a name to select that patient (dismisses the
-          keyboard and shows only them). */}
-      {q && matches.length > 0 && (
-        <div className="shrink-0 px-4 py-2 flex items-center gap-2 flex-wrap border-b border-[var(--border)] bg-[var(--bg)]">
-          <span className="text-[11px] text-[var(--text3)] shrink-0">Tap to select:</span>
-          {matches.map(p => (
+        {/* Searching → tap a blue name button to select that patient (dismisses
+            the keyboard). Once selected, it stays a blue button where the name
+            shows. */}
+        {q && matches.length > 0 ? (
+          matches.map(p => (
             <button
               key={p.id}
               onClick={() => selectMatch(p)}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-[var(--blue)]/40
-                         bg-white text-[var(--text)] font-medium hover:bg-[var(--blue-lt)] active:scale-95 transition-all"
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-[var(--blue)] text-white
+                         font-medium hover:bg-[var(--blue-dk)] active:scale-95 transition-all"
             >
               {p.displayName}
-              {p.urNumber && <span className="text-[var(--text3)]">#{p.urNumber}</span>}
+              {p.urNumber && <span className="opacity-70">#{p.urNumber}</span>}
             </button>
-          ))}
-        </div>
-      )}
+          ))
+        ) : singleFocus ? (
+          <span className="flex items-center text-xs px-3 py-1.5 rounded-full bg-[var(--blue)] text-white font-medium max-w-full truncate">
+            {singleFocus.displayName}
+          </span>
+        ) : (
+          <span className="text-xs text-[var(--text3)]">{rows.length} shown</span>
+        )}
+      </div>
 
       {rows.length === 0 ? (
         <div className="flex-1 flex items-center justify-center px-4 text-center">
