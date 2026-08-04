@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
+import { useRecordingPiP } from '@/hooks/useRecordingPiP'
 import { useAuth } from '@/hooks/useAuth'
 import type { RecordingDefaults, LetterType, CustomLetterTemplate, HospitalFormDoc } from '@/types'
 
@@ -120,6 +121,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stopRef = useRef<(() => void) | null>(null)
   const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, micLost, start, stop, error: recError } = useSegmentedRecorder()
+  const pip = useRecordingPiP()
   const { user } = useAuth()
 
   const autoStopMinutes = recordingDefaults?.autoStop === false
@@ -129,6 +131,15 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
   useEffect(() => {
     if (open) setInterrupted(!!hasInterruptedDraft)
   }, [open, hasInterruptedDraft])
+
+  // Keep the floating window's HUD in step with the live recording.
+  useEffect(() => {
+    pip.setStatus({
+      seconds: duration,
+      micLost,
+      label: selectedLabel ? `Dictating ${selectedLabel}` : 'Dictating',
+    })
+  })
 
   useEffect(() => {
     if (!open) {
@@ -156,6 +167,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
       autoStopRef.current = null
     }
     setPhase('processing')
+    pip.teardown()
     const result = await stop()
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop())
@@ -179,6 +191,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
       clearTimeout(autoStopRef.current)
       autoStopRef.current = null
     }
+    pip.teardown()
     stop().catch(() => {})
     onClose()
   }
@@ -197,6 +210,9 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
         : letterType
       start(stream, { uid: user.uid, mode: 'dictation', letterType: recLetterType })
       setPhase('recording')
+      // Build the floating-window surface now so it's ready the instant the
+      // doctor taps (PiP rejects a video that has no metadata yet).
+      void pip.prepare()
       if (autoStopMinutes !== null) {
         autoStopRef.current = setTimeout(() => {
           setAutoStopped(true)
@@ -432,7 +448,9 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
               </>
             )}
             <p className="text-[11px] text-[var(--text3)] text-center">
-              Keep LushNote on-screen while recording. If you need another app, use <span className="font-medium text-[var(--text2)]">split-screen</span> so this stays visible — locking the phone or fully switching apps can stop the recording (especially on Android).
+              {pip.supported
+                ? 'Keep this screen on while recording. Need another app? Tap “Keep recording while I use another app” once recording starts.'
+                : 'Keep LushNote on-screen while recording. If you need another app, use split-screen so this stays visible — locking the phone or fully switching apps can stop the recording.'}
             </p>
             <Button onClick={handleStart} variant="primary" className="w-full">
               Start dictating
@@ -457,8 +475,46 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
             <p className="text-sm text-[var(--text3)]">
               {micLost ? 'Paused — waiting for the microphone…' : (letterType || hospitalForm) ? `Dictating your ${selectedLabel?.toLowerCase()}…` : 'Dictating…'}
             </p>
-            {!micLost && (
-              <p className="text-[11px] text-[var(--text3)]">Keep LushNote on-screen — to use another app, open it in <span className="font-medium text-[var(--text2)]">split-screen</span> so this stays visible. Locking the phone or fully switching apps can stop the recording (especially on Android).</p>
+            {!micLost && !pip.active && (
+              <p className="text-[11px] text-[var(--text3)]">Leaving the app can stop the recording. To use another app, open the floating window below first.</p>
+            )}
+
+            {/* Floating window: a page driving an active picture-in-picture video
+                isn't backgrounded, so the microphone keeps running when the
+                doctor switches apps. Entering it requires this tap. */}
+            {pip.supported && (
+              pip.active ? (
+                <div className="rounded-lg bg-[#10b981]/10 border border-[#10b981]/40 px-3 py-2.5 text-left space-y-2">
+                  <p className="text-xs text-[#059669] font-medium">
+                    Floating window open — you can switch apps now. Keep the little window on screen.
+                  </p>
+                  <button
+                    onClick={() => { void pip.exit() }}
+                    className="text-xs text-[var(--text2)] underline hover:text-[var(--text)] transition-colors"
+                  >
+                    Close floating window
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { void pip.enter() }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[var(--r)]
+                             border border-[#10b981]/50 text-[#059669] text-sm font-medium
+                             hover:bg-[#10b981]/10 active:scale-[0.98] transition-all"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <rect x="2" y="4" width="20" height="16" rx="2"/>
+                    <rect x="12" y="12" width="8" height="6" rx="1" fill="currentColor" stroke="none"/>
+                  </svg>
+                  Keep recording while I use another app
+                </button>
+              )
+            )}
+            {pip.error && <p className="text-[11px] text-[var(--danger)]">{pip.error}</p>}
+            {!pip.supported && !micLost && (
+              <p className="text-[11px] text-[var(--text3)]">
+                To use another app while recording, open it in <span className="font-medium text-[var(--text2)]">split-screen</span> so LushNote stays visible.
+              </p>
             )}
             {micLost && (
               <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 text-left">
