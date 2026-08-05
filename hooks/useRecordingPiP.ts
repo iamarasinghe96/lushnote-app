@@ -22,6 +22,9 @@ interface WebkitVideo extends HTMLVideoElement {
   webkitSupportsPresentationMode?: (mode: string) => boolean
   webkitSetPresentationMode?: (mode: string) => void
   webkitPresentationMode?: string
+  // Standard PiP attribute: browsers that honour it pop the window open by
+  // themselves when the page is hidden. Not in lib.dom yet.
+  autoPictureInPicture?: boolean
 }
 
 export interface PiPStatus {
@@ -64,6 +67,9 @@ export function useRecordingPiP() {
   // Latest status, read by the draw loop — a ref so the loop never restarts
   // (and never goes stale) as the timer ticks.
   const statusRef = useRef<PiPStatus>({ seconds: 0, micLost: false, label: 'Dictating' })
+  // True while a recording is live, so the visibility handler knows it may
+  // open the window on its own.
+  const armedRef = useRef(false)
 
   useEffect(() => { setSupported(detectSupport()) }, [])
 
@@ -138,6 +144,10 @@ export function useRecordingPiP() {
       video.autoplay = true
       video.playsInline = true
       video.setAttribute('playsinline', '')
+      // Browsers that implement this open the floating window themselves the
+      // moment the page is hidden — the seamless path, no gesture involved.
+      video.autoPictureInPicture = true
+      video.setAttribute('autopictureinpicture', '')
       // PiP needs the element in the document; display:none would disqualify it,
       // so park it as a 1px, non-interactive, invisible element instead.
       video.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;'
@@ -152,36 +162,50 @@ export function useRecordingPiP() {
 
       await video.play().catch(() => { /* muted autoplay; retried on enter() */ })
 
+      // PiP rejects a video whose metadata hasn't loaded, so settle that here —
+      // enter() is called straight after and must not lose the user's gesture.
+      await new Promise<void>(resolve => {
+        if (video.readyState >= 1) { resolve(); return }
+        const done = () => resolve()
+        video.addEventListener('loadedmetadata', done, { once: true })
+        setTimeout(done, 1200)
+      })
+
       // Two drivers so the HUD keeps ticking: rAF while visible (smooth), and an
       // interval that survives backgrounding (throttled, but ~1s is plenty).
       const loop = () => { draw(); rafRef.current = requestAnimationFrame(loop) }
       rafRef.current = requestAnimationFrame(loop)
       tickRef.current = setInterval(draw, 1000)
+      armedRef.current = true
     } catch {
       setError('Could not start the floating window.')
     }
   }, [draw])
 
-  const enter = useCallback(async () => {
+  // `silent` is used by the automatic attempts: browsers reject PiP without a
+  // user gesture, and that expected rejection must not surface as an error.
+  const enter = useCallback(async (opts?: { silent?: boolean }) => {
     const video = videoRef.current
-    if (!video) return
-    setError(null)
+    if (!video) return false
+    if (!opts?.silent) setError(null)
     try {
       // Safari can pause a backgrounded/muted element; make sure it's running.
       if (video.paused) await video.play().catch(() => {})
       if (typeof video.requestPictureInPicture === 'function' && document.pictureInPictureEnabled) {
         await video.requestPictureInPicture()
         setActive(true)
-        return
+        return true
       }
       if (typeof video.webkitSetPresentationMode === 'function') {
         video.webkitSetPresentationMode('picture-in-picture')
         setActive(true)
-        return
+        return true
       }
-      setError('Your browser does not support a floating window. Use split-screen instead.')
+      if (!opts?.silent) setError('Your browser does not support a floating window. Use split-screen instead.')
+      return false
     } catch {
-      setError('Could not open the floating window. Use split-screen instead.')
+      if (!opts?.silent) setError('Could not open the floating window. Use split-screen instead.')
+      return false
     }
   }, [])
 
@@ -197,7 +221,22 @@ export function useRecordingPiP() {
     setActive(false)
   }, [])
 
+  // Last-ditch attempt for browsers that ignore autoPictureInPicture: the moment
+  // the page is hidden, try to open the window anyway. Most browsers reject this
+  // (no user gesture) — which is exactly why enter() is also fired up-front when
+  // recording starts — but where it is allowed, the doctor gets it for free.
+  useEffect(() => {
+    function onHide() {
+      if (document.visibilityState !== 'hidden') return
+      if (!armedRef.current || document.pictureInPictureElement) return
+      void enter({ silent: true })
+    }
+    document.addEventListener('visibilitychange', onHide)
+    return () => document.removeEventListener('visibilitychange', onHide)
+  }, [enter])
+
   const teardown = useCallback(() => {
+    armedRef.current = false
     if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
     if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null }
     void exit()
@@ -215,5 +254,15 @@ export function useRecordingPiP() {
 
   useEffect(() => () => { teardown() }, [teardown])
 
-  return { supported, active, error, prepare, enter, exit, teardown, setStatus }
+  // Open the window as soon as recording begins. This runs in the chain of the
+  // doctor's "Start" tap, which is the only reliable moment we hold a user
+  // gesture — a browser will not let us open it later, when they actually leave
+  // the app. Opening it up-front means switching apps just works, with nothing
+  // to remember. Silent: if the gesture has lapsed the caller degrades quietly.
+  const startFloating = useCallback(async () => {
+    await prepare()
+    return enter({ silent: true })
+  }, [prepare, enter])
+
+  return { supported, active, error, prepare, enter, exit, teardown, setStatus, startFloating }
 }

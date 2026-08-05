@@ -210,9 +210,10 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
         : letterType
       start(stream, { uid: user.uid, mode: 'dictation', letterType: recLetterType })
       setPhase('recording')
-      // Build the floating-window surface now so it's ready the instant the
-      // doctor taps (PiP rejects a video that has no metadata yet).
-      void pip.prepare()
+      // Open the floating window straight away, while we still hold this tap's
+      // user gesture — browsers refuse to open it later, when the doctor
+      // actually switches apps.
+      void pip.startFloating()
       if (autoStopMinutes !== null) {
         autoStopRef.current = setTimeout(() => {
           setAutoStopped(true)
@@ -475,43 +476,20 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
             <p className="text-sm text-[var(--text3)]">
               {micLost ? 'Paused — waiting for the microphone…' : (letterType || hospitalForm) ? `Dictating your ${selectedLabel?.toLowerCase()}…` : 'Dictating…'}
             </p>
-            {!micLost && !pip.active && (
-              <p className="text-[11px] text-[var(--text3)]">Leaving the app can stop the recording. To use another app, open the floating window below first.</p>
-            )}
-
-            {/* Floating window: a page driving an active picture-in-picture video
-                isn't backgrounded, so the microphone keeps running when the
-                doctor switches apps. Entering it requires this tap. */}
-            {pip.supported && (
-              pip.active ? (
-                <div className="rounded-lg bg-[#10b981]/10 border border-[#10b981]/40 px-3 py-2.5 text-left space-y-2">
-                  <p className="text-xs text-[#059669] font-medium">
-                    Floating window open — you can switch apps now. Keep the little window on screen.
-                  </p>
-                  <button
-                    onClick={() => { void pip.exit() }}
-                    className="text-xs text-[var(--text2)] underline hover:text-[var(--text)] transition-colors"
-                  >
-                    Close floating window
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => { void pip.enter() }}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[var(--r)]
-                             border border-[#10b981]/50 text-[#059669] text-sm font-medium
-                             hover:bg-[#10b981]/10 active:scale-[0.98] transition-all"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                    <rect x="2" y="4" width="20" height="16" rx="2"/>
-                    <rect x="12" y="12" width="8" height="6" rx="1" fill="currentColor" stroke="none"/>
-                  </svg>
-                  Keep recording while I use another app
-                </button>
-              )
-            )}
-            {pip.error && <p className="text-[11px] text-[var(--danger)]">{pip.error}</p>}
-            {!pip.supported && !micLost && (
+            {/* The floating window opens by itself when recording starts, so
+                switching apps just works. It only needs explaining when it
+                isn't running — either the doctor closed it or the browser
+                wouldn't open it. */}
+            {pip.active ? (
+              <p className="text-[11px] text-[#059669] font-medium">Floating window on — you can safely switch apps. Keep the small window on screen.</p>
+            ) : pip.supported ? (
+              <p className="text-[11px] text-[var(--text3)]">
+                Leaving the app can stop the recording.{' '}
+                <button onClick={() => { void pip.enter() }} className="text-[var(--blue)] underline">
+                  Turn on the floating window
+                </button>{' '}to switch apps safely.
+              </p>
+            ) : !micLost && (
               <p className="text-[11px] text-[var(--text3)]">
                 To use another app while recording, open it in <span className="font-medium text-[var(--text2)]">split-screen</span> so LushNote stays visible.
               </p>
