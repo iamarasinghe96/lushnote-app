@@ -52,9 +52,10 @@ export async function POST(req: NextRequest) {
         sections?: { key?: string; heading?: string; description?: string }[]
       }
       formName?: string
+      source?: string
     }
 
-    const { uid, transcript, templatePrompt, systemPrompt, mode, letterType, retry, customLetter, formName } = body
+    const { uid, transcript, templatePrompt, systemPrompt, mode, letterType, retry, customLetter, formName, source } = body
 
     // Hospital progress-note form — Groq-only extraction (same plumbing as
     // letters): pull patient identifiers + compose the note entry as prose.
@@ -128,7 +129,26 @@ ${transcript}`
       if (typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 300000) {
         return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })
       }
-      const systemInstruction = `You are an expert medical scribe transcribing a doctor's spoken "reading note" about an inpatient into structured fields. Extract each field accurately from the dictation. The doctor may speak in any order and use informal language. Never fabricate information — use "" for anything not mentioned.
+      // Pasted EMR/ward notes (e.g. BOSSnet) are terse clinical shorthand with
+      // their own conventions, so they need different handling from speech:
+      // preserve the abbreviations rather than rewriting them into prose, and
+      // understand the "#" problem-list / "PHx:" / "Plan" structure.
+      const isPaste = source === 'paste'
+
+      const systemInstruction = isPaste
+        ? `You are an expert clinical information extractor. You are given a note copied verbatim from a hospital electronic medical record (e.g. BOSSnet ward notes / handover). Reorganise its content into structured fields. Never fabricate information — use "" for anything the note does not contain.
+
+HOW THESE NOTES ARE WRITTEN — read carefully:
+- They use terse medical shorthand and abbreviations: "83F" = 83-year-old female, "R)" / "L)" = right / left, "UL" / "LL" = upper / lower limb, "w" = with, "a/w" = associated with, "PHx:" = past history, "SHx:" = social history, "iADLs" = instrumental activities of daily living, "20PY" = 20 pack-years, "3/52" = 3 weeks, "30/7" = 30 days or a date.
+- A line beginning with "#" is an ACTIVE PROBLEM heading. The indented "-" lines beneath it are the findings, investigations and management for that problem.
+- A "Plan" section (often with "/" or "-" bullets) lists the forward plan.
+
+EXTRACTION RULES:
+- PRESERVE the doctor's original abbreviations, shorthand and wording. Do NOT expand them into long prose and do NOT "translate" them into plain English — clinicians rely on this shorthand.
+- Content nested under a problem heading must still be routed to the correct field: imaging findings go to imaging, blood/pathology results go to bloodsPathology, medication changes go to medications, and what was done/decided goes to managementIP. Keep the problem heading itself in currentIssues.
+- Copy every number, dose, date and percentage EXACTLY as written. Never round, drop or add a digit, and never substitute a drug name.
+- Keep one item per line where the source is a list. Do not add commentary or a summary.`
+        : `You are an expert medical scribe transcribing a doctor's spoken "reading note" about an inpatient into structured fields. Extract each field accurately from the dictation. The doctor may speak in any order and use informal language. Never fabricate information — use "" for anything not mentioned.
 
 DOSES & NUMBERS — CRITICAL FOR SAFETY:
 - Write every dose EXACTLY as dictated. Convert spoken numbers to digits precisely ("one thousand" → 1000, "eighty one" → 81). Never round, drop, or add a digit. Append "mg" only to a bare number that is clearly a milligram strength.
@@ -138,7 +158,38 @@ STYLE:
 - Rewrite each field into concise, professional clinical prose (not word-for-word dictation). Preserve all clinical facts, names, and figures exactly.
 - Where a field is naturally a list (medications, current issues, plan), put one item per line.`
 
-      const intakePrompt = `Extract information from this doctor's dictation about a patient into the fields below.
+      const intakePrompt = isPaste
+        ? `Extract information from this hospital record note into the fields below.
+
+FIELD GUIDE:
+- dob: Patient date of birth DD/MM/YYYY, else "" (leave "" if only an age like "83F" is given — do NOT calculate one)
+- bedNumber: Ward and/or bed number if stated, else ""
+- presentingIssue: The presentation / reason for admission — typically the opening summary line (e.g. demographics + presenting symptoms). Keep it as written, else ""
+- currentIssues: The active problems, one per line — normally each "#" heading. Include a brief qualifier from that section only if it identifies the problem. Else ""
+- managementIP: What has been done or decided in hospital for those problems (treatments started/changed, decisions such as "not for CEA", referrals made), one per line, else ""
+- pastMedicalHistory: The "PHx:" content, plus "SHx:" / social history if present (label it), else ""
+- medications: Medications with doses and any changes, one per line (e.g. "escitalopram increased to 15mg daily"), else ""
+- bloodsPathology: Blood results and pathology, else ""
+- imaging: Imaging and imaging-like investigations with their findings, one per line, keeping the modality label (CT, MRI, carotid U/S, TTE …), else ""
+- plan: The forward plan, one item per line, else ""
+
+Return ONLY valid JSON — no markdown, no explanation, no extra text:
+{
+  "dob": "",
+  "bedNumber": "",
+  "presentingIssue": "",
+  "currentIssues": "",
+  "managementIP": "",
+  "pastMedicalHistory": "",
+  "medications": "",
+  "bloodsPathology": "",
+  "imaging": "",
+  "plan": ""
+}
+
+HOSPITAL RECORD NOTE:
+${transcript}`
+        : `Extract information from this doctor's dictation about a patient into the fields below.
 
 FIELD GUIDE:
 - dob: Patient date of birth DD/MM/YYYY, else "" (leave "" if only an age is given)

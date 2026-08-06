@@ -17,7 +17,7 @@ interface AddPatientModalProps {
   onSaved: (profile: PatientProfile) => void
 }
 
-type Phase = 'details' | 'method' | 'idle' | 'recording' | 'processing'
+type Phase = 'details' | 'method' | 'idle' | 'recording' | 'processing' | 'paste'
 
 const GENDER_OPTIONS: { value: string; label: string }[] = [
   { value: '', label: 'Not specified' },
@@ -52,6 +52,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
   const [gender, setGender] = useState('')
   const [genderOpen, setGenderOpen] = useState(false)
   const [urNumeric, setUrNumeric] = useState(true)
+  const [pasteText, setPasteText] = useState('')
   const [nameError, setNameError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [permError, setPermError] = useState<string | null>(null)
@@ -71,6 +72,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
       setGender('')
       setGenderOpen(false)
       setUrNumeric(true)
+      setPasteText('')
       setNameError(null)
       setSaving(false)
       setPermError(null)
@@ -123,6 +125,51 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
     }
   }
 
+  // Run text (a dictation transcript, or a note pasted from the hospital record)
+  // through the AI field extractor. Returns {} on any failure so the patient is
+  // still saved with whatever we already have rather than being lost.
+  async function extractFields(text: string, textSource: 'dictation' | 'paste'): Promise<Partial<PatientProfile>> {
+    if (!text.trim()) return {}
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const gk = getGroqKey()
+      if (gk) headers['x-groq-key'] = gk
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ mode: 'patient-intake', source: textSource, transcript: text }),
+      })
+      const data = await res.json() as { patientFields?: Record<string, unknown>; error?: string }
+      return data.patientFields ? extractProfileFields(data.patientFields) : {}
+    } catch {
+      return {}
+    }
+  }
+
+  // Open the paste step, pre-filling from the clipboard when the browser allows
+  // it (the doctor has just copied the note, so it's almost always what they want).
+  async function goToPaste() {
+    setPermError(null)
+    setPhase('paste')
+    try {
+      const text = await navigator.clipboard.readText()
+      if (text.trim()) setPasteText(text)
+    } catch { /* clipboard blocked — they can paste by hand */ }
+  }
+
+  async function handleExtractPaste() {
+    if (!pasteText.trim()) return
+    if (!getGroqKey()) {
+      setPermError('A Groq API key is required to read the note. Add one in Settings → API Keys, or enter the details manually.')
+      return
+    }
+    setPhase('processing')
+    const extra = await extractFields(pasteText, 'paste')
+    const saved = await persist(extra)
+    if (saved) onSaved(saved)
+    else { setPermError('Could not save the patient. Check your connection and try again.'); setPhase('paste') }
+  }
+
   async function saveManual() {
     setSaving(true)
     const saved = await persist({})
@@ -159,24 +206,9 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
     // as an "unfinished recording" in the note-recovery flow.
     if (user) deleteTranscriptDraft(user.uid).catch(() => {})
 
-    let extra: Partial<PatientProfile> = {}
-    const text = result.text.trim()
-    if (text) {
-      try {
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-        const gk = getGroqKey()
-        if (gk) headers['x-groq-key'] = gk
-        const res = await fetch('/api/generate', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ mode: 'patient-intake', transcript: text }),
-        })
-        const data = await res.json() as { patientFields?: Record<string, unknown>; error?: string }
-        if (data.patientFields) extra = extractProfileFields(data.patientFields)
-      } catch {
-        /* fall through — save name + UR so the patient is never lost */
-      }
-    }
+    // Failures fall through with {} — the patient is still saved with name + UR
+    // so a dictation is never lost.
+    const extra = await extractFields(result.text, 'dictation')
     const saved = await persist(extra)
     if (saved) onSaved(saved)
     else { setPermError('Could not save the patient. Check your connection and try again.'); setPhase('method') }
@@ -337,6 +369,31 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
               </button>
 
               <button
+                onClick={goToPaste}
+                className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[#10b981]/40
+                  text-left hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
+                  focus:border-[var(--blue)] focus:bg-[var(--blue-lt)] focus:outline-none
+                  motion-safe:active:scale-[0.97] motion-safe:transition-all motion-safe:duration-150"
+                style={{
+                  background: 'rgba(255,255,255,0.75)',
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+                }}
+              >
+                <span className="text-[#10b981] shrink-0">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                    <rect x="9" y="2" width="6" height="4" rx="1"/>
+                    <path d="M5 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1"/>
+                    <path d="M15 8h5a2 2 0 0 1 2 2v2"/><path d="M9 13h6"/><path d="M9 17h4"/>
+                  </svg>
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[var(--text)]">Retrieve details from Bossnet</p>
+                  <p className="text-xs text-[var(--text3)] mt-0.5">Paste the ward note — the AI fills each field</p>
+                </div>
+              </button>
+
+              <button
                 onClick={saveManual}
                 disabled={saving}
                 className="w-full flex items-center gap-3 p-4 rounded-[var(--r-lg)] border border-[var(--border)]
@@ -361,6 +418,35 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
             >
               ← Back
             </button>
+          </>
+        )}
+
+        {/* Paste from the hospital record (BOSSnet ward note / handover) */}
+        {phase === 'paste' && (
+          <>
+            <p className="text-sm text-[var(--text2)]">
+              Paste <span className="font-semibold text-[var(--text)]">{name.trim()}</span>&apos;s note from Bossnet. The AI sorts it into
+              presenting issue, current issues, management, history, medications, bloods, imaging and plan.
+            </p>
+            <textarea
+              value={pasteText}
+              onChange={e => setPasteText(e.target.value)}
+              rows={9}
+              placeholder="Paste the ward note here…"
+              autoFocus
+              className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white px-3 py-2.5
+                         text-sm text-[var(--text)] placeholder:text-[var(--text3)] outline-none resize-y
+                         focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
+            />
+            <p className="text-[11px] text-[var(--text3)]">
+              Shorthand is kept as written. Check the extracted fields before relying on them.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setPhase('method')} className="flex-1">Back</Button>
+              <Button variant="primary" onClick={handleExtractPaste} disabled={!pasteText.trim()} className="flex-1">
+                Fill the fields
+              </Button>
+            </div>
           </>
         )}
 
@@ -430,7 +516,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
               <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25"/>
               <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round"/>
             </svg>
-            <p className="text-sm text-[var(--text2)]">Transcribing &amp; saving {name.trim()}…</p>
+            <p className="text-sm text-[var(--text2)]">Reading the details &amp; saving {name.trim()}…</p>
           </div>
         )}
 
