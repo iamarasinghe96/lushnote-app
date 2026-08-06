@@ -1660,7 +1660,7 @@ function EditContent() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ mode: 'letter', letterType, transcript: store.lastTranscript, customLetter }),
+        body: JSON.stringify({ mode: 'letter', letterType, transcript: store.lastTranscript, customLetter, uid: user?.uid }),
       })
       const data = await res.json() as { letterFields?: Record<string, unknown>; error?: string }
       if (data.letterFields) {

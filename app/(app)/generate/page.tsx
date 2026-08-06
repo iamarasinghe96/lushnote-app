@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { openSettings, quotaDate, getGroqKey, parsePatientIntakeFields } from '@/lib/utils'
+import { openSettings, quotaDate, getGroqKey, getGeminiKey, parsePatientIntakeFields } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import Textarea from '@/components/ui/Textarea'
@@ -568,10 +568,12 @@ export default function GeneratePage() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       const gk = getGroqKey()
       if (gk) headers['x-groq-key'] = gk
+      const gemk = getGeminiKey()
+      if (gemk) headers['x-gemini-key'] = gemk
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ mode: 'patient-intake', source: 'paste', transcript: pendingTranscript }),
+        body: JSON.stringify({ mode: 'patient-intake', source: 'paste', transcript: pendingTranscript, uid: user.uid }),
       })
       const data = await res.json() as { patientFields?: Record<string, unknown>; error?: string }
       if (!data.patientFields) throw new Error(data.error || 'Could not read the note')

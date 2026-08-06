@@ -8,13 +8,16 @@ import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useAuth } from '@/hooks/useAuth'
 import { savePatientProfile } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
-import { getGroqKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName, parsePatientIntakeFields } from '@/lib/utils'
+import { getGroqKey, getGeminiKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName, parsePatientIntakeFields } from '@/lib/utils'
 import type { PatientProfile } from '@/types'
 
 interface AddPatientModalProps {
   open: boolean
   onClose: () => void
-  onSaved: (profile: PatientProfile) => void
+  // `warning` carries a reason the clinical fields couldn't be filled (e.g. the
+  // AI limit) — the patient is still saved, so the caller surfaces it rather
+  // than leaving the doctor with a silently empty record.
+  onSaved: (profile: PatientProfile, warning?: string) => void
 }
 
 type Phase = 'details' | 'method' | 'idle' | 'recording' | 'processing' | 'paste'
@@ -115,23 +118,30 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
   }
 
   // Run text (a dictation transcript, or a note pasted from the hospital record)
-  // through the AI field extractor. Returns {} on any failure so the patient is
-  // still saved with whatever we already have rather than being lost.
-  async function extractFields(text: string, textSource: 'dictation' | 'paste'): Promise<Partial<PatientProfile>> {
-    if (!text.trim()) return {}
+  // through the AI field extractor. Never throws: the patient is always saved
+  // with what we already have, and any failure comes back as `error` so the
+  // doctor is told why the clinical fields are empty.
+  async function extractFields(
+    text: string,
+    textSource: 'dictation' | 'paste',
+  ): Promise<{ fields: Partial<PatientProfile>; error: string | null }> {
+    if (!text.trim()) return { fields: {}, error: null }
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       const gk = getGroqKey()
       if (gk) headers['x-groq-key'] = gk
+      const gemk = getGeminiKey()
+      if (gemk) headers['x-gemini-key'] = gemk
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ mode: 'patient-intake', source: textSource, transcript: text }),
+        body: JSON.stringify({ mode: 'patient-intake', source: textSource, transcript: text, uid: user?.uid }),
       })
       const data = await res.json() as { patientFields?: Record<string, unknown>; error?: string }
-      return data.patientFields ? parsePatientIntakeFields(data.patientFields) : {}
+      if (data.patientFields) return { fields: parsePatientIntakeFields(data.patientFields), error: null }
+      return { fields: {}, error: data.error || 'The details could not be read. Please fill them in manually.' }
     } catch {
-      return {}
+      return { fields: {}, error: 'Could not reach the AI service. Please fill the details in manually.' }
     }
   }
 
@@ -148,13 +158,12 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
 
   async function handleExtractPaste() {
     if (!pasteText.trim()) return
-    if (!getGroqKey()) {
-      setPermError('A Groq API key is required to read the note. Add one in Settings → API Keys, or enter the details manually.')
-      return
-    }
     setPhase('processing')
-    const extra = await extractFields(pasteText, 'paste')
-    const saved = await persist(extra)
+    const { fields, error } = await extractFields(pasteText, 'paste')
+    // Extraction failed: keep the doctor here with their pasted text intact so
+    // they can retry, rather than saving a patient with nothing in it.
+    if (error) { setPermError(error); setPhase('paste'); return }
+    const saved = await persist(fields)
     if (saved) onSaved(saved)
     else { setPermError('Could not save the patient. Check your connection and try again.'); setPhase('paste') }
   }
@@ -195,11 +204,11 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
     // as an "unfinished recording" in the note-recovery flow.
     if (user) deleteTranscriptDraft(user.uid).catch(() => {})
 
-    // Failures fall through with {} — the patient is still saved with name + UR
-    // so a dictation is never lost.
-    const extra = await extractFields(result.text, 'dictation')
-    const saved = await persist(extra)
-    if (saved) onSaved(saved)
+    // The recording can't be replayed, so always save — passing any failure up
+    // as a warning rather than silently leaving the fields blank.
+    const { fields, error: extractError } = await extractFields(result.text, 'dictation')
+    const saved = await persist(fields)
+    if (saved) onSaved(saved, extractError ?? undefined)
     else { setPermError('Could not save the patient. Check your connection and try again.'); setPhase('method') }
   }
 

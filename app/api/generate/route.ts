@@ -36,6 +36,61 @@ function repairJsonControlChars(s: string): string {
   return out
 }
 
+// Shown when every provider is exhausted. Plain language, and it tells the
+// doctor what they can actually do about it.
+const AI_LIMIT_MESSAGE = 'Dear doctor — our free AI usage limit has been reached for now. Please try again later today, or tomorrow. To keep working straight away, add your own Gemini or Groq API key in Settings → API Keys.'
+const AI_UNAVAILABLE = 'ai-unavailable'
+
+// Letters, patient intake and hospital forms are short, structured JSON jobs, so
+// they run Groq FIRST — it is fast and doesn't touch the doctor's Gemini quota.
+// Groq's free tier caps tokens-per-minute though, and a long ward note or letter
+// can exhaust that in a handful of requests, so Gemini is the fallback rather
+// than a dead end. (Session notes are deliberately the opposite: Gemini first,
+// with Groq as the backup.)
+async function runExtraction(opts: {
+  prompt: string
+  system: string
+  req: NextRequest
+  uid?: string
+}): Promise<{ content: string; provider: 'groq' | 'gemini' }> {
+  const { prompt, system, req, uid } = opts
+  const groqKey = req.headers.get('x-groq-key')
+  const userGeminiKey = req.headers.get('x-gemini-key')
+
+  if (groqKey) {
+    try {
+      const { content } = await generateNoteGroq(prompt, system, groqKey)
+      return { content, provider: 'groq' }
+    } catch { /* rate-limited or failed — try Gemini below */ }
+  }
+
+  // The doctor's own Gemini key first: it's their quota, so never gate it.
+  if (userGeminiKey) {
+    try {
+      const { text, totalTokens } = await generateNote(prompt, system, userGeminiKey)
+      if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
+      return { content: text, provider: 'gemini' }
+    } catch { /* fall through to the shared key */ }
+  }
+
+  if (process.env.GEMINI_API_KEY) {
+    const profile = uid ? await getProfile(uid).catch(() => null) : null
+    if (!uid || checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')) {
+      try {
+        const { text, totalTokens } = await generateNote(prompt, system)
+        if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
+        return { content: text, provider: 'gemini' }
+      } catch (err) {
+        if (uid && err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
+          await markGeminiLimitReached(uid, 'gemini-2.5-flash').catch(() => {})
+        }
+      }
+    }
+  }
+
+  throw new Error(AI_UNAVAILABLE)
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
@@ -99,24 +154,19 @@ Return ONLY valid JSON — no markdown, no explanation, no extra text:
 DICTATION:
 ${transcript}`
 
-      const groqKey = req.headers.get('x-groq-key')
-      if (!groqKey) {
-        return NextResponse.json({ error: 'A Groq API key is required for form generation. Add one in Settings > API Keys.' }, { status: 401 })
-      }
       try {
-        const { content } = await generateNoteGroq(formPrompt, systemInstruction, groqKey)
+        const { content } = await runExtraction({ prompt: formPrompt, system: systemInstruction, req, uid })
         const jsonMatch = content.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
           const formFields = JSON.parse(repairJsonControlChars(jsonMatch[0])) as Record<string, unknown>
           return NextResponse.json({ formFields })
         }
-        return NextResponse.json({ error: 'Could not parse AI response' }, { status: 500 })
+        return NextResponse.json({ error: 'The AI reply could not be read. Please try again.' }, { status: 500 })
       } catch (err) {
-        if (err instanceof Error && err.message.startsWith('429:')) {
-          const waitSeconds = parseGroqWaitSeconds(err.message)
-          return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
+        if (err instanceof Error && err.message === AI_UNAVAILABLE) {
+          return NextResponse.json({ error: AI_LIMIT_MESSAGE }, { status: 429 })
         }
-        const msg = err instanceof Error ? err.message : 'Form generation failed'
+        const msg = err instanceof Error ? err.message : 'Generation failed. Please try again.'
         return NextResponse.json({ error: msg }, { status: 500 })
       }
     }
@@ -220,24 +270,19 @@ Return ONLY valid JSON — no markdown, no explanation, no extra text:
 DICTATION:
 ${transcript}`
 
-      const groqKey = req.headers.get('x-groq-key')
-      if (!groqKey) {
-        return NextResponse.json({ error: 'A Groq API key is required to transcribe patient details. Add one in Settings > API Keys.' }, { status: 401 })
-      }
       try {
-        const { content } = await generateNoteGroq(intakePrompt, systemInstruction, groqKey)
+        const { content } = await runExtraction({ prompt: intakePrompt, system: systemInstruction, req, uid })
         const jsonMatch = content.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
           const patientFields = JSON.parse(repairJsonControlChars(jsonMatch[0])) as Record<string, unknown>
           return NextResponse.json({ patientFields })
         }
-        return NextResponse.json({ error: 'Could not parse AI response' }, { status: 500 })
+        return NextResponse.json({ error: 'The AI reply could not be read. Please try again.' }, { status: 500 })
       } catch (err) {
-        if (err instanceof Error && err.message.startsWith('429:')) {
-          const waitSeconds = parseGroqWaitSeconds(err.message)
-          return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
+        if (err instanceof Error && err.message === AI_UNAVAILABLE) {
+          return NextResponse.json({ error: AI_LIMIT_MESSAGE }, { status: 429 })
         }
-        const msg = err instanceof Error ? err.message : 'Patient transcription failed'
+        const msg = err instanceof Error ? err.message : 'Generation failed. Please try again.'
         return NextResponse.json({ error: msg }, { status: 500 })
       }
     }
@@ -396,25 +441,19 @@ ${transcript}`
 
       if (!letterPrompt) return NextResponse.json({ error: 'Unknown letterType' }, { status: 400 })
 
-      const groqKey = req.headers.get('x-groq-key')
-      if (!groqKey) {
-        return NextResponse.json({ error: 'A Groq API key is required for letter generation. Add one in Settings > API Keys.' }, { status: 401 })
-      }
-
       try {
-        const { content } = await generateNoteGroq(letterPrompt, systemInstruction, groqKey)
+        const { content } = await runExtraction({ prompt: letterPrompt, system: systemInstruction, req, uid })
         const jsonMatch = content.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
           const letterFields = JSON.parse(repairJsonControlChars(jsonMatch[0])) as Record<string, unknown>
           return NextResponse.json({ letterFields })
         }
-        return NextResponse.json({ error: 'Could not parse AI response' }, { status: 500 })
+        return NextResponse.json({ error: 'The AI reply could not be read. Please try again.' }, { status: 500 })
       } catch (err) {
-        if (err instanceof Error && err.message.startsWith('429:')) {
-          const waitSeconds = parseGroqWaitSeconds(err.message)
-          return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
+        if (err instanceof Error && err.message === AI_UNAVAILABLE) {
+          return NextResponse.json({ error: AI_LIMIT_MESSAGE }, { status: 429 })
         }
-        const msg = err instanceof Error ? err.message : 'Letter generation failed'
+        const msg = err instanceof Error ? err.message : 'Generation failed. Please try again.'
         return NextResponse.json({ error: msg }, { status: 500 })
       }
     }

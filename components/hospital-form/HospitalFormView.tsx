@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote } from '@/lib/firestore/notes'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
-import { getGroqKey, serializeHospitalFormData } from '@/lib/utils'
+import { getGroqKey, getGeminiKey, serializeHospitalFormData } from '@/lib/utils'
 import { GeneratingOverlay } from '@/components/ui/GeneratingOverlay'
 import HospitalFormEditor, { type HospitalFormEditorHandle } from './HospitalFormEditor'
 import type { HospitalFormData, NoteInput } from '@/types'
@@ -90,7 +90,9 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       const groqKey = getGroqKey()
       if (groqKey) headers['x-groq-key'] = groqKey
-      const res = await fetch('/api/generate', { method: 'POST', headers, body: JSON.stringify({ mode: 'hospital-form', transcript, formName: cfg.name }) })
+      const geminiKey = getGeminiKey()
+      if (geminiKey) headers['x-gemini-key'] = geminiKey
+      const res = await fetch('/api/generate', { method: 'POST', headers, body: JSON.stringify({ mode: 'hospital-form', transcript, formName: cfg.name, uid: user?.uid }) })
       const data = await res.json() as { formFields?: Record<string, unknown>; error?: string }
       if (data.formFields) {
         const f = data.formFields

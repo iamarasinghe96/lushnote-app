@@ -1319,10 +1319,13 @@ export default function PatientsPage() {
 
       <AddPatientModal
         open={addModalOpen}
-        onSaved={saved => {
+        onSaved={(saved, warning) => {
           if (saved.id) setProfiles(prev => ({ ...prev, [saved.id!]: saved }))
           setAddModalOpen(false)
           setViewMode('table')
+          // Saved, but the AI couldn't fill the clinical fields — say so rather
+          // than leaving the doctor to wonder why the row is empty.
+          if (warning) setError(warning)
         }}
         onClose={() => setAddModalOpen(false)}
       />
