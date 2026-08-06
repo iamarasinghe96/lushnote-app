@@ -19,7 +19,7 @@ import { getTranscriptDraft, deleteTranscriptDraft } from '@/lib/firestore/trans
 import { getHospitalFormsForWorkplace, getHospitalForm } from '@/lib/firestore/hospitalForms'
 import { updateProfile } from '@/lib/firestore/profiles'
 import { getPatientProfiles, savePatientProfile } from '@/lib/firestore/patients'
-import type { AnyTemplate, NoteCreationMode, Note, LetterType, CustomLetterTemplate, HospitalFormDoc } from '@/types'
+import type { AnyTemplate, NoteCreationMode, Note, LetterType, CustomLetterTemplate, HospitalFormDoc, PatientProfile } from '@/types'
 
 const GEMINI_RPD = 20
 
@@ -143,6 +143,11 @@ export default function GeneratePage() {
   // page and save it there WITHOUT generating (the doctor can generate on
   // demand). Set when we let a non-clinical transcript proceed.
   const skipGenerationRef = useRef(false)
+  // Why a pasted transcript isn't suitable for a psychiatry session NOTE (too
+  // short / no clinical content). Letters and the patient record have no such
+  // requirement, so the paste itself is never blocked — this is only checked if
+  // the doctor then picks a clinical note template.
+  const noteBlockRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (localStorage.getItem('_ln_rec_interrupted')) {
@@ -303,11 +308,7 @@ export default function GeneratePage() {
       const text = await navigator.clipboard.readText()
       if (text.trim()) {
         const validation = validateTranscript(text.trim())
-        if (!validation.valid) {
-          setPasteModalError(validation.error!)
-          setPhase('paste-input')
-          return
-        }
+        noteBlockRef.current = validation.valid ? null : validation.error!
         skipGenerationRef.current = false
         setPendingTranscript(text.trim())
         setTranscriptConfirmOpen(true)
@@ -337,10 +338,7 @@ export default function GeneratePage() {
     if (!inputText.trim()) return
     const text = inputText.trim()
     const validation = validateTranscript(text)
-    if (!validation.valid) {
-      setPasteModalError(validation.error!)
-      return
-    }
+    noteBlockRef.current = validation.valid ? null : validation.error!
     skipGenerationRef.current = false
     setInputText('')
     setPasteModalError(null)
@@ -395,6 +393,7 @@ export default function GeneratePage() {
     // clinical — proceed to naming regardless. When it failed the check, flag it
     // so the edit page saves it without forcing (and wasting quota on) an AI note.
     skipGenerationRef.current = !validateTranscript(text).valid
+    noteBlockRef.current = null
     setPendingTranscript(text)
     setTranscriptConfirmOpen(true)
   }
@@ -463,6 +462,7 @@ export default function GeneratePage() {
     // check. If it doesn't look clinical, flag it so the edit page keeps the
     // transcript without auto-generating a note from it.
     skipGenerationRef.current = !validateTranscript(d.text).valid
+    noteBlockRef.current = null
     setPendingTranscript(d.text)
     setTranscriptConfirmOpen(true)
   }
@@ -581,17 +581,25 @@ export default function GeneratePage() {
       const existing = Object.values(profiles).find(
         p => p.displayName.trim().toLowerCase() === name.toLowerCase()
       )
+      // The DOB/gender the doctor typed in the naming step are explicit, so they
+      // win over anything the AI inferred from the note.
+      const entered = store.pendingPatientProfile
       const now = Date.now()
       await savePatientProfile(user.uid, {
         ...(existing ?? { displayName: name }),
         ...extra,
+        ...(entered?.dob ? { dob: entered.dob } : {}),
+        ...(entered?.gender ? { gender: entered.gender as PatientProfile['gender'] } : {}),
         tracked: true,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
         ...(prefillPatient?.reg_number ? { urNumber: prefillPatient.reg_number } : {}),
       })
+      store.setPendingPatientProfile(null)
       if (user) deleteTranscriptDraft(user.uid).catch(() => {})
-      router.push('/patients?view=table')
+      // Land on this patient's card with the details already open, so the
+      // extracted fields are right there to check.
+      router.push(`/patients?patient=${encodeURIComponent(name)}&expand=1`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not add the patient details.')
     } finally {
@@ -600,6 +608,14 @@ export default function GeneratePage() {
   }
 
   function handleTemplateSelect(template: AnyTemplate, noteLength: string) {
+    // The 80-word / clinical-content minimum exists so a session note isn't
+    // generated from nothing. Letters and the patient record don't need it, so
+    // it's only enforced here, at the point a note template is actually chosen.
+    if (!clinicalNoteMode && noteBlockRef.current) {
+      setPhase('idle')
+      setError(noteBlockRef.current)
+      return
+    }
     store.resetHospitalForm()
     if (clinicalNoteMode) {
       // Manual note: blank fields, no transcript, no AI generation.

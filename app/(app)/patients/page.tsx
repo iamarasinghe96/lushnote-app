@@ -174,6 +174,8 @@ interface PatientDetailProps {
   editableProfile: PatientProfile
   notes: Note[]
   clinicianName?: string
+  /** Open the details section immediately (arriving from a flow that just filled it). */
+  initialExpanded?: boolean
   onBack: () => void
   onLoadNote: (noteId: string) => void
   onDeleteNote: (noteId: string) => void
@@ -183,10 +185,10 @@ interface PatientDetailProps {
   onSaveFields: (patch: Partial<PatientProfile>) => void
 }
 
-function PatientDetail({ patient, profile, editableProfile, notes, clinicianName, onBack, onLoadNote, onDeleteNote, onEditPatient, onDeletePatient, onGenerate, onSaveFields }: PatientDetailProps) {
+function PatientDetail({ patient, profile, editableProfile, notes, clinicianName, initialExpanded, onBack, onLoadNote, onDeleteNote, onEditPatient, onDeletePatient, onGenerate, onSaveFields }: PatientDetailProps) {
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null)
   const [confirmDeletePatient, setConfirmDeletePatient] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(!!initialExpanded)
   // Local edit overlay for the expandable fields (mirrors the Table view): keeps
   // typing responsive and debounces the save.
   const [draft, setDraft] = useState<Partial<PatientProfile>>({})
@@ -541,6 +543,7 @@ export default function PatientsPage() {
   // 'ln-open-patient' (caught if this page is already mounted) and navigates to
   // ?patient=<name> (read once here on a fresh mount, after notes have grouped).
   const deepLinkConsumedRef = useRef(false)
+  const [expandOnOpen, setExpandOnOpen] = useState(false)
   useEffect(() => {
     function selectByName(name: string) {
       const q = name.trim().toLowerCase()
@@ -553,8 +556,13 @@ export default function PatientsPage() {
     }
     window.addEventListener('ln-open-patient', onOpenPatient)
     if (!deepLinkConsumedRef.current && groupedPatients.length) {
-      const name = new URLSearchParams(window.location.search).get('patient')
-      if (name) { deepLinkConsumedRef.current = true; selectByName(name) }
+      const params = new URLSearchParams(window.location.search)
+      const name = params.get('patient')
+      if (name) {
+        deepLinkConsumedRef.current = true
+        if (params.get('expand') === '1') setExpandOnOpen(true)
+        selectByName(name)
+      }
     }
     return () => window.removeEventListener('ln-open-patient', onOpenPatient)
   }, [groupedPatients])
@@ -820,6 +828,7 @@ export default function PatientsPage() {
           }}
           notes={patientNotes}
           clinicianName={profile?.displayName}
+          initialExpanded={expandOnOpen}
           onBack={() => setSelectedPatient(null)}
           onLoadNote={handleLoadNote}
           onDeleteNote={handleDeleteNote}
