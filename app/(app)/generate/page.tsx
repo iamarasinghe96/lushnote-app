@@ -693,7 +693,7 @@ export default function GeneratePage() {
             </div>
           </div>
         )}
-        <ModeCard icon={PasteIcon} title="Paste Transcript or Ward Note" description="Session transcript, or a Bossnet note to fill patient details — reads clipboard automatically" onClick={handlePasteMode} />
+        <ModeCard icon={PasteIcon} title="Paste Transcript or Ward Note" description="Session transcript, or a Bossnet note to fill patient details" onClick={handlePasteMode} />
         <ModeCard icon={RecordIcon} title="Record Session" description="In-person or telehealth recording" onClick={() => startMode('conversation')} />
         <ModeCard icon={DictateIcon} title="Dictate Note" description="Narrate the note yourself" onClick={() => startMode('dictation')} />
 
