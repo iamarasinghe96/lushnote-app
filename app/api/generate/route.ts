@@ -275,7 +275,6 @@ FIELD GUIDE — read carefully before extracting:
 - patientName: Patient's full name (may be said as "my patient [name]" or just stated)
 - dob: Patient date of birth — format DD/MM/YYYY. If only age is given, leave empty.
 - gender: Exactly "male", "female", or "" — never any other value
-- doctorName: Admitting doctor name if explicitly different from recipient; otherwise leave ""
 - admissionUnit: Ward, unit, or service being referred to (e.g. "inpatient psychiatry", "acute mental health unit")
 - admissionDateStart: Proposed admission or start date — DD/MM/YYYY
 - admissionDateEnd: Proposed discharge or end date — DD/MM/YYYY
@@ -295,7 +294,6 @@ Return ONLY valid JSON — no markdown, no explanation, no extra text:
   "patientName": "",
   "dob": "",
   "gender": "",
-  "doctorName": "",
   "admissionUnit": "",
   "admissionDateStart": "",
   "admissionDateEnd": "",

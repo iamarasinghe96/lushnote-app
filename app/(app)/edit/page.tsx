@@ -2194,10 +2194,14 @@ function EditContent() {
       })()
     : null
 
-  const ADMISSION_UNITS = [
-    'Emergency Department', 'Surgical Unit', 'Medical Unit',
+  // Suggestions for the admission unit / hospital. The doctor's own workplaces
+  // come first (that's usually where the patient was admitted), then the generic
+  // unit types. Deduped, and the field stays free-text either way.
+  const ADMISSION_UNITS = Array.from(new Set([
+    ...(profile?.workplaces ?? []).map(w => w.name).filter(Boolean),
+    'Hospital', 'Emergency Department', 'Surgical Unit', 'Medical Unit',
     'Psychiatric Unit', 'ICU', 'Oncology Unit', 'Outpatient Clinic',
-  ]
+  ]))
 
   // Floating overlay geometry — bars sit above content, content scrolls behind them.
   // HEADER_BOTTOM = safe-area + 8px gap + 60px header + 8px gap (matches .pt-header = 76px)
@@ -2619,23 +2623,18 @@ function EditContent() {
                 {letterType === 'referral' && (
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-xs font-medium text-[var(--text)] mb-1">Admission unit</label>
+                      <label className="block text-xs font-medium text-[var(--text)] mb-1">Admission unit / hospital</label>
                       <input
                         list="admission-units"
                         value={referralFields.admissionUnit}
                         onChange={e => store.setReferralFields({ admissionUnit: e.target.value })}
-                        placeholder="e.g. Psychiatric Unit"
+                        placeholder="e.g. Psychiatric Unit, or your hospital"
                         className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--text)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10"
                       />
                       <datalist id="admission-units">
                         {ADMISSION_UNITS.map(u => <option key={u} value={u} />)}
                       </datalist>
                     </div>
-                    <Input
-                      label="Referring doctor name"
-                      value={referralFields.doctorName}
-                      onChange={e => store.setReferralFields({ doctorName: e.target.value })}
-                    />
                     <div>
                       <label className="block text-xs font-medium text-[var(--text)] mb-1">Gender</label>
                       <select
