@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatient, TRACKED_CLINICAL_FIELDS, formatDob, calculateAgeFromDOB } from '@/lib/utils'
 import { getPatientProfiles, deletePatientProfile, savePatientProfile } from '@/lib/firestore/patients'
+import { updateProfile } from '@/lib/firestore/profiles'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
 import { getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { GenderAvatar } from '@/components/ui/GenderAvatar'
@@ -432,13 +433,20 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
 
 export default function PatientsPage() {
   const router = useRouter()
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const store = useNoteStore()
 
   const [notes, setNotes] = useState<Note[]>([])
   const [profiles, setProfiles] = useState<Record<string, PatientProfile>>({})
   const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState<'recent' | 'az' | 'visits'>('recent')
+  const [sortBy, setSortBy] = useState<'recent' | 'az' | 'visits' | 'custom'>('recent')
+  // The doctor's saved arrangement (PatientGroup keys, top first) and whether
+  // they're currently rearranging.
+  const [order, setOrder] = useState<string[]>([])
+  const [reordering, setReordering] = useState(false)
+  const [savingOrder, setSavingOrder] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const sortInitRef = useRef(false)
   const [quickFilter, setQuickFilter] = useState<'today' | 'week' | 'month' | null>(null)
   const [search, setSearch] = useState('')
   const [selectedPatient, setSelectedPatient] = useState<PatientGroup | null>(null)
@@ -468,6 +476,16 @@ export default function PatientsPage() {
         : null)
     }).catch(() => {})
   }, [user?.uid])
+
+  // A saved arrangement takes precedence over Recent, so adopt it (once) as soon
+  // as the profile loads. Guarded by a ref so it never fights a sort the doctor
+  // picks afterwards.
+  useEffect(() => {
+    if (sortInitRef.current || !profile) return
+    sortInitRef.current = true
+    const saved = profile.patientOrder ?? []
+    if (saved.length) { setOrder(saved); setSortBy('custom') }
+  }, [profile])
 
   // Tapping the Patients tab while already on it doesn't navigate (same
   // route), so it can't reset a drilled-into patient by itself. The tab bar
@@ -602,12 +620,24 @@ export default function PatientsPage() {
       list = list.filter(p => { const d = parseDateStr(p.lastDate); return d ? d >= monthAgo : false })
     }
 
-    if (sortBy === 'recent') list.sort((a, b) => (b.recencyTs - a.recencyTs) || compareDateStrs(b.lastDate, a.lastDate))
+    if (sortBy === 'custom') {
+      const rank = new Map(order.map((k, i) => [k, i]))
+      list.sort((a, b) => {
+        const ra = rank.get(a.key), rb = rank.get(b.key)
+        // Patients added since the arrangement was saved aren't ranked — keep
+        // them below it, most recent first, rather than dropping them anywhere.
+        if (ra === undefined && rb === undefined) return (b.recencyTs - a.recencyTs)
+        if (ra === undefined) return 1
+        if (rb === undefined) return -1
+        return ra - rb
+      })
+    }
+    else if (sortBy === 'recent') list.sort((a, b) => (b.recencyTs - a.recencyTs) || compareDateStrs(b.lastDate, a.lastDate))
     else if (sortBy === 'az') list.sort((a, b) => a.name.localeCompare(b.name))
     else if (sortBy === 'visits') list.sort((a, b) => b.visits - a.visits)
 
     return list
-  }, [groupedPatients, search, sortBy, quickFilter])
+  }, [groupedPatients, search, sortBy, quickFilter, order])
 
   function loadNote(note: Note) {
     // Clear any hospital form the edit page is currently showing so opening a note
@@ -693,6 +723,64 @@ export default function PatientsPage() {
       .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0) || a.displayName.localeCompare(b.displayName)),
     [profiles]
   )
+
+  // Rearranging works on the full list, so clear any search/filter first —
+  // otherwise moving a row "up" inside a filtered view would jump it an
+  // unpredictable distance in the real order. Seed the arrangement from what's
+  // on screen now so every patient has a defined position.
+  function startReorder() {
+    setSearch('')
+    setQuickFilter(null)
+    setOrder(filteredPatients.map(p => p.key))
+    setSortBy('custom')
+    setReordering(true)
+  }
+
+  function movePatient(key: string, dir: -1 | 1) {
+    setOrder(prev => {
+      const next = prev.includes(key) ? [...prev] : [...prev, key]
+      const i = next.indexOf(key)
+      const j = i + dir
+      if (i < 0 || j < 0 || j >= next.length) return prev
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
+  }
+
+  function movePatientToTop(key: string) {
+    setOrder(prev => [key, ...prev.filter(k => k !== key)])
+  }
+
+  async function saveOrder() {
+    if (!user) return
+    setSavingOrder(true)
+    try {
+      await updateProfile(user.uid, { patientOrder: order })
+      await refreshProfile()
+      setReordering(false)
+    } catch {
+      setError('Could not save the order. Check your connection and try again.')
+    } finally {
+      setSavingOrder(false)
+    }
+  }
+
+  // Drop the arrangement and go back to most-recent-first.
+  async function clearOrder() {
+    if (!user) return
+    setSavingOrder(true)
+    try {
+      await updateProfile(user.uid, { patientOrder: [] })
+      await refreshProfile()
+      setOrder([])
+      setSortBy('recent')
+      setReordering(false)
+    } catch {
+      setError('Could not clear the order. Check your connection and try again.')
+    } finally {
+      setSavingOrder(false)
+    }
+  }
 
   function todayStr() {
     const t = new Date()
@@ -981,6 +1069,29 @@ export default function PatientsPage() {
                       {s === 'recent' ? 'Recent' : s === 'az' ? 'A–Z' : 'Most Visits'}
                     </button>
                   ))}
+                  {order.length > 0 && (
+                    <button
+                      onClick={() => setSortBy('custom')}
+                      className={`text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap
+                        ${sortBy === 'custom'
+                          ? 'bg-[var(--blue)] text-white border-[var(--blue)]'
+                          : 'border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)]'}`}
+                    >
+                      My order
+                    </button>
+                  )}
+                  <span className="hidden sm:block w-px h-4 bg-[var(--border)] mx-0.5" aria-hidden />
+                  <button
+                    onClick={startReorder}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border border-[#10b981]/50
+                               text-[#059669] font-medium hover:bg-[#10b981]/10 transition-colors whitespace-nowrap"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                      <polyline points="8 6 12 2 16 6"/><line x1="12" y1="2" x2="12" y2="10"/>
+                      <polyline points="16 18 12 22 8 18"/><line x1="12" y1="14" x2="12" y2="22"/>
+                    </svg>
+                    Rearrange
+                  </button>
                   <span className="hidden sm:block w-px h-4 bg-[var(--border)] mx-0.5" aria-hidden />
                   {(['today', 'week', 'month'] as const).map(f => (
                     <button
@@ -1000,8 +1111,28 @@ export default function PatientsPage() {
           </div>
         </div>
 
-        {/* Search stays visible (a primary action, not tucked under Filters) */}
-        {viewMode === 'cards' && (
+        {error && (
+          <div className="rounded-[var(--r)] bg-red-50 border border-red-200 px-3 py-2 text-xs text-[var(--danger)] flex items-start justify-between gap-2">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="underline shrink-0">Dismiss</button>
+          </div>
+        )}
+
+        {reordering && (
+          <div className="rounded-[var(--r)] bg-[#10b981]/10 border border-[#10b981]/40 px-3 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-xs text-[#059669] font-medium">
+              Arrange your list with the arrows, then save. This order replaces “Recent”.
+            </p>
+            <div className="flex gap-2 shrink-0">
+              <Button variant="ghost" size="sm" onClick={clearOrder} disabled={savingOrder}>Reset</Button>
+              <Button variant="primary" size="sm" onClick={saveOrder} loading={savingOrder}>Save order</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Search stays visible (a primary action, not tucked under Filters).
+            Hidden while rearranging — moves apply to the full list. */}
+        {viewMode === 'cards' && !reordering && (
           <input
             type="text"
             placeholder="Search patients..."
@@ -1080,9 +1211,9 @@ export default function PatientsPage() {
           filteredPatients.map(p => (
             <div
               key={p.key}
-              onClick={() => setSelectedPatient(p)}
-              className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)]
-                         hover:bg-[var(--bg)] cursor-pointer transition-colors"
+              onClick={reordering ? undefined : () => setSelectedPatient(p)}
+              className={`flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] transition-colors
+                ${reordering ? 'bg-white' : 'hover:bg-[var(--bg)] cursor-pointer'}`}
             >
               <GenderAvatar gender={p.gender} size={40} />
               <div className="flex-1 min-w-0">
@@ -1115,10 +1246,46 @@ export default function PatientsPage() {
                   )}
                 </div>
               </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   strokeWidth="2" className="text-[var(--text3)] shrink-0" aria-hidden>
-                <polyline points="9,18 15,12 9,6"/>
-              </svg>
+              {reordering ? (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => movePatientToTop(p.key)}
+                    aria-label={`Move ${p.name} to top`}
+                    title="Move to top"
+                    className="w-8 h-8 rounded-[var(--r-sm)] border border-[var(--border)] flex items-center justify-center
+                               text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)] active:scale-95 transition-all"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                      <line x1="5" y1="4" x2="19" y2="4"/><polyline points="7 12 12 7 17 12"/><line x1="12" y1="7" x2="12" y2="20"/>
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => movePatient(p.key, -1)}
+                    aria-label={`Move ${p.name} up`}
+                    className="w-8 h-8 rounded-[var(--r-sm)] border border-[var(--border)] flex items-center justify-center
+                               text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)] active:scale-95 transition-all"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                      <polyline points="6 15 12 9 18 15"/>
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => movePatient(p.key, 1)}
+                    aria-label={`Move ${p.name} down`}
+                    className="w-8 h-8 rounded-[var(--r-sm)] border border-[var(--border)] flex items-center justify-center
+                               text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)] active:scale-95 transition-all"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     strokeWidth="2" className="text-[var(--text3)] shrink-0" aria-hidden>
+                  <polyline points="9,18 15,12 9,6"/>
+                </svg>
+              )}
             </div>
           ))
         )}

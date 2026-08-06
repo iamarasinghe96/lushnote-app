@@ -13,6 +13,9 @@ interface User {
   notesMigrated: boolean
   workplaces: Workplace[]
   favoriteTemplateIds: (string | number)[]
+  // Doctor's own patient ordering (PatientGroup keys, first = top of the list).
+  // When present it takes precedence over the Recent sort.
+  patientOrder?: string[]
   customTemplates: CustomTemplate[]
   customLetterTemplates?: CustomLetterTemplate[]  // array order = picker priority
   groqApiKey?: string
