@@ -8,7 +8,7 @@ import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useAuth } from '@/hooks/useAuth'
 import { savePatientProfile } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
-import { getGroqKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName } from '@/lib/utils'
+import { getGroqKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName, parsePatientIntakeFields } from '@/lib/utils'
 import type { PatientProfile } from '@/types'
 
 interface AddPatientModalProps {
@@ -31,17 +31,6 @@ function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60)
   const s = secs % 60
   return `${m}:${s.toString().padStart(2, '0')}`
-}
-
-// The fields Groq returns for mode:'patient-intake' — mapped straight onto the
-// profile. Kept in sync with TRACKED_CLINICAL_FIELDS / the API contract.
-function extractProfileFields(raw: Record<string, unknown>): Partial<PatientProfile> {
-  const out: Partial<PatientProfile> = {}
-  for (const f of TRACKED_CLINICAL_FIELDS) {
-    const v = raw[f.key as string]
-    if (typeof v === 'string' && v.trim()) (out as Record<string, string>)[f.key as string] = v.trim()
-  }
-  return out
 }
 
 export default function AddPatientModal({ open, onClose, onSaved }: AddPatientModalProps) {
@@ -140,7 +129,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
         body: JSON.stringify({ mode: 'patient-intake', source: textSource, transcript: text }),
       })
       const data = await res.json() as { patientFields?: Record<string, unknown>; error?: string }
-      return data.patientFields ? extractProfileFields(data.patientFields) : {}
+      return data.patientFields ? parsePatientIntakeFields(data.patientFields) : {}
     } catch {
       return {}
     }

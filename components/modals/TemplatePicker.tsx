@@ -16,6 +16,9 @@ interface TemplatePickerProps {
   onSelectCustomLetter?: (template: CustomLetterTemplate) => void
   onEditCustomLetter?: (template: CustomLetterTemplate) => void
   onCreateLetterTemplate?: () => void
+  /** When provided, a "Patient" tab offers filling this patient's tracked record
+   *  (presenting issue, current issues, medications, …) from the same content. */
+  onAddPatient?: () => void
   /** Tab to show when the picker opens. Defaults to 'all'. */
   defaultTab?: Tab
   /** The template the current note was generated with (id + title enough) — shown
@@ -45,7 +48,7 @@ function recordUsage(id: string | number) {
   localStorage.setItem(USAGE_KEY, JSON.stringify([id, ...ids].slice(0, MAX_RECENT)))
 }
 
-type Tab = 'all' | 'session' | 'document' | 'custom' | 'letters'
+type Tab = 'all' | 'session' | 'document' | 'custom' | 'letters' | 'patient'
 
 const NOTE_LENGTHS: { value: NoteLength; label: string }[] = [
   { value: 'brief', label: 'Brief' },
@@ -123,7 +126,7 @@ function matchesTab(t: AnyTemplate, tab: Tab, customIds: Set<string>): boolean {
   return true
 }
 
-export default function TemplatePicker({ open, onSelect, onCancel, onSelectLetter, customLetterTemplates = [], onSelectCustomLetter, onEditCustomLetter, onCreateLetterTemplate, defaultTab, currentTemplate }: TemplatePickerProps) {
+export default function TemplatePicker({ open, onSelect, onCancel, onSelectLetter, customLetterTemplates = [], onSelectCustomLetter, onEditCustomLetter, onCreateLetterTemplate, onAddPatient, defaultTab, currentTemplate }: TemplatePickerProps) {
   const { profile, user, refreshProfile } = useAuth()
   const [builtins, setBuiltins] = useState<Template[]>([])
   const [search, setSearch] = useState('')
@@ -208,6 +211,8 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
 
   const showLetters = Boolean(onSelectLetter)
   const isLettersTab = tab === 'letters'
+  const showPatient = Boolean(onAddPatient)
+  const isPatientTab = tab === 'patient'
 
   function handleSelect(t: AnyTemplate) {
     recordUsage(t.id)
@@ -352,6 +357,9 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
             ...(showLetters
               ? [{ key: 'letters' as Tab, label: 'Letters', count: LETTER_OPTIONS.length }]
               : []),
+            ...(showPatient
+              ? [{ key: 'patient' as Tab, label: 'Patient', count: 1 }]
+              : []),
           ]).map(({ key, label, count }) => (
             <button
               key={key}
@@ -375,7 +383,7 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
         </div>
 
         {/* Which template this note currently uses */}
-        {!isLettersTab && currentTemplate && (
+        {!isLettersTab && !isPatientTab && currentTemplate && (
           <div className="px-5 pt-3 shrink-0">
             <div className="flex items-center gap-2 text-xs rounded-[var(--r)] bg-[var(--blue-lt)] border border-[var(--blue)]/30 px-3 py-2">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--blue)] shrink-0" aria-hidden><path d="M20 6 9 17l-5-5" /></svg>
@@ -385,7 +393,37 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
           </div>
         )}
 
-        {isLettersTab ? (
+        {isPatientTab ? (
+          /* Patient tab — send this content to the patient's tracked record
+             instead of writing a note or letter. */
+          <div className="flex-1 overflow-y-auto px-5 py-4 min-h-0 space-y-3">
+            <p className="text-sm text-[var(--text2)]">
+              Use this content to fill the patient&apos;s record instead of writing a note.
+            </p>
+            <button
+              onClick={onAddPatient}
+              className={'w-full ' + LETTER_CARD_CLASS}
+              style={LETTER_CARD_STYLE}
+            >
+              <span className="text-[#10b981] shrink-0">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
+                </svg>
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-[var(--text)]">Add to patient record</p>
+                <p className="text-xs text-[var(--text3)] mt-0.5">
+                  Fills presenting issue, current issues, management, history, medications, bloods, imaging and plan
+                </p>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="1.8" className="text-[var(--text3)] shrink-0" aria-hidden>
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          </div>
+        ) : isLettersTab ? (
           /* Letters tab — choose a letter type for this patient */
           <div className="flex-1 overflow-y-auto px-5 py-4 min-h-0 space-y-3">
             <p className="text-sm text-[var(--text2)]">
@@ -541,7 +579,7 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
           >
             ← Back
           </button>
-          {!isLettersTab && (
+          {!isLettersTab && !isPatientTab && (
             <button
               onClick={handleSkip}
               className="flex-1 py-2 text-sm font-medium text-white bg-[#10b981]

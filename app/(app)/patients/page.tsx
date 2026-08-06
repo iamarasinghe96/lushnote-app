@@ -427,7 +427,12 @@ export default function PatientsPage() {
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [editingProfile, setEditingProfile] = useState<PatientProfile | undefined>(undefined)
   const [unfinishedDraft, setUnfinishedDraft] = useState<{ text: string; durationSec: number } | null>(null)
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
+    // ?view=table lands straight on the table — used after filling a patient's
+    // record from a pasted note, so the doctor sees the fields that landed.
+    if (typeof window === 'undefined') return 'cards'
+    return new URLSearchParams(window.location.search).get('view') === 'table' ? 'table' : 'cards'
+  })
   const [filtersOpen, setFiltersOpen] = useState(false)
   // The patient a document is being generated for (opens the letter/note picker).
   const [generateFor, setGenerateFor] = useState<PatientProfile | null>(null)

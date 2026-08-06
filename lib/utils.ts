@@ -803,6 +803,18 @@ export function capitalizeName(raw: string): string {
   return raw.replace(/(^|[\s'-])([a-z])/g, (_m, sep: string, ch: string) => sep + ch.toUpperCase())
 }
 
+// Map the AI's patient-intake response onto profile fields, keeping only the
+// tracked clinical keys with real content. Shared by every entry point that
+// fills a patient record from text (dictation, pasted ward note).
+export function parsePatientIntakeFields(raw: Record<string, unknown>): Partial<PatientProfile> {
+  const out: Partial<PatientProfile> = {}
+  for (const f of TRACKED_CLINICAL_FIELDS) {
+    const v = raw[f.key as string]
+    if (typeof v === 'string' && v.trim()) (out as Record<string, string>)[f.key as string] = v.trim()
+  }
+  return out
+}
+
 // A profile is "tracked" (shown in the Table view, gets a Generate button) once
 // it carries a UR number, was explicitly added via Add Patient, or has any
 // structured clinical field filled in.

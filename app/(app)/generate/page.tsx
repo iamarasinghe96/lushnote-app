@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { openSettings, quotaDate } from '@/lib/utils'
+import { openSettings, quotaDate, getGroqKey, parsePatientIntakeFields } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import Textarea from '@/components/ui/Textarea'
@@ -18,6 +18,7 @@ import { listNotes } from '@/lib/firestore/notes'
 import { getTranscriptDraft, deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { getHospitalFormsForWorkplace, getHospitalForm } from '@/lib/firestore/hospitalForms'
 import { updateProfile } from '@/lib/firestore/profiles'
+import { getPatientProfiles, savePatientProfile } from '@/lib/firestore/patients'
 import type { AnyTemplate, NoteCreationMode, Note, LetterType, CustomLetterTemplate, HospitalFormDoc } from '@/types'
 
 const GEMINI_RPD = 20
@@ -130,6 +131,10 @@ export default function GeneratePage() {
   const [prefillPatient, setPrefillPatient] = useState<{ patient: string; reg_number: string; session_number: string; attendance: string } | null>(null)
   const [allNotes, setAllNotes] = useState<Note[]>([])
   const [letterPickerOpen, setLetterPickerOpen] = useState(false)
+  const [patientSaving, setPatientSaving] = useState(false)
+  // Whether the naming step matched an EXISTING patient — used to suppress the
+  // duplicate-name warning on a letter written for them.
+  const existingPatientRef = useRef(false)
   const [customBuilderOpen, setCustomBuilderOpen] = useState(false)
   const [clinicalNoteMode, setClinicalNoteMode] = useState(false)
   const [hospitalForms, setHospitalForms] = useState<HospitalFormDoc[]>([])
@@ -394,13 +399,21 @@ export default function GeneratePage() {
     setTranscriptConfirmOpen(true)
   }
 
-  function startLetterFromTranscript(text: string, letterType: LetterType, customTemplate?: CustomLetterTemplate | null) {
+  // `known` carries the patient already confirmed in the naming step (the paste
+  // pathway), so their name lands on the letter and the duplicate-name warning
+  // — which exists for brand-new letters — stays out of the way.
+  function startLetterFromTranscript(
+    text: string,
+    letterType: LetterType,
+    customTemplate?: CustomLetterTemplate | null,
+    known?: { patient: string; mode: NoteCreationMode; existingPatient: boolean },
+  ) {
     store.resetHospitalForm()
     store.resetLetterMode()
     // Fresh letter → its own new doc; never reuse a note id left in the store.
     store.setCurrentNoteId(null)
     store.setLastTranscript(text)
-    store.setLastTranscriptMode('dictation')
+    store.setLastTranscriptMode(known?.mode ?? 'dictation')
     // A custom letter with no resolvable template (e.g. deleted) degrades to a
     // free-text letter so the dictation is never lost.
     const effectiveType: LetterType = letterType === 'custom' && !customTemplate ? 'freetext' : letterType
@@ -409,7 +422,8 @@ export default function GeneratePage() {
       store.setCustomLetterTemplate(customTemplate)
       store.setCustomLetterSections(customTemplate.sections.map(s => ({ key: s.key, heading: s.heading, content: '' })))
     }
-    store.setLetterCommonFields({ letterDate: todayStr() })
+    store.setLetterCommonFields({ letterDate: todayStr(), ...(known?.patient ? { patientName: known.patient } : {}) })
+    if (known?.existingPatient) store.setLetterForKnownPatient(true)
     store.setPendingLetterGeneration(true)
     if (user) deleteTranscriptDraft(user.uid).catch(() => {})
     router.push('/edit')
@@ -504,6 +518,7 @@ export default function GeneratePage() {
   ) {
     setTranscriptConfirmOpen(false)
     store.resetHospitalForm()
+    existingPatientRef.current = !isNewPatient
     setPrefillPatient({ patient, reg_number: regNumber, session_number: sessionNumber, attendance })
     store.setLastTranscript(pendingTranscript)
     store.setLastTranscriptMode(creationMode)
@@ -526,6 +541,62 @@ export default function GeneratePage() {
     // page). Deleting it here risks losing the session if the tab reloads
     // before the note is persisted.
     setPhase('template-picking')
+  }
+
+  // The paste pathway's picker can send this content to a letter or to the
+  // patient's record instead of a note. Both reuse the transcript the doctor
+  // already confirmed a patient for.
+  function handlePasteLetter(type: LetterType, customTemplate?: CustomLetterTemplate | null) {
+    setPhase('idle')
+    startLetterFromTranscript(pendingTranscript, type, customTemplate, {
+      patient: prefillPatient?.patient ?? '',
+      mode: creationMode,
+      existingPatient: existingPatientRef.current,
+    })
+  }
+
+  // Fill the confirmed patient's tracked record from the pasted content, merging
+  // into their existing profile when they already have one.
+  async function handleAddPatientFromTranscript() {
+    if (!user || !pendingTranscript.trim()) return
+    const name = (prefillPatient?.patient ?? '').trim()
+    if (!name) { setError('Add the patient details first.'); return }
+    setPhase('idle')
+    setPatientSaving(true)
+    setError(null)
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const gk = getGroqKey()
+      if (gk) headers['x-groq-key'] = gk
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ mode: 'patient-intake', source: 'paste', transcript: pendingTranscript }),
+      })
+      const data = await res.json() as { patientFields?: Record<string, unknown>; error?: string }
+      if (!data.patientFields) throw new Error(data.error || 'Could not read the note')
+      const extra = parsePatientIntakeFields(data.patientFields)
+
+      const profiles = await getPatientProfiles(user.uid)
+      const existing = Object.values(profiles).find(
+        p => p.displayName.trim().toLowerCase() === name.toLowerCase()
+      )
+      const now = Date.now()
+      await savePatientProfile(user.uid, {
+        ...(existing ?? { displayName: name }),
+        ...extra,
+        tracked: true,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+        ...(prefillPatient?.reg_number ? { urNumber: prefillPatient.reg_number } : {}),
+      })
+      if (user) deleteTranscriptDraft(user.uid).catch(() => {})
+      router.push('/patients?view=table')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not add the patient details.')
+    } finally {
+      setPatientSaving(false)
+    }
   }
 
   function handleTemplateSelect(template: AnyTemplate, noteLength: string) {
@@ -744,6 +815,13 @@ export default function GeneratePage() {
             setTranscriptConfirmOpen(true)
           }
         }}
+        {...(clinicalNoteMode ? {} : {
+          onSelectLetter: (type: LetterType) => handlePasteLetter(type),
+          customLetterTemplates: profile?.customLetterTemplates ?? [],
+          onSelectCustomLetter: (t: CustomLetterTemplate) => handlePasteLetter('custom', t),
+          onCreateLetterTemplate: () => { setPhase('idle'); setCustomBuilderOpen(true) },
+          onAddPatient: handleAddPatientFromTranscript,
+        })}
       />
       <LetterPickerModal
         open={letterPickerOpen}
@@ -756,6 +834,16 @@ export default function GeneratePage() {
         hospitalForms={hospitalForms}
         onSelectHospitalForm={handleSelectHospitalForm}
       />
+      <Modal open={patientSaving} onClose={() => {}} title="Adding patient details" maxWidth="sm">
+        <div className="px-5 pb-6 text-center">
+          <svg width="28" height="28" viewBox="0 0 24 24" className="animate-spin text-[var(--blue)] mx-auto mb-3" aria-hidden>
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round"/>
+          </svg>
+          <p className="text-sm text-[var(--text2)]">Reading the note and filling the fields…</p>
+        </div>
+      </Modal>
+
       <CustomLetterBuilderModal
         open={customBuilderOpen}
         onSave={handleSaveCustomTemplate}
