@@ -363,6 +363,14 @@ function EditContent() {
   // Letter autosave only ever updates a doc it knows is a letter — otherwise it
   // creates a fresh one — so a letter can never overwrite a clinical note.
   const currentDocIsLetterRef = useRef(false)
+  // The saved letter's Firestore id, mirrored in a ref. store.currentNoteId is
+  // React state, so it isn't readable until the next commit — a second autosave
+  // firing before then would see "no id yet" and CREATE a duplicate letter
+  // instead of updating the one just written.
+  const letterDocIdRef = useRef<string | null>(null)
+  // Set when an autosave is skipped because one was already in flight, so the
+  // edit that triggered it still gets written once the running save finishes.
+  const letterSaveDirtyRef = useRef(false)
   // Always-latest doAutoSaveLetter so the debounce and unmount flush use current
   // user/profile/store, not a stale first-render closure.
   const doAutoSaveLetterRef = useRef<() => void>(() => {})
@@ -698,6 +706,7 @@ function EditContent() {
       store.resetLetterMode()
       if (parsed && hydrateLetterFromNote(store, note)) {
         currentDocIsLetterRef.current = true
+        letterDocIdRef.current = noteId
         // Prime the "already saved" guard with the same serialization the
         // autosave will compute, so merely opening the letter doesn't re-write it.
         lastSavedLetterDataRef.current = serializeLetterData(buildLetterPayload({
@@ -719,6 +728,7 @@ function EditContent() {
       }
     }
     currentDocIsLetterRef.current = false
+    letterDocIdRef.current = null
     const noteFields: Partial<Note> = {
       patient:        note.patient,
       reg_number:     note.reg_number,
@@ -1064,7 +1074,7 @@ function EditContent() {
     const s = storeRef.current
     const lt = s.letterType
     if (lt === null || !user) return
-    if (isSavingRef.current) return
+    if (isSavingRef.current) { letterSaveDirtyRef.current = true; return }
     const common = s.letterCommonFields
     const patientName = (common.patientName || '').trim()
     if (!patientName) return
@@ -1113,7 +1123,9 @@ function EditContent() {
     // Only update in place when we know the current doc is THIS letter; otherwise
     // create a new doc so we never clobber a clinical note that happens to be the
     // current note id.
-    const targetId = s.currentNoteId && currentDocIsLetterRef.current ? s.currentNoteId : null
+    const targetId = currentDocIsLetterRef.current
+      ? (letterDocIdRef.current ?? s.currentNoteId)
+      : null
     isSavingRef.current = true
     setLetterSaveState('saving')
     try {
@@ -1121,8 +1133,9 @@ function EditContent() {
         await updateNote(targetId, noteData)
       } else {
         const id = await saveNote(noteData)
-        s.setCurrentNoteId(id)
+        letterDocIdRef.current = id
         currentDocIsLetterRef.current = true
+        s.setCurrentNoteId(id)
       }
       lastSavedLetterDataRef.current = serialized
       if (s.lastTranscript && s.lastTranscript.trim() && !draftClearedRef.current) {
@@ -1137,6 +1150,12 @@ function EditContent() {
       if (mountedRef.current) setLetterSaveState('idle')
     } finally {
       isSavingRef.current = false
+      // An edit landed mid-save — write it now so the letter always ends up
+      // holding the latest content (this re-run updates, never creates).
+      if (letterSaveDirtyRef.current && mountedRef.current) {
+        letterSaveDirtyRef.current = false
+        setTimeout(() => { doAutoSaveLetterRef.current() }, 0)
+      }
     }
   }
   doAutoSaveLetterRef.current = doAutoSaveLetter
@@ -1275,6 +1294,7 @@ function EditContent() {
     store.resetLetterMode()
     store.setCurrentNoteId(null)
     currentDocIsLetterRef.current = false
+    letterDocIdRef.current = null
     lastSavedLetterDataRef.current = null
   }
 
@@ -1283,6 +1303,7 @@ function EditContent() {
   // its own doc rather than updating the note we came from.
   function enterFreshLetter() {
     currentDocIsLetterRef.current = false
+    letterDocIdRef.current = null
     lastSavedLetterDataRef.current = null
   }
 
