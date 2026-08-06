@@ -602,7 +602,8 @@ export default function GeneratePage() {
       router.push(`/patients?patient=${encodeURIComponent(name)}&expand=1`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not add the patient details.')
-    } finally {
+      // Only cleared on failure — on success the overlay stays up until this page
+      // unmounts, so there's no flash of the generate screen mid-navigation.
       setPatientSaving(false)
     }
   }
@@ -692,7 +693,7 @@ export default function GeneratePage() {
             </div>
           </div>
         )}
-        <ModeCard icon={PasteIcon} title="Paste Transcript" description="Reads clipboard automatically" onClick={handlePasteMode} />
+        <ModeCard icon={PasteIcon} title="Paste Transcript or Ward Note" description="Session transcript, or a Bossnet note to fill patient details — reads clipboard automatically" onClick={handlePasteMode} />
         <ModeCard icon={RecordIcon} title="Record Session" description="In-person or telehealth recording" onClick={() => startMode('conversation')} />
         <ModeCard icon={DictateIcon} title="Dictate Note" description="Narrate the note yourself" onClick={() => startMode('dictation')} />
 
@@ -719,7 +720,7 @@ export default function GeneratePage() {
 
 
       {/* Paste transcript modal */}
-      <Modal open={phase === 'paste-input'} onClose={handleCancel} title="Paste Transcript" maxWidth="lg">
+      <Modal open={phase === 'paste-input'} onClose={handleCancel} title="Paste Transcript or Ward Note" maxWidth="lg">
         <div className="px-5 pb-5 space-y-4">
           {pasteModalError ? (
             <>
@@ -755,7 +756,7 @@ export default function GeneratePage() {
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
                 rows={10}
-                placeholder="Paste your session transcript here…"
+                placeholder="Paste a session transcript, or a ward note from Bossnet…"
                 autoFocus
               />
               <div className="flex gap-2">

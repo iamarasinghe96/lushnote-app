@@ -578,6 +578,12 @@ export default function PatientsPage() {
   // ?patient=<name> (read once here on a fresh mount, after notes have grouped).
   const deepLinkConsumedRef = useRef(false)
   const [expandOnOpen, setExpandOnOpen] = useState(false)
+  // Arriving via ?patient= means we're heading straight into one patient's card.
+  // Rendering the list meanwhile would flash it for a beat before swapping, so
+  // hold a quiet loading screen until the card is ready.
+  const [deepLinkPending, setDeepLinkPending] = useState(
+    () => typeof window !== 'undefined' && !!new URLSearchParams(window.location.search).get('patient')
+  )
   useEffect(() => {
     function selectByName(name: string) {
       const q = name.trim().toLowerCase()
@@ -597,9 +603,16 @@ export default function PatientsPage() {
         if (params.get('expand') === '1') setExpandOnOpen(true)
         selectByName(name)
       }
+      // Batched with the selection above, so the card is on screen the same
+      // frame the loading screen goes away.
+      setDeepLinkPending(false)
     }
     return () => window.removeEventListener('ln-open-patient', onOpenPatient)
   }, [groupedPatients])
+
+  useEffect(() => {
+    if (!loading && deepLinkPending && groupedPatients.length === 0) setDeepLinkPending(false)
+  }, [loading, deepLinkPending, groupedPatients.length])
 
   const filteredPatients = useMemo<PatientGroup[]>(() => {
     let list = [...groupedPatients]
@@ -915,6 +928,18 @@ export default function PatientsPage() {
           onCancel={() => setGenTemplateOpen(false)}
         />
       </>
+    )
+  }
+
+  if (deepLinkPending && !selectedPatient) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center gap-3 bg-[var(--bg)]">
+        <svg width="26" height="26" viewBox="0 0 24 24" className="animate-spin text-[var(--blue)]" aria-hidden>
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25"/>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round"/>
+        </svg>
+        <p className="text-sm text-[var(--text3)]">Opening patient…</p>
+      </div>
     )
   }
 
