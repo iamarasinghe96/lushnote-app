@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback, type CSSProperties }
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatient, TRACKED_CLINICAL_FIELDS, formatDob } from '@/lib/utils'
+import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatient, TRACKED_CLINICAL_FIELDS, formatDob, calculateAgeFromDOB } from '@/lib/utils'
 import { getPatientProfiles, deletePatientProfile, savePatientProfile } from '@/lib/firestore/patients'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
 import { getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
@@ -45,6 +45,13 @@ function parseDateStr(s: string): Date | null {
   const y = parseInt(parts[2], 10)
   if (!d || !m || !y || y < 1900) return null
   return new Date(y, m - 1, d)
+}
+
+// Compact age badge shown beside a patient's name, e.g. "29Y". Null when the
+// DOB is missing or unparseable, so nothing is rendered.
+function ageLabel(dob?: string): string | null {
+  const age = calculateAgeFromDOB((dob ?? '').trim())
+  return age === null || age < 0 ? null : `${age}Y`
 }
 
 function formatDateDD(date: Date): string {
@@ -222,6 +229,7 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
   // to their data (profile.updatedAt) — falling back to note dates for patients
   // that only exist as notes.
   const reg = profile?.urNumber || patient.reg
+  const headerAge = ageLabel(fieldValue('dob') || patient.dob)
   const firstDate = profile?.createdAt ? formatDateDD(new Date(profile.createdAt)) : (sortedNotes[sortedNotes.length - 1]?.date || '')
   const lastDate = profile?.updatedAt ? formatDateDD(new Date(profile.updatedAt)) : (sortedNotes[0]?.date || '')
   const clinician = sortedNotes[0]?.clinician || clinicianName || ''
@@ -262,8 +270,16 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
               <GenderAvatar gender={patient.gender} size={56} />
               <div className="min-w-0 flex-1">
                 {/* Marquee-scrolls a long name so it's fully readable instead of
-                    being clipped under the action buttons. */}
-                <MarqueeName name={patient.name} className="text-xl font-bold text-[var(--text)]" />
+                    being clipped under the action buttons. The age sits outside
+                    the marquee so it stays put while the name scrolls. */}
+                <div className="flex items-baseline gap-1.5 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <MarqueeName name={patient.name} className="text-xl font-bold text-[var(--text)]" />
+                  </div>
+                  {headerAge && (
+                    <span className="text-base font-semibold text-[var(--text3)] shrink-0">({headerAge})</span>
+                  )}
+                </div>
                 {reg && (
                   <p className="text-sm text-[var(--text3)] mt-0.5">Registration #{reg}</p>
                 )}
@@ -1072,6 +1088,9 @@ export default function PatientsPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-[var(--text)] truncate">{p.name}</p>
+                  {ageLabel(p.dob) && (
+                    <span className="text-sm font-semibold text-[var(--text3)] shrink-0">({ageLabel(p.dob)})</span>
+                  )}
                   {p.ambiguous && p.dob && (
                     <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-300 rounded-full px-1.5 py-0.5 shrink-0">
                       DOB {p.dob}
