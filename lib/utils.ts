@@ -452,7 +452,7 @@ export function buildLetterText(params: {
 
   if (letterType === 'referral' && referral) {
     push(letterSalutation(common.recipientName)); gap()
-    push(`I am writing to refer to you ${common.patientName || ''}, who was admitted to the ${referral.admissionUnit || ''} from the ${formatDateForLetter(referral.admissionDateStart)} to the ${formatDateForLetter(referral.admissionDateEnd)}.`.replace(/\s+/g, ' ').trim())
+    push(buildReferralOpening(common.patientName || '', referral.admissionUnit || '', referral.admissionDateStart, referral.admissionDateEnd).replace(/\s+/g, ' ').trim())
     gap()
     const age = calculateAgeFromDOB(common.dob)
     const agePart = age !== null ? `${age} year old ` : ''
@@ -525,6 +525,31 @@ export const LETTER_TYPE_LABEL: Record<LetterType, string> = {
 export function letterSalutation(recipientName?: string): string {
   const r = (recipientName || '').trim()
   return r ? `Dear ${r},` : 'Dear Sir/Madam,'
+}
+
+// The referral letter's opening sentence. Admission unit and dates are optional
+// — like the recipient address, whatever isn't filled in is left out rather than
+// printed as a "[Date]" / "[Unit]" placeholder, so a referral without admission
+// details still reads as a proper sentence. `patient` and `unit` arrive already
+// escaped/bolded by the caller, since each output (text, HTML, PDF) differs.
+export function buildReferralOpening(patient: string, unit: string, start: string, end: string): string {
+  const usable = (d: string) => !!d && d.trim().length >= 8
+  const hasStart = usable(start)
+  const hasEnd = usable(end)
+  const u = unit.trim()
+  const span = hasStart && hasEnd
+    ? `from the ${formatDateForLetter(start)} to the ${formatDateForLetter(end)}`
+    : hasStart ? `on the ${formatDateForLetter(start)}`
+    : hasEnd ? `until the ${formatDateForLetter(end)}`
+    : ''
+
+  let clause = ''
+  if (u && span) clause = `who was admitted to the ${u} ${span}`
+  else if (u) clause = `who was admitted to the ${u}`
+  else if (span) clause = `who was admitted ${span}`
+
+  const base = `I am writing to refer to you ${patient}`
+  return clause ? `${base}, ${clause}.` : `${base}.`
 }
 
 export function formatDateForLetter(dateStr: string): string {
@@ -691,7 +716,7 @@ export function buildLetterPreviewHTML(params: {
     // clinical note fields and the PDF export.
     bodyHtml = `
       ${p(escapeHtml(letterSalutation(common.recipientName)))}
-      ${p(`I am writing to refer to you ${applyInlineBold(escapeHtml(common.patientName || '[Patient Name]'))}, who was admitted to the ${applyInlineBold(escapeHtml(referral.admissionUnit || '[Unit]'))} from the ${formatDateForLetter(referral.admissionDateStart)} to the ${formatDateForLetter(referral.admissionDateEnd)}.`)}
+      ${p(buildReferralOpening(applyInlineBold(escapeHtml(common.patientName || '[Patient Name]')), applyInlineBold(escapeHtml(referral.admissionUnit || '')), referral.admissionDateStart, referral.admissionDateEnd))}
       ${p(`Thank you for seeing ${title} ${applyInlineBold(escapeHtml(common.patientName || '[Patient Name]'))}. ${applyInlineBold(escapeHtml(firstName))} is a ${agePart}${applyInlineBold(escapeHtml(referral.gender || '[gender]'))} who presented with ${applyInlineBold(escapeHtml(referral.presentingComplaint || '[presenting complaint]'))}.`)}
       ${referral.secondParagraph ? p(applyInlineBold(escapeHtml(referral.secondParagraph))) : ''}
       ${p(`${applyInlineBold(escapeHtml(referral.referralReason || '[reason for referral]'))}${referral.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`)}

@@ -1,7 +1,7 @@
 'use client'
 
 import { parseBoldSegments } from '@/lib/pdf'
-import { letterSalutation, formatDateForLetter, calculateAgeFromDOB, autoNumberLines } from '@/lib/utils'
+import { letterSalutation, calculateAgeFromDOB, autoNumberLines, buildReferralOpening } from '@/lib/utils'
 import type { LetterType, LetterCommonFields, ReferralFields, RecordsFields, FreetextFields } from '@/types'
 
 // Shared letter PDF + email builders, extracted from the edit page so the Export
@@ -79,7 +79,7 @@ function flowLetterBody(p: LetterExportParams, write: (text: string, bold?: bool
   if (letterType === 'referral') {
     write(letterSalutation(common.recipientName))
     para()
-    write(`I am writing to refer to you ${common.patientName || '[Patient Name]'}, who was admitted to the ${referral.admissionUnit || '[Unit]'} from the ${formatDateForLetter(referral.admissionDateStart)} to the ${formatDateForLetter(referral.admissionDateEnd)}.`)
+    write(buildReferralOpening(common.patientName || '[Patient Name]', referral.admissionUnit || '', referral.admissionDateStart, referral.admissionDateEnd))
     para()
     const age = calculateAgeFromDOB(common.dob)
     const agePart = age !== null ? `${age} year old ` : ''
@@ -291,7 +291,7 @@ export function openLetterEmail(p: LetterExportParams) {
   if (letterType === 'referral') {
     lines.push(letterSalutation(common.recipientName))
     lines.push('')
-    lines.push(`I am writing to refer to you ${common.patientName || '[Patient Name]'}, who was admitted to the ${referral.admissionUnit || '[Unit]'} from the ${formatDateForLetter(referral.admissionDateStart)} to the ${formatDateForLetter(referral.admissionDateEnd)}.`)
+    lines.push(buildReferralOpening(common.patientName || '[Patient Name]', referral.admissionUnit || '', referral.admissionDateStart, referral.admissionDateEnd))
     lines.push('')
     const age = calculateAgeFromDOB(common.dob)
     const agePart = age !== null ? `${age} year old ` : ''

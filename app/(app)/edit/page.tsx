@@ -2650,13 +2650,13 @@ function EditContent() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <Input
-                        label="Admission date start (DD/MM/YYYY)"
+                        label="Admission date start (optional)"
                         value={referralFields.admissionDateStart}
                         onChange={e => store.setReferralFields({ admissionDateStart: autoFormatDate(e.target.value) })}
                         placeholder="DD/MM/YYYY"
                       />
                       <Input
-                        label="Admission date end (DD/MM/YYYY)"
+                        label="Admission date end (optional)"
                         value={referralFields.admissionDateEnd}
                         onChange={e => store.setReferralFields({ admissionDateEnd: autoFormatDate(e.target.value) })}
                         placeholder="DD/MM/YYYY"
