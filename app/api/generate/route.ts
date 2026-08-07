@@ -23,7 +23,23 @@ function repairJsonControlChars(s: string): string {
     const c = s[i]
     if (esc) { out += c; esc = false; continue }
     if (c === '\\') { out += c; esc = true; continue }
-    if (c === '"') { inStr = !inStr; out += c; continue }
+    if (c === '"') {
+      if (!inStr) { inStr = true; out += c; continue }
+      // A quote inside a value is only the END of that value if what follows
+      // structurally closes it. Clinical text is full of quotes — «"word salad"»,
+      // a height of 5'8" — and treating those as terminators is what produced
+      // "Expected ':' after property name". Anything else is escaped and kept.
+      let j = i + 1
+      while (j < s.length && (s[j] === ' ' || s[j] === '\n' || s[j] === '\r' || s[j] === '\t')) j++
+      const next = s[j]
+      if (j >= s.length || next === ':' || next === ',' || next === '}' || next === ']') {
+        inStr = false
+        out += c
+        continue
+      }
+      out += '\\"'
+      continue
+    }
     if (inStr) {
       if (c === '\n') { out += '\\n'; continue }
       if (c === '\r') { out += '\\r'; continue }
@@ -158,10 +174,17 @@ ${transcript}`
         const { content } = await runExtraction({ prompt: formPrompt, system: systemInstruction, req, uid })
         const jsonMatch = content.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
-          const formFields = JSON.parse(repairJsonControlChars(jsonMatch[0])) as Record<string, unknown>
-          return NextResponse.json({ formFields })
+          // Parse in isolation: a malformed reply is the AI's problem, not
+          // something to show the doctor as a raw syntax error.
+          let formFields: Record<string, unknown> | null = null
+          try {
+            formFields = JSON.parse(repairJsonControlChars(jsonMatch[0])) as Record<string, unknown>
+          } catch {
+            logToSink({ level: 'warn', tag: 'generate', message: `${mode} reply was not valid JSON`, route: '/api/generate', uid })
+          }
+          if (formFields) return NextResponse.json({ formFields })
         }
-        return NextResponse.json({ error: 'The AI reply could not be read. Please try again.' }, { status: 500 })
+        return NextResponse.json({ error: 'The AI reply came back garbled. Please try again — it usually works on a second attempt.' }, { status: 502 })
       } catch (err) {
         if (err instanceof Error && err.message === AI_UNAVAILABLE) {
           return NextResponse.json({ error: AI_LIMIT_MESSAGE }, { status: 429 })
@@ -274,10 +297,17 @@ ${transcript}`
         const { content } = await runExtraction({ prompt: intakePrompt, system: systemInstruction, req, uid })
         const jsonMatch = content.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
-          const patientFields = JSON.parse(repairJsonControlChars(jsonMatch[0])) as Record<string, unknown>
-          return NextResponse.json({ patientFields })
+          // Parse in isolation: a malformed reply is the AI's problem, not
+          // something to show the doctor as a raw syntax error.
+          let patientFields: Record<string, unknown> | null = null
+          try {
+            patientFields = JSON.parse(repairJsonControlChars(jsonMatch[0])) as Record<string, unknown>
+          } catch {
+            logToSink({ level: 'warn', tag: 'generate', message: `${mode} reply was not valid JSON`, route: '/api/generate', uid })
+          }
+          if (patientFields) return NextResponse.json({ patientFields })
         }
-        return NextResponse.json({ error: 'The AI reply could not be read. Please try again.' }, { status: 500 })
+        return NextResponse.json({ error: 'The AI reply came back garbled. Please try again — it usually works on a second attempt.' }, { status: 502 })
       } catch (err) {
         if (err instanceof Error && err.message === AI_UNAVAILABLE) {
           return NextResponse.json({ error: AI_LIMIT_MESSAGE }, { status: 429 })
@@ -445,10 +475,17 @@ ${transcript}`
         const { content } = await runExtraction({ prompt: letterPrompt, system: systemInstruction, req, uid })
         const jsonMatch = content.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
-          const letterFields = JSON.parse(repairJsonControlChars(jsonMatch[0])) as Record<string, unknown>
-          return NextResponse.json({ letterFields })
+          // Parse in isolation: a malformed reply is the AI's problem, not
+          // something to show the doctor as a raw syntax error.
+          let letterFields: Record<string, unknown> | null = null
+          try {
+            letterFields = JSON.parse(repairJsonControlChars(jsonMatch[0])) as Record<string, unknown>
+          } catch {
+            logToSink({ level: 'warn', tag: 'generate', message: `${mode} reply was not valid JSON`, route: '/api/generate', uid })
+          }
+          if (letterFields) return NextResponse.json({ letterFields })
         }
-        return NextResponse.json({ error: 'The AI reply could not be read. Please try again.' }, { status: 500 })
+        return NextResponse.json({ error: 'The AI reply came back garbled. Please try again — it usually works on a second attempt.' }, { status: 502 })
       } catch (err) {
         if (err instanceof Error && err.message === AI_UNAVAILABLE) {
           return NextResponse.json({ error: AI_LIMIT_MESSAGE }, { status: 429 })
