@@ -209,10 +209,6 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
   async function handleStart() {
     setPermError(null)
     if (!user) { setPermError('Please sign in and try again.'); return }
-    // FIRST, before any await: the picture-in-picture request must sit inside
-    // this tap's gesture. Awaiting getUserMedia first is what stopped it opening
-    // on iOS. The surface was prepared when this screen appeared.
-    void pip.enter({ silent: true })
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
@@ -231,8 +227,6 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
         }, autoStopMinutes * 60 * 1000)
       }
     } catch {
-      // No recording after all — don't leave a floating window behind.
-      void pip.exit()
       setPermError('Microphone access denied. Please allow access and try again.')
     }
   }
@@ -462,9 +456,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
             )}
             <p className="text-[11px] text-[var(--text3)] text-center">
               {pip.supported
-                ? 'Keep the screen on while recording. A floating window opens automatically so you can switch apps safely.'
-                : pip.isIOS
-                ? 'Keep the screen on while recording — locking the phone can stop it. Switching to another app is fine.'
+                ? 'Keep the screen on while recording. Before switching to another app, tap “Keep recording while I use another app”.'
                 : 'Keep LushNote on-screen while recording. If you need another app, use split-screen so this stays visible.'}
             </p>
             <Button onClick={handleStart} variant="primary" className="w-full">
@@ -490,26 +482,43 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
             <p className="text-sm text-[var(--text3)]">
               {micLost ? 'Paused — waiting for the microphone…' : (letterType || hospitalForm) ? `Dictating your ${selectedLabel?.toLowerCase()}…` : 'Dictating…'}
             </p>
-            {/* The floating window opens by itself when recording starts, so
-                switching apps just works. It only needs explaining when it
-                isn't running — either the doctor closed it or the browser
-                wouldn't open it. */}
-            {pip.active ? (
-              <p className="text-[11px] text-[#059669] font-medium">Floating window on — you can safely switch apps. Keep the small window on screen.</p>
-            ) : pip.supported ? (
-              <p className="text-[11px] text-[var(--text3)]">
-                Leaving the app can stop the recording.{' '}
-                <button onClick={() => { void pip.enter() }} className="text-[var(--blue)] underline">
-                  Turn on the floating window
-                </button>{' '}to switch apps safely.
-              </p>
+            {/* Multitask: a page driving an active picture-in-picture video isn't
+                treated as backgrounded, so the microphone survives. Opened only
+                on this press — the browser requires a gesture, and an unasked-for
+                floating window is worse than none. */}
+            {pip.supported ? (
+              pip.active ? (
+                <div className="rounded-lg bg-[#10b981]/10 border border-[#10b981]/40 px-3 py-2.5 text-left space-y-2">
+                  <p className="text-xs text-[#059669] font-medium">
+                    Floating window on — you can switch apps now. Keep the small window on screen.
+                  </p>
+                  <button
+                    onClick={() => { void pip.exit() }}
+                    className="text-xs text-[var(--text2)] underline hover:text-[var(--text)] transition-colors"
+                  >
+                    Close floating window
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { void pip.enter() }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-[var(--r)]
+                             border border-[#10b981]/50 text-[#059669] text-sm font-medium
+                             hover:bg-[#10b981]/10 active:scale-[0.98] transition-all"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <rect x="2" y="4" width="20" height="16" rx="2"/>
+                    <rect x="12" y="12" width="8" height="6" rx="1" fill="currentColor" stroke="none"/>
+                  </svg>
+                  Keep recording while I use another app
+                </button>
+              )
             ) : !micLost && (
               <p className="text-[11px] text-[var(--text3)]">
-                {pip.isIOS
-                  ? 'Switching to another app is fine — just keep the screen on, as locking the phone can stop the recording.'
-                  : 'To use another app while recording, open it in split-screen so LushNote stays visible.'}
+                To use another app while recording, open it in <span className="font-medium text-[var(--text2)]">split-screen</span> so LushNote stays visible.
               </p>
             )}
+            {pip.error && <p className="text-[11px] text-[var(--danger)]">{pip.error}</p>}
             {micLost && (
               <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 text-left">
                 The microphone was interrupted (e.g. a phone call, the screen was locked, or you switched apps). Everything captured so far is saved. Tip: use split-screen next time so LushNote stays visible. Dictation resumes automatically when the mic is free — or tap Stop to finish now.

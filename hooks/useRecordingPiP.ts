@@ -15,18 +15,16 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // stream, and put THAT video into PiP. The floating window doubles as the
 // recording indicator: timer, status, and a reminder not to close it.
 //
+// The window opens only when the doctor presses the button — never on its own.
 // Entering PiP requires a user gesture, and iOS ends that gesture at the first
-// await — so the flow is: prepare() while the pre-record screen is showing
-// (canvas + video created, playing, metadata settled), then enter() as the very
-// first statement of the Start tap, before anything is awaited.
+// await, so the surface is built in advance: prepare() while the pre-record
+// screen is showing (canvas + video created, playing, metadata settled), leaving
+// enter() free to run synchronously inside the button press.
 
 interface WebkitVideo extends HTMLVideoElement {
   webkitSupportsPresentationMode?: (mode: string) => boolean
   webkitSetPresentationMode?: (mode: string) => void
   webkitPresentationMode?: string
-  // Standard PiP attribute: browsers that honour it pop the window open by
-  // themselves when the page is hidden. Not in lib.dom yet.
-  autoPictureInPicture?: boolean
 }
 
 export interface PiPStatus {
@@ -55,14 +53,11 @@ function detectIOS(): boolean {
 // Feature detection without a live element: standard PiP exposes a document
 // flag; iOS Safari only exposes webkitSetPresentationMode on the element.
 //
-// iOS is deliberately excluded even though the API exists. Recording there
-// already survives switching apps, so the floating window buys nothing — while
-// handing the video to the system player introduces its own problems (the
-// browser reopening the site in a fresh tab on return). The window exists to fix
-// Android, where backgrounding genuinely kills the microphone.
+// iOS is included: an installed (home-screen) app is suspended far more
+// aggressively than a Safari tab, so the floating window earns its place there
+// too — but only when the doctor asks for it, never on its own.
 function detectSupport(): boolean {
   if (typeof document === 'undefined') return false
-  if (detectIOS()) return false
   const canvasOk = typeof HTMLCanvasElement !== 'undefined'
     && typeof HTMLCanvasElement.prototype.captureStream === 'function'
   if (!canvasOk) return false
@@ -85,9 +80,6 @@ export function useRecordingPiP() {
   // Latest status, read by the draw loop — a ref so the loop never restarts
   // (and never goes stale) as the timer ticks.
   const statusRef = useRef<PiPStatus>({ seconds: 0, micLost: false, label: 'Dictating' })
-  // True while a recording is live, so the visibility handler knows it may
-  // open the window on its own.
-  const armedRef = useRef(false)
 
   useEffect(() => { setSupported(detectSupport()); setIsIOS(detectIOS()) }, [])
 
@@ -171,10 +163,6 @@ export function useRecordingPiP() {
       video.autoplay = true
       video.playsInline = true
       video.setAttribute('playsinline', '')
-      // Browsers that implement this open the floating window themselves the
-      // moment the page is hidden — the seamless path, no gesture involved.
-      video.autoPictureInPicture = true
-      video.setAttribute('autopictureinpicture', '')
       // PiP needs the element in the document; display:none would disqualify it,
       // so park it as a 1px, non-interactive, invisible element instead.
       video.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;'
@@ -203,7 +191,6 @@ export function useRecordingPiP() {
       const loop = () => { draw(); rafRef.current = requestAnimationFrame(loop) }
       rafRef.current = requestAnimationFrame(loop)
       tickRef.current = setInterval(draw, 1000)
-      armedRef.current = true
       refineSupport(video)
     } catch {
       setError('Could not start the floating window.')
@@ -251,22 +238,7 @@ export function useRecordingPiP() {
     setActive(false)
   }, [])
 
-  // Last-ditch attempt for browsers that ignore autoPictureInPicture: the moment
-  // the page is hidden, try to open the window anyway. Most browsers reject this
-  // (no user gesture) — which is exactly why enter() is also fired up-front when
-  // recording starts — but where it is allowed, the doctor gets it for free.
-  useEffect(() => {
-    function onHide() {
-      if (document.visibilityState !== 'hidden') return
-      if (!armedRef.current || document.pictureInPictureElement) return
-      void enter({ silent: true })
-    }
-    document.addEventListener('visibilitychange', onHide)
-    return () => document.removeEventListener('visibilitychange', onHide)
-  }, [enter])
-
   const teardown = useCallback(() => {
-    armedRef.current = false
     if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
     if (tickRef.current) { clearInterval(tickRef.current); tickRef.current = null }
     void exit()
