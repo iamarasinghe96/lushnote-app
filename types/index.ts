@@ -251,6 +251,12 @@ interface TemplateSection {
 // Subset used when creating or updating - omits server-managed fields
 type NoteInput = Omit<Note, 'id' | 'createdAt' | 'updatedAt'>
 
+interface PatientExtraField {
+  key: string        // slug of the label, used as the column identity
+  label: string      // the heading as the note wrote it
+  content: string
+}
+
 interface PatientProfile {
   id?: string               // Firestore document ID
   displayName: string
@@ -272,6 +278,10 @@ interface PatientProfile {
   imaging?: string
   plan?: string
   status?: string
+  // Topics a pasted/dictated note covered that none of the fixed fields above
+  // capture (Impression, Examination, Issues, Allergies …). Kept with the note's
+  // own heading so nothing is silently dropped, and shown as extra columns.
+  extras?: PatientExtraField[]
   tracked?: boolean         // added via Add Patient / promoted into the Table view
   createdAt?: number        // client epoch ms when the patient was added ("first seen")
   updatedAt?: number        // client epoch ms of the last edit ("last change")
@@ -433,6 +443,7 @@ export type {
   ExtraSection,
   TemplateSection,
   PatientProfile,
+  PatientExtraField,
   PatientSummary,
   Template,
   CustomTemplateField,

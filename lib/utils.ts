@@ -1,4 +1,4 @@
-import { WP_THEMES, type Note, type AnyTemplate, type ExtraSection, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields, type LetterData, type HospitalFormData, type PatientProfile } from '@/types'
+import { WP_THEMES, type Note, type AnyTemplate, type ExtraSection, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields, type LetterData, type HospitalFormData, type PatientProfile, type PatientExtraField } from '@/types'
 
 // The 11 core clinical note fields, in canonical order. Shared source of truth
 // for rendering order fallbacks and for deciding whether a section key is core.
@@ -828,15 +828,46 @@ export function capitalizeName(raw: string): string {
   return raw.replace(/(^|[\s'-])([a-z])/g, (_m, sep: string, ch: string) => sep + ch.toUpperCase())
 }
 
+// Turn a heading into a stable column key, e.g. "Impression" -> "impression".
+export function slugFieldKey(label: string): string {
+  const slug = label.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40)
+  return slug || 'extra'
+}
+
 // Map the AI's patient-intake response onto profile fields, keeping only the
 // tracked clinical keys with real content. Shared by every entry point that
 // fills a patient record from text (dictation, pasted ward note).
+//
+// Anything the note covered that has no fixed field (Impression, Examination,
+// Issues …) arrives in `extras` and is kept under the note's own heading, so a
+// pasted note never loses a section just because there's no column for it.
 export function parsePatientIntakeFields(raw: Record<string, unknown>): Partial<PatientProfile> {
   const out: Partial<PatientProfile> = {}
   for (const f of TRACKED_CLINICAL_FIELDS) {
     const v = raw[f.key as string]
     if (typeof v === 'string' && v.trim()) (out as Record<string, string>)[f.key as string] = v.trim()
   }
+
+  const reserved = new Set<string>(['urnumber', 'ur', 'status', 'displayname', 'gender',
+    ...TRACKED_CLINICAL_FIELDS.map(f => String(f.key).toLowerCase())])
+  const extras: PatientExtraField[] = []
+  const seen = new Set<string>()
+  if (Array.isArray(raw.extras)) {
+    for (const item of raw.extras) {
+      if (!item || typeof item !== 'object') continue
+      const rec = item as Record<string, unknown>
+      const label = String(rec.label ?? '').trim().slice(0, 60)
+      const content = String(rec.content ?? '').trim()
+      if (!label || !content) continue
+      const key = slugFieldKey(label)
+      // Never shadow a fixed column, and never repeat one heading twice.
+      if (reserved.has(key) || seen.has(key)) continue
+      seen.add(key)
+      extras.push({ key, label, content })
+      if (extras.length >= 12) break
+    }
+  }
+  if (extras.length) out.extras = extras
   return out
 }
 
@@ -846,6 +877,7 @@ export function parsePatientIntakeFields(raw: Record<string, unknown>): Partial<
 export function isTrackedPatient(p: PatientProfile): boolean {
   if (p.tracked) return true
   if (p.urNumber && p.urNumber.trim()) return true
+  if ((p.extras ?? []).some(e => e.content.trim())) return true
   return TRACKED_CLINICAL_FIELDS.some(f => {
     const v = p[f.key]
     return typeof v === 'string' && v.trim().length > 0
@@ -868,6 +900,7 @@ export function buildPatientInfoText(p: PatientProfile): string {
     const v = p[f.key]
     if (typeof v === 'string') push(f.label, v)
   }
+  for (const e of p.extras ?? []) push(e.label, e.content)
   return lines.join('\n')
 }
 

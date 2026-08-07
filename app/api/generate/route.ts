@@ -245,6 +245,7 @@ FIELD GUIDE:
 - bloodsPathology: Blood results and pathology, else ""
 - imaging: Imaging and imaging-like investigations with their findings, one per line, keeping the modality label (CT, MRI, carotid U/S, TTE …), else ""
 - plan: The forward plan, one item per line, else ""
+- extras: Every OTHER topic the note covers that none of the fields above capture — for example Impression, Examination, Investigations, Issues, Allergies, Vitals, Social history, Family history. Return an array of {"label": "<the note's own heading, kept as written>", "content": "<that section's content>"}. Use [] if there is nothing left over. NEVER repeat content already placed in a field above, and never invent a heading the note doesn't have.
 
 Return ONLY valid JSON — no markdown, no explanation, no extra text:
 {
@@ -257,7 +258,8 @@ Return ONLY valid JSON — no markdown, no explanation, no extra text:
   "medications": "",
   "bloodsPathology": "",
   "imaging": "",
-  "plan": ""
+  "plan": "",
+  "extras": []
 }
 
 HOSPITAL RECORD NOTE:
@@ -275,6 +277,7 @@ FIELD GUIDE:
 - bloodsPathology: Relevant blood results and pathology, else ""
 - imaging: Relevant imaging findings, else ""
 - plan: Ongoing plan and next steps (one per line if several), else ""
+- extras: Every OTHER topic the note covers that none of the fields above capture — for example Impression, Examination, Investigations, Issues, Allergies, Vitals, Social history, Family history. Return an array of {"label": "<the note's own heading, kept as written>", "content": "<that section's content>"}. Use [] if there is nothing left over. NEVER repeat content already placed in a field above, and never invent a heading the note doesn't have.
 
 Return ONLY valid JSON — no markdown, no explanation, no extra text:
 {
@@ -287,7 +290,8 @@ Return ONLY valid JSON — no markdown, no explanation, no extra text:
   "medications": "",
   "bloodsPathology": "",
   "imaging": "",
-  "plan": ""
+  "plan": "",
+  "extras": []
 }
 
 DICTATION:

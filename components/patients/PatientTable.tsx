@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react'
 import { TRACKED_CLINICAL_FIELDS, formatDob, buildPatientInfoText } from '@/lib/utils'
-import type { PatientProfile } from '@/types'
+import type { PatientProfile, PatientExtraField } from '@/types'
 
 interface PatientTableProps {
   profiles: PatientProfile[]
@@ -61,9 +61,12 @@ async function exportPatientsPDF(rows: PatientProfile[]) {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(15, 23, 42)
     doc.text(p.displayName || 'Unnamed', MARGIN, y); y += 6
 
-    for (const f of fields) {
-      const raw = p[f.key]
-      const value = typeof raw === 'string' ? raw.trim() : ''
+    const allFields: { label: string; value: string }[] = [
+      ...fields.map(f => ({ label: f.label, value: typeof p[f.key] === 'string' ? String(p[f.key]).trim() : '' })),
+      ...(p.extras ?? []).map(e => ({ label: e.label, value: e.content.trim() })),
+    ]
+    for (const f of allFields) {
+      const value = f.value
       if (!value) continue
       doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(71, 85, 105)
       doc.text(`${f.label}:`, MARGIN, y)
@@ -126,6 +129,9 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
   // Per-row local edits overlaid on the profile, so typing stays responsive and
   // the debounced save doesn't fight the input.
   const [drafts, setDrafts] = useState<Record<string, Partial<PatientProfile>>>({})
+  // Extra (AI-discovered) columns edit an array rather than a named field, so
+  // they get their own overlay keyed by patient then heading.
+  const [extraDrafts, setExtraDrafts] = useState<Record<string, Record<string, string>>>({})
   const pendingRef = useRef<Record<string, Partial<PatientProfile>>>({})
   const timerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const seenRef = useRef<Set<string>>(new Set())
@@ -172,6 +178,43 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
     if (p.id) setSelected(prev => new Set(prev).add(p.id!))
     setSearch('')
     searchRef.current?.blur()
+  }
+
+  // One column per distinct heading the AI found, in first-seen order. A patient
+  // without that heading simply shows an empty cell.
+  const extraColumns = useMemo<{ key: string; label: string }[]>(() => {
+    const seen = new Map<string, string>()
+    for (const p of rows) {
+      for (const e of p.extras ?? []) if (!seen.has(e.key)) seen.set(e.key, e.label)
+      const d = p.id ? extraDrafts[p.id] : undefined
+      if (d) for (const k of Object.keys(d)) if (!seen.has(k)) seen.set(k, k)
+    }
+    return Array.from(seen, ([key, label]) => ({ key, label }))
+  }, [rows, extraDrafts])
+
+  function extraValue(p: PatientProfile, key: string): string {
+    const d = p.id ? extraDrafts[p.id] : undefined
+    if (d && key in d) return d[key]
+    return (p.extras ?? []).find(e => e.key === key)?.content ?? ''
+  }
+
+  // Rebuild the whole extras array for this patient — the stored shape is a list,
+  // so a single cell edit still writes the complete set.
+  function editExtra(p: PatientProfile, key: string, label: string, value: string) {
+    const id = p.id
+    if (!id) return
+    setExtraDrafts(prev => ({ ...prev, [id]: { ...prev[id], [key]: value } }))
+    const merged: Record<string, PatientExtraField> = {}
+    for (const e of p.extras ?? []) merged[e.key] = { ...e }
+    const pending = { ...(extraDrafts[id] ?? {}), [key]: value }
+    for (const [k, v] of Object.entries(pending)) {
+      const existingLabel = merged[k]?.label ?? (k === key ? label : k)
+      merged[k] = { key: k, label: existingLabel, content: v }
+    }
+    const next = Object.values(merged).filter(e => e.content.trim())
+    pendingRef.current[id] = { ...pendingRef.current[id], extras: next }
+    if (timerRef.current[id]) clearTimeout(timerRef.current[id])
+    timerRef.current[id] = setTimeout(() => flush(id), 800)
   }
 
   function flush(id: string) {
@@ -389,6 +432,12 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
                     {c.label}
                   </th>
                 ))}
+                {/* Topics the AI found that have no fixed column of their own. */}
+                {extraColumns.map(c => (
+                  <th key={c.key} className="sticky top-0 z-10 bg-[var(--bg)] border-b border-[var(--border)] px-2 py-2 font-semibold text-xs text-[#059669] uppercase tracking-wide whitespace-nowrap">
+                    {c.label}
+                  </th>
+                ))}
                 <th className="sticky top-0 z-10 bg-[var(--bg)] border-b border-[var(--border)] px-2 py-2 font-semibold text-xs text-[var(--text3)] uppercase tracking-wide">
                   Actions
                 </th>
@@ -421,6 +470,17 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
                         minCh={c.minCh}
                         cap={c.cap}
                         numeric={c.numeric}
+                      />
+                    </td>
+                  ))}
+                  {extraColumns.map(c => (
+                    <td key={c.key} className="border-b border-[var(--border)] px-1.5 py-1.5">
+                      <GrowCell
+                        value={extraValue(p, c.key)}
+                        onChange={v => editExtra(p, c.key, c.label, v)}
+                        onFlush={() => p.id && flush(p.id)}
+                        minCh={22}
+                        cap="sentences"
                       />
                     </td>
                   ))}
