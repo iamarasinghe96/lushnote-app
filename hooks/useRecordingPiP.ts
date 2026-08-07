@@ -15,8 +15,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // stream, and put THAT video into PiP. The floating window doubles as the
 // recording indicator: timer, status, and a reminder not to close it.
 //
-// Entering PiP requires a user gesture, so the flow is: prepare() when recording
-// starts (canvas + video ready and playing), enter() from the doctor's tap.
+// Entering PiP requires a user gesture, and iOS ends that gesture at the first
+// await — so the flow is: prepare() while the pre-record screen is showing
+// (canvas + video created, playing, metadata settled), then enter() as the very
+// first statement of the Start tap, before anything is awaited.
 
 interface WebkitVideo extends HTMLVideoElement {
   webkitSupportsPresentationMode?: (mode: string) => boolean
@@ -72,6 +74,15 @@ export function useRecordingPiP() {
   const armedRef = useRef(false)
 
   useEffect(() => { setSupported(detectSupport()) }, [])
+
+  // Refine support once the element exists: method presence alone can be a false
+  // positive, whereas webkitSupportsPresentationMode answers for this build.
+  const refineSupport = useCallback((video: WebkitVideo) => {
+    if (typeof video.webkitSupportsPresentationMode === 'function') {
+      setSupported(video.webkitSupportsPresentationMode('picture-in-picture')
+        || (typeof video.requestPictureInPicture === 'function' && !!document.pictureInPictureEnabled))
+    }
+  }, [])
 
   const setStatus = useCallback((s: PiPStatus) => { statusRef.current = s }, [])
 
@@ -177,10 +188,11 @@ export function useRecordingPiP() {
       rafRef.current = requestAnimationFrame(loop)
       tickRef.current = setInterval(draw, 1000)
       armedRef.current = true
+      refineSupport(video)
     } catch {
       setError('Could not start the floating window.')
     }
-  }, [draw])
+  }, [draw, refineSupport])
 
   // `silent` is used by the automatic attempts: browsers reject PiP without a
   // user gesture, and that expected rejection must not surface as an error.
@@ -189,8 +201,10 @@ export function useRecordingPiP() {
     if (!video) return false
     if (!opts?.silent) setError(null)
     try {
-      // Safari can pause a backgrounded/muted element; make sure it's running.
-      if (video.paused) await video.play().catch(() => {})
+      // Deliberately NOT awaited: iOS only honours a picture-in-picture request
+      // made inside the user's gesture, and awaiting anything first spends it.
+      // The element is prepared and already playing well before this runs.
+      if (video.paused) void video.play().catch(() => {})
       if (typeof video.requestPictureInPicture === 'function' && document.pictureInPictureEnabled) {
         await video.requestPictureInPicture()
         setActive(true)
@@ -254,15 +268,5 @@ export function useRecordingPiP() {
 
   useEffect(() => () => { teardown() }, [teardown])
 
-  // Open the window as soon as recording begins. This runs in the chain of the
-  // doctor's "Start" tap, which is the only reliable moment we hold a user
-  // gesture — a browser will not let us open it later, when they actually leave
-  // the app. Opening it up-front means switching apps just works, with nothing
-  // to remember. Silent: if the gesture has lapsed the caller degrades quietly.
-  const startFloating = useCallback(async () => {
-    await prepare()
-    return enter({ silent: true })
-  }, [prepare, enter])
-
-  return { supported, active, error, prepare, enter, exit, teardown, setStatus, startFloating }
+  return { supported, active, error, prepare, enter, exit, teardown, setStatus }
 }

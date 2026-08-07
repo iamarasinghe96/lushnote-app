@@ -58,6 +58,7 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
       setAutoStopped(false)
       setInterrupted(false)
       setPermError(null)
+      pip.teardown()
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop())
         streamRef.current = null
@@ -68,6 +69,15 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
       }
     }
   }, [open])
+
+  // Build the floating-window surface as soon as the pre-record screen shows.
+  // It must be ready and playing BEFORE the tap: entering picture-in-picture is
+  // only permitted inside a user gesture, and iOS ends that gesture at the first
+  // await — so nothing may be prepared after the doctor taps.
+  useEffect(() => {
+    if (open && phase === 'idle') void pip.prepare()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, phase])
 
   // Keep the floating window's HUD in step with the live recording.
   useEffect(() => {
@@ -114,6 +124,10 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
   async function handleStart() {
     setPermError(null)
     if (!user) { setPermError('Please sign in and try again.'); return }
+    // FIRST, before any await: the picture-in-picture request must sit inside
+    // this tap's gesture. Awaiting the media prompt first is what stopped it
+    // opening on iOS. The surface was prepared when this screen appeared.
+    void pip.enter({ silent: true })
     try {
       const stream = subMode === 'telehealth'
         ? await navigator.mediaDevices.getDisplayMedia({ audio: true, video: { displaySurface: 'browser' } })
@@ -135,10 +149,6 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
         : stream
       start(audioOnlyStream, { uid: user.uid, mode: 'conversation' })
       setPhase('recording')
-      // Open the floating window straight away, while we still hold this tap's
-      // user gesture — browsers refuse to open it later, when the doctor
-      // actually switches apps.
-      void pip.startFloating()
       if (autoStopMinutes !== null) {
         autoStopRef.current = setTimeout(() => {
           setAutoStopped(true)
@@ -146,6 +156,8 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
         }, autoStopMinutes * 60 * 1000)
       }
     } catch {
+      // No recording after all — don't leave a floating window behind.
+      void pip.exit()
       setPermError(
         subMode === 'telehealth'
           ? 'Screen share was cancelled or denied. Click "Start recording" and select the tab to share.'
