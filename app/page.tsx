@@ -111,7 +111,7 @@ export default function Page() {
         <div className="max-w-2xl mx-auto space-y-6">
           <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold
                            bg-[var(--blue-lt)] text-[var(--blue)]">
-            Built to save one more life
+            Built to save doctors
           </span>
 
           <h1 className="text-4xl sm:text-5xl font-bold text-[var(--text)] leading-tight">
@@ -261,7 +261,7 @@ export default function Page() {
       <footer className="border-t border-[var(--border)] py-6 px-4">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-[var(--text3)]">
-            © 2025 LushNote. Built to save one more life.
+            © 2025 LushNote. Built to save doctors.
           </p>
           <div className="flex items-center gap-4 text-xs text-[var(--text3)]">
             <a href="/terms" className="hover:text-[var(--text)] motion-safe:transition-colors">Privacy &amp; Terms</a>

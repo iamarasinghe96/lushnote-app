@@ -946,7 +946,7 @@ How it works: 4-step strip (Record → Transcribe → Generate → Export)
 Features grid: 116 templates, privacy-first, multi-workplace, Gemini+Groq, custom templates, PDF/email
 5 modes section: Paste, Dictate, Record, Create Document, Upload (coming soon)
 Bottom CTA: blue gradient, "Document smarter. Save one more life."
-Footer: "© 2025 LushNote. Built to save one more life." + Privacy · Terms · Contact
+Footer: "© 2025 LushNote. Built to save doctors." + Privacy · Terms · Contact
 
 ---
 

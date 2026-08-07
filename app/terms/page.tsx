@@ -361,7 +361,7 @@ export default function TermsPage() {
             We aim to respond within 5 business days.
           </p>
           <p className="text-xs text-[#94a3b8] mt-3">
-            LushNote. Built to save one more life. &copy; 2025
+            LushNote. Built to save doctors. &copy; 2025
           </p>
         </div>
 
