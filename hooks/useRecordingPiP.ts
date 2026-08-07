@@ -44,10 +44,25 @@ function formatDuration(secs: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+// Every browser on iOS is WebKit underneath, so this covers Safari, Chrome and
+// Brave alike (and iPadOS, which reports itself as a Mac with a touchscreen).
+function detectIOS(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+}
+
 // Feature detection without a live element: standard PiP exposes a document
 // flag; iOS Safari only exposes webkitSetPresentationMode on the element.
+//
+// iOS is deliberately excluded even though the API exists. Recording there
+// already survives switching apps, so the floating window buys nothing — while
+// handing the video to the system player introduces its own problems (the
+// browser reopening the site in a fresh tab on return). The window exists to fix
+// Android, where backgrounding genuinely kills the microphone.
 function detectSupport(): boolean {
   if (typeof document === 'undefined') return false
+  if (detectIOS()) return false
   const canvasOk = typeof HTMLCanvasElement !== 'undefined'
     && typeof HTMLCanvasElement.prototype.captureStream === 'function'
   if (!canvasOk) return false
@@ -58,6 +73,7 @@ function detectSupport(): boolean {
 
 export function useRecordingPiP() {
   const [supported, setSupported] = useState(false)
+  const [isIOS, setIsIOS] = useState(false)
   const [active, setActive] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -73,7 +89,7 @@ export function useRecordingPiP() {
   // open the window on its own.
   const armedRef = useRef(false)
 
-  useEffect(() => { setSupported(detectSupport()) }, [])
+  useEffect(() => { setSupported(detectSupport()); setIsIOS(detectIOS()) }, [])
 
   // Refine support once the element exists: method presence alone can be a false
   // positive, whereas webkitSupportsPresentationMode answers for this build.
@@ -268,5 +284,5 @@ export function useRecordingPiP() {
 
   useEffect(() => () => { teardown() }, [teardown])
 
-  return { supported, active, error, prepare, enter, exit, teardown, setStatus }
+  return { supported, isIOS, active, error, prepare, enter, exit, teardown, setStatus }
 }

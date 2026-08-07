@@ -240,7 +240,9 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
               </p>
             ) : !micLost && (
               <p className="text-[11px] text-[var(--text3)]">
-                To use another app while recording, open it in <span className="font-medium text-[var(--text2)]">split-screen</span> so LushNote stays visible.
+                {pip.isIOS
+                  ? 'Switching to another app is fine — just keep the screen on, as locking the phone can stop the recording.'
+                  : 'To use another app while recording, open it in split-screen so LushNote stays visible.'}
               </p>
             )}
             {micLost && (

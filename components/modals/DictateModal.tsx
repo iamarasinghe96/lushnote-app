@@ -462,8 +462,10 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
             )}
             <p className="text-[11px] text-[var(--text3)] text-center">
               {pip.supported
-                ? 'Keep this screen on while recording. Need another app? Tap “Keep recording while I use another app” once recording starts.'
-                : 'Keep LushNote on-screen while recording. If you need another app, use split-screen so this stays visible — locking the phone or fully switching apps can stop the recording.'}
+                ? 'Keep the screen on while recording. A floating window opens automatically so you can switch apps safely.'
+                : pip.isIOS
+                ? 'Keep the screen on while recording — locking the phone can stop it. Switching to another app is fine.'
+                : 'Keep LushNote on-screen while recording. If you need another app, use split-screen so this stays visible.'}
             </p>
             <Button onClick={handleStart} variant="primary" className="w-full">
               Start dictating
@@ -503,7 +505,9 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
               </p>
             ) : !micLost && (
               <p className="text-[11px] text-[var(--text3)]">
-                To use another app while recording, open it in <span className="font-medium text-[var(--text2)]">split-screen</span> so LushNote stays visible.
+                {pip.isIOS
+                  ? 'Switching to another app is fine — just keep the screen on, as locking the phone can stop the recording.'
+                  : 'To use another app while recording, open it in split-screen so LushNote stays visible.'}
               </p>
             )}
             {micLost && (
