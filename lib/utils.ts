@@ -867,8 +867,21 @@ export function parsePatientIntakeFields(raw: Record<string, unknown>): Partial<
       if (extras.length >= 12) break
     }
   }
-  if (extras.length) out.extras = extras
+  if (extras.length) out.otherTopics = formatOtherTopics(extras)
   return out
+}
+
+// One labelled block rather than a field per topic, so the table stays readable.
+export function formatOtherTopics(extras: PatientExtraField[]): string {
+  return extras.map(e => `${e.label}: ${e.content}`).join('\n\n')
+}
+
+// The "other topics" text for a patient, tolerating records written under the
+// earlier per-topic array shape.
+export function patientOtherTopics(p: PatientProfile): string {
+  if (typeof p.otherTopics === 'string' && p.otherTopics.trim()) return p.otherTopics
+  if (p.extras?.length) return formatOtherTopics(p.extras)
+  return ''
 }
 
 // A profile is "tracked" (shown in the Table view, gets a Generate button) once
@@ -877,7 +890,7 @@ export function parsePatientIntakeFields(raw: Record<string, unknown>): Partial<
 export function isTrackedPatient(p: PatientProfile): boolean {
   if (p.tracked) return true
   if (p.urNumber && p.urNumber.trim()) return true
-  if ((p.extras ?? []).some(e => e.content.trim())) return true
+  if (patientOtherTopics(p).trim()) return true
   return TRACKED_CLINICAL_FIELDS.some(f => {
     const v = p[f.key]
     return typeof v === 'string' && v.trim().length > 0
@@ -900,7 +913,8 @@ export function buildPatientInfoText(p: PatientProfile): string {
     const v = p[f.key]
     if (typeof v === 'string') push(f.label, v)
   }
-  for (const e of p.extras ?? []) push(e.label, e.content)
+  const other = patientOtherTopics(p)
+  if (other.trim()) lines.push(other.trim())
   return lines.join('\n')
 }
 

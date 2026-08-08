@@ -279,8 +279,11 @@ interface PatientProfile {
   plan?: string
   status?: string
   // Topics a pasted/dictated note covered that none of the fixed fields above
-  // capture (Impression, Examination, Issues, Allergies …). Kept with the note's
-  // own heading so nothing is silently dropped, and shown as extra columns.
+  // capture (Impression, Examination, Issues, Allergies …), collected into ONE
+  // block as "Heading: content" so nothing is dropped without adding a column
+  // per topic. `extras` is the earlier per-topic shape, still read so records
+  // saved under it aren't lost.
+  otherTopics?: string
   extras?: PatientExtraField[]
   tracked?: boolean         // added via Add Patient / promoted into the Table view
   createdAt?: number        // client epoch ms when the patient was added ("first seen")

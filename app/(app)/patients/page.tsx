@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback, type CSSProperties }
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatient, TRACKED_CLINICAL_FIELDS, formatDob, calculateAgeFromDOB } from '@/lib/utils'
+import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatient, TRACKED_CLINICAL_FIELDS, formatDob, calculateAgeFromDOB, patientOtherTopics } from '@/lib/utils'
 import { getPatientProfiles, deletePatientProfile, savePatientProfile } from '@/lib/firestore/patients'
 import { updateProfile } from '@/lib/firestore/profiles'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
@@ -18,7 +18,7 @@ import AddPatientModal from '@/components/modals/AddPatientModal'
 import PatientTable from '@/components/patients/PatientTable'
 import LetterPickerModal from '@/components/modals/LetterPickerModal'
 import TemplatePicker from '@/components/modals/TemplatePicker'
-import type { Note, PatientProfile, PatientExtraField, LetterType, CustomLetterTemplate, AnyTemplate, NoteLength } from '@/types'
+import type { Note, PatientProfile, LetterType, CustomLetterTemplate, AnyTemplate, NoteLength } from '@/types'
 
 interface PatientGroup {
   // Identity key: a plain name normally, or `name|dob` when the same name has
@@ -174,6 +174,7 @@ const CARD_FIELDS: { key: keyof PatientProfile; label: string }[] = [
   { key: 'urNumber', label: 'UR number' },
   { key: 'status', label: 'Status' },
   ...TRACKED_CLINICAL_FIELDS.map(f => ({ key: f.key, label: f.label })),
+  { key: 'otherTopics' as keyof PatientProfile, label: 'Other topics' },
 ]
 
 interface PatientDetailProps {
@@ -205,27 +206,10 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
 
   function fieldValue(key: keyof PatientProfile): string {
     if (key in draft) return String(draft[key] ?? '')
+    if (key === 'otherTopics') return patientOtherTopics(editableProfile)
     const v = editableProfile[key]
     return typeof v === 'string' ? v : ''
   }
-  // Extras with any in-progress edit applied, so typing shows immediately.
-  const cardExtras = useMemo<PatientExtraField[]>(
-    () => (draft.extras as PatientExtraField[] | undefined) ?? editableProfile.extras ?? [],
-    [draft.extras, editableProfile.extras]
-  )
-
-  // Extras are stored as a list, so editing one rewrites the whole array.
-  function editExtraField(key: string, label: string, value: string) {
-    const current = (draft.extras as PatientExtraField[] | undefined) ?? editableProfile.extras ?? []
-    const next = current.some(e => e.key === key)
-      ? current.map(e => (e.key === key ? { ...e, content: value } : e))
-      : [...current, { key, label, content: value }]
-    setDraft(prev => ({ ...prev, extras: next }))
-    pendingRef.current = { ...pendingRef.current, extras: next.filter(e => e.content.trim()) }
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(flushFields, 800)
-  }
-
   function flushFields() {
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
     const patch = pendingRef.current
@@ -387,23 +371,6 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
                     />
                   )
                 })}
-
-                {/* Topics the note covered that have no fixed field — kept under
-                    the heading the note itself used. */}
-                {cardExtras.map(e => (
-                  <Textarea
-                    key={e.key}
-                    label={e.label}
-                    autoResize
-                    rows={1}
-                    value={e.content}
-                    onChange={ev => editExtraField(e.key, e.label, ev.target.value)}
-                    onBlur={flushFields}
-                    autoCapitalize="sentences"
-                    maxLength={6000}
-                    className="appearance-none !bg-white"
-                  />
-                ))}
               </div>
             </div>
           )}
