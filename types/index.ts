@@ -273,6 +273,7 @@ interface PatientProfile {
   currentIssues?: string
   managementIP?: string
   pastMedicalHistory?: string
+  socialHistory?: string
   medications?: string
   bloodsPathology?: string
   imaging?: string

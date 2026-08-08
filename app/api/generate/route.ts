@@ -240,7 +240,8 @@ FIELD GUIDE:
 - presentingIssue: The presentation / reason for admission — typically the opening summary line (e.g. demographics + presenting symptoms). Keep it as written, else ""
 - currentIssues: The active problems, one per line — normally each "#" heading. Include a brief qualifier from that section only if it identifies the problem. Else ""
 - managementIP: What has been done or decided in hospital for those problems (treatments started/changed, decisions such as "not for CEA", referrals made), one per line, else ""
-- pastMedicalHistory: The "PHx:" content, plus "SHx:" / social history if present (label it), else ""
+- pastMedicalHistory: The "PHx:" content — past medical, psychiatric and surgical history only, else ""
+- socialHistory: The "SHx:" content — living situation, supports, occupation, smoking, alcohol, driving, else ""
 - medications: Medications with doses and any changes, one per line (e.g. "escitalopram increased to 15mg daily"), else ""
 - bloodsPathology: Blood results and pathology, else ""
 - imaging: Imaging and imaging-like investigations with their findings, one per line, keeping the modality label (CT, MRI, carotid U/S, TTE …), else ""
@@ -255,6 +256,7 @@ Return ONLY valid JSON — no markdown, no explanation, no extra text:
   "currentIssues": "",
   "managementIP": "",
   "pastMedicalHistory": "",
+  "socialHistory": "",
   "medications": "",
   "bloodsPathology": "",
   "imaging": "",
@@ -273,6 +275,7 @@ FIELD GUIDE:
 - currentIssues: The active problems being managed now (one per line if several), else ""
 - managementIP: Inpatient management to date, else ""
 - pastMedicalHistory: Relevant past medical, psychiatric, or surgical history, else ""
+- socialHistory: Social history — living situation, supports, occupation, smoking, alcohol, driving, else ""
 - medications: Current medications with doses, one per line as "Name Dose Frequency" (preserve doses EXACTLY), else ""
 - bloodsPathology: Relevant blood results and pathology, else ""
 - imaging: Relevant imaging findings, else ""
@@ -287,6 +290,7 @@ Return ONLY valid JSON — no markdown, no explanation, no extra text:
   "currentIssues": "",
   "managementIP": "",
   "pastMedicalHistory": "",
+  "socialHistory": "",
   "medications": "",
   "bloodsPathology": "",
   "imaging": "",

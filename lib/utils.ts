@@ -798,6 +798,7 @@ export const TRACKED_CLINICAL_FIELDS: { key: keyof PatientProfile; label: string
   { key: 'currentIssues', label: 'Current issues', hint: 'Active problems being managed now' },
   { key: 'managementIP', label: 'Management (IP)', hint: 'Inpatient management to date' },
   { key: 'pastMedicalHistory', label: 'Past medical history', hint: 'Relevant past medical/psychiatric/surgical history' },
+  { key: 'socialHistory', label: 'Social history', hint: 'Living situation, supports, occupation, smoking and alcohol' },
   { key: 'medications', label: 'Medications', hint: 'Current medications with doses' },
   { key: 'bloodsPathology', label: 'Bloods & pathology', hint: 'Relevant blood results and pathology' },
   { key: 'imaging', label: 'Imaging', hint: 'Relevant imaging findings' },
@@ -862,7 +863,8 @@ export function parsePatientIntakeFields(raw: Record<string, unknown>): Partial<
   }
 
   const reserved = new Set<string>(['urnumber', 'ur', 'status', 'displayname', 'gender',
-    ...TRACKED_CLINICAL_FIELDS.map(f => String(f.key).toLowerCase())])
+    ...TRACKED_CLINICAL_FIELDS.map(f => String(f.key).toLowerCase()),
+    ...TRACKED_CLINICAL_FIELDS.map(f => slugFieldKey(f.label))])
   const extras: PatientExtraField[] = []
   const seen = new Set<string>()
   if (Array.isArray(raw.extras)) {
