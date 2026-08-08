@@ -175,8 +175,11 @@ export default function PatientTable({ profiles, onSave, onGenerate, onDelete }:
       .slice(0, 12)
   }, [profiles, q])
 
+  // Picking a searched patient REPLACES the selection rather than adding to it:
+  // searching for someone means you want just them, without having to remember
+  // to "Uncheck all" first.
   function selectMatch(p: PatientProfile) {
-    if (p.id) setSelected(prev => new Set(prev).add(p.id!))
+    setSelected(new Set(p.id ? [p.id] : []))
     setSearch('')
     searchRef.current?.blur()
   }
