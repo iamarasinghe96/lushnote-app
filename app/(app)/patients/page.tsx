@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback, type CSSProperties }
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatient, TRACKED_CLINICAL_FIELDS, formatDob, calculateAgeFromDOB, patientOtherTopics, PATIENT_FLAGS, patientFlagStyle } from '@/lib/utils'
+import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatient, TRACKED_CLINICAL_FIELDS, formatDob, calculateAgeFromDOB, patientOtherTopics, PATIENT_FLAGS, patientFlagStyle, appendPatientHistory, patientHistoryGroups } from '@/lib/utils'
 import { getPatientProfiles, deletePatientProfile, savePatientProfile } from '@/lib/firestore/patients'
 import { updateProfile } from '@/lib/firestore/profiles'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
@@ -273,6 +273,7 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
   // that only exist as notes.
   const reg = profile?.urNumber || patient.reg
   const headerAge = ageLabel(fieldValue('dob') || patient.dob)
+  const historyGroups = useMemo(() => patientHistoryGroups(editableProfile), [editableProfile])
   const firstDate = profile?.createdAt ? formatDateDD(new Date(profile.createdAt)) : (sortedNotes[sortedNotes.length - 1]?.date || '')
   const lastDate = profile?.updatedAt ? formatDateDD(new Date(profile.updatedAt)) : (sortedNotes[0]?.date || '')
   const clinician = sortedNotes[0]?.clinician || clinicianName || ''
@@ -454,6 +455,27 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
                     />
                   )
                 })}
+
+                {/* Read-only trail of how each field has changed over time. */}
+                {historyGroups.length > 0 && (
+                  <div className="pt-3 mt-1 border-t border-[var(--border)] space-y-3">
+                    <p className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wider">Editing history</p>
+                    {historyGroups.map(g => (
+                      <div key={g.key}>
+                        <p className="text-xs font-medium text-[var(--text2)] mb-1">{g.label}</p>
+                        <p className="text-xs text-[var(--text)] leading-relaxed">
+                          {g.entries.map((e, i) => (
+                            <span key={i}>
+                              {i > 0 && <span className="text-[var(--text3)] mx-1">→</span>}
+                              <span className="text-[var(--text3)]">{formatDateDD(new Date(e.at))}: </span>
+                              {e.value}
+                            </span>
+                          ))}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -966,7 +988,8 @@ export default function PatientsPage() {
     if (!user) return
     const existing = profiles[id]
     if (!existing) return
-    const merged: PatientProfile = { ...existing, ...patch, updatedAt: Date.now() }
+    const history = appendPatientHistory(existing, patch)
+    const merged: PatientProfile = { ...existing, ...patch, ...(history ? { history } : {}), updatedAt: Date.now() }
     setProfiles(prev => ({ ...prev, [id]: merged }))
     try { await savePatientProfile(user.uid, merged) } catch { /* kept in state; retried on next edit */ }
   }
@@ -1057,8 +1080,9 @@ export default function PatientsPage() {
           ...(selectedPatient.gender ? { gender: selectedPatient.gender } : {}),
         }
     const now = Date.now()
+    const history = appendPatientHistory(base, patch, now)
     const merged: PatientProfile = {
-      ...base, ...patch, tracked: true, updatedAt: now,
+      ...base, ...patch, ...(history ? { history } : {}), tracked: true, updatedAt: now,
       createdAt: (existingId && profiles[existingId]?.createdAt) || base.createdAt || now,
       ...(existingId ? { id: existingId } : {}),
     }

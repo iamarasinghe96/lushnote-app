@@ -251,6 +251,14 @@ interface TemplateSection {
 // Subset used when creating or updating - omits server-managed fields
 type NoteInput = Omit<Note, 'id' | 'createdAt' | 'updatedAt'>
 
+// One recorded value of a patient field, so the card can show how it changed
+// over time. Append-only and never edited — the card renders it read-only.
+interface PatientHistoryEntry {
+  key: string        // the profile field it belongs to
+  value: string
+  at: number         // epoch ms when it was recorded
+}
+
 interface PatientExtraField {
   key: string        // slug of the label, used as the column identity
   label: string      // the heading as the note wrote it
@@ -290,6 +298,9 @@ interface PatientProfile {
   // number rather than left undefined when cleared, so the update actually
   // removes it (the client Firestore instance drops undefined fields).
   flag?: 0 | 1 | 2 | 3 | 4
+  // Chronological log of clinical field values, newest last. Capped so a long-
+  // running patient can't grow the document without bound.
+  history?: PatientHistoryEntry[]
   tracked?: boolean         // added via Add Patient / promoted into the Table view
   createdAt?: number        // client epoch ms when the patient was added ("first seen")
   updatedAt?: number        // client epoch ms of the last edit ("last change")
@@ -452,6 +463,7 @@ export type {
   TemplateSection,
   PatientProfile,
   PatientExtraField,
+  PatientHistoryEntry,
   PatientSummary,
   Template,
   CustomTemplateField,

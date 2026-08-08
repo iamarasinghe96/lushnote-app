@@ -8,7 +8,7 @@ import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useAuth } from '@/hooks/useAuth'
 import { savePatientProfile } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
-import { getGroqKey, getGeminiKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName, parsePatientIntakeFields } from '@/lib/utils'
+import { getGroqKey, getGeminiKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName, parsePatientIntakeFields, appendPatientHistory } from '@/lib/utils'
 import type { PatientProfile } from '@/types'
 
 interface AddPatientModalProps {
@@ -100,9 +100,12 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
   async function persist(extra: Partial<PatientProfile>): Promise<PatientProfile | null> {
     if (!user) return null
     const now = Date.now()
+    // A brand-new patient: the extracted values are the first entries in the log.
+    const history = appendPatientHistory(undefined, extra, now)
     const profile: PatientProfile = {
       displayName: name.trim(),
       tracked: true,
+      ...(history ? { history } : {}),
       createdAt: now,
       updatedAt: now,
       ...(urNumber.trim() ? { urNumber: urNumber.trim() } : {}),

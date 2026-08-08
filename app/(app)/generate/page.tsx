@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { openSettings, quotaDate, getGroqKey, getGeminiKey, parsePatientIntakeFields } from '@/lib/utils'
+import { openSettings, quotaDate, getGroqKey, getGeminiKey, parsePatientIntakeFields, appendPatientHistory } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import Textarea from '@/components/ui/Textarea'
@@ -587,9 +587,11 @@ export default function GeneratePage() {
       // win over anything the AI inferred from the note.
       const entered = store.pendingPatientProfile
       const now = Date.now()
+      const history = appendPatientHistory(existing, extra, now)
       await savePatientProfile(user.uid, {
         ...(existing ?? { displayName: name }),
         ...extra,
+        ...(history ? { history } : {}),
         ...(entered?.dob ? { dob: entered.dob } : {}),
         ...(entered?.gender ? { gender: entered.gender as PatientProfile['gender'] } : {}),
         tracked: true,

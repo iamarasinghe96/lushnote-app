@@ -1,4 +1,4 @@
-import { WP_THEMES, type Note, type AnyTemplate, type ExtraSection, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields, type LetterData, type HospitalFormData, type PatientProfile, type PatientExtraField } from '@/types'
+import { WP_THEMES, type Note, type AnyTemplate, type ExtraSection, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields, type LetterData, type HospitalFormData, type PatientProfile, type PatientExtraField, type PatientHistoryEntry } from '@/types'
 
 // The 11 core clinical note fields, in canonical order. Shared source of truth
 // for rendering order fallbacks and for deciding whether a section key is core.
@@ -840,6 +840,79 @@ export const PATIENT_FLAGS: { value: 1 | 2 | 3 | 4; label: string; color: string
 
 export function patientFlagStyle(flag?: number) {
   return PATIENT_FLAGS.find(f => f.value === flag) ?? null
+}
+
+// Fields whose changes are worth charting on the card. Identifiers (name, UR,
+// DOB) and the flag are deliberately excluded — they're corrections, not
+// clinical progression.
+const HISTORY_FIELD_KEYS: (keyof PatientProfile)[] = [
+  'status',
+  ...TRACKED_CLINICAL_FIELDS.map(f => f.key).filter(k => k !== 'dob'),
+  'otherTopics',
+]
+
+const MAX_HISTORY_ENTRIES = 200
+const MAX_HISTORY_VALUE = 400
+
+export function patientHistoryLabel(key: string): string {
+  const tracked = TRACKED_CLINICAL_FIELDS.find(f => String(f.key) === key)
+  if (tracked) return tracked.label
+  if (key === 'status') return 'Status'
+  if (key === 'otherTopics') return 'Other topics'
+  return key
+}
+
+// Append a log entry for every charted field this save actually changes.
+// Returns undefined when nothing changed, so callers can skip writing.
+export function appendPatientHistory(
+  prev: Partial<PatientProfile> | undefined,
+  next: Partial<PatientProfile>,
+  at: number = Date.now(),
+): PatientHistoryEntry[] | undefined {
+  const existing = [...(prev?.history ?? [])]
+  const added: PatientHistoryEntry[] = []
+
+  for (const key of HISTORY_FIELD_KEYS) {
+    if (!(key in next)) continue
+    const after = typeof next[key] === 'string' ? String(next[key]).trim() : ''
+    const before = typeof prev?.[key] === 'string' ? String(prev[key]).trim() : ''
+    if (after === before) continue
+    // Clearing a field isn't a new value to chart; the previous one already is.
+    if (!after) continue
+    // First recorded change for this field: seed the value it's changing FROM,
+    // so the very first edit already reads as a chain rather than a lone entry.
+    const hasPrior = existing.some(e => e.key === key) || added.some(e => e.key === key)
+    if (!hasPrior && before) {
+      added.push({ key: String(key), value: before.slice(0, MAX_HISTORY_VALUE), at: prev?.updatedAt ?? prev?.createdAt ?? at })
+    }
+    added.push({ key: String(key), value: after.slice(0, MAX_HISTORY_VALUE), at })
+  }
+
+  if (!added.length) return undefined
+  return [...existing, ...added].slice(-MAX_HISTORY_ENTRIES)
+}
+
+// Group the log per field for display, oldest first, in the same order the
+// fields appear on the card. A field with a single entry is skipped — one value
+// is just the current one, and shows nothing about how it changed.
+export function patientHistoryGroups(p: PatientProfile): { key: string; label: string; entries: PatientHistoryEntry[] }[] {
+  const byKey = new Map<string, PatientHistoryEntry[]>()
+  for (const e of p.history ?? []) {
+    if (!e || typeof e.key !== 'string' || typeof e.value !== 'string') continue
+    if (!byKey.has(e.key)) byKey.set(e.key, [])
+    byKey.get(e.key)!.push(e)
+  }
+  const order = HISTORY_FIELD_KEYS.map(String)
+  return Array.from(byKey, ([key, entries]) => ({
+    key,
+    label: patientHistoryLabel(key),
+    entries: [...entries].sort((a, b) => a.at - b.at),
+  }))
+    .filter(g => g.entries.length > 1)
+    .sort((a, b) => {
+      const ia = order.indexOf(a.key), ib = order.indexOf(b.key)
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+    })
 }
 
 // Turn a heading into a stable column key, e.g. "Impression" -> "impression".
