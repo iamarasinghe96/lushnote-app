@@ -238,6 +238,7 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
   const [confirmDeletePatient, setConfirmDeletePatient] = useState(false)
   const [expanded, setExpanded] = useState(!!initialExpanded)
   const [flagOpen, setFlagOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   // Local edit overlay for the expandable fields (mirrors the Table view): keeps
   // typing responsive and debounces the save.
   const [draft, setDraft] = useState<Partial<PatientProfile>>({})
@@ -456,24 +457,46 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
                   )
                 })}
 
-                {/* Read-only trail of how each field has changed over time. */}
+                {/* Read-only trail of how each field has changed. Collapsed by
+                    default — an active patient's trail is long, and it sits
+                    between the details and the sessions list. */}
                 {historyGroups.length > 0 && (
-                  <div className="pt-3 mt-1 border-t border-[var(--border)] space-y-3">
-                    <p className="text-xs font-semibold text-[var(--text3)] uppercase tracking-wider">Editing history</p>
-                    {historyGroups.map(g => (
-                      <div key={g.key}>
-                        <p className="text-xs font-medium text-[var(--text2)] mb-1">{g.label}</p>
-                        <p className="text-xs text-[var(--text)] leading-relaxed">
-                          {g.entries.map((e, i) => (
-                            <span key={i}>
-                              {i > 0 && <span className="text-[var(--text3)] mx-1">→</span>}
-                              <span className="text-[var(--text3)]">{formatDateDD(new Date(e.at))}: </span>
-                              {e.value}
-                            </span>
-                          ))}
-                        </p>
+                  <div className="pt-3 mt-1 border-t border-[var(--border)]">
+                    <button
+                      onClick={() => setHistoryOpen(o => !o)}
+                      aria-expanded={historyOpen}
+                      className="mx-auto flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full
+                                 text-xs font-medium text-[var(--text2)] border border-[var(--border)] bg-white
+                                 hover:border-[var(--blue)] hover:text-[var(--blue)] active:scale-95 transition-all"
+                    >
+                      Editing history
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--bg)] text-[var(--text3)]">
+                        {historyGroups.length}
+                      </span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                           className={`transition-transform ${historyOpen ? 'rotate-180' : ''}`} aria-hidden>
+                        <polyline points="6 9 12 15 18 9"/>
+                      </svg>
+                    </button>
+
+                    {historyOpen && (
+                      <div className="mt-3 space-y-3">
+                        {historyGroups.map(g => (
+                          <div key={g.key}>
+                            <p className="text-xs font-medium text-[var(--text2)] mb-1">{g.label}</p>
+                            <p className="text-xs text-[var(--text)] leading-relaxed">
+                              {g.entries.map((e, i) => (
+                                <span key={i}>
+                                  {i > 0 && <span className="text-[var(--text3)] mx-1">→</span>}
+                                  <span className="text-[var(--text3)]">{formatDateDD(new Date(e.at))}: </span>
+                                  {e.value}
+                                </span>
+                              ))}
+                            </p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
               </div>
