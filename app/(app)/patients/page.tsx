@@ -185,6 +185,27 @@ function FlagIcon({ flag, size = 16 }: { flag?: number; size?: number }) {
   )
 }
 
+function CheckMark() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden>
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  )
+}
+
+// The profile a listed patient belongs to. Reading and writing MUST agree on
+// this, or a saved flag lands on a record the row never reads back.
+function findProfileForGroup(profiles: Record<string, PatientProfile>, g: PatientGroup): PatientProfile | undefined {
+  const nm = g.name.trim().toLowerCase()
+  return Object.values(profiles).find(p => {
+    if (p.displayName.trim().toLowerCase() !== nm) return false
+    // For a name shared by two patients, only the DOB-matching profile is theirs.
+    if (g.ambiguous && g.dob) return (p.dob || '').trim() === g.dob
+    return true
+  })
+}
+
 // Editable fields shown on the expandable card section (mirrors the Table view).
 const CARD_FIELDS: { key: keyof PatientProfile; label: string }[] = [
   { key: 'urNumber', label: 'UR number' },
@@ -322,19 +343,23 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
                             <button
                               key={f.value}
                               onClick={() => { onSetFlag(f.value); setFlagOpen(false) }}
-                              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left text-[var(--text)] hover:bg-[var(--bg)] transition-colors"
+                              className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
+                                ${flag === f.value ? 'bg-[var(--blue-lt)] font-semibold text-[var(--blue)]' : 'text-[var(--text)] hover:bg-[var(--bg)]'}`}
                             >
                               <FlagIcon flag={f.value} />
-                              {f.label}
+                              <span className="flex-1">{f.label}</span>
+                              {flag === f.value && <CheckMark />}
                             </button>
                           ))}
                           <div className="h-px bg-[var(--border)] my-1" />
                           <button
                             onClick={() => { onSetFlag(0); setFlagOpen(false) }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left text-[var(--text2)] hover:bg-[var(--bg)] transition-colors"
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
+                              ${!flag ? 'bg-[var(--blue-lt)] font-semibold text-[var(--blue)]' : 'text-[var(--text2)] hover:bg-[var(--bg)]'}`}
                           >
                             <FlagIcon />
-                            No flag
+                            <span className="flex-1">No flag</span>
+                            {!flag && <CheckMark />}
                           </button>
                         </div>
                       </>
@@ -634,7 +659,6 @@ export default function PatientsPage() {
         if (existing) {
           if (!existing.gender) existing.gender = p.gender
           if (regFromUr) existing.reg = regFromUr
-          if (p.flag) existing.flag = p.flag
           existing.recencyTs = Math.max(existing.recencyTs, profTs)
         }
       } else {
@@ -643,15 +667,17 @@ export default function PatientsPage() {
           if (!existing.gender) existing.gender = p.gender
           if (!existing.dob) existing.dob = p.dob
           if (regFromUr) existing.reg = regFromUr   // Registration # is the UR number
-          if (p.flag) existing.flag = p.flag
           existing.recencyTs = Math.max(existing.recencyTs, profTs)
         } else {
-          map.set(nm, { key: nm, name: p.displayName, reg: regFromUr, visits: 0, lastDate: '', gender: p.gender, dob: p.dob, recencyTs: profTs, flag: p.flag })
+          map.set(nm, { key: nm, name: p.displayName, reg: regFromUr, visits: 0, lastDate: '', gender: p.gender, dob: p.dob, recencyTs: profTs })
         }
       }
     }
 
-    return Array.from(map.values())
+    const groups = Array.from(map.values())
+    // Flags resolved last, through the same lookup the save uses.
+    for (const g of groups) g.flag = findProfileForGroup(profiles, g)?.flag
+    return groups
   }, [notes, profiles, groupKeyFor, splitNames])
 
   // Deep-link into a patient's overview from the AI Assistant. The FAB dispatches
@@ -909,12 +935,7 @@ export default function PatientsPage() {
   async function setPatientFlag(g: PatientGroup, flag: 0 | 1 | 2 | 3 | 4) {
     setFlagMenu(null)
     if (!user) return
-    const nm = g.name.trim().toLowerCase()
-    const existing = Object.values(profiles).find(p => {
-      if (p.displayName.trim().toLowerCase() !== nm) return false
-      if (g.ambiguous && g.dob) return (p.dob || '').trim() === g.dob
-      return true
-    })
+    const existing = findProfileForGroup(profiles, g)
     const now = Date.now()
     const merged: PatientProfile = {
       ...(existing ?? {
@@ -1500,30 +1521,36 @@ export default function PatientsPage() {
         >
           {PATIENT_FLAGS.map(f => {
             const target = groupedPatients.find(g => g.key === flagMenu.key)
+            const current = target?.flag === f.value
             return (
               <button
                 key={f.value}
                 onClick={() => target && setPatientFlag(target, f.value)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left
-                           text-[var(--text)] hover:bg-[var(--bg)] transition-colors"
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
+                  ${current ? 'bg-[var(--blue-lt)] font-semibold text-[var(--blue)]' : 'text-[var(--text)] hover:bg-[var(--bg)]'}`}
               >
                 <FlagIcon flag={f.value} />
-                {f.label}
+                <span className="flex-1">{f.label}</span>
+                {current && <CheckMark />}
               </button>
             )
           })}
           <div className="h-px bg-[var(--border)] my-1" />
-          <button
-            onClick={() => {
-              const target = groupedPatients.find(g => g.key === flagMenu.key)
-              if (target) setPatientFlag(target, 0)
-            }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left
-                       text-[var(--text2)] hover:bg-[var(--bg)] transition-colors"
-          >
-            <FlagIcon />
-            No flag
-          </button>
+          {(() => {
+            const target = groupedPatients.find(g => g.key === flagMenu.key)
+            const none = !target?.flag
+            return (
+              <button
+                onClick={() => { if (target) setPatientFlag(target, 0) }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
+                  ${none ? 'bg-[var(--blue-lt)] font-semibold text-[var(--blue)]' : 'text-[var(--text2)] hover:bg-[var(--bg)]'}`}
+              >
+                <FlagIcon />
+                <span className="flex-1">No flag</span>
+                {none && <CheckMark />}
+              </button>
+            )
+          })()}
         </div>
       )}
 
