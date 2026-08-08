@@ -199,6 +199,8 @@ interface PatientDetailProps {
   editableProfile: PatientProfile
   notes: Note[]
   clinicianName?: string
+  flag?: number
+  onSetFlag: (flag: 0 | 1 | 2 | 3 | 4) => void
   /** Open the details section immediately (arriving from a flow that just filled it). */
   initialExpanded?: boolean
   onBack: () => void
@@ -210,10 +212,11 @@ interface PatientDetailProps {
   onSaveFields: (patch: Partial<PatientProfile>) => void
 }
 
-function PatientDetail({ patient, profile, editableProfile, notes, clinicianName, initialExpanded, onBack, onLoadNote, onDeleteNote, onEditPatient, onDeletePatient, onGenerate, onSaveFields }: PatientDetailProps) {
+function PatientDetail({ patient, profile, editableProfile, notes, clinicianName, flag, onSetFlag, initialExpanded, onBack, onLoadNote, onDeleteNote, onEditPatient, onDeletePatient, onGenerate, onSaveFields }: PatientDetailProps) {
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null)
   const [confirmDeletePatient, setConfirmDeletePatient] = useState(false)
   const [expanded, setExpanded] = useState(!!initialExpanded)
+  const [flagOpen, setFlagOpen] = useState(false)
   // Local edit overlay for the expandable fields (mirrors the Table view): keeps
   // typing responsive and debounces the save.
   const [draft, setDraft] = useState<Partial<PatientProfile>>({})
@@ -298,6 +301,45 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
                   {headerAge && (
                     <span className="text-base font-semibold text-[var(--text3)] shrink-0">({headerAge})</span>
                   )}
+                  <div className="relative shrink-0">
+                    <button
+                      onClick={() => setFlagOpen(o => !o)}
+                      aria-label="Set priority flag"
+                      title={patientFlagStyle(flag)?.label ?? 'Set priority flag'}
+                      className="w-7 h-7 rounded-full flex items-center justify-center
+                                 hover:bg-[var(--bg)] active:scale-95 transition-all"
+                    >
+                      <FlagIcon flag={flag} />
+                    </button>
+                    {flagOpen && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setFlagOpen(false)} aria-hidden />
+                        <div
+                          className="absolute left-0 top-8 z-20 w-44 rounded-[var(--r)] border border-[var(--border)] bg-white overflow-hidden py-1"
+                          style={{ boxShadow: '0 8px 24px rgba(15,23,42,.14), 0 0 0 1px rgba(15,23,42,.04)' }}
+                        >
+                          {PATIENT_FLAGS.map(f => (
+                            <button
+                              key={f.value}
+                              onClick={() => { onSetFlag(f.value); setFlagOpen(false) }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left text-[var(--text)] hover:bg-[var(--bg)] transition-colors"
+                            >
+                              <FlagIcon flag={f.value} />
+                              {f.label}
+                            </button>
+                          ))}
+                          <div className="h-px bg-[var(--border)] my-1" />
+                          <button
+                            onClick={() => { onSetFlag(0); setFlagOpen(false) }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left text-[var(--text2)] hover:bg-[var(--bg)] transition-colors"
+                          >
+                            <FlagIcon />
+                            No flag
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
                 {reg && (
                   <p className="text-sm text-[var(--text3)] mt-0.5">Registration #{reg}</p>
@@ -457,7 +499,10 @@ export default function PatientsPage() {
   const [notes, setNotes] = useState<Note[]>([])
   const [profiles, setProfiles] = useState<Record<string, PatientProfile>>({})
   const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState<'recent' | 'az' | 'visits' | 'custom'>('recent')
+  const [sortBy, setSortBy] = useState<'recent' | 'az' | 'visits' | 'custom' | 'flag'>('recent')
+  // The sort to return to when "Flagged first" is switched off, so it's a
+  // temporary lens over whatever the doctor actually prefers.
+  const prevSortRef = useRef<'recent' | 'az' | 'visits' | 'custom'>('recent')
   // The doctor's saved arrangement (PatientGroup keys, top first) and whether
   // they're currently rearranging.
   const [order, setOrder] = useState<string[]>([])
@@ -503,7 +548,7 @@ export default function PatientsPage() {
     if (sortInitRef.current || !profile) return
     sortInitRef.current = true
     const saved = profile.patientOrder ?? []
-    if (saved.length) { setOrder(saved); setSortBy('custom') }
+    if (saved.length) { setOrder(saved); setSortBy('custom'); prevSortRef.current = 'custom' }
   }, [profile])
 
   useEffect(() => {
@@ -669,7 +714,20 @@ export default function PatientsPage() {
       list = list.filter(p => { const d = parseDateStr(p.lastDate); return d ? d >= monthAgo : false })
     }
 
-    if (sortBy === 'custom') {
+    if (sortBy === 'flag') {
+      const rank = new Map(order.map((k, i) => [k, i]))
+      // Unflagged sorts last; ties fall back to the saved arrangement (or
+      // recency), so flagging never discards the doctor's ordering.
+      const within = (a: PatientGroup, b: PatientGroup) => {
+        const ra = rank.get(a.key), rb = rank.get(b.key)
+        if (ra !== undefined && rb !== undefined) return ra - rb
+        if (ra !== undefined) return -1
+        if (rb !== undefined) return 1
+        return b.recencyTs - a.recencyTs
+      }
+      list.sort((a, b) => ((a.flag || 9) - (b.flag || 9)) || within(a, b))
+    }
+    else if (sortBy === 'custom') {
       const rank = new Map(order.map((k, i) => [k, i]))
       list.sort((a, b) => {
         const ra = rank.get(a.key), rb = rank.get(b.key)
@@ -780,7 +838,19 @@ export default function PatientsPage() {
   function startReorder() {
     setSearch('')
     setQuickFilter(null)
-    setOrder(filteredPatients.map(p => p.key))
+    // Seed from EVERY patient, not the on-screen list. Clearing the filters above
+    // doesn't refresh the memoised filteredPatients within this handler, so
+    // seeding from it would silently drop whoever the filters were hiding.
+    // Existing arrangement first, then anyone unranked by recency.
+    const rank = new Map(order.map((k, i) => [k, i]))
+    const all = [...groupedPatients].sort((a, b) => {
+      const ra = rank.get(a.key), rb = rank.get(b.key)
+      if (ra === undefined && rb === undefined) return b.recencyTs - a.recencyTs
+      if (ra === undefined) return 1
+      if (rb === undefined) return -1
+      return ra - rb
+    })
+    setOrder(all.map(p => p.key))
     setSortBy('custom')
     setReordering(true)
   }
@@ -806,6 +876,7 @@ export default function PatientsPage() {
     try {
       await updateProfile(user.uid, { patientOrder: order })
       await refreshProfile()
+      prevSortRef.current = 'custom'
       setReordering(false)
     } catch {
       setError('Could not save the order. Check your connection and try again.')
@@ -1026,6 +1097,8 @@ export default function PatientsPage() {
           }}
           notes={patientNotes}
           clinicianName={profile?.displayName}
+          flag={selectedProfile?.flag ?? selectedPatient.flag}
+          onSetFlag={f => setPatientFlag(selectedPatient, f)}
           initialExpanded={expandOnOpen}
           onBack={() => setSelectedPatient(null)}
           onLoadNote={handleLoadNote}
@@ -1163,6 +1236,19 @@ export default function PatientsPage() {
                       {s === 'recent' ? 'Recent' : s === 'az' ? 'A–Z' : 'Most Visits'}
                     </button>
                   ))}
+                  <button
+                    onClick={() => {
+                      if (sortBy === 'flag') setSortBy(prevSortRef.current)
+                      else { prevSortRef.current = sortBy as 'recent' | 'az' | 'visits' | 'custom'; setSortBy('flag') }
+                    }}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border transition-colors whitespace-nowrap
+                      ${sortBy === 'flag'
+                        ? 'bg-[var(--blue)] text-white border-[var(--blue)]'
+                        : 'border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)]'}`}
+                  >
+                    <FlagIcon flag={sortBy === 'flag' ? undefined : 1} size={12} />
+                    Flagged first
+                  </button>
                   {order.length > 0 && (
                     <button
                       onClick={() => setSortBy('custom')}
@@ -1199,6 +1285,7 @@ export default function PatientsPage() {
                       {f === 'today' ? 'Today' : f === 'week' ? 'This Week' : 'This Month'}
                     </button>
                   ))}
+
                 </>
               )}
             </div>
