@@ -828,6 +828,19 @@ export function capitalizeName(raw: string): string {
   return raw.replace(/(^|[\s'-])([a-z])/g, (_m, sep: string, ch: string) => sep + ch.toUpperCase())
 }
 
+// Priority flags for the patients list, mirroring the familiar mail-client set:
+// three coloured priorities and a plain outline for the lowest.
+export const PATIENT_FLAGS: { value: 1 | 2 | 3 | 4; label: string; color: string; filled: boolean }[] = [
+  { value: 1, label: 'Priority 1', color: '#dc2626', filled: true },
+  { value: 2, label: 'Priority 2', color: '#f59e0b', filled: true },
+  { value: 3, label: 'Priority 3', color: '#2563eb', filled: true },
+  { value: 4, label: 'Priority 4', color: '#64748b', filled: false },
+]
+
+export function patientFlagStyle(flag?: number) {
+  return PATIENT_FLAGS.find(f => f.value === flag) ?? null
+}
+
 // Turn a heading into a stable column key, e.g. "Impression" -> "impression".
 export function slugFieldKey(label: string): string {
   const slug = label.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40)

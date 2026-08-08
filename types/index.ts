@@ -285,6 +285,10 @@ interface PatientProfile {
   // saved under it aren't lost.
   otherTopics?: string
   extras?: PatientExtraField[]
+  // Priority flag shown in the patients list. 0/absent = unflagged. Stored as a
+  // number rather than left undefined when cleared, so the update actually
+  // removes it (the client Firestore instance drops undefined fields).
+  flag?: 0 | 1 | 2 | 3 | 4
   tracked?: boolean         // added via Add Patient / promoted into the Table view
   createdAt?: number        // client epoch ms when the patient was added ("first seen")
   updatedAt?: number        // client epoch ms of the last edit ("last change")

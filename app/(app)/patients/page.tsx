@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback, type CSSProperties }
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatient, TRACKED_CLINICAL_FIELDS, formatDob, calculateAgeFromDOB, patientOtherTopics } from '@/lib/utils'
+import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatient, TRACKED_CLINICAL_FIELDS, formatDob, calculateAgeFromDOB, patientOtherTopics, PATIENT_FLAGS, patientFlagStyle } from '@/lib/utils'
 import { getPatientProfiles, deletePatientProfile, savePatientProfile } from '@/lib/firestore/patients'
 import { updateProfile } from '@/lib/firestore/profiles'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
@@ -36,6 +36,7 @@ interface PatientGroup {
   // tracked profile's last-change/added time, whichever is later. Lets a
   // freshly-added or freshly-generated patient (even with no dated note) rise.
   recencyTs: number
+  flag?: number
 }
 
 function parseDateStr(s: string): Date | null {
@@ -166,6 +167,21 @@ function MarqueeName({ name, className }: { name: string; className?: string }) 
         {name}
       </span>
     </div>
+  )
+}
+
+// Outlook-style flag: filled for the coloured priorities, outline for the
+// lowest, and a faint outline when nothing is set.
+function FlagIcon({ flag, size = 16 }: { flag?: number; size?: number }) {
+  const style = patientFlagStyle(flag)
+  const color = style?.color ?? '#cbd5e1'
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden
+         fill={style?.filled ? color : 'none'} stroke={color}
+         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+      <line x1="4" y1="22" x2="4" y2="15"/>
+    </svg>
   )
 }
 
@@ -448,6 +464,7 @@ export default function PatientsPage() {
   const [reordering, setReordering] = useState(false)
   const [savingOrder, setSavingOrder] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [flagMenu, setFlagMenu] = useState<{ key: string; x: number; y: number } | null>(null)
   const sortInitRef = useRef(false)
   const [quickFilter, setQuickFilter] = useState<'today' | 'week' | 'month' | null>(null)
   const [search, setSearch] = useState('')
@@ -488,6 +505,21 @@ export default function PatientsPage() {
     const saved = profile.patientOrder ?? []
     if (saved.length) { setOrder(saved); setSortBy('custom') }
   }, [profile])
+
+  useEffect(() => {
+    if (!flagMenu) return
+    const close = () => setFlagMenu(null)
+    document.addEventListener('mousedown', close)
+    document.addEventListener('touchstart', close)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('touchstart', close)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [flagMenu])
 
   // Tapping the Patients tab while already on it doesn't navigate (same
   // route), so it can't reset a drilled-into patient by itself. The tab bar
@@ -557,6 +589,7 @@ export default function PatientsPage() {
         if (existing) {
           if (!existing.gender) existing.gender = p.gender
           if (regFromUr) existing.reg = regFromUr
+          if (p.flag) existing.flag = p.flag
           existing.recencyTs = Math.max(existing.recencyTs, profTs)
         }
       } else {
@@ -565,9 +598,10 @@ export default function PatientsPage() {
           if (!existing.gender) existing.gender = p.gender
           if (!existing.dob) existing.dob = p.dob
           if (regFromUr) existing.reg = regFromUr   // Registration # is the UR number
+          if (p.flag) existing.flag = p.flag
           existing.recencyTs = Math.max(existing.recencyTs, profTs)
         } else {
-          map.set(nm, { key: nm, name: p.displayName, reg: regFromUr, visits: 0, lastDate: '', gender: p.gender, dob: p.dob, recencyTs: profTs })
+          map.set(nm, { key: nm, name: p.displayName, reg: regFromUr, visits: 0, lastDate: '', gender: p.gender, dob: p.dob, recencyTs: profTs, flag: p.flag })
         }
       }
     }
@@ -794,6 +828,39 @@ export default function PatientsPage() {
       setError('Could not clear the order. Check your connection and try again.')
     } finally {
       setSavingOrder(false)
+    }
+  }
+
+  // Flags live on the patient profile, so a patient who only exists as notes gets
+  // one created the first time they're flagged. Saved straight away — 0 clears it
+  // (rather than undefined, which the client Firestore instance would drop,
+  // leaving the old flag in place).
+  async function setPatientFlag(g: PatientGroup, flag: 0 | 1 | 2 | 3 | 4) {
+    setFlagMenu(null)
+    if (!user) return
+    const nm = g.name.trim().toLowerCase()
+    const existing = Object.values(profiles).find(p => {
+      if (p.displayName.trim().toLowerCase() !== nm) return false
+      if (g.ambiguous && g.dob) return (p.dob || '').trim() === g.dob
+      return true
+    })
+    const now = Date.now()
+    const merged: PatientProfile = {
+      ...(existing ?? {
+        displayName: g.name,
+        ...(g.reg ? { urNumber: g.reg } : {}),
+        ...(g.dob ? { dob: g.dob } : {}),
+        ...(g.gender ? { gender: g.gender } : {}),
+      }),
+      flag,
+      updatedAt: now,
+      createdAt: existing?.createdAt ?? now,
+    }
+    try {
+      const id = await savePatientProfile(user.uid, merged)
+      setProfiles(prev => ({ ...prev, [id]: { ...merged, id } }))
+    } catch {
+      setError('Could not save the flag. Check your connection and try again.')
     }
   }
 
@@ -1273,6 +1340,22 @@ export default function PatientsPage() {
                   )}
                 </div>
               </div>
+              {/* Priority flag — its own tap target, so it never opens the patient. */}
+              {!reordering && (
+                <button
+                  onClick={e => {
+                    e.stopPropagation()
+                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                    setFlagMenu(prev => prev?.key === p.key ? null : { key: p.key, x: r.right, y: r.bottom + 6 })
+                  }}
+                  aria-label={`Set priority flag for ${p.name}`}
+                  title={patientFlagStyle(p.flag)?.label ?? 'Set priority flag'}
+                  className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center
+                             hover:bg-[var(--bg)] active:scale-95 transition-all"
+                >
+                  <FlagIcon flag={p.flag} />
+                </button>
+              )}
               {reordering ? (
                 <div className="flex items-center gap-1 shrink-0">
                   <button
@@ -1317,6 +1400,44 @@ export default function PatientsPage() {
           ))
         )}
       </div>
+      )}
+
+      {flagMenu && (
+        <div
+          className="fixed z-[80] rounded-[var(--r)] border border-[var(--border)] bg-white overflow-hidden py-1"
+          style={{ top: flagMenu.y, left: Math.max(8, flagMenu.x - 176), width: 176,
+                   boxShadow: '0 8px 24px rgba(15,23,42,.14), 0 0 0 1px rgba(15,23,42,.04)' }}
+          onMouseDown={e => e.stopPropagation()}
+          onTouchStart={e => e.stopPropagation()}
+          role="listbox"
+        >
+          {PATIENT_FLAGS.map(f => {
+            const target = groupedPatients.find(g => g.key === flagMenu.key)
+            return (
+              <button
+                key={f.value}
+                onClick={() => target && setPatientFlag(target, f.value)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left
+                           text-[var(--text)] hover:bg-[var(--bg)] transition-colors"
+              >
+                <FlagIcon flag={f.value} />
+                {f.label}
+              </button>
+            )
+          })}
+          <div className="h-px bg-[var(--border)] my-1" />
+          <button
+            onClick={() => {
+              const target = groupedPatients.find(g => g.key === flagMenu.key)
+              if (target) setPatientFlag(target, 0)
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left
+                       text-[var(--text2)] hover:bg-[var(--bg)] transition-colors"
+          >
+            <FlagIcon />
+            No flag
+          </button>
+        </div>
       )}
 
       <AddPatientModal
