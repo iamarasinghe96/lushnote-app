@@ -327,16 +327,20 @@ export function printNotePDF(
 // Share the actual PDF FILE via the OS share sheet (not a blob: URL), so apps
 // like WhatsApp attach a clean "Name.pdf" card with a readable caption. Falls
 // back to a normal download where file-sharing isn't supported.
+// `shareText` is the full message body. Many targets (mail apps especially)
+// drop the text when a file is attached, which is why callers also copy it to
+// the clipboard — this passes it for the ones that honour it.
 export async function shareNotePDF(
   note: Partial<Note>,
   clinicianName?: string,
-  patientInfo?: { dob?: string; gender?: string }
+  patientInfo?: { dob?: string; gender?: string },
+  shareText?: string
 ): Promise<void> {
   if (typeof window === 'undefined') return
   const doc = generateNotePDF(note, clinicianName, patientInfo)
   const filename = noteFilename(note)
   const file = new File([doc.output('blob')], `${filename}.pdf`, { type: 'application/pdf' })
-  const caption = ['Progress note', note.patient, note.date].filter(Boolean).join(' · ')
+  const caption = shareText ?? ['Progress note', note.patient, note.date].filter(Boolean).join(' · ')
   const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
   if (typeof nav.share === 'function' && (!nav.canShare || nav.canShare({ files: [file] }))) {
     try { await navigator.share({ files: [file], title: `${filename}.pdf`, text: caption }); return }

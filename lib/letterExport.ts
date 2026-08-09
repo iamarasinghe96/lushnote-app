@@ -267,7 +267,10 @@ export async function downloadLetterPDF(p: LetterExportParams, opts?: { shareCap
   doc.save(filename)
 }
 
-export function openLetterEmail(p: LetterExportParams) {
+// The letter as plain text for an email body. Split out from openLetterEmail so
+// the Share path can put the SAME content alongside the attachment, instead of a
+// one-line caption.
+export function buildLetterEmail(p: LetterExportParams): { subject: string; body: string } {
   const { letterType, common, referral, records, freetext, customSections } = p
   const subject = letterType === 'referral'
     ? `Referral: ${common.patientName || ''} - DOB: ${common.dob || ''}`
@@ -323,7 +326,12 @@ export function openLetterEmail(p: LetterExportParams) {
   if (p.clinicianName) lines.push(p.clinicianName)
   if (p.credentials) lines.push(p.credentials)
 
-  const body = encodeURIComponent(lines.join('\n'))
+  return { subject, body: lines.join('\n') }
+}
+
+export function openLetterEmail(p: LetterExportParams) {
+  const { subject, body: text } = buildLetterEmail(p)
+  const body = encodeURIComponent(text)
   const sub = encodeURIComponent(subject)
   const ua = navigator.userAgent
   const isIOS = /iPhone|iPad/i.test(ua)
