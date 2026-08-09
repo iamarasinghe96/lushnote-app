@@ -9,6 +9,7 @@ import { getPatientProfiles, deletePatientProfile, savePatientProfile } from '@/
 import { updateProfile } from '@/lib/firestore/profiles'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
 import { getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
+import { getHospitalFormsForWorkplace } from '@/lib/firestore/hospitalForms'
 import { GenderAvatar } from '@/components/ui/GenderAvatar'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -18,7 +19,7 @@ import AddPatientModal from '@/components/modals/AddPatientModal'
 import PatientTable from '@/components/patients/PatientTable'
 import LetterPickerModal from '@/components/modals/LetterPickerModal'
 import TemplatePicker from '@/components/modals/TemplatePicker'
-import type { Note, PatientProfile, LetterType, CustomLetterTemplate, AnyTemplate, NoteLength } from '@/types'
+import type { Note, PatientProfile, LetterType, CustomLetterTemplate, AnyTemplate, NoteLength, HospitalFormDoc } from '@/types'
 
 interface PatientGroup {
   // Identity key: a plain name normally, or `name|dob` when the same name has
@@ -598,6 +599,7 @@ export default function PatientsPage() {
   const [generateFor, setGenerateFor] = useState<PatientProfile | null>(null)
   const [genTemplateOpen, setGenTemplateOpen] = useState(false)
   const [tableDeleteTarget, setTableDeleteTarget] = useState<PatientProfile | null>(null)
+  const [hospitalForms, setHospitalForms] = useState<HospitalFormDoc[]>([])
 
   useEffect(() => {
     if (!user) return
@@ -635,6 +637,16 @@ export default function PatientsPage() {
       window.removeEventListener('resize', close)
     }
   }, [flagMenu])
+
+  // Hospital forms available to the active workplace (campus-gated), so the
+  // patient card offers the same set as the Generate tab.
+  useEffect(() => {
+    if (!profile) { setHospitalForms([]); return }
+    const activeWp = profile.workplaces?.find(w => w.id === profile.activeWorkplaceId)
+    if (!activeWp?.name) { setHospitalForms([]); return }
+    getHospitalFormsForWorkplace(activeWp.name).then(setHospitalForms).catch(() => setHospitalForms([]))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.activeWorkplaceId, profile?.workplaces])
 
   // Tapping the Patients tab while already on it doesn't navigate (same
   // route), so it can't reset a drilled-into patient by itself. The tab bar
@@ -1052,6 +1064,22 @@ export default function PatientsPage() {
     router.push('/edit')
   }
 
+  // Fill a hospital form from the patient's stored fields. Same shape as the
+  // letter path: the record becomes the "transcript" and the form's own AI pass
+  // pulls the identifiers and writes the entry.
+  function startHospitalFormFromPatient(p: PatientProfile, form: HospitalFormDoc) {
+    setGenerateFor(null)
+    bumpProfileUpdated(p)
+    store.resetLetterMode()
+    store.resetHospitalForm()
+    store.setCurrentNoteId(null)
+    store.setHospitalForm(form)
+    store.setLastTranscript(buildPatientInfoText(p))
+    store.setLastTranscriptMode('document')
+    store.setPendingHospitalFormGeneration(true)
+    router.push('/edit')
+  }
+
   // Generate a clinical note from a tracked patient's stored fields: assemble them
   // as the transcript and run standard note generation with the chosen template.
   // Clinician defaults to the logged-in doctor's name.
@@ -1129,6 +1157,8 @@ export default function PatientsPage() {
           onClose={() => setGenerateFor(null)}
           customTemplates={profile?.customLetterTemplates ?? []}
           onSelectCustom={t => p && startLetterFromPatient(p, 'custom', t)}
+          hospitalForms={hospitalForms}
+          onSelectHospitalForm={form => p && startHospitalFormFromPatient(p, form)}
         />
         <TemplatePicker
           open={!!p && genTemplateOpen}
