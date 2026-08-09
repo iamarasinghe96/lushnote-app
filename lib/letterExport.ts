@@ -2,6 +2,7 @@
 
 import { parseBoldSegments } from '@/lib/pdf'
 import { letterSalutation, calculateAgeFromDOB, autoNumberLines, buildReferralOpening } from '@/lib/utils'
+import { shareFile } from '@/lib/shareExport'
 import type { LetterType, LetterCommonFields, ReferralFields, RecordsFields, FreetextFields } from '@/types'
 
 // Shared letter PDF + email builders, extracted from the edit page so the Export
@@ -133,8 +134,13 @@ function buildSigLines(p: LetterExportParams): { text: string; bold?: boolean; s
   return sigLines
 }
 
-export async function downloadLetterPDF(p: LetterExportParams, opts?: { shareCaption?: string; print?: boolean }) {
-  const shareCaption = opts?.shareCaption
+// Returns true only when the OS share sheet took the file; false means the PDF
+// was downloaded (or printed) instead.
+export async function downloadLetterPDF(
+  p: LetterExportParams,
+  opts?: { share?: { subject: string; body: string }; print?: boolean }
+): Promise<boolean> {
+  const share = opts?.share
   const { jsPDF } = await import('jspdf')
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const PW = 210, PH = 297
@@ -250,26 +256,21 @@ export async function downloadLetterPDF(p: LetterExportParams, opts?: { shareCap
     doc.autoPrint()
     const win = window.open(doc.output('bloburl'), '_blank')
     if (!win) doc.save(filename)
-    return
+    return false
   }
 
   // Share the actual PDF FILE (not a blob: URL) so apps like WhatsApp attach a
-  // clean "Name.pdf" card with a readable caption; fall back to a download.
-  if (shareCaption !== undefined) {
+  // clean "Name.pdf" card and mail apps get a real attachment with a subject.
+  if (share) {
     const file = new File([doc.output('blob')], filename, { type: 'application/pdf' })
-    const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
-    if (typeof nav.share === 'function' && (!nav.canShare || nav.canShare({ files: [file] }))) {
-      try { await navigator.share({ files: [file], title: filename, text: shareCaption }) }
-      catch (e) { if ((e as Error)?.name !== 'AbortError') doc.save(filename) }
-      return
-    }
+    if (await shareFile(file, share.subject, share.body)) return true
   }
   doc.save(filename)
+  return false
 }
 
-// The letter as plain text for an email body. Split out from openLetterEmail so
-// the Share path can put the SAME content alongside the attachment, instead of a
-// one-line caption.
+// The letter's subject line and plain-text body — what the Share path carries
+// alongside the PDF attachment, and what the desktop mailto: fallback sends.
 export function buildLetterEmail(p: LetterExportParams): { subject: string; body: string } {
   const { letterType, common, referral, records, freetext, customSections } = p
   const subject = letterType === 'referral'
@@ -329,18 +330,3 @@ export function buildLetterEmail(p: LetterExportParams): { subject: string; body
   return { subject, body: lines.join('\n') }
 }
 
-export function openLetterEmail(p: LetterExportParams) {
-  const { subject, body: text } = buildLetterEmail(p)
-  const body = encodeURIComponent(text)
-  const sub = encodeURIComponent(subject)
-  const ua = navigator.userAgent
-  const isIOS = /iPhone|iPad/i.test(ua)
-  const isAndroid = /Android/i.test(ua)
-  const outlookUrl = isIOS
-    ? `ms-outlook://compose?subject=${sub}&body=${body}`
-    : isAndroid
-    ? `ms-outlook://emails/new?subject=${sub}&body=${body}`
-    : `https://outlook.office.com/mail/deeplink/compose?subject=${sub}&body=${body}`
-  if (isIOS || isAndroid) window.location.href = outlookUrl
-  else window.open(outlookUrl, '_blank')
-}

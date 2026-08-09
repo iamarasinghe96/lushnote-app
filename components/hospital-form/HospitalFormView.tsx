@@ -7,6 +7,7 @@ import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote } from '@/lib/firestore/notes'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { getGroqKey, getGeminiKey, serializeHospitalFormData } from '@/lib/utils'
+import { copyToClipboard, openMailto, SHARE_TOAST } from '@/lib/shareExport'
 import { GeneratingOverlay } from '@/components/ui/GeneratingOverlay'
 import HospitalFormEditor, { type HospitalFormEditorHandle } from './HospitalFormEditor'
 import type { HospitalFormData, NoteInput } from '@/types'
@@ -165,40 +166,42 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
     try { await editorRef.current?.downloadPdf() } catch { setToast('Could not build the PDF.') }
   }
 
-  async function handleShare() {
-    setMenuOpen(false)
+  function formEmail(): { subject: string; body: string } {
     const v = storeRef.current.hospitalFormData
     const name = [v?.pid.givenNames, v?.pid.surname].filter(Boolean).join(' ')
-    const date = v?.dateTime.date || ''
-    const caption = [`${form?.name || 'Progress Notes'}${name ? ' — ' + name : ''}`, date].filter(Boolean).join(' · ')
-    try { await editorRef.current?.sharePdf(caption) } catch { setToast('Could not share the PDF.') }
+    const lines: string[] = []
+    if (v?.pid.urNo) lines.push('UR No: ' + v.pid.urNo)
+    if (name) lines.push('Patient: ' + name)
+    if (v?.pid.dob) lines.push('DOB: ' + v.pid.dob)
+    if (v?.pid.sex) lines.push('Sex: ' + v.pid.sex)
+    if (v?.dateTime.date || v?.dateTime.time) lines.push('Date/Time: ' + [v?.dateTime.date, v?.dateTime.time].filter(Boolean).join(' '))
+    lines.push('')
+    lines.push((v?.noteText || '').replace(/\*\*/g, '').replace(/\*/g, ''))
+    if (profile?.displayName) lines.push('', 'Regards,', profile.displayName, ...(profile.credentials ? [profile.credentials] : []))
+    return {
+      subject: [form?.name || 'Progress Notes', name, v?.dateTime.date].filter(Boolean).join(' - '),
+      body: lines.join('\n'),
+    }
+  }
+
+  // Attach the PDF and carry the subject + body. mailto: cannot take an
+  // attachment, so the share sheet is the route wherever it exists.
+  async function handleShare() {
+    setMenuOpen(false)
+    const { subject, body } = formEmail()
+    const copied = await copyToClipboard(body)
+    try {
+      const shared = await editorRef.current?.sharePdf({ subject, body })
+      setToast(shared ? (copied ? SHARE_TOAST.shared : SHARE_TOAST.sharedNoCopy) : SHARE_TOAST.mailto)
+      if (!shared) openMailto(subject, body)
+    } catch { setToast(SHARE_TOAST.failed) }
   }
 
   function handlePrint() { setMenuOpen(false); window.print() }
 
-  function handleEmail() {
-    setMenuOpen(false)
-    const v = storeRef.current.hospitalFormData
-    if (!v) return
-    const name = [v.pid.givenNames, v.pid.surname].filter(Boolean).join(' ')
-    const lines: string[] = []
-    if (v.pid.urNo) lines.push('UR No: ' + v.pid.urNo)
-    if (name) lines.push('Patient: ' + name)
-    if (v.pid.dob) lines.push('DOB: ' + v.pid.dob)
-    if (v.pid.sex) lines.push('Sex: ' + v.pid.sex)
-    if (v.dateTime.date || v.dateTime.time) lines.push('Date/Time: ' + [v.dateTime.date, v.dateTime.time].filter(Boolean).join(' '))
-    lines.push('')
-    lines.push((v.noteText || '').replace(/\*\*/g, '').replace(/\*/g, ''))
-    const subject = encodeURIComponent(`${form?.name || 'Progress Notes'}${name ? ' — ' + name : ''}`)
-    const body = encodeURIComponent(lines.join('\n'))
-    window.location.href = `mailto:?subject=${subject}&body=${body}`
-  }
-
-  const canShareFiles = typeof navigator !== 'undefined' && !!navigator.share
   const EXPORT_ITEMS: { label: string; action: () => void }[] = [
     { label: 'Download PDF', action: handleDownload },
-    ...(canShareFiles ? [{ label: 'Share PDF', action: handleShare }] : []),
-    { label: 'Email', action: handleEmail },
+    { label: 'Share', action: handleShare },
     { label: 'Print', action: handlePrint },
   ]
 

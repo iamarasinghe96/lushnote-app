@@ -3,13 +3,14 @@
 import { useRef, useMemo, useEffect, useState, forwardRef, useImperativeHandle, useCallback } from 'react'
 import type { HospitalFormDoc, HospitalFormData } from '@/types'
 import { layoutStyledRows, type StyledWrapConfig } from './reflow'
+import { shareFile } from '@/lib/shareExport'
 
 const MM_PER_PX = 96 / 25.4          // 1mm in CSS px at 96dpi
 const PT_PER_PX = 96 / 72            // 1pt in CSS px
 
 export interface HospitalFormEditorHandle {
   downloadPdf: () => Promise<void>
-  sharePdf: (caption: string) => Promise<void>
+  sharePdf: (share: { subject: string; body: string }) => Promise<boolean>
 }
 
 interface Props {
@@ -162,7 +163,7 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
   }
   const proxied = (url: string) => '/api/proxy-image?url=' + encodeURIComponent(url)
 
-  const outputPdf = useCallback(async (shareCaption?: string) => {
+  const outputPdf = useCallback(async (share?: { subject: string; body: string }) => {
     const { jsPDF } = await import('jspdf')
     const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
     const SCALE = 3
@@ -279,22 +280,18 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
 
     const name = [value.pid.surname, value.pid.givenNames].filter(Boolean).join('_') || 'progress-notes'
     // Share the actual PDF FILE (not a blob: URL) so the OS share sheet / apps
-    // like WhatsApp attach a clean "Name.pdf" card with a readable caption. Falls
-    // back to a normal download where file-sharing isn't supported.
-    if (shareCaption !== undefined) {
+    // like WhatsApp attach a clean "Name.pdf" card and mail apps get a real
+    // attachment with a subject. Falls back to a download.
+    if (share) {
       const file = new File([pdf.output('blob')], `${name}.pdf`, { type: 'application/pdf' })
-      const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
-      if (typeof nav.share === 'function' && (!nav.canShare || nav.canShare({ files: [file] }))) {
-        try { await navigator.share({ files: [file], title: `${name}.pdf`, text: shareCaption }) }
-        catch (e) { if ((e as Error)?.name !== 'AbortError') pdf.save(`${name}.pdf`) }
-        return
-      }
+      if (await shareFile(file, share.subject, share.body)) return true
     }
     pdf.save(`${name}.pdf`)
+    return false
   }, [form, geo, pageCount, rowsPerPage, totalRows, signatureUrl, signatureScale, value.pid])
 
-  const downloadPdf = useCallback(() => outputPdf(), [outputPdf])
-  const sharePdf = useCallback((caption: string) => outputPdf(caption), [outputPdf])
+  const downloadPdf = useCallback(async () => { await outputPdf() }, [outputPdf])
+  const sharePdf = useCallback((share: { subject: string; body: string }) => outputPdf(share), [outputPdf])
   useImperativeHandle(ref, () => ({ downloadPdf, sharePdf }), [downloadPdf, sharePdf])
 
   const pageVars = {

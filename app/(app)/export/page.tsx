@@ -4,8 +4,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { useAuth } from '@/hooks/useAuth'
 import { buildNoteText, buildCoverLetterEmail, buildPreviewHTML, buildLetterPreviewHTML, withTimeout } from '@/lib/utils'
-import { downloadNotePDF, shareNotePDF, printNotePDF } from '@/lib/pdf'
-import { downloadLetterPDF, openLetterEmail, buildLetterEmail, type LetterExportParams } from '@/lib/letterExport'
+import { downloadNotePDF, shareNotePDF, printNotePDF, noteEmailSubject } from '@/lib/pdf'
+import { downloadLetterPDF, buildLetterEmail, type LetterExportParams } from '@/lib/letterExport'
+import { copyToClipboard, openMailto, SHARE_TOAST } from '@/lib/shareExport'
 import { getPatientProfiles } from '@/lib/firestore/patients'
 import HospitalFormView from '@/components/hospital-form/HospitalFormView'
 import type { PatientProfile, LetterType } from '@/types'
@@ -66,8 +67,6 @@ export default function ExportPage() {
     return () => document.removeEventListener('mousedown', onMouseDown)
   }, [menuOpen])
 
-  const canShareFiles = typeof navigator !== 'undefined' && !!navigator.share
-
   function showToast(msg: string) {
     setToast(msg)
     setTimeout(() => setToast(null), 2500)
@@ -84,25 +83,22 @@ export default function ExportPage() {
     setMenuOpen(false)
   }
 
-  function handlePDF() {
-    const matchedProfile = currentNote.patient
-      ? Object.values(patientProfiles).find(
-          p => p.displayName.trim().toLowerCase() === currentNote.patient!.trim().toLowerCase()
-        )
-      : undefined
-    downloadNotePDF(currentNote, profile?.displayName, matchedProfile
-      ? { dob: matchedProfile.dob, gender: matchedProfile.gender }
-      : undefined
+  function matchedPatient() {
+    if (!currentNote.patient) return undefined
+    const p = Object.values(patientProfiles).find(
+      x => x.displayName.trim().toLowerCase() === currentNote.patient!.trim().toLowerCase()
     )
+    return p ? { dob: p.dob, gender: p.gender } : undefined
+  }
+
+  function handlePDF() {
+    downloadNotePDF(currentNote, profile?.displayName, matchedPatient())
     setMenuOpen(false)
   }
 
   function handlePrint() {
     // Print the actual note PDF so it matches the Download PDF output exactly.
-    const matchedProfile = currentNote.patient
-      ? Object.values(patientProfiles).find(p => p.displayName.trim().toLowerCase() === currentNote.patient!.trim().toLowerCase())
-      : undefined
-    printNotePDF(currentNote, profile?.displayName, matchedProfile ? { dob: matchedProfile.dob, gender: matchedProfile.gender } : undefined)
+    printNotePDF(currentNote, profile?.displayName, matchedPatient())
     setMenuOpen(false)
   }
   function handleLetterPrint() {
@@ -110,34 +106,25 @@ export default function ExportPage() {
     downloadLetterPDF(letterParams(), { print: true }).catch(() => showToast('Could not print the PDF.'))
   }
 
-  // Best-effort clipboard copy: mail apps routinely ignore the shared text when
-  // a file is attached, so the body is always one paste away.
-  async function copyBody(text: string): Promise<boolean> {
-    try { await navigator.clipboard.writeText(text); return true } catch { return false }
+  function noteEmail(): { subject: string; body: string } {
+    return {
+      subject: noteEmailSubject(currentNote),
+      body: buildCoverLetterEmail(currentNote, profile || {}),
+    }
   }
 
-  // A mailto: link CANNOT carry an attachment — that's the protocol, not a gap
-  // in the app. The share sheet is the only route that attaches the PDF, so
-  // Email uses it wherever it exists and falls back to mailto elsewhere.
-  async function handleEmail() {
+  // Share = the whole message: PDF attached, subject line, full body. A mailto:
+  // link CANNOT carry an attachment, so the share sheet is the route wherever it
+  // exists; desktop falls back to download + mailto.
+  async function handleShareNote() {
     setMenuOpen(false)
-    const text = buildCoverLetterEmail(currentNote, profile || {})
-    const copied = await copyBody(text)
-    if (canShareFiles) {
-      const matched = currentNote.patient
-        ? Object.values(patientProfiles).find(p => p.displayName.trim().toLowerCase() === currentNote.patient!.trim().toLowerCase())
-        : undefined
-      try {
-        await shareNotePDF(currentNote, profile?.displayName, matched ? { dob: matched.dob, gender: matched.gender } : undefined, text)
-        showToast(copied ? 'PDF attached · body copied — paste if it\u2019s blank' : 'PDF attached — pick your email app')
-      } catch { showToast('Could not share the PDF.') }
-      return
-    }
-    // No share sheet (desktop): download the PDF so it's ready to attach by hand.
-    downloadNotePDF(currentNote, profile?.displayName)
-    const subject = encodeURIComponent(`Progress Note - ${currentNote.patient || ''} - ${currentNote.date || ''}`)
-    window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(text)}`
-    showToast('PDF downloaded — attach it to the email')
+    const { subject, body } = noteEmail()
+    const copied = await copyToClipboard(body)
+    try {
+      const shared = await shareNotePDF(currentNote, profile?.displayName, matchedPatient(), { subject, body })
+      showToast(shared ? (copied ? SHARE_TOAST.shared : SHARE_TOAST.sharedNoCopy) : SHARE_TOAST.mailto)
+      if (!shared) openMailto(subject, body)
+    } catch { showToast(SHARE_TOAST.failed) }
   }
 
   function handleSubmitAsText() {
@@ -170,61 +157,32 @@ export default function ExportPage() {
     }
   }
   async function handleLetterDownload() { setMenuOpen(false); try { await downloadLetterPDF(letterParams()) } catch { showToast('Could not build the PDF.') } }
-  async function handleLetterEmailExport() {
-    setMenuOpen(false)
-    const params = letterParams()
-    const { body } = buildLetterEmail(params)
-    const copied = await copyBody(body)
-    if (canShareFiles) {
-      try {
-        await downloadLetterPDF(params, { shareCaption: body })
-        showToast(copied ? 'PDF attached · body copied — paste if it\u2019s blank' : 'PDF attached — pick your email app')
-      } catch { showToast('Could not share the PDF.') }
-      return
-    }
-    try { await downloadLetterPDF(params) } catch { /* the email still opens */ }
-    openLetterEmail(params)
-    showToast('PDF downloaded — attach it to the email')
-  }
-
-  async function handleShareNote() {
-    const matchedProfile = currentNote.patient
-      ? Object.values(patientProfiles).find(p => p.displayName.trim().toLowerCase() === currentNote.patient!.trim().toLowerCase())
-      : undefined
-    setMenuOpen(false)
-    // Share the same body the Email option sends, not a one-line caption.
-    const text = buildCoverLetterEmail(currentNote, profile || {})
-    const copied = await copyBody(text)
-    try {
-      await shareNotePDF(currentNote, profile?.displayName, matchedProfile ? { dob: matchedProfile.dob, gender: matchedProfile.gender } : undefined, text)
-      if (copied) showToast('Body copied — paste it if the app leaves it blank')
-    } catch { showToast('Could not share the PDF.') }
-  }
   async function handleLetterShare() {
     setMenuOpen(false)
     const params = letterParams()
-    // The letter itself is the message — share it, not a one-line caption.
-    const { body } = buildLetterEmail(params)
-    const copied = await copyBody(body)
+    // The letter itself is the message: attached as a PDF, with its subject and
+    // full text carried alongside.
+    const { subject, body } = buildLetterEmail(params)
+    const copied = await copyToClipboard(body)
     try {
-      await downloadLetterPDF(params, { shareCaption: body })
-      if (copied) showToast('Letter text copied — paste it if the app leaves it blank')
-    } catch { showToast('Could not share the PDF.') }
+      const shared = await downloadLetterPDF(params, { share: { subject, body } })
+      showToast(shared ? (copied ? SHARE_TOAST.shared : SHARE_TOAST.sharedNoCopy) : SHARE_TOAST.mailto)
+      if (!shared) openMailto(subject, body)
+    } catch { showToast(SHARE_TOAST.failed) }
   }
+
   const menuItems = isLetterMode
     ? [
-        { label: 'Download PDF',        action: handleLetterDownload },
-        ...(canShareFiles ? [{ label: 'Share PDF', action: handleLetterShare }] : []),
-        { label: 'Email (Outlook)',     action: handleLetterEmailExport },
-        { label: 'Print',               action: handleLetterPrint },
+        { label: 'Download PDF', action: handleLetterDownload },
+        { label: 'Share',        action: handleLetterShare },
+        { label: 'Print',        action: handleLetterPrint },
       ]
     : [
-        { label: 'Copy to Clipboard',  action: handleCopyClipboard },
-        { label: 'Download PDF',       action: handlePDF },
-        ...(canShareFiles ? [{ label: 'Share PDF', action: handleShareNote }] : []),
-        { label: 'Print',              action: handlePrint },
-        { label: 'Email to Colleague', action: handleEmail },
-        { label: 'Submit as Text',     action: handleSubmitAsText },
+        { label: 'Copy to Clipboard', action: handleCopyClipboard },
+        { label: 'Download PDF',      action: handlePDF },
+        { label: 'Share',             action: handleShareNote },
+        { label: 'Print',             action: handlePrint },
+        { label: 'Submit as Text',    action: handleSubmitAsText },
       ]
 
   // A hospital form previews as the rendered form (read-only) with its own

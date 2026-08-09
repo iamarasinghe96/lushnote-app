@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import type { Note } from '@/types'
 import { orderedNoteSections } from '@/lib/utils'
+import { shareFile } from '@/lib/shareExport'
 
 const MARGIN = 20
 const BULLET_INDENT = 6   // mm — sub-bullets sit one level right of the numbering
@@ -324,27 +325,28 @@ export function printNotePDF(
   if (!win) doc.save(`${noteFilename(note)}.pdf`)
 }
 
+export function noteEmailSubject(note: Partial<Note>): string {
+  return ['Progress Note', note.patient, note.date].filter(Boolean).join(' - ')
+}
+
 // Share the actual PDF FILE via the OS share sheet (not a blob: URL), so apps
-// like WhatsApp attach a clean "Name.pdf" card with a readable caption. Falls
-// back to a normal download where file-sharing isn't supported.
-// `shareText` is the full message body. Many targets (mail apps especially)
-// drop the text when a file is attached, which is why callers also copy it to
-// the clipboard — this passes it for the ones that honour it.
+// like WhatsApp attach a clean "Name.pdf" card and mail apps get a real
+// attachment. `share.subject` becomes the share title (the subject line in mail
+// targets) and `share.body` the message text. Returns false when the PDF was
+// downloaded instead because file-sharing isn't supported.
 export async function shareNotePDF(
   note: Partial<Note>,
   clinicianName?: string,
   patientInfo?: { dob?: string; gender?: string },
-  shareText?: string
-): Promise<void> {
-  if (typeof window === 'undefined') return
+  share?: { subject: string; body: string }
+): Promise<boolean> {
+  if (typeof window === 'undefined') return false
   const doc = generateNotePDF(note, clinicianName, patientInfo)
   const filename = noteFilename(note)
   const file = new File([doc.output('blob')], `${filename}.pdf`, { type: 'application/pdf' })
-  const caption = shareText ?? ['Progress note', note.patient, note.date].filter(Boolean).join(' · ')
-  const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
-  if (typeof nav.share === 'function' && (!nav.canShare || nav.canShare({ files: [file] }))) {
-    try { await navigator.share({ files: [file], title: `${filename}.pdf`, text: caption }); return }
-    catch (e) { if ((e as Error)?.name === 'AbortError') return }
-  }
+  const subject = share?.subject ?? noteEmailSubject(note)
+  const body = share?.body ?? ['Progress note', note.patient, note.date].filter(Boolean).join(' · ')
+  if (await shareFile(file, subject, body)) return true
   doc.save(`${filename}.pdf`)
+  return false
 }
