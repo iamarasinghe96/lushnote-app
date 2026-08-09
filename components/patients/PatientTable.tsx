@@ -94,13 +94,19 @@ async function exportPatientsPDF(rows: PatientProfile[]) {
   }
 
   function drawHeader(y: number): number {
-    doc.setFillColor(226, 232, 240)
     doc.setDrawColor(148, 163, 184)
     doc.setLineWidth(0.2)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6.2)
     let x = MARGIN
     cols.forEach((c, i) => {
+      // The fill MUST be re-set for every cell. jsPDF emits a text colour as the
+      // PDF non-stroking colour, so after the first header label is drawn the
+      // next filled rect inherits it — which painted every column after the
+      // first in the dark text colour, hiding its label.
+      doc.setFillColor(226, 232, 240)
       doc.rect(x, y, widths[i], HEAD_H, 'FD')
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.2); doc.setTextColor(15, 23, 42)
+      doc.setTextColor(15, 23, 42)
       const lines = doc.splitTextToSize(c.label, widths[i] - PAD_X * 2) as string[]
       lines.slice(0, 2).forEach((ln, li) => doc.text(ln, x + widths[i] / 2, y + 3 + li * 2.6, { align: 'center' }))
       x += widths[i]
