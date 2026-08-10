@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf'
 import type { Note } from '@/types'
 import { orderedNoteSections } from '@/lib/utils'
-import { shareFile } from '@/lib/shareExport'
+import { shareFile, subjectFilename } from '@/lib/shareExport'
 
 const MARGIN = 20
 const BULLET_INDENT = 6   // mm — sub-bullets sit one level right of the numbering
@@ -343,9 +343,9 @@ export async function shareNotePDF(
   if (typeof window === 'undefined') return false
   const doc = generateNotePDF(note, clinicianName, patientInfo)
   const filename = noteFilename(note)
-  const file = new File([doc.output('blob')], `${filename}.pdf`, { type: 'application/pdf' })
   const subject = share?.subject ?? noteEmailSubject(note)
   const body = share?.body ?? ['Progress note', note.patient, note.date].filter(Boolean).join(' · ')
+  const file = new File([doc.output('blob')], subjectFilename(subject, filename), { type: 'application/pdf' })
   if (await shareFile(file, subject, body)) return true
   doc.save(`${filename}.pdf`)
   return false

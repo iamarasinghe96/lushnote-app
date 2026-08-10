@@ -44,6 +44,28 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+// Mail apps paste shared text into an HTML compose body without turning newlines
+// into <br>, so \n collapses and every line runs together. U+2028 LINE SEPARATOR
+// is a mandatory break in Unicode (UAX #14 class BK) and a forced line break in
+// CSS that whitespace processing does NOT collapse, so it survives the HTML path
+// and still breaks in a plain-text one. Only the share payload uses it — the
+// clipboard copy and mailto: bodies keep ordinary newlines.
+function shareLineBreaks(text: string): string {
+  return text.replace(/\r\n|\r|\n/g, '\u2028')
+}
+
+// Gmail on iOS takes the subject from the attachment's filename and ignores the
+// share title, so name the file after the subject rather than the patient alone.
+export function subjectFilename(subject: string, fallback: string): string {
+  const clean = subject
+    .replace(/:\s*/g, ' - ')          // "Referral: Jane Doe" reads better than "Referral- Jane Doe"
+    .replace(/[\\/*?"<>|]+/g, '-')    // the rest of the characters a filesystem won't take
+    .replace(/\s+/g, ' ')
+    .replace(/(?: - ){2,}/g, ' - ')
+    .replace(/^[\s-]+|[\s-]+$/g, '')   // an unnamed patient must not leave a dangling "Letter -"
+  return `${(clean || fallback).slice(0, 120)}.pdf`
+}
+
 // Returns false when the platform can't share files at all, so the caller falls
 // back to download + mailto. A user cancel counts as handled.
 export async function shareFile(file: File, subject: string, body: string): Promise<boolean> {
@@ -51,7 +73,7 @@ export async function shareFile(file: File, subject: string, body: string): Prom
   if (typeof nav.share !== 'function') return false
   if (nav.canShare && !nav.canShare({ files: [file] })) return false
   try {
-    await navigator.share({ files: [file], title: subject, text: body })
+    await navigator.share({ files: [file], title: subject, text: shareLineBreaks(body) })
   } catch (e) {
     if ((e as Error)?.name !== 'AbortError') return false
   }

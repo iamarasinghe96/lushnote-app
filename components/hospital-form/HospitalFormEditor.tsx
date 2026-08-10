@@ -3,7 +3,7 @@
 import { useRef, useMemo, useEffect, useState, forwardRef, useImperativeHandle, useCallback } from 'react'
 import type { HospitalFormDoc, HospitalFormData } from '@/types'
 import { layoutStyledRows, type StyledWrapConfig } from './reflow'
-import { shareFile } from '@/lib/shareExport'
+import { shareFile, subjectFilename } from '@/lib/shareExport'
 
 const MM_PER_PX = 96 / 25.4          // 1mm in CSS px at 96dpi
 const PT_PER_PX = 96 / 72            // 1pt in CSS px
@@ -333,7 +333,7 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
   // with a subject. Falls back to a download.
   const sharePdf = useCallback(async (share: { subject: string; body: string }) => {
     const { pdf, name } = await prepare()
-    const file = new File([pdf.output('blob')], name, { type: 'application/pdf' })
+    const file = new File([pdf.output('blob')], subjectFilename(share.subject, name), { type: 'application/pdf' })
     if (await shareFile(file, share.subject, share.body)) return true
     pdf.save(name)
     return false

@@ -2,7 +2,7 @@
 
 import { parseBoldSegments } from '@/lib/pdf'
 import { letterSalutation, calculateAgeFromDOB, autoNumberLines, buildReferralOpening, LETTER_TYPE_LABEL } from '@/lib/utils'
-import { shareFile, buildCoverNote } from '@/lib/shareExport'
+import { shareFile, buildCoverNote, subjectFilename } from '@/lib/shareExport'
 import type { LetterType, LetterCommonFields, ReferralFields, RecordsFields, FreetextFields } from '@/types'
 
 // Shared letter PDF + email builders, extracted from the edit page so the Export
@@ -262,7 +262,7 @@ export async function downloadLetterPDF(
   // Share the actual PDF FILE (not a blob: URL) so apps like WhatsApp attach a
   // clean "Name.pdf" card and mail apps get a real attachment with a subject.
   if (share) {
-    const file = new File([doc.output('blob')], filename, { type: 'application/pdf' })
+    const file = new File([doc.output('blob')], subjectFilename(share.subject, filename), { type: 'application/pdf' })
     if (await shareFile(file, share.subject, share.body)) return true
   }
   doc.save(filename)
