@@ -44,6 +44,13 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
   storeRef.current = store
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<HospitalFormEditorHandle>(null)
+  // Start building the PDF the moment the menu opens, so a Share tap has it ready
+  // and doesn't lose its user activation waiting (see HospitalFormEditor.prepare).
+  function openMenu() {
+    if (!menuOpen) editorRef.current?.prepare()
+    setMenuOpen(o => !o)
+  }
   useEffect(() => {
     if (!menuOpen) return
     const onDown = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false) }
@@ -59,7 +66,6 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
   const [isGenerating, setIsGenerating] = useState(false)
   const [genError, setGenError] = useState<string | null>(null)
 
-  const editorRef = useRef<HospitalFormEditorHandle>(null)
   const lastSavedRef = useRef<string | null>(null)
   const isSavingRef = useRef(false)
   const draftClearedRef = useRef(false)
@@ -236,7 +242,7 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
 
         <div ref={menuRef} className="absolute right-4 z-10 no-print" style={{ top: 'calc(env(safe-area-inset-top) + 80px)' }}>
           <button
-            onClick={() => setMenuOpen(o => !o)}
+            onClick={openMenu}
             className="text-white text-xs font-semibold px-4 py-2 rounded-full flex items-center gap-1.5 motion-safe:transition-colors motion-safe:active:scale-[0.97]"
             style={{
               background: 'rgba(14,159,110,0.90)',

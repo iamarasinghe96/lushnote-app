@@ -11,6 +11,32 @@ const PT_PER_PX = 96 / 72            // 1pt in CSS px
 export interface HospitalFormEditorHandle {
   downloadPdf: () => Promise<void>
   sharePdf: (share: { subject: string; body: string }) => Promise<boolean>
+  // Build the PDF ahead of a Share tap — see prepare() below.
+  prepare: () => void
+}
+
+function loadImg(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+// Decoded page backgrounds, kept for the session. The PDF pulls them through the
+// image proxy with crossOrigin set, which is a different cache entry from the
+// on-screen background, so without this every export re-downloads a full-page PNG.
+const imgCache = new Map<string, Promise<HTMLImageElement>>()
+function cachedImg(src: string): Promise<HTMLImageElement> {
+  let p = imgCache.get(src)
+  if (!p) {
+    p = loadImg(src)
+    p.catch(() => imgCache.delete(src))
+    imgCache.set(src, p)
+  }
+  return p
 }
 
 interface Props {
@@ -152,18 +178,17 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
   }, [])
 
   // ── PDF export (direct canvas — background then every input at its box) ──────
-  function loadImg(src: string): Promise<HTMLImageElement> {
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      img.onload = () => resolve(img)
-      img.onerror = reject
-      img.src = src
-    })
-  }
   const proxied = (url: string) => '/api/proxy-image?url=' + encodeURIComponent(url)
 
-  const outputPdf = useCallback(async (share?: { subject: string; body: string }) => {
+  // Fetch and decode the page backgrounds up front. They are the slow part of an
+  // export (a full-page PNG per side, through the proxy), and warming them here
+  // is safe — unlike the PDF itself, it doesn't depend on settled layout.
+  useEffect(() => {
+    for (const url of form.pageBackgrounds) if (url) cachedImg(proxied(url)).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.pageBackgrounds])
+
+  const buildPdf = useCallback(async () => {
     const { jsPDF } = await import('jspdf')
     const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
     const SCALE = 3
@@ -175,7 +200,7 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
     const sigRow = lastFilled >= 0 ? Math.min(lastFilled + 1, totalRows - 1) : -1
     let sigImg: HTMLImageElement | null = null
     const sigSrc = sigDataUrlRef.current || (signatureUrl ? proxied(signatureUrl) : null)
-    if (sigSrc && sigRow >= 0) { try { sigImg = await loadImg(sigSrc) } catch { sigImg = null } }
+    if (sigSrc && sigRow >= 0) { try { sigImg = await cachedImg(sigSrc) } catch { sigImg = null } }
 
     for (let p = 0; p < pageCount; p++) {
       const page = pageRefs.current[p]
@@ -190,7 +215,7 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
       ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H)
 
       const bgUrl = form.pageBackgrounds[p % bgCount]
-      if (bgUrl) { try { const bg = await loadImg(proxied(bgUrl)); ctx.drawImage(bg, 0, 0, W, H) } catch { /* keep white */ } }
+      if (bgUrl) { try { const bg = await cachedImg(proxied(bgUrl)); ctx.drawImage(bg, 0, 0, W, H) } catch { /* keep white */ } }
 
       const savedTransform = page.style.transform
       page.style.transform = 'none'
@@ -278,21 +303,43 @@ const HospitalFormEditor = forwardRef<HospitalFormEditorHandle, Props>(function 
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.96), 'JPEG', 0, 0, 210, 297)
     }
 
-    const name = [value.pid.surname, value.pid.givenNames].filter(Boolean).join('_') || 'progress-notes'
-    // Share the actual PDF FILE (not a blob: URL) so the OS share sheet / apps
-    // like WhatsApp attach a clean "Name.pdf" card and mail apps get a real
-    // attachment with a subject. Falls back to a download.
-    if (share) {
-      const file = new File([pdf.output('blob')], `${name}.pdf`, { type: 'application/pdf' })
-      if (await shareFile(file, share.subject, share.body)) return true
-    }
-    pdf.save(`${name}.pdf`)
-    return false
+    const name = ([value.pid.surname, value.pid.givenNames].filter(Boolean).join('_') || 'progress-notes') + '.pdf'
+    return { pdf, name }
   }, [form, geo, pageCount, rowsPerPage, totalRows, signatureUrl, signatureScale, value.pid])
 
-  const downloadPdf = useCallback(async () => { await outputPdf() }, [outputPdf])
-  const sharePdf = useCallback((share: { subject: string; body: string }) => outputPdf(share), [outputPdf])
-  useImperativeHandle(ref, () => ({ downloadPdf, sharePdf }), [downloadPdf, sharePdf])
+  // iOS ends the tap's user activation once an await takes too long, and
+  // navigator.share() then throws — which is why Share on this form silently fell
+  // back to a download while notes and letters (built in milliseconds, no images)
+  // shared fine. Building the PDF when the Export menu opens means the Share tap
+  // awaits an already-settled promise and keeps its activation.
+  const buildKey = JSON.stringify([form.formKey, value, signatureUrl, signatureScale, pageCount, totalRows, measuredWidth])
+  const preparedRef = useRef<{ key: string; job: ReturnType<typeof buildPdf> } | null>(null)
+
+  const prepare = useCallback(() => {
+    if (preparedRef.current?.key === buildKey) return preparedRef.current.job
+    const job = buildPdf()
+    job.catch(() => { if (preparedRef.current?.key === buildKey) preparedRef.current = null })
+    preparedRef.current = { key: buildKey, job }
+    return job
+  }, [buildPdf, buildKey])
+
+  const downloadPdf = useCallback(async () => {
+    const { pdf, name } = await prepare()
+    pdf.save(name)
+  }, [prepare])
+
+  // Share the actual PDF FILE (not a blob: URL) so the OS share sheet / apps like
+  // WhatsApp attach a clean "Name.pdf" card and mail apps get a real attachment
+  // with a subject. Falls back to a download.
+  const sharePdf = useCallback(async (share: { subject: string; body: string }) => {
+    const { pdf, name } = await prepare()
+    const file = new File([pdf.output('blob')], name, { type: 'application/pdf' })
+    if (await shareFile(file, share.subject, share.body)) return true
+    pdf.save(name)
+    return false
+  }, [prepare])
+
+  useImperativeHandle(ref, () => ({ downloadPdf, sharePdf, prepare: () => { void prepare() } }), [downloadPdf, sharePdf, prepare])
 
   const pageVars = {
     ['--hf-table-top' as string]: `${geo.tableTopMm}mm`,
