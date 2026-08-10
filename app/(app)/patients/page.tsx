@@ -953,6 +953,10 @@ export default function PatientsPage() {
     setOrder(prev => [key, ...prev.filter(k => k !== key)])
   }
 
+  function movePatientToBottom(key: string) {
+    setOrder(prev => [...prev.filter(k => k !== key), key])
+  }
+
   async function saveOrder() {
     if (!user) return
     setSavingOrder(true)
@@ -1572,6 +1576,17 @@ export default function PatientsPage() {
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
                       <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => movePatientToBottom(p.key)}
+                    aria-label={`Move ${p.name} to bottom`}
+                    title="Move to bottom"
+                    className="w-8 h-8 rounded-[var(--r-sm)] border border-[var(--border)] flex items-center justify-center
+                               text-[var(--text2)] hover:border-[var(--blue)] hover:text-[var(--blue)] active:scale-95 transition-all"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                      <line x1="12" y1="4" x2="12" y2="17"/><polyline points="7 12 12 17 17 12"/><line x1="5" y1="20" x2="19" y2="20"/>
                     </svg>
                   </button>
                 </div>
