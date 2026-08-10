@@ -7,7 +7,7 @@ import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote } from '@/lib/firestore/notes'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { getGroqKey, getGeminiKey, serializeHospitalFormData } from '@/lib/utils'
-import { copyToClipboard, openMailto, SHARE_TOAST } from '@/lib/shareExport'
+import { copyToClipboard, openMailto, buildCoverNote, SHARE_TOAST } from '@/lib/shareExport'
 import { GeneratingOverlay } from '@/components/ui/GeneratingOverlay'
 import HospitalFormEditor, { type HospitalFormEditorHandle } from './HospitalFormEditor'
 import type { HospitalFormData, NoteInput } from '@/types'
@@ -175,18 +175,22 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
   function formEmail(): { subject: string; body: string } {
     const v = storeRef.current.hospitalFormData
     const name = [v?.pid.givenNames, v?.pid.surname].filter(Boolean).join(' ')
-    const lines: string[] = []
-    if (v?.pid.urNo) lines.push('UR No: ' + v.pid.urNo)
-    if (name) lines.push('Patient: ' + name)
-    if (v?.pid.dob) lines.push('DOB: ' + v.pid.dob)
-    if (v?.pid.sex) lines.push('Sex: ' + v.pid.sex)
-    if (v?.dateTime.date || v?.dateTime.time) lines.push('Date/Time: ' + [v?.dateTime.date, v?.dateTime.time].filter(Boolean).join(' '))
-    lines.push('')
-    lines.push((v?.noteText || '').replace(/\*\*/g, '').replace(/\*/g, ''))
-    if (profile?.displayName) lines.push('', 'Regards,', profile.displayName, ...(profile.credentials ? [profile.credentials] : []))
+    const label = form?.name || 'Progress Notes'
     return {
-      subject: [form?.name || 'Progress Notes', name, v?.dateTime.date].filter(Boolean).join(' - '),
-      body: lines.join('\n'),
+      subject: [label, name, v?.dateTime.date].filter(Boolean).join(' - '),
+      body: buildCoverNote({
+        docLabel: label,
+        intro: profile?.emailPretext,
+        details: [
+          { label: 'Patient', value: name },
+          { label: 'UR No', value: v?.pid.urNo },
+          { label: 'Date of Birth', value: v?.pid.dob },
+          { label: 'Sex', value: v?.pid.sex },
+          { label: 'Date/Time', value: [v?.dateTime.date, v?.dateTime.time].filter(Boolean).join(' ') },
+        ],
+        clinicianName: profile?.displayName,
+        credentials: profile?.credentials,
+      }),
     }
   }
 

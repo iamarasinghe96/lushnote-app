@@ -1,5 +1,5 @@
-// One place for "send this document": attach the PDF, carry a subject line and
-// the full body. Used identically by progress notes, letters and hospital forms.
+// One place for "send this document": attach the PDF, carry a subject line and a
+// short cover note. Used identically by progress notes, letters and hospital forms.
 //
 // mailto: cannot carry an attachment — that is the protocol, not a gap in the
 // app — so the OS share sheet is the only web route that attaches a file.
@@ -7,6 +7,33 @@
 // `text` to the body, but several drop `text` once a file is present. The body
 // is therefore also copied to the clipboard so it is never more than a paste
 // away.
+
+export interface CoverNoteParams {
+  docLabel: string                              // "Progress Note", "Referral Letter", the form's name…
+  recipientName?: string                        // letters address a named recipient
+  intro?: string                                // the clinician's own emailPretext, if they set one
+  details: { label: string; value?: string }[]  // patient identifiers, empty ones dropped
+  clinicianName?: string
+  credentials?: string
+}
+
+// The document itself is attached, so the body is a cover note, not a second copy
+// of the note. Detail lines carry a bullet because some mail composers (Outlook
+// mobile among them) paste shared text as HTML and swallow the newlines — with a
+// bullet the identifiers stay readable even when they run together.
+export function buildCoverNote(p: CoverNoteParams): string {
+  const lines: string[] = [
+    `Dear ${p.recipientName || 'Colleague'},`,
+    '',
+    p.intro || `Please find attached the ${p.docLabel} for the patient below.`,
+    '',
+  ]
+  for (const d of p.details) if (d.value && d.value.trim()) lines.push(`• ${d.label}: ${d.value.trim()}`)
+  lines.push('', `Attached: ${p.docLabel} (PDF)`, '', 'Regards,')
+  if (p.clinicianName) lines.push(p.clinicianName)
+  if (p.credentials) lines.push(p.credentials)
+  return lines.join('\n')
+}
 
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {

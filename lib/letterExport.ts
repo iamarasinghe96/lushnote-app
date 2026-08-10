@@ -1,8 +1,8 @@
 'use client'
 
 import { parseBoldSegments } from '@/lib/pdf'
-import { letterSalutation, calculateAgeFromDOB, autoNumberLines, buildReferralOpening } from '@/lib/utils'
-import { shareFile } from '@/lib/shareExport'
+import { letterSalutation, calculateAgeFromDOB, autoNumberLines, buildReferralOpening, LETTER_TYPE_LABEL } from '@/lib/utils'
+import { shareFile, buildCoverNote } from '@/lib/shareExport'
 import type { LetterType, LetterCommonFields, ReferralFields, RecordsFields, FreetextFields } from '@/types'
 
 // Shared letter PDF + email builders, extracted from the edit page so the Export
@@ -269,64 +269,30 @@ export async function downloadLetterPDF(
   return false
 }
 
-// The letter's subject line and plain-text body — what the Share path carries
-// alongside the PDF attachment, and what the desktop mailto: fallback sends.
+// The letter's subject line and the cover note that travels with it. The letter
+// itself is the attached PDF, so the body identifies the patient and says what is
+// attached rather than repeating the whole letter.
 export function buildLetterEmail(p: LetterExportParams): { subject: string; body: string } {
-  const { letterType, common, referral, records, freetext, customSections } = p
+  const { letterType, common, referral } = p
   const subject = letterType === 'referral'
     ? `Referral: ${common.patientName || ''} - DOB: ${common.dob || ''}`
     : letterType === 'records'
     ? `Medical Records Request: ${common.patientName || ''}`
     : `Letter: ${common.patientName || ''}`
 
-  const lines: string[] = []
-  lines.push(common.letterDate || '')
-  lines.push('')
-  lines.push('To: ' + (common.recipientName || '[Recipient Name]'))
-  if (common.recipientAddress) lines.push(common.recipientAddress)
-  lines.push('')
-  if (letterType !== 'freetext') {
-    lines.push('Re: ' + (common.patientName || '[Patient Name]'))
-    if (common.dob) lines.push('DOB: ' + common.dob)
-  } else {
-    lines.push('Subject: ' + (common.patientName || '[Subject]'))
-  }
-  lines.push('')
-  if (letterType === 'referral') {
-    lines.push(letterSalutation(common.recipientName))
-    lines.push('')
-    lines.push(buildReferralOpening(common.patientName || '[Patient Name]', referral.admissionUnit || '', referral.admissionDateStart, referral.admissionDateEnd))
-    lines.push('')
-    const age = calculateAgeFromDOB(common.dob)
-    const agePart = age !== null ? `${age} year old ` : ''
-    const firstName = (common.patientName || '').split(' ')[0] || 'Patient'
-    const title = referral.gender === 'male' ? 'Mr.' : referral.gender === 'female' ? 'Ms.' : ''
-    lines.push(`Thank you for seeing ${title} ${common.patientName || '[Patient Name]'}. ${firstName} is a ${agePart}${referral.gender || '[gender]'} who presented with ${referral.presentingComplaint || '[presenting complaint]'}.`)
-    if (referral.secondParagraph) { lines.push(''); lines.push(referral.secondParagraph) }
-    lines.push('')
-    lines.push(`${referral.referralReason || '[reason for referral]'}${referral.dischargeSummaryAttached ? ' A discharge summary is attached.' : ''}`)
-    if (referral.showPastMedicalHistory && referral.pastMedicalHistory) { lines.push(''); lines.push('Past Medical History:'); lines.push(referral.pastMedicalHistory) }
-    if (referral.showMedicationList && referral.medicationList) { lines.push(''); lines.push('Medication List:'); lines.push(referral.medicationList) }
-    lines.push(''); lines.push('Please do not hesitate to contact me if there are any queries regarding this referral.')
-  } else if (letterType === 'records') {
-    lines.push('To whom it may concern,')
-    lines.push('')
-    lines.push(`I am writing to request any correspondence or documentation from their previous visits at ${records.recordsLocation || '[Location]'}.`)
-    if (records.secondParagraphRecords) { lines.push(''); lines.push(records.secondParagraphRecords) }
-  } else if (letterType === 'freetext') {
-    lines.push(freetext.freeTextContent || '')
-  } else if (letterType === 'custom') {
-    lines.push(letterSalutation(common.recipientName))
-    customSections.filter(s => s.content.trim()).forEach(s => {
-      lines.push(''); lines.push(`${s.heading}:`)
-      s.content.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => lines.push(l))
-    })
-    lines.push(''); lines.push('Please do not hesitate to contact me if you require any further information.')
-  }
-  lines.push(''); lines.push('Kind regards,')
-  if (p.clinicianName) lines.push(p.clinicianName)
-  if (p.credentials) lines.push(p.credentials)
-
-  return { subject, body: lines.join('\n') }
+  const gender = referral?.gender
+  const body = buildCoverNote({
+    docLabel: LETTER_TYPE_LABEL[letterType],
+    recipientName: common.recipientName,
+    details: [
+      { label: letterType === 'freetext' ? 'Subject' : 'Patient', value: common.patientName },
+      { label: 'Date of Birth', value: common.dob },
+      { label: 'Sex', value: gender ? gender[0].toUpperCase() + gender.slice(1) : '' },
+      { label: 'Date', value: common.letterDate },
+    ],
+    clinicianName: p.clinicianName,
+    credentials: p.credentials,
+  })
+  return { subject, body }
 }
 

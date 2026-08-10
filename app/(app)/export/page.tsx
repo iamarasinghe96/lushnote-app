@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { useAuth } from '@/hooks/useAuth'
-import { buildNoteText, buildCoverLetterEmail, buildPreviewHTML, buildLetterPreviewHTML, withTimeout } from '@/lib/utils'
+import { buildNoteText, buildPreviewHTML, buildLetterPreviewHTML, withTimeout } from '@/lib/utils'
 import { downloadNotePDF, shareNotePDF, printNotePDF, noteEmailSubject } from '@/lib/pdf'
 import { downloadLetterPDF, buildLetterEmail, type LetterExportParams } from '@/lib/letterExport'
-import { copyToClipboard, openMailto, SHARE_TOAST } from '@/lib/shareExport'
+import { copyToClipboard, openMailto, buildCoverNote, SHARE_TOAST } from '@/lib/shareExport'
 import { getPatientProfiles } from '@/lib/firestore/patients'
 import HospitalFormView from '@/components/hospital-form/HospitalFormView'
 import type { PatientProfile, LetterType } from '@/types'
@@ -107,13 +107,26 @@ export default function ExportPage() {
   }
 
   function noteEmail(): { subject: string; body: string } {
+    const p = matchedPatient()
     return {
       subject: noteEmailSubject(currentNote),
-      body: buildCoverLetterEmail(currentNote, profile || {}),
+      body: buildCoverNote({
+        docLabel: 'Progress Note',
+        intro: profile?.emailPretext,
+        details: [
+          { label: 'Patient', value: currentNote.patient },
+          { label: 'Reg Number', value: currentNote.reg_number },
+          { label: 'Date of Birth', value: p?.dob },
+          { label: 'Sex', value: p?.gender },
+          { label: 'Date', value: currentNote.date },
+        ],
+        clinicianName: profile?.displayName,
+        credentials: profile?.credentials,
+      }),
     }
   }
 
-  // Share = the whole message: PDF attached, subject line, full body. A mailto:
+  // Share = the whole message: PDF attached, subject line, cover note. A mailto:
   // link CANNOT carry an attachment, so the share sheet is the route wherever it
   // exists; desktop falls back to download + mailto.
   async function handleShareNote() {
