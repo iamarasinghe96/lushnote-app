@@ -91,9 +91,14 @@ export default function ScanNoteModal({ open, uid, onClose, onScanned }: ScanNot
         const blob = await downscale(f).catch(() => f)
         form.append('images', blob, 'note.jpg')
       }
-      const headers: Record<string, string> = {}
+      // Reading handwriting is Gemini-only. Say so up front rather than posting a
+      // keyless request and reporting it back as a usage limit.
       const geminiKey = getGeminiKey()
-      if (geminiKey) headers['x-gemini-key'] = geminiKey
+      if (!geminiKey) {
+        setError('Scanning needs a Gemini API key. Open Settings → API Keys, paste your key and press Save key, then try again.')
+        return
+      }
+      const headers: Record<string, string> = { 'x-gemini-key': geminiKey }
       const res = await fetch('/api/ocr', { method: 'POST', headers, body: form })
       const data = await res.json() as { text?: string; patient?: ScannedPatient; error?: string }
       if (!res.ok || !data.text) {

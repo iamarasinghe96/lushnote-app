@@ -137,6 +137,14 @@ export async function POST(req: NextRequest) {
 
     let parsed = await readPage()
     if (parsed === null) {
+      // No key ever reached the server — a completely different problem from a
+      // limit being reached, and the one message that used to cover both.
+      if (!userGeminiKey && !process.env.GEMINI_API_KEY) {
+        logToSink({ level: 'warn', tag: 'ocr', message: 'no gemini key sent', route: '/api/ocr', status: 401, uid: uidField })
+        return NextResponse.json({
+          error: 'No Gemini API key reached the server. Open Settings → API Keys, paste your key and press Save key, then try again.',
+        }, { status: 401 })
+      }
       logToSink({ level: 'warn', tag: 'ocr', message: userKeyFailure ? 'user gemini key failed' : 'no provider available', route: '/api/ocr', status: 429, uid: uidField })
       return NextResponse.json({ error: userKeyFailure ?? AI_LIMIT_MESSAGE }, { status: 429 })
     }

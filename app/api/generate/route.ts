@@ -137,7 +137,7 @@ const AI_UNAVAILABLE = 'ai-unavailable'
 // Why nothing could answer. A doctor using her OWN Gemini key was being told a
 // free usage limit was reached and to add a key she already had — because the
 // user-key attempt failed into a bare catch and the real reason was thrown away.
-type AiFailure = 'exhausted' | 'user-key-invalid' | 'user-key-quota'
+type AiFailure = 'exhausted' | 'no-key' | 'user-key-invalid' | 'user-key-quota'
 
 class AiUnavailable extends Error {
   constructor(readonly reason: AiFailure) { super(AI_UNAVAILABLE) }
@@ -147,6 +147,9 @@ function aiFailureMessage(err: unknown): string {
   const reason = err instanceof AiUnavailable ? err.reason : 'exhausted'
   if (reason === 'user-key-invalid') {
     return 'Google rejected your Gemini API key. Open Settings → API Keys and paste it again, or create a new key at aistudio.google.com.'
+  }
+  if (reason === 'no-key') {
+    return 'No API key reached the server. Open Settings → API Keys, paste your Gemini key and press Save key, then try again.'
   }
   if (reason === 'user-key-quota') {
     return 'Your own Gemini API key has hit its daily limit with Google. It resets at midnight US Pacific time. Adding a Groq key in Settings → API Keys keeps you working until then.'
@@ -244,7 +247,9 @@ async function runExtraction(opts: {
     } catch { /* exhausted everywhere */ }
   }
 
-  throw new AiUnavailable(userKeyFailure ?? 'exhausted')
+  // Nothing was even attempted: no key of any kind arrived with the request.
+  const noKeyAtAll = !groqKey && !userGeminiKey && !process.env.GEMINI_API_KEY
+  throw new AiUnavailable(userKeyFailure ?? (noKeyAtAll ? 'no-key' : 'exhausted'))
 }
 
 export async function POST(req: NextRequest) {

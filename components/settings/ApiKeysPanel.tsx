@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Button from '@/components/ui/Button'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { quotaDate, sanitizeApiKey } from '@/lib/utils'
+import { quotaDate, sanitizeApiKey, getGeminiKey } from '@/lib/utils'
 import type { User } from '@/types'
 
 interface ApiKeysPanelProps {
@@ -35,6 +35,20 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
   const [geminiKey, setGeminiKey] = useState(profile.geminiApiKey ?? '')
   const [geminiSaving, setGeminiSaving] = useState(false)
   const [geminiSaved, setGeminiSaved] = useState(false)
+
+  // Saved on the account vs actually loaded for this browser session. A key can
+  // be saved and still not be sent — sessionStorage is per-tab and wipes on close
+  // — and that gap is invisible, so it gets its own line.
+  const hasGemini = !!profile.geminiApiKey
+  const [geminiLive, setGeminiLive] = useState(true)
+  useEffect(() => { setGeminiLive(!!getGeminiKey()) }, [profile.geminiApiKey])
+
+  function reactivateGemini() {
+    if (!profile.geminiApiKey) return
+    sessionStorage.setItem('gemini_api_key', sanitizeApiKey(profile.geminiApiKey))
+    setGeminiLive(true)
+    onToast('Gemini key loaded for this session')
+  }
 
   const [groqKey, setGroqKey] = useState(profile.groqApiKey ?? '')
   const [groqSaving, setGroqSaving] = useState(false)
@@ -125,6 +139,21 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
             {geminiSaved ? 'Saved ✓' : 'Save key'}
           </Button>
         </div>
+
+        {hasGemini && (
+          geminiLive ? (
+            <p className="text-xs text-green-600 font-medium">Key saved and active for this session.</p>
+          ) : (
+            <div className="rounded-[var(--r)] bg-amber-50 border border-amber-200 px-3 py-2 space-y-1.5">
+              <p className="text-xs text-amber-800">
+                A key is saved on your account but isn&apos;t loaded in this browser tab, so it can&apos;t be sent with your requests.
+              </p>
+              <button onClick={reactivateGemini} className="text-xs font-semibold text-[var(--blue)] underline">
+                Load it now
+              </button>
+            </div>
+          )
+        )}
 
         <div className="mt-3 p-3 bg-[var(--bg)] rounded-[var(--r)] border border-[var(--border)] space-y-1.5">
           <div className="flex items-center justify-between">
