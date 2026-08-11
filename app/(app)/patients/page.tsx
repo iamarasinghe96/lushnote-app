@@ -306,18 +306,13 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
           className="bg-white border border-[var(--border)] rounded-[var(--r-lg)] p-4"
           style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
         >
-          {/* Buttons were absolutely positioned with a guessed padding-right on
-              the name to clear them — not enough room for a long name, so it
-              ran underneath them (reported). A real flex row reserves exactly
-              the space the buttons need and lets the name truncate around it,
-              regardless of name length. */}
-          <div className="flex items-start justify-between gap-3 mb-4">
-            <div className="flex items-start gap-3 min-w-0 flex-1">
+          {/* The name line carries the name and age and nothing else — the flag
+              and the action buttons sit on their own row beneath, so a long
+              name has the full card width before it has to truncate. */}
+          <div className="mb-4">
+            <div className="flex items-start gap-3 min-w-0">
               <GenderAvatar gender={patient.gender} size={56} />
               <div className="min-w-0 flex-1">
-                {/* Marquee-scrolls a long name so it's fully readable instead of
-                    being clipped under the action buttons. The age sits outside
-                    the marquee so it stays put while the name scrolls. */}
                 <div className="flex items-baseline gap-1.5 min-w-0">
                   <div className="min-w-0 flex-1">
                     <MarqueeName name={patient.name} className="text-xl font-bold text-[var(--text)]" />
@@ -325,77 +320,76 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
                   {headerAge && (
                     <span className="text-base font-semibold text-[var(--text3)] shrink-0">({headerAge})</span>
                   )}
-                  <div className="relative shrink-0">
-                    <button
-                      onClick={() => setFlagOpen(o => !o)}
-                      aria-label="Set priority flag"
-                      title={patientFlagStyle(flag)?.label ?? 'Set priority flag'}
-                      className="w-7 h-7 rounded-full flex items-center justify-center
-                                 hover:bg-[var(--bg)] active:scale-95 transition-all"
-                    >
-                      <FlagIcon flag={flag} />
-                    </button>
-                    {flagOpen && (
-                      <>
-                        <div className="fixed inset-0 z-10" onClick={() => setFlagOpen(false)} aria-hidden />
-                        <div
-                          className="absolute left-0 top-8 z-20 w-44 rounded-[var(--r)] border border-[var(--border)] bg-white overflow-hidden py-1"
-                          style={{ boxShadow: '0 8px 24px rgba(15,23,42,.14), 0 0 0 1px rgba(15,23,42,.04)' }}
-                        >
-                          {PATIENT_FLAGS.map(f => (
-                            <button
-                              key={f.value}
-                              onClick={() => { onSetFlag(f.value); setFlagOpen(false) }}
-                              className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
-                                ${flag === f.value ? 'bg-[var(--blue-lt)] font-semibold text-[var(--blue)]' : 'text-[var(--text)] hover:bg-[var(--bg)]'}`}
-                            >
-                              <FlagIcon flag={f.value} />
-                              <span className="flex-1">{f.label}</span>
-                              {flag === f.value && <CheckMark />}
-                            </button>
-                          ))}
-                          <div className="h-px bg-[var(--border)] my-1" />
-                          <button
-                            onClick={() => { onSetFlag(0); setFlagOpen(false) }}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
-                              ${!flag ? 'bg-[var(--blue-lt)] font-semibold text-[var(--blue)]' : 'text-[var(--text2)] hover:bg-[var(--bg)]'}`}
-                          >
-                            <FlagIcon />
-                            <span className="flex-1">No flag</span>
-                            {!flag && <CheckMark />}
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
                 </div>
                 {reg && (
                   <p className="text-sm text-[var(--text3)] mt-0.5">Registration #{reg}</p>
                 )}
               </div>
             </div>
-            {/* Edit + Delete on top; Generate sits directly beneath them. */}
-            <div className="flex flex-col items-stretch gap-2 shrink-0">
-              <div className="flex gap-2 justify-end">
+
+            <div className="mt-3 flex items-center gap-2">
+              <div className="relative shrink-0">
                 <button
-                  onClick={onEditPatient}
-                  className="text-xs border border-[var(--blue)] text-[var(--blue)]
-                             px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-[var(--blue-lt)] active:scale-95 transition-all"
+                  onClick={() => setFlagOpen(o => !o)}
+                  aria-label="Set priority flag"
+                  title={patientFlagStyle(flag)?.label ?? 'Set priority flag'}
+                  className="w-7 h-7 rounded-full flex items-center justify-center
+                             hover:bg-[var(--bg)] active:scale-95 transition-all"
                 >
-                  Edit
+                  <FlagIcon flag={flag} />
                 </button>
-                <button
-                  onClick={() => setConfirmDeletePatient(true)}
-                  className="text-xs border border-[var(--danger)] text-[var(--danger)]
-                             px-3 py-1 rounded-[var(--r-sm)] font-medium hover:bg-red-50 active:scale-95 transition-all"
-                >
-                  Delete
-                </button>
+                {flagOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setFlagOpen(false)} aria-hidden />
+                    <div
+                      className="absolute left-0 top-8 z-20 w-44 rounded-[var(--r)] border border-[var(--border)] bg-white overflow-hidden py-1"
+                      style={{ boxShadow: '0 8px 24px rgba(15,23,42,.14), 0 0 0 1px rgba(15,23,42,.04)' }}
+                    >
+                      {PATIENT_FLAGS.map(f => (
+                        <button
+                          key={f.value}
+                          onClick={() => { onSetFlag(f.value); setFlagOpen(false) }}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
+                            ${flag === f.value ? 'bg-[var(--blue-lt)] font-semibold text-[var(--blue)]' : 'text-[var(--text)] hover:bg-[var(--bg)]'}`}
+                        >
+                          <FlagIcon flag={f.value} />
+                          <span className="flex-1">{f.label}</span>
+                          {flag === f.value && <CheckMark />}
+                        </button>
+                      ))}
+                      <div className="h-px bg-[var(--border)] my-1" />
+                      <button
+                        onClick={() => { onSetFlag(0); setFlagOpen(false) }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
+                          ${!flag ? 'bg-[var(--blue-lt)] font-semibold text-[var(--blue)]' : 'text-[var(--text2)] hover:bg-[var(--bg)]'}`}
+                      >
+                        <FlagIcon />
+                        <span className="flex-1">No flag</span>
+                        {!flag && <CheckMark />}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
+              <div className="flex-1" />
+              <button
+                onClick={onEditPatient}
+                className="text-xs border border-[var(--blue)] text-[var(--blue)]
+                           px-3 py-1.5 rounded-[var(--r-sm)] font-medium hover:bg-[var(--blue-lt)] active:scale-95 transition-all"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => setConfirmDeletePatient(true)}
+                className="text-xs border border-[var(--danger)] text-[var(--danger)]
+                           px-3 py-1.5 rounded-[var(--r-sm)] font-medium hover:bg-red-50 active:scale-95 transition-all"
+              >
+                Delete
+              </button>
               <button
                 onClick={onGenerate}
-                className="w-full text-xs bg-[#10b981] text-white
-                           px-3 py-1.5 rounded-[var(--r-sm)] font-medium hover:bg-[#059669] active:scale-95 transition-all"
+                className="text-xs bg-[#10b981] text-white
+                           px-3.5 py-1.5 rounded-[var(--r-sm)] font-medium hover:bg-[#059669] active:scale-95 transition-all"
               >
                 Generate
               </button>
