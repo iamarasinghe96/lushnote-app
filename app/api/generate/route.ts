@@ -96,6 +96,35 @@ function sourceCoverage(source: string, reply: string): number {
 // Below this, treat the reply as having dropped content and pay for a better one.
 const COVERAGE_FLOOR = 0.9
 
+// Source lines the reply does not account for anywhere. Same word-overlap test
+// as sourceCoverage, but over every substantive line rather than just the
+// problem list — a rewording still counts as covered, a dropped line does not.
+function unrepresentedLines(source: string, reply: string): string[] {
+  const haystack = new Set(significantWords(reply))
+  const out: string[] = []
+  for (const raw of source.split('\n')) {
+    const line = raw.trim()
+    if (!line) continue
+    const words = significantWords(line.replace(LINE_MARKER, ''))
+    if (words.length < 2) continue   // too short to judge either way
+    const hits = words.filter(w => haystack.has(w)).length
+    if (hits / words.length < 0.6) out.push(line)
+  }
+  return out
+}
+
+// The doctor's rule: if a topic isn't covered by a column it goes under "Other
+// topics", and nothing is lost. This enforces it in code rather than trusting
+// the model to have followed the instruction — whatever it left behind is
+// appended verbatim as one more extras block.
+function appendUnfiled(source: string, fields: Record<string, unknown>): Record<string, unknown> {
+  const leftover = unrepresentedLines(source, flattenStrings(fields))
+  if (!leftover.length) return fields
+  const extras = Array.isArray(fields.extras) ? [...fields.extras] : []
+  extras.push({ label: 'Also on the note', content: leftover.join('\n').slice(0, 4000) })
+  return { ...fields, extras }
+}
+
 // Shown when every provider is exhausted. Plain language, and it tells the
 // doctor what they can actually do about it.
 const AI_LIMIT_MESSAGE = 'Dear doctor — our free AI usage limit has been reached for now. Please try again later today, or tomorrow. To keep working straight away, add your own Gemini or Groq API key in Settings → API Keys.'
@@ -409,7 +438,7 @@ ${transcript}`
           }
         }
 
-        if (patientFields) return NextResponse.json({ patientFields })
+        if (patientFields) return NextResponse.json({ patientFields: appendUnfiled(transcript, patientFields) })
         return NextResponse.json({ error: 'The AI reply came back garbled. Please try again — it usually works on a second attempt.' }, { status: 502 })
       } catch (err) {
         if (err instanceof Error && err.message === AI_UNAVAILABLE) {

@@ -21,7 +21,30 @@ interface OcrReply {
   urNumber?: string
   dob?: string
   sex?: string
+  sections?: { heading?: string; lines?: unknown[] }[]
   text?: string
+}
+
+// The model answers with one block per written section. Enumerating the page
+// that way is what stops it reading the long Progress paragraph and skipping the
+// problem list above it and the numbered plan below. `text` is the older
+// free-form shape, still accepted.
+function assembleText(parsed: OcrReply): string {
+  if (Array.isArray(parsed.sections) && parsed.sections.length) {
+    return parsed.sections
+      .map(s => {
+        const heading = String(s.heading ?? '').trim()
+        const lines = Array.isArray(s.lines)
+          ? s.lines.map(l => String(l ?? '').trim()).filter(Boolean)
+          : []
+        if (!heading && !lines.length) return ''
+        return [heading, ...lines].filter(Boolean).join('\n')
+      })
+      .filter(Boolean)
+      .join('\n\n')
+      .trim()
+  }
+  return (parsed.text ?? '').trim()
 }
 
 export async function POST(req: NextRequest) {
@@ -97,7 +120,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Could not read that photo. Try again with a clearer, straight-on shot.' }, { status: 502 })
     }
 
-    const text = (parsed.text ?? '').trim()
+    const text = assembleText(parsed)
     if (!text) {
       return NextResponse.json({ error: 'No text could be read from that photo. Try again with better lighting.' }, { status: 422 })
     }

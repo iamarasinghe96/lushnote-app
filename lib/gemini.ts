@@ -70,17 +70,24 @@ export async function transcribeAudio(audioBase64: string, mimeType: string, api
 // costs a single request instead of one to read and one to extract.
 const OCR_PROMPT = `You are reading a photograph of a hospital progress note. It contains printed text (a patient identification label, form headings) and handwritten clinical entries.
 
-Transcribe EVERYTHING you can read, and pull out the patient's details from the identification label.
+Work down the WHOLE page from the top edge to the bottom edge and return every block you find, in order, as a section. Do not stop when you reach a long paragraph — keep going to the bottom of the written area.
+
+A ward progress note is usually laid out in this order. Check EXPLICITLY for each one before you answer, and include every one that is present on the page:
+1. A header line naming the ward round, unit, team or consultants, with the entry's date and time.
+2. A PROBLEM LIST — a run of short lines each beginning with "#". This sits near the top and is the block most often missed. Every "#" line is a separate entry, including ones marked resolved or inactive.
+3. A narrative section, often headed "Progress".
+4. Observations ("Obs:") and examination findings.
+5. A PLAN — a numbered list ("1." "2." "3." …) near the bottom. This is the second most often missed block. Every numbered item is a separate entry.
 
 Rules:
-- Transcribe the handwritten entry faithfully and COMPLETELY, keeping its structure: headings, "#" problem lists, numbered plans and bullet points stay on their own lines.
-- Transcribe EVERY line. Do not skip, merge or summarise any of them — a problem marked "resolved" matters as much as an active one.
-- Include the entry's own header line (ward round, unit, team or consultant names) and its date and time. They are handwritten content, not part of the form.
-- The entry's date and time are the handwritten ones in the Date/Time column beside the entry. Never take them from the identification label's admission date, or from any other date printed on the form. If the handwritten date is unclear, write what you can read and leave the rest as [illegible] — do not substitute a date from elsewhere on the page.
+- Transcribe faithfully and COMPLETELY. Do not skip, merge or summarise any line — a problem marked "resolved" matters as much as an active one.
+- One written line per entry in "lines". Keep the "#" and the numbering as written.
+- The entry's date and time are the handwritten ones in the Date/Time column beside the entry. Never take them from the identification label's admission date, or any other date printed on the form. If the handwritten date is unclear, write what you can read and leave the rest as [illegible] — do not substitute a date from elsewhere on the page.
 - Handwriting overruns: a word or phrase that did not fit often continues at the start of the next line or in the left margin. Reassemble those into the sentence they belong to rather than transcribing them where they physically sit.
 - Expand nothing and invent nothing. Where a word is genuinely illegible write [illegible].
 - Keep clinical abbreviations exactly as written (IDC, TOU, NH, LL, CWR, r/v, o/t, obs) and keep "b/g" (background) as written.
 - Do not include the form's pre-printed furniture (barcodes, "Please sign each entry", store order numbers, page footers).
+- heading: the block's own written heading if it has one, otherwise a short descriptive one you supply.
 - patientName: the patient's name in natural order with normal capitalisation. Labels usually print it SURNAME Given Names — reorder it to "Given Names Surname".
 - urNumber: the UR / MRN number from the label, digits and letters only.
 - dob: date of birth as DD/MM/YYYY.
@@ -88,7 +95,7 @@ Rules:
 - Leave any field you cannot read as an empty string.
 
 Respond ONLY with this JSON and nothing else:
-{"patientName":"","urNumber":"","dob":"","sex":"","text":""}`
+{"patientName":"","urNumber":"","dob":"","sex":"","sections":[{"heading":"","lines":[""]}]}`
 
 export async function ocrClinicalImages(
   images: { data: string; mimeType: string }[],

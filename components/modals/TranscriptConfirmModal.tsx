@@ -67,7 +67,10 @@ export default function TranscriptConfirmModal({
       setShowDropdown(false)
       setDob(prefill?.dob ?? '')
       setGender(prefill?.gender ?? '')
-      setTranscriptExpanded(false)
+      // A scan is the one source the doctor hasn't read yet — show all of what
+      // the camera picked up, so a page the model only half-read is obvious here
+      // rather than after it has propagated into the record.
+      setTranscriptExpanded(!!prefill)
     } else {
       setShowDropdown(false)
     }
