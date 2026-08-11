@@ -52,6 +52,50 @@ function repairJsonControlChars(s: string): string {
   return out
 }
 
+// A problem-list line ("# hypokalaemia - resolved") or a numbered item
+// ("3. IDC removal"). These are the lines a doctor notices immediately when they
+// go missing, and the ones a summarising model drops first.
+const MUST_KEEP_LINE = /^\s*(?:[#•]|\d+[.)])\s*\S/
+// Same marker WITHOUT the trailing \S, so stripping it doesn't also swallow the
+// first letter of the content ("# Delirium" → "elirium", which matches nothing).
+const LINE_MARKER = /^\s*(?:[#•]|\d+[.)])\s*/
+
+function significantWords(s: string): string[] {
+  return s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length >= 4)
+}
+
+// Every string in the reply, joined with real whitespace. NOT JSON.stringify:
+// that renders a newline as the two characters \ and n, which then glue onto the
+// following word ("active\nFunctional" → "nfunctional") and make it look missing.
+function flattenStrings(v: unknown): string {
+  if (typeof v === 'string') return v
+  if (Array.isArray(v)) return v.map(flattenStrings).join(' ')
+  if (v && typeof v === 'object') return Object.values(v).map(flattenStrings).join(' ')
+  return ''
+}
+
+// What fraction of the source's problem-list and numbered lines survived into
+// the model's reply. Prompts alone did not hold this — the same ward note came
+// back complete on one run and with its whole problem list missing on the next,
+// depending on which provider answered — so the result is measured rather than
+// assumed.
+function sourceCoverage(source: string, reply: string): number {
+  const lines = source.split('\n').filter(l => MUST_KEEP_LINE.test(l))
+  if (lines.length === 0) return 1
+  const haystack = new Set(significantWords(reply))
+  let covered = 0
+  for (const line of lines) {
+    const words = significantWords(line.replace(LINE_MARKER, ''))
+    if (words.length === 0) { covered++; continue }
+    const hits = words.filter(w => haystack.has(w)).length
+    if (hits / words.length >= 0.6) covered++
+  }
+  return covered / lines.length
+}
+
+// Below this, treat the reply as having dropped content and pay for a better one.
+const COVERAGE_FLOOR = 0.9
+
 // Shown when every provider is exhausted. Plain language, and it tells the
 // doctor what they can actually do about it.
 const AI_LIMIT_MESSAGE = 'Dear doctor — our free AI usage limit has been reached for now. Please try again later today, or tomorrow. To keep working straight away, add your own Gemini or Groq API key in Settings → API Keys.'
@@ -73,9 +117,12 @@ async function runExtraction(opts: {
   // run and kept it on the next, purely by which provider had capacity. Gemini
   // leads for those, with Groq still there when Gemini is exhausted.
   preferGemini?: boolean
+  // Skip Groq entirely — used to re-run a job whose Groq answer was measurably
+  // incomplete, where trying Groq again would just repeat the same loss.
+  geminiOnly?: boolean
 }): Promise<{ content: string; provider: 'groq' | 'gemini' }> {
-  const { prompt, system, req, uid, preferGemini } = opts
-  const groqKey = req.headers.get('x-groq-key')
+  const { prompt, system, req, uid, preferGemini, geminiOnly } = opts
+  const groqKey = geminiOnly ? null : req.headers.get('x-groq-key')
   const userGeminiKey = req.headers.get('x-gemini-key')
 
   if (groqKey && !preferGemini) {
@@ -332,19 +379,37 @@ DICTATION:
 ${transcript}`
 
       try {
-        const { content } = await runExtraction({ prompt: intakePrompt, system: systemInstruction, req, uid })
-        const jsonMatch = content.match(/\{[\s\S]*\}/)
-        if (jsonMatch) {
-          // Parse in isolation: a malformed reply is the AI's problem, not
-          // something to show the doctor as a raw syntax error.
-          let patientFields: Record<string, unknown> | null = null
+        const first = await runExtraction({ prompt: intakePrompt, system: systemInstruction, req, uid })
+        // Parse in isolation: a malformed reply is the AI's problem, not
+        // something to show the doctor as a raw syntax error.
+        const parse = (content: string): Record<string, unknown> | null => {
+          const m = content.match(/\{[\s\S]*\}/)
+          if (!m) return null
           try {
-            patientFields = JSON.parse(repairJsonControlChars(jsonMatch[0])) as Record<string, unknown>
+            return JSON.parse(repairJsonControlChars(m[0])) as Record<string, unknown>
           } catch {
             logToSink({ level: 'warn', tag: 'generate', message: `${mode} reply was not valid JSON`, route: '/api/generate', uid })
+            return null
           }
-          if (patientFields) return NextResponse.json({ patientFields })
         }
+
+        let patientFields = parse(first.content)
+        // This record is what a hospital form is later built from, so a dropped
+        // problem list follows the patient onto their chart. When Groq's answer
+        // measurably loses lines, spend one Gemini call rather than keep it.
+        if (patientFields && first.provider === 'groq') {
+          const before = sourceCoverage(transcript, flattenStrings(patientFields))
+          if (before < COVERAGE_FLOOR) {
+            logToSink({ level: 'warn', tag: 'generate', message: `${mode} groq coverage ${Math.round(before * 100)}% — retrying on gemini`, route: '/api/generate', uid })
+            try {
+              const second = await runExtraction({ prompt: intakePrompt, system: systemInstruction, req, uid, geminiOnly: true })
+              const retried = parse(second.content)
+              if (retried && sourceCoverage(transcript, flattenStrings(retried)) > before) patientFields = retried
+            } catch { /* keep the first answer rather than failing outright */ }
+          }
+        }
+
+        if (patientFields) return NextResponse.json({ patientFields })
         return NextResponse.json({ error: 'The AI reply came back garbled. Please try again — it usually works on a second attempt.' }, { status: 502 })
       } catch (err) {
         if (err instanceof Error && err.message === AI_UNAVAILABLE) {
