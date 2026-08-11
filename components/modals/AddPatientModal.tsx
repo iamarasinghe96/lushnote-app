@@ -97,7 +97,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
   // Persist the tracked patient. Extra clinical fields (from dictation) merge in;
   // name + UR always come from step 1. Always tracked:true so it shows in the
   // Table view. Returns the saved profile (with id) or null on failure.
-  async function persist(extra: Partial<PatientProfile>): Promise<PatientProfile | null> {
+  async function persist(extra: Partial<PatientProfile>, source?: string): Promise<PatientProfile | null> {
     if (!user) return null
     const now = Date.now()
     // A brand-new patient: the extracted values are the first entries in the log.
@@ -110,6 +110,9 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
       updatedAt: now,
       ...(urNumber.trim() ? { urNumber: urNumber.trim() } : {}),
       ...(gender ? { gender: gender as PatientProfile['gender'] } : {}),
+      // Keep the note itself, not just what the extractor made of it — the
+      // tracked fields are a view over this (see CLAUDE.md, Scanned Ward Notes).
+      ...(source?.trim() ? { lastEntry: source.trim().slice(0, 20000), lastEntryAt: now } : {}),
       ...extra,
     }
     try {
@@ -166,7 +169,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
     // Extraction failed: keep the doctor here with their pasted text intact so
     // they can retry, rather than saving a patient with nothing in it.
     if (error) { setPermError(error); setPhase('paste'); return }
-    const saved = await persist(fields)
+    const saved = await persist(fields, pasteText)
     if (saved) onSaved(saved)
     else { setPermError('Could not save the patient. Check your connection and try again.'); setPhase('paste') }
   }
@@ -210,7 +213,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
     // The recording can't be replayed, so always save — passing any failure up
     // as a warning rather than silently leaving the fields blank.
     const { fields, error: extractError } = await extractFields(result.text, 'dictation')
-    const saved = await persist(fields)
+    const saved = await persist(fields, result.text)
     if (saved) onSaved(saved, extractError ?? undefined)
     else { setPermError('Could not save the patient. Check your connection and try again.'); setPhase('method') }
   }

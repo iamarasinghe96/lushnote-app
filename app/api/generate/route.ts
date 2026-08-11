@@ -55,10 +55,12 @@ function repairJsonControlChars(s: string): string {
 // A problem-list line ("# hypokalaemia - resolved") or a numbered item
 // ("3. IDC removal"). These are the lines a doctor notices immediately when they
 // go missing, and the ones a summarising model drops first.
-const MUST_KEEP_LINE = /^\s*(?:[#•]|\d+[.)])\s*\S/
+// Lettered sub-items count too: "a. Cease if no stroke" under an aspirin load is
+// an instruction, not decoration.
+const MUST_KEEP_LINE = /^\s*(?:[#•]|\d+[.)]|[a-z][.)])\s*\S/
 // Same marker WITHOUT the trailing \S, so stripping it doesn't also swallow the
 // first letter of the content ("# Delirium" → "elirium", which matches nothing).
-const LINE_MARKER = /^\s*(?:[#•]|\d+[.)])\s*/
+const LINE_MARKER = /^\s*(?:[#•]|\d+[.)]|[a-z][.)])\s*/
 
 function significantWords(s: string): string[] {
   return s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length >= 4)
@@ -105,8 +107,10 @@ function unrepresentedLines(source: string, reply: string): string[] {
   for (const raw of source.split('\n')) {
     const line = raw.trim()
     if (!line) continue
+    // One significant word is still judgeable and often the whole point of the
+    // line — "- For benzotropine" is a drug instruction, not a fragment.
     const words = significantWords(line.replace(LINE_MARKER, ''))
-    if (words.length < 2) continue   // too short to judge either way
+    if (words.length === 0) continue
     const hits = words.filter(w => haystack.has(w)).length
     if (hits / words.length < 0.6) out.push(line)
   }
@@ -334,6 +338,7 @@ EXTRACTION RULES:
 - Content nested under a problem heading must still be routed to the correct field: imaging findings go to imaging, blood/pathology results go to bloodsPathology, medication changes go to medications, and what was done/decided goes to managementIP. Keep the problem heading itself in currentIssues.
 - Copy every number, dose, date and percentage EXACTLY as written. Never round, drop or add a digit, and never substitute a drug name.
 - Keep one item per line where the source is a list. Do not add commentary or a summary.
+- Keep indentation. A sub-item written under a parent ("5. Aspirin 300mg load" / "  a. Cease if no stroke") keeps its two-space indent and stays directly beneath that parent. Never promote a sub-item to top level and never fold it into its parent's line.
 
 NOTHING MAY BE LOST — the most important rule:
 - Every line of the note must end up in exactly ONE output field. Not zero. Not two.

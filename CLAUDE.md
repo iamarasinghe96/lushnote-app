@@ -213,6 +213,60 @@ assistant — exactly like clinical notes. No separate collection.
 
 ---
 
+## Scanned Ward Notes — the fidelity contract
+
+A photographed ward note is a legal clinical record being copied. LushNote
+transcribes and lays it out; it does not reinterpret it. Everything below is a
+requirement, not a preference — each one was written after a real note lost
+content in testing.
+
+**The Source Document is the artifact.** The verbatim read is stored on the
+patient profile (`lastEntry`, `lastEntryAt`) and every field is a VIEW over it.
+Before this, the read was transient and the record kept only the interpretation,
+so a bad projection lost the original permanently. Nothing downstream may be the
+only copy of anything.
+
+**Five invariants:**
+1. **No loss.** Every line reaches the record. Whatever no field claims is
+   appended verbatim to `otherTopics` (`appendUnfiled`, /api/generate) — this is
+   enforced in code, not asked of the model.
+2. **No invention.** Never expand an unfamiliar abbreviation (IDC is an
+   indwelling catheter, not an "Intermittent Withdrawal Catheter" — a real
+   failure). Unreadable is `[illegible]`.
+3. **Hierarchy survives.** `5a. Cease if no stroke` stays indented under
+   `5. Aspirin 300mg load`. Sub-items are carried as leading spaces in the line.
+4. **Order survives.** Problem list and plan keep the order written.
+5. **Determinism.** Extraction runs at `EXTRACTION_TEMPERATURE` (0.1), OCR at 0.
+   At the provider default of 1.0 the same photo produced a different record on
+   every run — that was the root cause behind most "why did it drop this" reports.
+
+**The note's own structure IS the template.** Reproduce its headings (Current
+Issues, Progress, Obs, Impression, Issues, Plan). Do not impose SOAP on a note
+that wasn't written in SOAP.
+
+**The problem list is never filtered.** Every `#` line, including ones marked
+resolved or inactive, with its status word. Whether a problem still belongs is
+the treating doctor's call.
+
+**No new columns.** Allergies, Investigations, Impression and anything else
+without a tracked field go to `otherTopics` under their own heading. The table
+stays readable; nothing is lost.
+
+**A hospital form carries the LATEST entry**, not the accumulated record —
+`profile.lastEntry` when present, falling back to `buildPatientInfoText`. Feeding
+the whole record in turned a four-line ward round into a 13-page form.
+
+**Guards in the pipeline** (all in `/api/generate` + `/api/ocr`):
+- `sourceCoverage()` — fraction of `#`/numbered source lines present in the
+  reply. Under `COVERAGE_FLOOR` (0.9) on a Groq answer → one Gemini re-run.
+- `appendUnfiled()` — unmatched source lines appended to `otherTopics`.
+- `emptySections()` — a heading returned with no lines means the model saw a
+  block and skipped it → re-read the page.
+- `GROQ_HARD_RULES` — a short numbered rule block appended LAST on the Groq
+  attempt; a 70B model dilutes long nuanced prompts.
+
+---
+
 ## Hospital Forms (dictate → AI-fill a hospital's ruled progress-note form)
 
 Campus-specific fillable forms (first: Albury Wodonga Health FAW0004). A doctor

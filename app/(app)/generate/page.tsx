@@ -616,6 +616,10 @@ export default function GeneratePage() {
         ...(history ? { history } : {}),
         ...(entered?.dob ? { dob: entered.dob } : {}),
         ...(entered?.gender ? { gender: entered.gender as PatientProfile['gender'] } : {}),
+        // Keep the note itself, not just what the extractor made of it. Every
+        // tracked field is a view over this; a hospital form is built from it.
+        lastEntry: pendingTranscript.trim().slice(0, 20000),
+        lastEntryAt: now,
         tracked: true,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,

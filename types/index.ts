@@ -301,6 +301,12 @@ interface PatientProfile {
   // Chronological log of clinical field values, newest last. Capped so a long-
   // running patient can't grow the document without bound.
   history?: PatientHistoryEntry[]
+  // The verbatim source of the most recent entry (a scanned/pasted ward note) —
+  // the artifact the tracked fields are a VIEW over, so a projection that drops
+  // something is never the only copy. Also what a hospital form is built from,
+  // since a form carries the latest entry rather than the whole record.
+  lastEntry?: string
+  lastEntryAt?: number
   tracked?: boolean         // added via Add Patient / promoted into the Table view
   createdAt?: number        // client epoch ms when the patient was added ("first seen")
   updatedAt?: number        // client epoch ms of the last edit ("last change")

@@ -94,6 +94,7 @@ A ward progress note is usually laid out in this order. Check EXPLICITLY for eac
 Rules:
 - Transcribe faithfully and COMPLETELY. Do not skip, merge or summarise any line — a problem marked "resolved" matters as much as an active one.
 - One written line per entry in "lines". Keep the "#" and the numbering as written.
+- Indented sub-items stay attached to their parent: prefix a sub-item with two spaces per level of indent, e.g. "5. Aspirin 300mg load w/ 100mg daily ongoing" then "  a. Cease if no stroke". A sub-item is never promoted to a top-level item and never merged into its parent's line.
 - The entry's date and time are the handwritten ones in the Date/Time column beside the entry. Never take them from the identification label's admission date, or any other date printed on the form. If the handwritten date is unclear, write what you can read and leave the rest as [illegible] — do not substitute a date from elsewhere on the page.
 - Handwriting overruns: a word or phrase that did not fit often continues at the start of the next line or in the left margin. Reassemble those into the sentence they belong to rather than transcribing them where they physically sit.
 - Expand nothing and invent nothing. Where a word is genuinely illegible write [illegible].
