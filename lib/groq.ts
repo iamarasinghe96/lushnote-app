@@ -6,7 +6,10 @@ export async function generateNoteGroq(
   prompt: string,
   systemPrompt: string,
   apiKey: string,
-  maxTokens?: number
+  maxTokens?: number,
+  // Groq defaults to temperature 1.0. Structured extraction callers pass a low
+  // value so the same source stops producing a different set of fields each run.
+  temperature?: number,
 ): Promise<{ content: string; totalTokens: number }> {
   // Groq's free-tier limiter counts estimated input + max_tokens against the
   // per-minute token cap, so short-answer callers (chat) pass a small maxTokens
@@ -23,6 +26,7 @@ export async function generateNoteGroq(
     body: JSON.stringify({
       model: GENERATION_MODEL,
       max_tokens,
+      ...(temperature !== undefined ? { temperature } : {}),
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt },

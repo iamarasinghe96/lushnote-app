@@ -29,6 +29,14 @@ interface OcrReply {
 // that way is what stops it reading the long Progress paragraph and skipping the
 // problem list above it and the numbered plan below. `text` is the older
 // free-form shape, still accepted.
+// Headings the model named but returned no lines for.
+function emptySections(parsed: OcrReply): string[] {
+  if (!Array.isArray(parsed.sections)) return []
+  return parsed.sections
+    .filter(s => String(s.heading ?? '').trim() && !(Array.isArray(s.lines) && s.lines.some(l => String(l ?? '').trim())))
+    .map(s => String(s.heading).trim())
+}
+
 function assembleText(parsed: OcrReply): string {
   if (Array.isArray(parsed.sections) && parsed.sections.length) {
     return parsed.sections
@@ -85,39 +93,49 @@ export async function POST(req: NextRequest) {
     // models are text-only. The doctor's own key first — it is their quota, so it
     // is never gated — then the shared key while the daily pool lasts.
     const userGeminiKey = req.headers.get('x-gemini-key')
-    let raw: string | null = null
 
-    if (userGeminiKey) {
-      try {
-        const { text, totalTokens } = await ocrClinicalImages(images, userGeminiKey)
-        raw = text
+    const readPage = async (): Promise<OcrReply | null> => {
+      const call = async (key?: string) => {
+        const { text, totalTokens } = await ocrClinicalImages(images, key)
         await updateGeminiUsage(uidField, 'gemini-2.5-flash', totalTokens).catch(() => {})
-      } catch { /* fall through to the shared key */ }
-    }
-
-    if (raw === null && process.env.GEMINI_API_KEY && checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')) {
-      try {
-        const { text, totalTokens } = await ocrClinicalImages(images)
-        raw = text
-        await updateGeminiUsage(uidField, 'gemini-2.5-flash', totalTokens).catch(() => {})
-      } catch (err) {
-        if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
-          await markGeminiLimitReached(uidField, 'gemini-2.5-flash').catch(() => {})
+        return text
+      }
+      let raw: string | null = null
+      if (userGeminiKey) {
+        try { raw = await call(userGeminiKey) } catch { /* fall through to the shared key */ }
+      }
+      if (raw === null && process.env.GEMINI_API_KEY && checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')) {
+        try {
+          raw = await call()
+        } catch (err) {
+          if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
+            await markGeminiLimitReached(uidField, 'gemini-2.5-flash').catch(() => {})
+          }
         }
+      }
+      if (raw === null) return null
+      try {
+        return JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()) as OcrReply
+      } catch {
+        logToSink({ level: 'warn', tag: 'ocr', message: 'reply was not valid JSON', route: '/api/ocr', uid: uidField })
+        return {}
       }
     }
 
-    if (raw === null) {
+    let parsed = await readPage()
+    if (parsed === null) {
       logToSink({ level: 'warn', tag: 'ocr', message: 'no provider available', route: '/api/ocr', status: 429, uid: uidField })
       return NextResponse.json({ error: AI_LIMIT_MESSAGE }, { status: 429 })
     }
 
-    let parsed: OcrReply
-    try {
-      parsed = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, '').trim()) as OcrReply
-    } catch {
-      logToSink({ level: 'warn', tag: 'ocr', message: 'reply was not valid JSON', route: '/api/ocr', uid: uidField })
-      return NextResponse.json({ error: 'Could not read that photo. Try again with a clearer, straight-on shot.' }, { status: 502 })
+    // A section named but left empty is the model telling us it SAW a block and
+    // did not transcribe it — exactly how a ward note's problem list went
+    // missing while "Problem List" itself came through. Read the page again
+    // rather than pass on a known hole.
+    if (emptySections(parsed).length) {
+      logToSink({ level: 'warn', tag: 'ocr', message: `empty sections: ${emptySections(parsed).join(', ')} — re-reading`, route: '/api/ocr', uid: uidField })
+      const retry = await readPage()
+      if (retry && (!emptySections(retry).length || assembleText(retry).length > assembleText(parsed).length)) parsed = retry
     }
 
     const text = assembleText(parsed)

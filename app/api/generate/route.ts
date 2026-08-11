@@ -130,6 +130,22 @@ function appendUnfiled(source: string, fields: Record<string, unknown>): Record<
 const AI_LIMIT_MESSAGE = 'Dear doctor — our free AI usage limit has been reached for now. Please try again later today, or tomorrow. To keep working straight away, add your own Gemini or Groq API key in Settings → API Keys.'
 const AI_UNAVAILABLE = 'ai-unavailable'
 
+// A 70B model dilutes a long, nuanced system prompt — it followed the tone and
+// dropped the content, filing a ward note's whole problem list nowhere. This
+// goes LAST, where a short numbered block of hard rules survives best, and only
+// on the Groq attempt.
+const GROQ_HARD_RULES = `
+STOP. BEFORE YOU ANSWER, CHECK THESE. YOUR OUTPUT IS COMPARED AGAINST THE SOURCE.
+1. Every line starting with "#" MUST appear in your JSON. Copy all of them, including ones marked resolved.
+2. Every numbered line (1. 2. 3. …) MUST appear in your JSON. Four in, four out.
+3. Do not summarise. Do not merge two lines into one. Do not drop a line for being repetitive.
+4. Any line that fits no named field goes in "extras". Never discard it.
+5. Do not expand an abbreviation you are unsure of. Copy it as written.`
+
+// Structured extraction is a fixed-answer job — at the default temperature of
+// 1.0 the same note produced a different set of fields on every run.
+const EXTRACTION_TEMPERATURE = 0.1
+
 // Letters, patient intake and hospital forms are short, structured JSON jobs, so
 // they run Groq FIRST — it is fast and doesn't touch the doctor's Gemini quota.
 // Groq's free tier caps tokens-per-minute though, and a long ward note or letter
@@ -156,7 +172,7 @@ async function runExtraction(opts: {
 
   if (groqKey && !preferGemini) {
     try {
-      const { content } = await generateNoteGroq(prompt, system, groqKey)
+      const { content } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
       return { content, provider: 'groq' }
     } catch { /* rate-limited or failed — try Gemini below */ }
   }
@@ -164,7 +180,7 @@ async function runExtraction(opts: {
   // The doctor's own Gemini key first: it's their quota, so never gate it.
   if (userGeminiKey) {
     try {
-      const { text, totalTokens } = await generateNote(prompt, system, userGeminiKey)
+      const { text, totalTokens } = await generateNote(prompt, system, userGeminiKey, { temperature: EXTRACTION_TEMPERATURE })
       if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
       return { content: text, provider: 'gemini' }
     } catch { /* fall through to the shared key */ }
@@ -174,7 +190,7 @@ async function runExtraction(opts: {
     const profile = uid ? await getProfile(uid).catch(() => null) : null
     if (!uid || checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')) {
       try {
-        const { text, totalTokens } = await generateNote(prompt, system)
+        const { text, totalTokens } = await generateNote(prompt, system, undefined, { temperature: EXTRACTION_TEMPERATURE })
         if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
         return { content: text, provider: 'gemini' }
       } catch (err) {
@@ -188,7 +204,7 @@ async function runExtraction(opts: {
   // Gemini-first jobs still fall back to Groq rather than failing outright.
   if (groqKey && preferGemini) {
     try {
-      const { content } = await generateNoteGroq(prompt, system, groqKey)
+      const { content } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
       return { content, provider: 'groq' }
     } catch { /* exhausted everywhere */ }
   }

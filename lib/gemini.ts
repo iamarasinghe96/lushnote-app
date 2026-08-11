@@ -42,12 +42,24 @@ async function geminiPost(model: string, body: object, apiKey?: string): Promise
   }
 }
 
-export async function generateNote(prompt: string, systemPrompt: string, apiKey?: string): Promise<GeminiResult> {
+// Gemini defaults to temperature 1.0. That is right for prose, and wrong for
+// pulling a fixed set of facts out of a note: it is why the same ward note came
+// back complete on one run and missing its problem list on the next. Structured
+// extraction callers pass a low temperature; note generation keeps the default.
+export async function generateNote(
+  prompt: string,
+  systemPrompt: string,
+  apiKey?: string,
+  opts?: { temperature?: number },
+): Promise<GeminiResult> {
   const body: Record<string, unknown> = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
   }
   if (systemPrompt.trim()) {
     body.systemInstruction = { parts: [{ text: systemPrompt }] }
+  }
+  if (opts?.temperature !== undefined) {
+    body.generationConfig = { temperature: opts.temperature, maxOutputTokens: 8192 }
   }
   return geminiPost(PRIMARY_MODEL, body, apiKey)
 }
@@ -88,6 +100,7 @@ Rules:
 - Keep clinical abbreviations exactly as written (IDC, TOU, NH, LL, CWR, r/v, o/t, obs) and keep "b/g" (background) as written.
 - Do not include the form's pre-printed furniture (barcodes, "Please sign each entry", store order numbers, page footers).
 - heading: the block's own written heading if it has one, otherwise a short descriptive one you supply.
+- NEVER return a heading with an empty "lines" array. If you can see a block well enough to name it, you must transcribe its lines. If the block is there but you genuinely cannot read it, put "[illegible]" as a line rather than leaving it empty.
 - patientName: the patient's name in natural order with normal capitalisation. Labels usually print it SURNAME Given Names — reorder it to "Given Names Surname".
 - urNumber: the UR / MRN number from the label, digits and letters only.
 - dob: date of birth as DD/MM/YYYY.
@@ -110,7 +123,10 @@ export async function ocrClinicalImages(
         ],
       },
     ],
-    generationConfig: { responseMimeType: 'application/json' },
+    // Deterministic and with room to finish: a page of handwriting transcribed
+    // section by section is a long reply, and at the default temperature the
+    // same photo read differently every time.
+    generationConfig: { responseMimeType: 'application/json', temperature: 0, maxOutputTokens: 8192 },
   }, apiKey)
 }
 
