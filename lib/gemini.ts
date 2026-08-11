@@ -73,9 +73,12 @@ const OCR_PROMPT = `You are reading a photograph of a hospital progress note. It
 Transcribe EVERYTHING you can read, and pull out the patient's details from the identification label.
 
 Rules:
-- Transcribe the handwritten entry faithfully, keeping its structure: headings, "#" problem lists, numbered plans and bullet points stay on their own lines.
+- Transcribe the handwritten entry faithfully and COMPLETELY, keeping its structure: headings, "#" problem lists, numbered plans and bullet points stay on their own lines.
+- Transcribe EVERY line. Do not skip, merge or summarise any of them — a problem marked "resolved" matters as much as an active one.
+- Include the entry's own header line (ward round, unit, team or consultant names) and its date and time. They are handwritten content, not part of the form.
+- Handwriting overruns: a word or phrase that did not fit often continues at the start of the next line or in the left margin. Reassemble those into the sentence they belong to rather than transcribing them where they physically sit.
 - Expand nothing and invent nothing. Where a word is genuinely illegible write [illegible].
-- Keep clinical abbreviations exactly as written (IDC, TOU, NH, LL, CWR, obs).
+- Keep clinical abbreviations exactly as written (IDC, TOU, NH, LL, CWR, r/v, o/t, obs) and keep "b/g" (background) as written.
 - Do not include the form's pre-printed furniture (barcodes, "Please sign each entry", store order numbers, page footers).
 - patientName: the patient's name in natural order with normal capitalisation. Labels usually print it SURNAME Given Names — reorder it to "Given Names Surname".
 - urNumber: the UR / MRN number from the label, digits and letters only.
