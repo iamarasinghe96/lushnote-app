@@ -76,6 +76,7 @@ Rules:
 - Transcribe the handwritten entry faithfully and COMPLETELY, keeping its structure: headings, "#" problem lists, numbered plans and bullet points stay on their own lines.
 - Transcribe EVERY line. Do not skip, merge or summarise any of them — a problem marked "resolved" matters as much as an active one.
 - Include the entry's own header line (ward round, unit, team or consultant names) and its date and time. They are handwritten content, not part of the form.
+- The entry's date and time are the handwritten ones in the Date/Time column beside the entry. Never take them from the identification label's admission date, or from any other date printed on the form. If the handwritten date is unclear, write what you can read and leave the rest as [illegible] — do not substitute a date from elsewhere on the page.
 - Handwriting overruns: a word or phrase that did not fit often continues at the start of the next line or in the left margin. Reassemble those into the sentence they belong to rather than transcribing them where they physically sit.
 - Expand nothing and invent nothing. Where a word is genuinely illegible write [illegible].
 - Keep clinical abbreviations exactly as written (IDC, TOU, NH, LL, CWR, r/v, o/t, obs) and keep "b/g" (background) as written.
