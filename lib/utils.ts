@@ -814,9 +814,12 @@ export const TRACKED_CLINICAL_FIELDS: { key: keyof PatientProfile; label: string
 export function smartCapitalizeLines(text: string): string {
   if (!text) return text
   return text.split('\n').map(line => {
+    // The prefix group also swallows a list marker ("1. ", "- ", "# ", "**"),
+    // so a numbered problem or plan item capitalises on its first real letter
+    // rather than being skipped for starting with a digit.
     // No `s` (dotAll) flag: each `line` has no newline, so `.` covering the rest
     // is enough — and the flag needs an es2018+ target the build doesn't set.
-    const m = line.match(/^(\s*)([a-z])(.*)$/)
+    const m = line.match(/^(\s*(?:\*\*)?(?:(?:\d+[.)]|[-–•*#])\s+)?(?:\*\*)?)([a-z])(.*)$/)
     return m ? `${m[1]}${m[2].toUpperCase()}${m[3]}` : line
   }).join('\n')
 }
@@ -996,6 +999,7 @@ export function buildPatientInfoText(p: PatientProfile): string {
   }
   push('Patient name', p.displayName)
   push('UR number', p.urNumber)
+  push('Sex', p.gender)
   if (p.status && p.status.trim()) push('Status', p.status)
   for (const f of TRACKED_CLINICAL_FIELDS) {
     const v = p[f.key]

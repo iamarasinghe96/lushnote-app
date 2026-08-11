@@ -6,20 +6,39 @@ import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { saveNote, updateNote } from '@/lib/firestore/notes'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
-import { getGroqKey, getGeminiKey, serializeHospitalFormData } from '@/lib/utils'
+import { getGroqKey, getGeminiKey, serializeHospitalFormData, smartCapitalizeLines } from '@/lib/utils'
 import { copyToClipboard, openMailto, buildCoverNote, SHARE_TOAST } from '@/lib/shareExport'
 import { GeneratingOverlay } from '@/components/ui/GeneratingOverlay'
 import HospitalFormEditor, { type HospitalFormEditorHandle } from './HospitalFormEditor'
-import type { HospitalFormData, NoteInput } from '@/types'
+import type { HospitalFormData, NoteInput, PatientProfile } from '@/types'
 
 export function emptyFormData(formKey: string): HospitalFormData {
   return { formKey, pid: { urNo: '', surname: '', givenNames: '', dob: '', sex: '' }, noteText: '', dateTime: { date: '', time: '' } }
 }
 
-function nowDateTime() {
+export function nowDateTime() {
   const d = new Date()
   const p = (n: number) => String(n).padStart(2, '0')
   return { date: `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`, time: `${p(d.getHours())}:${p(d.getMinutes())}` }
+}
+
+// Seed the form's identifier block straight from a tracked patient. These are
+// facts already on the record, so they must not depend on an AI re-deriving them
+// from prose — that is why Sex kept coming out blank.
+export function formDataFromPatient(formKey: string, p: PatientProfile): HospitalFormData {
+  const parts = (p.displayName || '').trim().split(/\s+/).filter(Boolean)
+  const sex = (p.gender || '').toLowerCase()
+  return {
+    ...emptyFormData(formKey),
+    pid: {
+      urNo: p.urNumber ?? '',
+      surname: parts.length > 1 ? parts[parts.length - 1] : '',
+      givenNames: parts.length > 1 ? parts.slice(0, -1).join(' ') : (parts[0] ?? ''),
+      dob: p.dob ?? '',
+      sex: sex === 'male' ? 'Male' : sex === 'female' ? 'Female' : '',
+    },
+    dateTime: nowDateTime(),
+  }
 }
 
 function autoSlashDob(raw: string): string {
@@ -107,11 +126,16 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
         const cur = storeRef.current.hospitalFormData ?? emptyFormData(cfg.formKey)
         storeRef.current.setHospitalFormData({
           ...cur,
+          // Identifiers already on the form win: when the form was opened from a
+          // tracked patient they came from the record itself, and the AI
+          // re-reading them out of prose can only make them worse. It fills the
+          // gaps — which is the whole story on the dictation path, where the
+          // form starts blank.
           pid: {
-            urNo: str('urNo') || cur.pid.urNo, surname: str('surname') || cur.pid.surname,
-            givenNames: str('givenNames') || cur.pid.givenNames, dob: str('dob') || cur.pid.dob, sex: str('sex') || cur.pid.sex,
+            urNo: cur.pid.urNo || str('urNo'), surname: cur.pid.surname || str('surname'),
+            givenNames: cur.pid.givenNames || str('givenNames'), dob: cur.pid.dob || str('dob'), sex: cur.pid.sex || str('sex'),
           },
-          noteText: str('noteText') || cur.noteText,
+          noteText: smartCapitalizeLines(str('noteText') || cur.noteText),
         })
         setToast('Form populated from dictation')
       } else {

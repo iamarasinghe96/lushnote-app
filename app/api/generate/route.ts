@@ -68,12 +68,17 @@ async function runExtraction(opts: {
   system: string
   req: NextRequest
   uid?: string
+  // Hospital forms go onto the patient's physical chart, so fidelity beats
+  // saving quota: Groq paraphrased the same note into half its content on one
+  // run and kept it on the next, purely by which provider had capacity. Gemini
+  // leads for those, with Groq still there when Gemini is exhausted.
+  preferGemini?: boolean
 }): Promise<{ content: string; provider: 'groq' | 'gemini' }> {
-  const { prompt, system, req, uid } = opts
+  const { prompt, system, req, uid, preferGemini } = opts
   const groqKey = req.headers.get('x-groq-key')
   const userGeminiKey = req.headers.get('x-gemini-key')
 
-  if (groqKey) {
+  if (groqKey && !preferGemini) {
     try {
       const { content } = await generateNoteGroq(prompt, system, groqKey)
       return { content, provider: 'groq' }
@@ -102,6 +107,14 @@ async function runExtraction(opts: {
         }
       }
     }
+  }
+
+  // Gemini-first jobs still fall back to Groq rather than failing outright.
+  if (groqKey && preferGemini) {
+    try {
+      const { content } = await generateNoteGroq(prompt, system, groqKey)
+      return { content, provider: 'groq' }
+    } catch { /* exhausted everywhere */ }
   }
 
   throw new Error(AI_UNAVAILABLE)
@@ -140,9 +153,17 @@ DOSES & NUMBERS — CRITICAL FOR SAFETY:
 - Write every dose EXACTLY as dictated. Convert spoken numbers to digits precisely ("one thousand" → 1000, "eighty one" → 81). Never round, drop, or add a digit. Append "mg" only to a bare number that is clearly a milligram strength.
 - Do NOT correct, guess, or substitute drug names.
 
+NOTHING MAY BE LOST — this note goes onto the patient's chart:
+- Every clinical item in the source must appear in the note. Never drop an item because it looks minor, resolved, repetitive or already covered.
+- A problem list — lines beginning "#", or a "Current Issues" / "Issues" / "Problems" section — is reproduced IN FULL as its own section, one problem per line, in the order given, INCLUDING problems marked resolved or inactive, with that status word kept. Deciding a problem no longer belongs on the list is the treating doctor's call, not yours.
+- Keep the source's own section headings (Current Issues, Progress, Obs, Plan …). Only fall back to standard headings for content that arrived without one.
+- Keep clinical abbreviations exactly as written: IDC, TOU, NH, PT, OT, r/v, o/t, b/g, LL, obs. Do NOT expand an abbreviation into a guessed full form — writing "Intermittent Withdrawal Catheter" for IDC invents a device that does not exist.
+- Reproduce every numbered plan item. Four plan items in, four plan items out.
+- Before you answer, re-read the source and check each item appears in noteText.
+
 STYLE & FORMATTING:
-- Write the note in formal, professional clinical prose. Do NOT reproduce the dictation word-for-word. Preserve all clinical facts, names, and figures exactly.
-- Organise the note under clinical subtopic headings. Put each heading on its own line and bold it with double asterisks, e.g. "**History of Presenting Complaint**". Recognise common subtopics INCLUDING BUT NOT LIMITED TO: History of Presenting Complaint, Past Medical History, Current Medications, Family History, Social History, Allergies, Vitals, Physical Examination, Investigations, Assessment / Impression, Plan (also keep any SOAP headings or other subtopics the doctor actually spoke). A heading is a short label on its own line — a line that is entirely bold renders bold AND underlined.
+- Tidy the wording into professional clinical prose — fix grammar and half-finished phrasing — but never at the cost of content. Preserve all clinical facts, names, and figures exactly.
+- Organise the note under clinical subtopic headings. Put each heading on its own line and bold it with double asterisks, e.g. "**History of Presenting Complaint**". Recognise common subtopics INCLUDING BUT NOT LIMITED TO: Current Issues, History of Presenting Complaint, Progress, Past Medical History, Current Medications, Family History, Social History, Allergies, Vitals, Observations, Physical Examination, Investigations, Assessment / Impression, Plan (also keep any SOAP headings or other subtopics the doctor actually spoke). A heading is a short label on its own line — a line that is entirely bold renders bold AND underlined.
 - Use **bold** for key emphasis inside a sentence too. Use *italic* (single asterisks) sparingly.
 - Use a numbered list (1. 2. 3., each item on its own line) where the content is naturally enumerated — a management plan, a medication list, a set of instructions or steps.
 - Put each heading and each list item on its own line (a single newline). Separate distinct sections with a blank line. Never output markdown tables or other markup — only **bold**, *italic*, and numbered/bulleted lines. Only include a heading if the dictation actually covers it — never invent content to fill a section.`
@@ -171,7 +192,7 @@ DICTATION:
 ${transcript}`
 
       try {
-        const { content } = await runExtraction({ prompt: formPrompt, system: systemInstruction, req, uid })
+        const { content } = await runExtraction({ prompt: formPrompt, system: systemInstruction, req, uid, preferGemini: true })
         const jsonMatch = content.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
           // Parse in isolation: a malformed reply is the AI's problem, not

@@ -19,6 +19,7 @@ import AddPatientModal from '@/components/modals/AddPatientModal'
 import PatientTable from '@/components/patients/PatientTable'
 import LetterPickerModal from '@/components/modals/LetterPickerModal'
 import TemplatePicker from '@/components/modals/TemplatePicker'
+import { formDataFromPatient } from '@/components/hospital-form/HospitalFormView'
 import type { Note, PatientProfile, LetterType, CustomLetterTemplate, AnyTemplate, NoteLength, HospitalFormDoc } from '@/types'
 
 interface PatientGroup {
@@ -1072,6 +1073,7 @@ export default function PatientsPage() {
     store.resetHospitalForm()
     store.setCurrentNoteId(null)
     store.setHospitalForm(form)
+    store.setHospitalFormData(formDataFromPatient(form.formKey, p))
     store.setLastTranscript(buildPatientInfoText(p))
     store.setLastTranscriptMode('document')
     store.setPendingHospitalFormGeneration(true)
