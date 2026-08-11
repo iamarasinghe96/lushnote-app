@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
-import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles-admin'
+import { getProfile, updateGeminiUsage, markSharedGeminiExhausted, sharedGeminiAvailable } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
 
@@ -104,12 +104,16 @@ export async function POST(req: NextRequest) {
       if (userGeminiKey) {
         try { raw = await call(userGeminiKey) } catch { /* fall through to the shared key */ }
       }
-      if (raw === null && process.env.GEMINI_API_KEY && checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')) {
+      if (raw === null && process.env.GEMINI_API_KEY
+          && checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')
+          && await sharedGeminiAvailable()) {
         try {
           raw = await call()
         } catch (err) {
+          // The shared key belongs to the app, not to this doctor — its
+          // exhaustion is recorded globally instead of against their counter.
           if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
-            await markGeminiLimitReached(uidField, 'gemini-2.5-flash').catch(() => {})
+            await markSharedGeminiExhausted().catch(() => {})
           }
         }
       }

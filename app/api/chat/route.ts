@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { chatResponse, checkQuota, GEMINI_RATE_LIMIT_ERROR, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
 import { generateNoteGroq } from '@/lib/groq'
-import { getProfile, updateGeminiUsage, markGeminiLimitReached } from '@/lib/firestore/profiles-admin'
+import { getProfile, updateGeminiUsage, markSharedGeminiExhausted } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
 
@@ -102,8 +102,11 @@ Keep responses concise and practical.`
           }
           return NextResponse.json({ answer, provider: 'gemini' })
         } catch (err) {
-          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR && typeof uid === 'string') {
-            await markGeminiLimitReached(uid, 'chat').catch(() => {})
+          // A per-minute stumble on the SHARED key is momentary and belongs to
+          // the app, not to this doctor. It used to peg their counter for the
+          // whole day against a quota they had not used.
+          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR) {
+            await markSharedGeminiExhausted().catch(() => {})
           }
         }
       }
@@ -212,7 +215,7 @@ Respond ONLY as strict JSON with no other text:
           }
         } catch (err) {
           if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
-            if (typeof uid === 'string') await markGeminiLimitReached(uid, 'chat').catch(() => {})
+            await markSharedGeminiExhausted().catch(() => {})
           } else {
             geminiTransient = true
           }
@@ -285,8 +288,11 @@ Return ONLY the system prompt text, nothing else - no explanation, no preamble.`
           }
           return NextResponse.json({ systemPrompt, provider: 'gemini' })
         } catch (err) {
-          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR && typeof uid === 'string') {
-            await markGeminiLimitReached(uid, 'chat').catch(() => {})
+          // A per-minute stumble on the SHARED key is momentary and belongs to
+          // the app, not to this doctor. It used to peg their counter for the
+          // whole day against a quota they had not used.
+          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR) {
+            await markSharedGeminiExhausted().catch(() => {})
           }
         }
       }
@@ -456,8 +462,11 @@ Return ONLY strict JSON, no markdown, no commentary:
           await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
           return NextResponse.json({ reply, provider: 'gemini' })
         } catch (err) {
-          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR && typeof uid === 'string') {
-            await markGeminiLimitReached(uid, 'chat').catch(() => {})
+          // A per-minute stumble on the SHARED key is momentary and belongs to
+          // the app, not to this doctor. It used to peg their counter for the
+          // whole day against a quota they had not used.
+          if (err instanceof Error && err.message === GEMINI_RATE_LIMIT_ERROR) {
+            await markSharedGeminiExhausted().catch(() => {})
           }
           // fall through to Groq
         }

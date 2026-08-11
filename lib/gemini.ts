@@ -228,9 +228,16 @@ export async function chatResponse(
   }, apiKey)
 }
 
+export const GEMINI_RPD = 20
+
 export function checkQuota(usageRecord: GeminiUsage, modelKey: string): boolean {
   const today = quotaDate()
   const record = usageRecord[modelKey]
   if (!record || record.date !== today) return true
-  return record.count < 20
+  // A counter sitting exactly at the cap with zero tokens was never earned by
+  // real requests — it is the old "peg the user when the SHARED key fails"
+  // behaviour, which locked doctors out of a quota they had not used. Those
+  // pegs are no longer written; this releases the ones already in the wild.
+  if (record.count >= GEMINI_RPD && (record.tokens ?? 0) === 0) return true
+  return record.count < GEMINI_RPD
 }
