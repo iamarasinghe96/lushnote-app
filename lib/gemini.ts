@@ -65,6 +65,44 @@ export async function transcribeAudio(audioBase64: string, mimeType: string, api
   }, apiKey)
 }
 
+// Read a photographed ward progress note. One call returns BOTH the transcribed
+// text and the patient identifiers off the addressograph label, so a scanned note
+// costs a single request instead of one to read and one to extract.
+const OCR_PROMPT = `You are reading a photograph of a hospital progress note. It contains printed text (a patient identification label, form headings) and handwritten clinical entries.
+
+Transcribe EVERYTHING you can read, and pull out the patient's details from the identification label.
+
+Rules:
+- Transcribe the handwritten entry faithfully, keeping its structure: headings, "#" problem lists, numbered plans and bullet points stay on their own lines.
+- Expand nothing and invent nothing. Where a word is genuinely illegible write [illegible].
+- Keep clinical abbreviations exactly as written (IDC, TOU, NH, LL, CWR, obs).
+- Do not include the form's pre-printed furniture (barcodes, "Please sign each entry", store order numbers, page footers).
+- patientName: the patient's name in natural order with normal capitalisation. Labels usually print it SURNAME Given Names — reorder it to "Given Names Surname".
+- urNumber: the UR / MRN number from the label, digits and letters only.
+- dob: date of birth as DD/MM/YYYY.
+- sex: "male" or "female" only, or "" if it is not printed.
+- Leave any field you cannot read as an empty string.
+
+Respond ONLY with this JSON and nothing else:
+{"patientName":"","urNumber":"","dob":"","sex":"","text":""}`
+
+export async function ocrClinicalImages(
+  images: { data: string; mimeType: string }[],
+  apiKey?: string,
+): Promise<GeminiResult> {
+  return geminiPost(PRIMARY_MODEL, {
+    contents: [
+      {
+        parts: [
+          { text: OCR_PROMPT },
+          ...images.map(i => ({ inlineData: { mimeType: i.mimeType, data: i.data } })),
+        ],
+      },
+    ],
+    generationConfig: { responseMimeType: 'application/json' },
+  }, apiKey)
+}
+
 interface GeminiFile {
   uri?: string
   name?: string

@@ -11,6 +11,7 @@ import Textarea from '@/components/ui/Textarea'
 import RecordModal from '@/components/modals/RecordModal'
 import DictateModal from '@/components/modals/DictateModal'
 import TranscriptConfirmModal from '@/components/modals/TranscriptConfirmModal'
+import ScanNoteModal, { type ScannedPatient } from '@/components/modals/ScanNoteModal'
 import TemplatePicker from '@/components/modals/TemplatePicker'
 import LetterPickerModal from '@/components/modals/LetterPickerModal'
 import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderModal'
@@ -25,7 +26,9 @@ const GEMINI_RPD = 20
 
 type GenPhase =
   | 'idle'
+  | 'paste-choice'
   | 'paste-input'
+  | 'scan-input'
   | 'document-input'
   | 'upload-input'
   | 'recording'
@@ -34,10 +37,15 @@ type GenPhase =
   | 'template-picking'
   | 'generating'
 
-function validateTranscript(text: string): { valid: boolean; error?: string } {
+// `requireClinicalWords` guards against generating a note from arbitrary pasted
+// text. A photographed progress note needs no such guess — the doctor chose a
+// clinical form to scan, and a medical ward entry ("ascites", "hypokalaemia",
+// "IDC removal") legitimately contains none of these psychiatry-leaning words.
+function validateTranscript(text: string, opts?: { requireClinicalWords?: boolean }): { valid: boolean; error?: string } {
   const wordCount = text.trim().split(/\s+/).filter(Boolean).length
   if (wordCount < 80)
     return { valid: false, error: `Transcript too short (${wordCount} words). Minimum 80 words required.` }
+  if (opts?.requireClinicalWords === false) return { valid: true }
   const keywords = [
     'patient', 'symptom', 'diagnosis', 'treatment', 'medication', 'therapy',
     'appointment', 'session', 'presenting', 'mood', 'affect', 'behaviour',
@@ -105,6 +113,13 @@ const DocumentIcon = (
     <line x1="9" y1="17" x2="15" y2="17"/>
   </svg>
 )
+const CameraIcon = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+    <circle cx="12" cy="13" r="4"/>
+  </svg>
+)
+
 const UploadIcon = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
     <polyline points="16,16 12,12 8,16"/>
@@ -125,10 +140,12 @@ export default function GeneratePage() {
   const [pendingTranscript, setPendingTranscript] = useState('')
   const [creationMode, setCreationMode] = useState<NoteCreationMode>('paste')
   const [error, setError] = useState<string | null>(null)
-  const [pasteModalError, setPasteModalError] = useState<string | null>(null)
   const [showBanner, setShowBanner] = useState(false)
   const [transcriptConfirmOpen, setTranscriptConfirmOpen] = useState(false)
   const [prefillPatient, setPrefillPatient] = useState<{ patient: string; reg_number: string; session_number: string; attendance: string } | null>(null)
+  // Patient details read off a scanned ward note's label, used to seed the
+  // Confirm transcript step. Null for every other pathway.
+  const [scanPrefill, setScanPrefill] = useState<{ patient: string; regNumber: string; dob: string; gender: 'male' | 'female' | '' } | null>(null)
   const [allNotes, setAllNotes] = useState<Note[]>([])
   const [letterPickerOpen, setLetterPickerOpen] = useState(false)
   const [patientSaving, setPatientSaving] = useState(false)
@@ -299,29 +316,35 @@ export default function GeneratePage() {
     else if (mode === 'upload') setPhase('upload-input')
   }
 
-  async function handlePasteMode() {
+  // The doctor picks how the content arrives — typed/pasted text, or a photo of a
+  // paper ward note. Reading the clipboard on their behalf was guesswork: it
+  // failed loudly whenever the clipboard held something else.
+  function handlePasteMode() {
     setCreationMode('paste')
     setError(null)
     setInputText('')
-    setPasteModalError(null)
-    try {
-      const text = await navigator.clipboard.readText()
-      if (text.trim()) {
-        const validation = validateTranscript(text.trim())
-        noteBlockRef.current = validation.valid ? null : validation.error!
-        skipGenerationRef.current = false
-        setPendingTranscript(text.trim())
-        setTranscriptConfirmOpen(true)
-        return
-      }
-      // clipboard accessible but empty
-      setPasteModalError('Your clipboard is empty — copy your transcript and try again.')
-      setPhase('paste-input')
-      return
-    } catch {
-      // clipboard access denied or unavailable — show textarea for manual paste
-    }
-    setPhase('paste-input')
+    setScanPrefill(null)
+    setPhase('paste-choice')
+  }
+
+  // OCR text takes the same road as a paste: confirm the patient, pick a
+  // template, generate. The identifiers read off the label pre-fill the confirm
+  // step instead of being typed again.
+  function handleScannedNote(text: string, patient: ScannedPatient) {
+    const trimmed = text.trim()
+    const validation = validateTranscript(trimmed, { requireClinicalWords: false })
+    noteBlockRef.current = validation.valid ? null : validation.error!
+    skipGenerationRef.current = false
+    setCreationMode('paste')
+    setScanPrefill({
+      patient: patient.name,
+      regNumber: patient.urNumber,
+      dob: patient.dob,
+      gender: patient.gender,
+    })
+    setPhase('idle')
+    setPendingTranscript(trimmed)
+    setTranscriptConfirmOpen(true)
   }
 
   function handleCancel() {
@@ -329,9 +352,9 @@ export default function GeneratePage() {
     setInputText('')
     setPendingTranscript('')
     setError(null)
-    setPasteModalError(null)
     setTranscriptConfirmOpen(false)
     setPrefillPatient(null)
+    setScanPrefill(null)
   }
 
   function handleTextConfirm() {
@@ -341,7 +364,6 @@ export default function GeneratePage() {
     noteBlockRef.current = validation.valid ? null : validation.error!
     skipGenerationRef.current = false
     setInputText('')
-    setPasteModalError(null)
     setPhase('idle')
     setPendingTranscript(text)
     setTranscriptConfirmOpen(true)
@@ -723,52 +745,45 @@ export default function GeneratePage() {
       </div>
 
 
+      {/* How the content arrives: typed/pasted text, or a photo of a paper note */}
+      <Modal open={phase === 'paste-choice'} onClose={handleCancel} title="Paste Transcript or Ward Note" maxWidth="lg">
+        <div className="px-5 pb-5 space-y-3">
+          <ModeCard
+            icon={PasteIcon}
+            title="Paste text"
+            description="A session transcript, or a Bossnet note copied to the clipboard"
+            onClick={() => setPhase('paste-input')}
+          />
+          <ModeCard
+            icon={CameraIcon}
+            title="Scan a ward note"
+            description="Photograph a paper progress note — read on the spot, never stored"
+            onClick={() => setPhase('scan-input')}
+          />
+        </div>
+      </Modal>
+
+      <ScanNoteModal
+        open={phase === 'scan-input'}
+        uid={user?.uid}
+        onClose={handleCancel}
+        onScanned={handleScannedNote}
+      />
+
       {/* Paste transcript modal */}
       <Modal open={phase === 'paste-input'} onClose={handleCancel} title="Paste Transcript or Ward Note" maxWidth="lg">
         <div className="px-5 pb-5 space-y-4">
-          {pasteModalError ? (
-            <>
-              <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-[var(--danger)]">
-                {pasteModalError}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleCancel}
-                  className="flex-1 py-2.5 text-sm font-medium text-[var(--text)] bg-white
-                             border border-[#10b981]/40 rounded-[var(--r)]
-                             hover:border-[var(--blue)] hover:bg-[var(--blue-lt)]
-                             focus:border-[var(--blue)] focus:bg-[var(--blue-lt)] focus:outline-none
-                             motion-safe:active:scale-[0.97] motion-safe:transition-all"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => setPasteModalError(null)}
-                  className="flex-1 py-2.5 text-sm font-medium text-white bg-[#10b981]
-                             border border-transparent rounded-[var(--r)]
-                             hover:bg-[#059669]
-                             focus:outline-none
-                             motion-safe:active:scale-[0.97] motion-safe:transition-all"
-                >
-                  Paste manually
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <Textarea
-                value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                rows={10}
-                placeholder="Paste a session transcript, or a ward note from Bossnet…"
-                autoFocus
-              />
-              <div className="flex gap-2">
-                <Button variant="ghost" onClick={handleCancel} className="flex-1">Cancel</Button>
-                <Button variant="primary" onClick={handleTextConfirm} disabled={!inputText.trim()} className="flex-1">Continue</Button>
-              </div>
-            </>
-          )}
+          <Textarea
+            value={inputText}
+            onChange={e => setInputText(e.target.value)}
+            rows={10}
+            placeholder="Paste a session transcript, or a ward note from Bossnet…"
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <Button variant="ghost" onClick={handleCancel} className="flex-1">Cancel</Button>
+            <Button variant="primary" onClick={handleTextConfirm} disabled={!inputText.trim()} className="flex-1">Continue</Button>
+          </div>
         </div>
       </Modal>
 
@@ -821,8 +836,9 @@ export default function GeneratePage() {
         open={transcriptConfirmOpen}
         transcript={pendingTranscript}
         allNotes={allNotes}
+        prefill={scanPrefill}
         onConfirm={handleTranscriptConfirmPatient}
-        onClose={() => { setTranscriptConfirmOpen(false); setPendingTranscript('') }}
+        onClose={() => { setTranscriptConfirmOpen(false); setPendingTranscript(''); setScanPrefill(null) }}
       />
       <TemplatePicker
         open={phase === 'template-picking'}

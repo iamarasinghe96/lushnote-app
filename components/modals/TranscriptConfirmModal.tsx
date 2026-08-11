@@ -11,6 +11,9 @@ interface TranscriptConfirmModalProps {
   open: boolean
   transcript: string
   allNotes: Note[]
+  // Details already read from the source (a scanned ward note's patient label).
+  // They seed the fields; the doctor still confirms or corrects them.
+  prefill?: { patient: string; regNumber: string; dob: string; gender: 'male' | 'female' | '' } | null
   onConfirm: (patient: string, regNumber: string, dob: string, gender: 'male' | 'female' | '', isNewPatient: boolean, sessionNumber: string, attendance: string) => void
   onClose: () => void
 }
@@ -40,6 +43,7 @@ export default function TranscriptConfirmModal({
   open,
   transcript,
   allNotes,
+  prefill,
   onConfirm,
   onClose,
 }: TranscriptConfirmModalProps) {
@@ -55,16 +59,19 @@ export default function TranscriptConfirmModal({
 
   useEffect(() => {
     if (open) {
-      setPatientName('')
-      setRegNumber('')
-      setRegOverridden(false)
+      setPatientName(prefill?.patient ?? '')
+      setRegNumber(prefill?.regNumber ?? '')
+      // A scanned UR number is the hospital's own — never let the auto-mint
+      // suggestion overwrite it.
+      setRegOverridden(!!prefill?.regNumber)
       setShowDropdown(false)
-      setDob('')
-      setGender('')
+      setDob(prefill?.dob ?? '')
+      setGender(prefill?.gender ?? '')
       setTranscriptExpanded(false)
     } else {
       setShowDropdown(false)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   const wordCount = useMemo(
@@ -144,7 +151,9 @@ export default function TranscriptConfirmModal({
 
   function handlePatientNameChange(value: string) {
     setPatientName(value)
-    setRegOverridden(false)
+    // A scanned UR is the hospital's own number for this patient — correcting a
+    // misread name must not swap it for an auto-minted one.
+    if (!prefill?.regNumber || regNumber !== prefill.regNumber) setRegOverridden(false)
     setShowDropdown(value.trim().length > 0)
   }
 
