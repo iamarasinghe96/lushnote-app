@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
+import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR } from '@/lib/gemini'
 import { getProfile, updateGeminiUsage, markSharedGeminiExhausted, sharedGeminiAvailable } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
     // models are text-only. The doctor's own key first — it is their quota, so it
     // is never gated — then the shared key while the daily pool lasts.
     const userGeminiKey = req.headers.get('x-gemini-key')
+    let userKeyFailure: string | null = null
 
     const readPage = async (): Promise<OcrReply | null> => {
       const call = async (key?: string) => {
@@ -102,7 +103,15 @@ export async function POST(req: NextRequest) {
       }
       let raw: string | null = null
       if (userGeminiKey) {
-        try { raw = await call(userGeminiKey) } catch { /* fall through to the shared key */ }
+        try {
+          raw = await call(userGeminiKey)
+        } catch (err) {
+          // Keep WHY: a rejected or exhausted key of her own is the answer she
+          // needs, not a message about a usage limit she hasn't reached.
+          const m = err instanceof Error ? err.message : ''
+          if (m === GEMINI_KEY_INVALID_ERROR) userKeyFailure = 'Google rejected your Gemini API key. Open Settings → API Keys and paste it again, or create a new key at aistudio.google.com.'
+          else if (m === GEMINI_DAILY_LIMIT_ERROR) userKeyFailure = 'Your own Gemini API key has hit its daily limit with Google. It resets at midnight US Pacific time.'
+        }
       }
       if (raw === null && process.env.GEMINI_API_KEY
           && checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')
@@ -128,8 +137,8 @@ export async function POST(req: NextRequest) {
 
     let parsed = await readPage()
     if (parsed === null) {
-      logToSink({ level: 'warn', tag: 'ocr', message: 'no provider available', route: '/api/ocr', status: 429, uid: uidField })
-      return NextResponse.json({ error: AI_LIMIT_MESSAGE }, { status: 429 })
+      logToSink({ level: 'warn', tag: 'ocr', message: userKeyFailure ? 'user gemini key failed' : 'no provider available', route: '/api/ocr', status: 429, uid: uidField })
+      return NextResponse.json({ error: userKeyFailure ?? AI_LIMIT_MESSAGE }, { status: 429 })
     }
 
     // A section named but left empty is the model telling us it SAW a block and

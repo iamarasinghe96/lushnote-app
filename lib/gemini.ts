@@ -3,6 +3,10 @@ import { quotaDate } from '@/lib/utils'
 
 export const GEMINI_RATE_LIMIT_ERROR = 'GEMINI_RATE_LIMIT'
 export const GEMINI_DAILY_LIMIT_ERROR = 'GEMINI_DAILY_LIMIT'
+// Google rejects a malformed, revoked or wrong-project key with 400/403. Worth
+// its own code: a doctor whose key stopped working needs to be told that, not
+// told a usage limit was reached.
+export const GEMINI_KEY_INVALID_ERROR = 'GEMINI_KEY_INVALID'
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 const UPLOAD_BASE = 'https://generativelanguage.googleapis.com/upload/v1beta'
@@ -33,6 +37,7 @@ async function geminiPost(model: string, body: object, apiKey?: string): Promise
       const detail = await res.text()
       throw new Error(/per\s*day/i.test(detail) ? GEMINI_DAILY_LIMIT_ERROR : GEMINI_RATE_LIMIT_ERROR)
     }
+    if (res.status === 400 || res.status === 403) throw new Error(GEMINI_KEY_INVALID_ERROR)
     throw new Error(`Gemini API error ${res.status}: ${res.statusText}`)
   }
   const data = await res.json()

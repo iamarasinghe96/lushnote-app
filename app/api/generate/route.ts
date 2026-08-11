@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
+import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR } from '@/lib/gemini'
 import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { getProfile, updateGeminiUsage, markSharedGeminiExhausted, sharedGeminiAvailable } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
@@ -134,6 +134,26 @@ function appendUnfiled(source: string, fields: Record<string, unknown>): Record<
 const AI_LIMIT_MESSAGE = 'Dear doctor — our free AI usage limit has been reached for now. Please try again later today, or tomorrow. To keep working straight away, add your own Gemini or Groq API key in Settings → API Keys.'
 const AI_UNAVAILABLE = 'ai-unavailable'
 
+// Why nothing could answer. A doctor using her OWN Gemini key was being told a
+// free usage limit was reached and to add a key she already had — because the
+// user-key attempt failed into a bare catch and the real reason was thrown away.
+type AiFailure = 'exhausted' | 'user-key-invalid' | 'user-key-quota'
+
+class AiUnavailable extends Error {
+  constructor(readonly reason: AiFailure) { super(AI_UNAVAILABLE) }
+}
+
+function aiFailureMessage(err: unknown): string {
+  const reason = err instanceof AiUnavailable ? err.reason : 'exhausted'
+  if (reason === 'user-key-invalid') {
+    return 'Google rejected your Gemini API key. Open Settings → API Keys and paste it again, or create a new key at aistudio.google.com.'
+  }
+  if (reason === 'user-key-quota') {
+    return 'Your own Gemini API key has hit its daily limit with Google. It resets at midnight US Pacific time. Adding a Groq key in Settings → API Keys keeps you working until then.'
+  }
+  return AI_LIMIT_MESSAGE
+}
+
 // A 70B model dilutes a long, nuanced system prompt — it followed the tone and
 // dropped the content, filing a ward note's whole problem list nowhere. This
 // goes LAST, where a short numbered block of hard rules survives best, and only
@@ -181,13 +201,24 @@ async function runExtraction(opts: {
     } catch { /* rate-limited or failed — try Gemini below */ }
   }
 
-  // The doctor's own Gemini key first: it's their quota, so never gate it.
+  // The doctor's own Gemini key first: it's their quota, so never gate it. Keep
+  // WHY it failed — if nothing else answers either, that reason is the only
+  // thing that tells her what to actually do about it.
+  let userKeyFailure: AiFailure | null = null
   if (userGeminiKey) {
     try {
       const { text, totalTokens } = await generateNote(prompt, system, userGeminiKey, { temperature: EXTRACTION_TEMPERATURE })
       if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
       return { content: text, provider: 'gemini' }
-    } catch { /* fall through to the shared key */ }
+    } catch (err) {
+      const m = err instanceof Error ? err.message : ''
+      userKeyFailure = m === GEMINI_KEY_INVALID_ERROR ? 'user-key-invalid'
+        : m === GEMINI_DAILY_LIMIT_ERROR ? 'user-key-quota'
+        : null
+      if (userKeyFailure) {
+        logToSink({ level: 'warn', tag: 'generate', message: `user gemini key: ${userKeyFailure}`, route: '/api/generate', uid })
+      }
+    }
   }
 
   if (process.env.GEMINI_API_KEY && await sharedGeminiAvailable()) {
@@ -213,7 +244,7 @@ async function runExtraction(opts: {
     } catch { /* exhausted everywhere */ }
   }
 
-  throw new Error(AI_UNAVAILABLE)
+  throw new AiUnavailable(userKeyFailure ?? 'exhausted')
 }
 
 export async function POST(req: NextRequest) {
@@ -304,7 +335,7 @@ ${transcript}`
         return NextResponse.json({ error: 'The AI reply came back garbled. Please try again — it usually works on a second attempt.' }, { status: 502 })
       } catch (err) {
         if (err instanceof Error && err.message === AI_UNAVAILABLE) {
-          return NextResponse.json({ error: AI_LIMIT_MESSAGE }, { status: 429 })
+          return NextResponse.json({ error: aiFailureMessage(err) }, { status: 429 })
         }
         const msg = err instanceof Error ? err.message : 'Generation failed. Please try again.'
         return NextResponse.json({ error: msg }, { status: 500 })
@@ -463,7 +494,7 @@ ${transcript}`
         return NextResponse.json({ error: 'The AI reply came back garbled. Please try again — it usually works on a second attempt.' }, { status: 502 })
       } catch (err) {
         if (err instanceof Error && err.message === AI_UNAVAILABLE) {
-          return NextResponse.json({ error: AI_LIMIT_MESSAGE }, { status: 429 })
+          return NextResponse.json({ error: aiFailureMessage(err) }, { status: 429 })
         }
         const msg = err instanceof Error ? err.message : 'Generation failed. Please try again.'
         return NextResponse.json({ error: msg }, { status: 500 })
@@ -641,7 +672,7 @@ ${transcript}`
         return NextResponse.json({ error: 'The AI reply came back garbled. Please try again — it usually works on a second attempt.' }, { status: 502 })
       } catch (err) {
         if (err instanceof Error && err.message === AI_UNAVAILABLE) {
-          return NextResponse.json({ error: AI_LIMIT_MESSAGE }, { status: 429 })
+          return NextResponse.json({ error: aiFailureMessage(err) }, { status: 429 })
         }
         const msg = err instanceof Error ? err.message : 'Generation failed. Please try again.'
         return NextResponse.json({ error: msg }, { status: 500 })
@@ -711,7 +742,16 @@ ${transcript}`
         await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
         return NextResponse.json({ content, provider: 'gemini' })
       } catch (err) {
-        if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) geminiDaily = true
+        const m = err instanceof Error ? err.message : ''
+        // A rejected key is not a rate limit and never recovers on a retry —
+        // say so instead of quietly falling through to a quota message.
+        if (m === GEMINI_KEY_INVALID_ERROR) {
+          logToSink({ level: 'warn', tag: 'generate', message: 'user gemini key rejected', route: '/api/generate', uid })
+          return NextResponse.json({
+            error: 'Google rejected your Gemini API key. Open Settings → API Keys and paste it again, or create a new key at aistudio.google.com.',
+          }, { status: 401 })
+        }
+        if (m === GEMINI_DAILY_LIMIT_ERROR) geminiDaily = true
         else geminiTransient = true
       }
     }
