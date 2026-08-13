@@ -207,7 +207,11 @@ async function runExtraction(opts: {
     try {
       const { content } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
       return { content, provider: 'groq' }
-    } catch { /* rate-limited or failed — try Gemini below */ }
+    } catch (err) {
+      // Not silent: a rate limit is routine, but a retired model looks identical
+      // from here and would otherwise never surface anywhere.
+      logToSink({ level: 'warn', tag: 'groq', route: '/api/generate', uid, message: err instanceof Error ? err.message.slice(0, 300) : 'unknown' })
+    }
   }
 
   // The doctor's own Gemini key first: it's their quota, so never gate it. Keep
@@ -254,7 +258,9 @@ async function runExtraction(opts: {
     try {
       const { content } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
       return { content, provider: 'groq' }
-    } catch { /* exhausted everywhere */ }
+    } catch (err) {
+      logToSink({ level: 'warn', tag: 'groq', route: '/api/generate', uid, message: err instanceof Error ? err.message.slice(0, 300) : 'unknown' })
+    }
   }
 
   // Nothing was even attempted: no key of any kind arrived with the request.
