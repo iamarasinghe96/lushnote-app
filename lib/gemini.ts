@@ -20,16 +20,56 @@ export interface GeminiResult {
   totalTokens: number
 }
 
+// Which model a key may actually run differs by project and region, so a
+// hard-coded name is not safe to assume for a doctor's OWN key: one returned
+// 404 Not Found for gemini-2.5-flash while the same code worked elsewhere.
+// Rather than guess a replacement, ask the key what it can run. Resolved once
+// per key per warm instance; keys are used as map keys only and never logged.
+const resolvedModel = new Map<string, string>()
+
+async function pickAvailableModel(key: string, prefer: string): Promise<string | null> {
+  const cached = resolvedModel.get(`${key}:${prefer}`)
+  if (cached) return cached
+  try {
+    const res = await fetch(`${BASE_URL}/models?key=${key}&pageSize=200`)
+    if (!res.ok) return null
+    const data = await res.json() as { models?: { name?: string; supportedGenerationMethods?: string[] }[] }
+    const usable = (data.models ?? [])
+      .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+      .map(m => (m.name ?? '').replace(/^models\//, ''))
+      .filter(Boolean)
+    if (!usable.length) return null
+    // Same family first, then any flash (fast and cheap), then anything at all.
+    const family = prefer.replace(/-latest$/, '')
+    const choice = usable.find(n => n === prefer)
+      ?? usable.find(n => n.startsWith(family))
+      ?? usable.find(n => n.includes('flash') && !n.includes('lite'))
+      ?? usable.find(n => n.includes('flash'))
+      ?? usable[0]
+    resolvedModel.set(`${key}:${prefer}`, choice)
+    return choice
+  } catch {
+    return null
+  }
+}
+
+async function geminiFetch(model: string, body: object, key: string): Promise<Response> {
+  return fetch(`${BASE_URL}/models/${model}:generateContent?key=${key}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
 async function geminiPost(model: string, body: object, apiKey?: string): Promise<GeminiResult> {
-  const key = apiKey || process.env.GEMINI_API_KEY
-  const res = await fetch(
-    `${BASE_URL}/models/${model}:generateContent?key=${key}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }
-  )
+  const key = (apiKey || process.env.GEMINI_API_KEY) ?? ''
+  let res = await geminiFetch(resolvedModel.get(`${key}:${model}`) ?? model, body, key)
+
+  if (res.status === 404) {
+    const alternative = await pickAvailableModel(key, model)
+    if (alternative && alternative !== model) res = await geminiFetch(alternative, body, key)
+  }
+
   if (!res.ok) {
     if (res.status === 429) {
       // Google returns 429 for both per-day (RPD) and per-minute (RPM/TPM)
@@ -38,7 +78,11 @@ async function geminiPost(model: string, body: object, apiKey?: string): Promise
       throw new Error(/per\s*day/i.test(detail) ? GEMINI_DAILY_LIMIT_ERROR : GEMINI_RATE_LIMIT_ERROR)
     }
     if (res.status === 400 || res.status === 403) throw new Error(GEMINI_KEY_INVALID_ERROR)
-    throw new Error(`Gemini API error ${res.status}: ${res.statusText}`)
+    // Google's body says WHY (e.g. "models/x is not found for API version
+    // v1beta"); the status text alone sent us chasing the wrong thing for a day.
+    const detail = await res.text().catch(() => '')
+    const reason = detail.replace(/\s+/g, ' ').slice(0, 200)
+    throw new Error(`Gemini API error ${res.status}: ${reason || res.statusText}`)
   }
   const data = await res.json()
   return {
