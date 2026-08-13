@@ -220,11 +220,19 @@ transcribes and lays it out; it does not reinterpret it. Everything below is a
 requirement, not a preference — each one was written after a real note lost
 content in testing.
 
-**The Source Document is the artifact.** The verbatim read is stored on the
-patient profile (`lastEntry`, `lastEntryAt`) and every field is a VIEW over it.
-Before this, the read was transient and the record kept only the interpretation,
-so a bad projection lost the original permanently. Nothing downstream may be the
-only copy of anything.
+**The Source Document is the artifact.** The verbatim reads are stored on the
+patient profile (`entries`, newest first, last 5) and every field is a VIEW over
+them. Before this, the read was transient and the record kept only the
+interpretation, so a bad projection lost the original permanently. Nothing
+downstream may be the only copy of anything. (`lastEntry` is the superseded
+single-note field, still read for records saved under it.)
+
+**A later note supersedes per field, and the old value goes to history.** A field
+the new note covers is REPLACED; a field it is silent about is KEPT. The previous
+value is logged by `appendPatientHistory` and shown in the card's Editing
+history. `otherTopics` merges PER TOPIC (`mergeExtras` over the structured
+`extras`, with `otherTopics` as the rendered view) — storing it as one string
+meant a progress-only round wiped an allergy recorded days earlier.
 
 **Five invariants:**
 1. **No loss.** Every line reaches the record. Whatever no field claims is
@@ -253,8 +261,8 @@ without a tracked field go to `otherTopics` under their own heading. The table
 stays readable; nothing is lost.
 
 **A hospital form carries the LATEST entry**, not the accumulated record —
-`profile.lastEntry` when present, falling back to `buildPatientInfoText`. Feeding
-the whole record in turned a four-line ward round into a 13-page form.
+`profile.entries[0]`, falling back to `lastEntry` then `buildPatientInfoText`.
+Feeding the whole record in turned a four-line ward round into a 13-page form.
 
 **Guards in the pipeline** (all in `/api/generate` + `/api/ocr`):
 - `sourceCoverage()` — fraction of `#`/numbered source lines present in the

@@ -8,7 +8,7 @@ import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useAuth } from '@/hooks/useAuth'
 import { savePatientProfile } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
-import { getGroqKey, getGeminiKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName, parsePatientIntakeFields, appendPatientHistory } from '@/lib/utils'
+import { getGroqKey, getGeminiKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName, parsePatientIntakeFields, appendPatientHistory, pushPatientEntry } from '@/lib/utils'
 import type { PatientProfile } from '@/types'
 
 interface AddPatientModalProps {
@@ -112,7 +112,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
       ...(gender ? { gender: gender as PatientProfile['gender'] } : {}),
       // Keep the note itself, not just what the extractor made of it — the
       // tracked fields are a view over this (see CLAUDE.md, Scanned Ward Notes).
-      ...(source?.trim() ? { lastEntry: source.trim().slice(0, 20000), lastEntryAt: now } : {}),
+      ...(source?.trim() ? { entries: pushPatientEntry(undefined, source, now) } : {}),
       ...extra,
     }
     try {

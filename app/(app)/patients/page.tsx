@@ -1077,7 +1077,7 @@ export default function PatientsPage() {
     // A hospital form documents THIS entry, not the patient's accumulated
     // record — feeding the whole record in turned a four-line ward round into a
     // 13-page form. Falls back to the record for patients with no stored entry.
-    store.setLastTranscript(p.lastEntry?.trim() || buildPatientInfoText(p))
+    store.setLastTranscript(p.entries?.[0]?.text?.trim() || p.lastEntry?.trim() || buildPatientInfoText(p))
     store.setLastTranscriptMode('document')
     store.setPendingHospitalFormGeneration(true)
     router.push('/edit')

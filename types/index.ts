@@ -265,6 +265,11 @@ interface PatientExtraField {
   content: string
 }
 
+interface PatientEntry {
+  text: string      // the note exactly as it was read, never an interpretation
+  at: number        // client epoch ms when it was added
+}
+
 interface PatientProfile {
   id?: string               // Firestore document ID
   displayName: string
@@ -301,10 +306,12 @@ interface PatientProfile {
   // Chronological log of clinical field values, newest last. Capped so a long-
   // running patient can't grow the document without bound.
   history?: PatientHistoryEntry[]
-  // The verbatim source of the most recent entry (a scanned/pasted ward note) —
-  // the artifact the tracked fields are a VIEW over, so a projection that drops
-  // something is never the only copy. Also what a hospital form is built from,
-  // since a form carries the latest entry rather than the whole record.
+  // The verbatim notes behind this record, newest first — the artifact the
+  // tracked fields are a VIEW over, so a projection that drops something is
+  // never the only copy. A hospital form is built from entries[0], since a form
+  // carries the latest entry rather than the whole record.
+  entries?: PatientEntry[]
+  // Superseded by `entries`; still read so records saved before it aren't lost.
   lastEntry?: string
   lastEntryAt?: number
   tracked?: boolean         // added via Add Patient / promoted into the Table view
@@ -476,6 +483,7 @@ export type {
   PatientProfile,
   PatientExtraField,
   PatientHistoryEntry,
+  PatientEntry,
   PatientSummary,
   Template,
   CustomTemplateField,

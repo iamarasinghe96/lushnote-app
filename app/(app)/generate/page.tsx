@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
-import { openSettings, quotaDate, getGroqKey, getGeminiKey, parsePatientIntakeFields, appendPatientHistory } from '@/lib/utils'
+import { openSettings, quotaDate, getGroqKey, getGeminiKey, parsePatientIntakeFields, appendPatientHistory, mergeExtras, formatOtherTopics, pushPatientEntry } from '@/lib/utils'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import Textarea from '@/components/ui/Textarea'
@@ -609,17 +609,25 @@ export default function GeneratePage() {
       // win over anything the AI inferred from the note.
       const entered = store.pendingPatientProfile
       const now = Date.now()
-      const history = appendPatientHistory(existing, extra, now)
+      // A field this note covers replaces what was there; a field it is silent
+      // about is left alone. Other topics merge per topic rather than as one
+      // block, so a progress-only round can't wipe an allergy recorded earlier.
+      const mergedExtras = mergeExtras(existing?.extras, extra.extras)
+      const merged: Partial<PatientProfile> = {
+        ...extra,
+        ...(mergedExtras.length ? { extras: mergedExtras, otherTopics: formatOtherTopics(mergedExtras) } : {}),
+      }
+      const history = appendPatientHistory(existing, merged, now)
       await savePatientProfile(user.uid, {
         ...(existing ?? { displayName: name }),
-        ...extra,
+        ...merged,
         ...(history ? { history } : {}),
         ...(entered?.dob ? { dob: entered.dob } : {}),
         ...(entered?.gender ? { gender: entered.gender as PatientProfile['gender'] } : {}),
-        // Keep the note itself, not just what the extractor made of it. Every
-        // tracked field is a view over this; a hospital form is built from it.
-        lastEntry: pendingTranscript.trim().slice(0, 20000),
-        lastEntryAt: now,
+        // Keep the notes themselves, not just what the extractor made of them.
+        // Every tracked field is a view over these; a hospital form is built
+        // from the newest.
+        entries: pushPatientEntry(existing?.entries, pendingTranscript, now),
         tracked: true,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,

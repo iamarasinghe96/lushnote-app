@@ -1,4 +1,4 @@
-import { WP_THEMES, type Note, type AnyTemplate, type ExtraSection, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields, type LetterData, type HospitalFormData, type PatientProfile, type PatientExtraField, type PatientHistoryEntry } from '@/types'
+import { WP_THEMES, type Note, type AnyTemplate, type ExtraSection, type LetterType, type LetterCommonFields, type ReferralFields, type RecordsFields, type FreetextFields, type LetterData, type HospitalFormData, type PatientProfile, type PatientExtraField, type PatientHistoryEntry, type PatientEntry } from '@/types'
 
 // The 11 core clinical note fields, in canonical order. Shared source of truth
 // for rendering order fallbacks and for deciding whether a section key is core.
@@ -958,9 +958,51 @@ export function parsePatientIntakeFields(raw: Record<string, unknown>): Partial<
       if (extras.length >= 12) break
     }
   }
-  if (extras.length) out.otherTopics = formatOtherTopics(extras)
+  // Both shapes: `extras` is the structured source of truth (so a later note can
+  // replace one topic without touching the others) and `otherTopics` is the
+  // rendered text the table, card and PDF read.
+  if (extras.length) {
+    out.extras = extras
+    out.otherTopics = formatOtherTopics(extras)
+  }
   return out
 }
+
+// Fold a new note's topics into the ones already on the record. A topic the new
+// note covers REPLACES that topic; a topic it is silent about is KEPT. Replacing
+// the whole block — which is what storing it as one string forced — meant a
+// progress-only ward round wiped Allergies recorded days earlier.
+export function mergeExtras(
+  prev: PatientExtraField[] | undefined,
+  next: PatientExtraField[] | undefined,
+): PatientExtraField[] {
+  const merged = [...(prev ?? [])]
+  for (const topic of next ?? []) {
+    const at = merged.findIndex(e => e.key === topic.key)
+    if (at >= 0) merged[at] = topic
+    else merged.push(topic)
+  }
+  return merged.slice(-MAX_PATIENT_EXTRAS)
+}
+
+// The verbatim notes behind the record, newest first. Every field on the card is
+// a view over these, so a projection that drops something is never the only
+// copy — see CLAUDE.md, Scanned Ward Notes.
+export function pushPatientEntry(
+  prev: PatientEntry[] | undefined,
+  text: string,
+  at: number,
+): PatientEntry[] {
+  const trimmed = text.trim()
+  if (!trimmed) return prev ?? []
+  return [{ text: trimmed.slice(0, MAX_ENTRY_CHARS), at }, ...(prev ?? [])].slice(0, MAX_PATIENT_ENTRIES)
+}
+
+const MAX_PATIENT_EXTRAS = 20
+// The whole patients list loads every profile, so the archive is bounded on both
+// axes: enough rounds to look back over, not enough to make the list heavy.
+const MAX_PATIENT_ENTRIES = 5
+const MAX_ENTRY_CHARS = 8000
 
 // One labelled block rather than a field per topic, so the table stays readable.
 export function formatOtherTopics(extras: PatientExtraField[]): string {
