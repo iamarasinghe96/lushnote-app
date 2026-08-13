@@ -35,6 +35,12 @@ interface User {
   termsAccepted?: boolean
   termsAcceptedAt?: string
   marketingConsent?: boolean   // opt-in for newsletters/product emails (default off)
+  // Account emails (welcome, setup help). Separate from marketingConsent: these
+  // are service messages about the account the doctor opened, so they are on by
+  // default and this is the explicit opt-OUT the unsubscribe link sets.
+  emailOptOut?: boolean
+  // When each lifecycle email was sent, so a daily job never repeats one.
+  lifecycleEmails?: { welcome?: number; apiSetup?: number; inactive?: number }
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
 }

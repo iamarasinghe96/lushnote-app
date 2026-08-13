@@ -32,6 +32,19 @@ export async function requireAdmin(req: NextRequest): Promise<DecodedIdToken> {
   return decoded
 }
 
+// Any signed-in doctor, for routes that act only on the caller's OWN account.
+// Returns the verified uid; the client-supplied one is never trusted.
+export async function requireUser(req: NextRequest): Promise<string> {
+  const authHeader = req.headers.get('authorization') || ''
+  const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  if (!idToken) throw new AdminAuthError('missing token')
+  try {
+    return (await adminAuth().verifyIdToken(idToken, true)).uid
+  } catch {
+    throw new AdminAuthError('invalid token')
+  }
+}
+
 export function unauthorized() {
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 }

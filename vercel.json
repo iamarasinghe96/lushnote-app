@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/lifecycle",
+      "schedule": "0 23 * * *"
+    }
+  ]
+}

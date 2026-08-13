@@ -162,6 +162,17 @@ export default function OnboardingPage() {
         sessionStorage.setItem('groq_api_key', sanitizeApiKey(groqApiKey))
       }
 
+      // The welcome email opens with "you've just signed in", so it goes now
+      // rather than waiting for the nightly sweep. Best-effort and idempotent —
+      // the sweep picks up anyone this misses, and never sends a second copy.
+      try {
+        await fetch('/api/lifecycle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken()}` },
+          body: JSON.stringify({ action: 'welcome' }),
+        })
+      } catch { /* non-blocking */ }
+
       // Best-effort: notify admin so they can source/upload the letterhead
       try {
         await submitLetterheadRequest({

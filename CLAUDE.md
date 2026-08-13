@@ -451,6 +451,42 @@ service cloud.firestore {
 
 ---
 
+## Lifecycle Emails (Zoho SMTP)
+
+Three automatic emails, all **service messages about the account the doctor
+opened** — they promote nothing, so they are not commercial electronic messages
+under the Spam Act and go to doctors regardless of `marketingConsent`. An
+unsubscribe is included anyway (`emailOptOut`), because it costs nothing and
+removes the argument. `marketingConsent` stays and governs product news only.
+
+| Type | When | Key |
+|---|---|---|
+| `welcome` | immediately at signup (onboarding calls `action:'welcome'`); the nightly sweep backfills anyone missed | — |
+| `apiSetup` | 7+ days after signup with no Gemini or Groq key | `APP_SETUP_AFTER_DAYS` |
+| `inactive` | key set up, 7+ days since the last generation (`geminiUsage[*].date`) | `INACTIVE_AFTER_DAYS` |
+
+- **Transport:** `lib/email.ts` — nodemailer over Zoho SMTP (port 465). Sending as
+  the real mailbox means the "just reply to this email" in the copy actually works.
+- **Copy:** `lib/emails/lifecycle.ts`. Plain text is the source of truth; the HTML
+  part is generated from it (paragraphs on blank lines, `[label](url)` → link), so
+  editing the wording never means editing markup.
+- **Bookkeeping:** `users/{uid}.lifecycleEmails.{type}` = sent-at ms. Marked BEFORE
+  the log row, so a crash between the two re-sends nothing. Every send is appended
+  to `email_log` (admin-read only, denied to clients by the catch-all rule).
+- **Run:** Vercel Cron `GET /api/lifecycle` daily at 23:00 UTC (09:00 AEST), with
+  `Authorization: Bearer CRON_SECRET`. Sends are spaced `GAP_MS` apart and capped
+  at `MAX_PER_RUN` so a batch can't get the mailbox throttled. One email per doctor
+  per run.
+- **Admin:** `/admin?section=emails` — who's due and why, the send log, **Dry run**
+  (sends nothing) and **Send now**.
+- **Unsubscribe:** `/unsubscribe?u=<uid>&t=<hmac>` — no sign-in, HMAC scoped to
+  that uid so it can't opt out anyone else.
+- **Env:** `ZOHO_SMTP_HOST` (default `smtp.zoho.com.au`), `ZOHO_SMTP_USER`,
+  `ZOHO_SMTP_PASS` (app-specific password, NOT the account password), `EMAIL_FROM`,
+  `EMAIL_REPLY_TO` (optional), `CRON_SECRET`, `NEXT_PUBLIC_SITE_URL`.
+
+---
+
 ## Admin Console (`/admin`)
 
 One client route (`app/admin/page.tsx`) with a `SECTIONS`-driven navbar; render,
@@ -483,6 +519,8 @@ Gemini usage), suspend/reactivate, clear storage, remove, export.
   match; writes an audit entry. (This is the complete version of the incomplete
   self-delete in `ProfilePanel.tsx`.)
 - **Export** = consented users only (`marketingConsent`), name/email/workplace CSV.
+
+**Emails** (`app/api/lifecycle` + `EmailsPanel`): see **Lifecycle Emails** above.
 
 **Feedback + tickets:** every escalation creates a durable `support_tickets/{id}`
 doc (`{uid,ticket,name,email,topic,status:'open'|'resolved'|'closed',threadTs,
