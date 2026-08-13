@@ -7,6 +7,9 @@ export const GEMINI_DAILY_LIMIT_ERROR = 'GEMINI_DAILY_LIMIT'
 // its own code: a doctor whose key stopped working needs to be told that, not
 // told a usage limit was reached.
 export const GEMINI_KEY_INVALID_ERROR = 'GEMINI_KEY_INVALID'
+// Google's own capacity, not the doctor's key: 503 UNAVAILABLE ("this model is
+// currently experiencing high demand"), and its 5xx siblings. Always temporary.
+export const GEMINI_OVERLOADED_ERROR = 'GEMINI_OVERLOADED'
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 const UPLOAD_BASE = 'https://generativelanguage.googleapis.com/upload/v1beta'
@@ -72,13 +75,25 @@ async function geminiFetch(model: string, body: object, key: string): Promise<Re
   })
 }
 
+// Google sheds load with 503 when a model is busy, and it clears in seconds.
+// Reporting the first one straight to the doctor makes their own key look
+// broken for something that is neither their fault nor lasting.
+const OVERLOAD_BACKOFF_MS = [1500, 4000]
+
 async function geminiPost(model: string, body: object, apiKey?: string): Promise<GeminiResult> {
   const key = (apiKey || process.env.GEMINI_API_KEY) ?? ''
-  let res = await geminiFetch(resolvedModel.get(`${key}:${model}`) ?? model, body, key)
+  let target = resolvedModel.get(`${key}:${model}`) ?? model
+  let res = await geminiFetch(target, body, key)
 
   if (res.status === 404) {
     const alternative = await pickAvailableModel(key, model)
-    if (alternative) res = await geminiFetch(alternative, body, key)
+    if (alternative) { target = alternative; res = await geminiFetch(target, body, key) }
+  }
+
+  for (const wait of OVERLOAD_BACKOFF_MS) {
+    if (res.status < 500) break
+    await new Promise(r => setTimeout(r, wait))
+    res = await geminiFetch(target, body, key)
   }
 
   if (!res.ok) {
@@ -89,6 +104,7 @@ async function geminiPost(model: string, body: object, apiKey?: string): Promise
       throw new Error(/per\s*day/i.test(detail) ? GEMINI_DAILY_LIMIT_ERROR : GEMINI_RATE_LIMIT_ERROR)
     }
     if (res.status === 400 || res.status === 403) throw new Error(GEMINI_KEY_INVALID_ERROR)
+    if (res.status >= 500) throw new Error(GEMINI_OVERLOADED_ERROR)
     // Google's body says WHY (e.g. "models/x is not found for API version
     // v1beta"); the status text alone sent us chasing the wrong thing for a day.
     const detail = await res.text().catch(() => '')

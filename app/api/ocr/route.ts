@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR } from '@/lib/gemini'
+import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR } from '@/lib/gemini'
 import { getProfile, updateGeminiUsage, markSharedGeminiExhausted, sharedGeminiAvailable } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
@@ -24,6 +24,7 @@ function keyFailureMessage(err: unknown): string {
   if (m === GEMINI_KEY_INVALID_ERROR) return 'Google rejected your Gemini API key. Open Settings → API Keys and paste it again, or create a new key at aistudio.google.com.'
   if (m === GEMINI_DAILY_LIMIT_ERROR) return 'Your Gemini API key has reached its daily limit with Google. It resets at midnight US Pacific time.'
   if (m === GEMINI_RATE_LIMIT_ERROR) return 'Google is throttling your Gemini key — its free tier allows only a few requests per minute, and reading a page takes several. Wait about a minute and scan again.'
+  if (m === GEMINI_OVERLOADED_ERROR) return 'Google reported that Gemini is busy right now — nothing is wrong with your key or your quota. Wait a minute and scan again.'
   return `Gemini could not be reached with your key (${m || 'unknown error'}). Try again in a moment.`
 }
 
@@ -121,7 +122,7 @@ export async function POST(req: NextRequest) {
           // Google's free tier allows only a handful of calls per MINUTE, and a
           // scan is several calls. That burst limit clears in seconds, so wait
           // and try once more before telling the doctor anything is wrong.
-          if (m === GEMINI_RATE_LIMIT_ERROR) {
+          if (m === GEMINI_RATE_LIMIT_ERROR || m === GEMINI_OVERLOADED_ERROR) {
             await new Promise(r => setTimeout(r, 4000))
             try { raw = await call(userGeminiKey) } catch (retryErr) {
               userKeyFailure = keyFailureMessage(retryErr)

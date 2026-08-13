@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR } from '@/lib/gemini'
+import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR } from '@/lib/gemini'
 import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { getProfile, updateGeminiUsage, markSharedGeminiExhausted, sharedGeminiAvailable } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
@@ -137,7 +137,7 @@ const AI_UNAVAILABLE = 'ai-unavailable'
 // Why nothing could answer. A doctor using her OWN Gemini key was being told a
 // free usage limit was reached and to add a key she already had — because the
 // user-key attempt failed into a bare catch and the real reason was thrown away.
-type AiFailure = 'exhausted' | 'no-key' | 'user-key-invalid' | 'user-key-quota' | 'user-key-throttled'
+type AiFailure = 'exhausted' | 'no-key' | 'user-key-invalid' | 'user-key-quota' | 'user-key-throttled' | 'gemini-busy'
 
 class AiUnavailable extends Error {
   constructor(readonly reason: AiFailure) { super(AI_UNAVAILABLE) }
@@ -150,6 +150,9 @@ function aiFailureMessage(err: unknown): string {
   }
   if (reason === 'no-key') {
     return 'No API key reached the server. Open Settings → API Keys, paste your Gemini key and press Save key, then try again.'
+  }
+  if (reason === 'gemini-busy') {
+    return 'Google reported that Gemini is busy right now — nothing is wrong with your key or your quota. Wait a minute and try again.'
   }
   if (reason === 'user-key-throttled') {
     return 'Google is throttling your Gemini key — its free tier allows only a few requests per minute, and a note takes several. Wait about a minute and try again.'
@@ -221,6 +224,7 @@ async function runExtraction(opts: {
       userKeyFailure = m === GEMINI_KEY_INVALID_ERROR ? 'user-key-invalid'
         : m === GEMINI_DAILY_LIMIT_ERROR ? 'user-key-quota'
         : m === GEMINI_RATE_LIMIT_ERROR ? 'user-key-throttled'
+        : m === GEMINI_OVERLOADED_ERROR ? 'gemini-busy'
         : null
       if (userKeyFailure) {
         logToSink({ level: 'warn', tag: 'generate', message: `user gemini key: ${userKeyFailure}`, route: '/api/generate', uid })
