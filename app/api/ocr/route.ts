@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR } from '@/lib/gemini'
+import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
@@ -119,11 +119,14 @@ export async function POST(req: NextRequest) {
           raw = await call(userGeminiKey)
         } catch (err) {
           userKeyFailure = keyFailureMessage(err)
+          logToSink({ level: 'warn', tag: 'gemini-key', route: '/api/ocr', uid: uidField, message: describeGeminiError(err) })
         }
       }
       if (raw === null && process.env.GEMINI_API_KEY
           && checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')) {
-        try { raw = await call() } catch { /* nothing else to try */ }
+        try { raw = await call() } catch (err) {
+          logToSink({ level: 'warn', tag: 'gemini-shared', route: '/api/ocr', uid: uidField, message: describeGeminiError(err) })
+        }
       }
       if (raw === null) return null
       try {

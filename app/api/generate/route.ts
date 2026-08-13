@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR } from '@/lib/gemini'
+import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
 import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
@@ -226,9 +226,13 @@ async function runExtraction(opts: {
         : m === GEMINI_RATE_LIMIT_ERROR ? 'user-key-throttled'
         : m === GEMINI_OVERLOADED_ERROR ? 'gemini-busy'
         : null
-      if (userKeyFailure) {
-        logToSink({ level: 'warn', tag: 'generate', message: `user gemini key: ${userKeyFailure}`, route: '/api/generate', uid })
-      }
+      // Log unconditionally. The 404 that actually broke a doctor's account was
+      // an UNMAPPED failure, so logging only the mapped ones hid the one case
+      // that mattered.
+      logToSink({
+        level: 'warn', tag: 'gemini-key', route: '/api/generate', uid,
+        message: `${userKeyFailure ?? 'unmapped'}: ${describeGeminiError(err)}`,
+      })
     }
   }
 
@@ -239,7 +243,9 @@ async function runExtraction(opts: {
         const { text, totalTokens } = await generateNote(prompt, system, undefined, { temperature: EXTRACTION_TEMPERATURE })
         if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
         return { content: text, provider: 'gemini' }
-      } catch { /* fall through — nothing else to try */ }
+      } catch (err) {
+        logToSink({ level: 'warn', tag: 'gemini-shared', route: '/api/generate', uid, message: describeGeminiError(err) })
+      }
     }
   }
 
@@ -754,8 +760,8 @@ ${transcript}`
         const m = err instanceof Error ? err.message : ''
         // A rejected key is not a rate limit and never recovers on a retry —
         // say so instead of quietly falling through to a quota message.
+        logToSink({ level: 'warn', tag: 'gemini-key', route: '/api/generate', uid, message: describeGeminiError(err) })
         if (m === GEMINI_KEY_INVALID_ERROR) {
-          logToSink({ level: 'warn', tag: 'generate', message: 'user gemini key rejected', route: '/api/generate', uid })
           return NextResponse.json({
             error: 'Google rejected your Gemini API key. Open Settings → API Keys and paste it again, or create a new key at aistudio.google.com.',
           }, { status: 401 })

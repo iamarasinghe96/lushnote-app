@@ -28,27 +28,33 @@ const SECTIONS = [
 ] as const
 type SectionKey = (typeof SECTIONS)[number]['key']
 
-const PANELS: Record<SectionKey, ReactNode> = {
-  dashboard: <DashboardPanel />,
-  users: <UsersPanel />,
-  'whats-new': <AnnouncementsPanel />,
-  feedback: <FeedbackPanel />,
-  letterheads: <LetterheadsPanel />,
-  forms: <HospitalFormsPanel />,
-  logs: <LogsPanel />,
+// Each entry takes the ?q= deep-link value so a section can open pre-filtered
+// (Users hands a uid to Logs). Still one map — add a section by adding an entry
+// here and in SECTIONS, nothing else.
+const PANELS: Record<SectionKey, (q: string) => ReactNode> = {
+  dashboard: () => <DashboardPanel />,
+  users: () => <UsersPanel />,
+  'whats-new': () => <AnnouncementsPanel />,
+  feedback: () => <FeedbackPanel />,
+  letterheads: () => <LetterheadsPanel />,
+  forms: () => <HospitalFormsPanel />,
+  logs: q => <LogsPanel initialSearch={q} />,
 }
 
 export default function AdminPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
   const [section, setSection] = useState<SectionKey>('dashboard')
+  const [deepLinkQuery, setDeepLinkQuery] = useState('')
 
   useEffect(() => {
     if (loading) return
     if (!user || user.uid !== ADMIN_UID) router.replace('/')
     else if (typeof window !== 'undefined') {
-      const s = new URLSearchParams(window.location.search).get('section')
+      const params = new URLSearchParams(window.location.search)
+      const s = params.get('section')
       if (s && SECTIONS.some(sec => sec.key === s)) setSection(s as SectionKey)
+      setDeepLinkQuery(params.get('q') ?? '')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user])
@@ -102,7 +108,7 @@ export default function AdminPage() {
         </nav>
       </header>
 
-      {PANELS[section]}
+      {PANELS[section](deepLinkQuery)}
     </div>
   )
 }

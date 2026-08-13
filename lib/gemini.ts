@@ -67,6 +67,53 @@ async function pickAvailableModel(key: string, failed: string): Promise<string |
   }
 }
 
+
+// A Gemini failure carried in a form an admin can read later. Every field comes
+// from Google's own structured error — an HTTP status, its status enum, the
+// model we asked for, and its API-level message — never from our request body,
+// so this stays inside the PHI-safe contract for system_logs.
+export interface GeminiFailure extends Error {
+  httpStatus?: number
+  providerStatus?: string
+  model?: string
+  detail?: string
+}
+
+function parseGeminiError(httpStatus: number, body: string, model: string): Partial<GeminiFailure> {
+  let providerStatus = ''
+  let detail = ''
+  try {
+    const j = JSON.parse(body) as { error?: { status?: string; message?: string } }
+    providerStatus = String(j.error?.status ?? '')
+    detail = String(j.error?.message ?? '')
+  } catch {
+    detail = body
+  }
+  return {
+    httpStatus,
+    providerStatus: providerStatus.slice(0, 40),
+    model,
+    detail: detail.replace(/\s+/g, ' ').trim().slice(0, 300),
+  }
+}
+
+function geminiError(code: string, meta: Partial<GeminiFailure>): GeminiFailure {
+  return Object.assign(new Error(code), meta) as GeminiFailure
+}
+
+// One line for the admin log: what Google said, and about which model.
+export function describeGeminiError(err: unknown): string {
+  const e = err as GeminiFailure | undefined
+  if (!e) return 'unknown gemini error'
+  const head = [
+    e.httpStatus ? `http=${e.httpStatus}` : '',
+    e.providerStatus ? `status=${e.providerStatus}` : '',
+    e.model ? `model=${e.model}` : '',
+  ].filter(Boolean).join(' ')
+  const code = e.message && !e.message.startsWith('Gemini API error') ? ` code=${e.message}` : ''
+  return `${head}${code}${e.detail ? ` — ${e.detail}` : ''}`.trim() || String(e.message ?? '')
+}
+
 async function geminiFetch(model: string, body: object, key: string): Promise<Response> {
   return fetch(`${BASE_URL}/models/${model}:generateContent?key=${key}`, {
     method: 'POST',
@@ -97,19 +144,18 @@ async function geminiPost(model: string, body: object, apiKey?: string): Promise
   }
 
   if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    const meta = parseGeminiError(res.status, body, target)
+    // Google's body says WHY (e.g. "models/x is no longer available to new
+    // users"); the status text alone sent us chasing the wrong thing for a day.
     if (res.status === 429) {
       // Google returns 429 for both per-day (RPD) and per-minute (RPM/TPM)
       // limits. Only a per-day exhaustion should lock the key out for the day.
-      const detail = await res.text()
-      throw new Error(/per\s*day/i.test(detail) ? GEMINI_DAILY_LIMIT_ERROR : GEMINI_RATE_LIMIT_ERROR)
+      throw geminiError(/per\s*day/i.test(body) ? GEMINI_DAILY_LIMIT_ERROR : GEMINI_RATE_LIMIT_ERROR, meta)
     }
-    if (res.status === 400 || res.status === 403) throw new Error(GEMINI_KEY_INVALID_ERROR)
-    if (res.status >= 500) throw new Error(GEMINI_OVERLOADED_ERROR)
-    // Google's body says WHY (e.g. "models/x is not found for API version
-    // v1beta"); the status text alone sent us chasing the wrong thing for a day.
-    const detail = await res.text().catch(() => '')
-    const reason = detail.replace(/\s+/g, ' ').slice(0, 200)
-    throw new Error(`Gemini API error ${res.status}: ${reason || res.statusText}`)
+    if (res.status === 400 || res.status === 403) throw geminiError(GEMINI_KEY_INVALID_ERROR, meta)
+    if (res.status >= 500) throw geminiError(GEMINI_OVERLOADED_ERROR, meta)
+    throw geminiError(`Gemini API error ${res.status}: ${meta.detail || res.statusText}`, meta)
   }
   const data = await res.json()
   return {

@@ -118,6 +118,15 @@ export default function UsersPanel() {
             <Field label="Notes" value={selected.noteCount < 0 ? '—' : String(selected.noteCount)} />
             <Field label="Patients" value={selected.patientCount < 0 ? '—' : String(selected.patientCount)} />
             <Field label="Gemini usage" value={gemini} />
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-[#94a3b8]">AI errors</p>
+              {/* A plain link, not a router push: the console reads ?q= on mount,
+                  so a full navigation is what actually applies the filter. */}
+              <a href={`/admin?section=logs&q=${encodeURIComponent(selected.uid)}`}
+                 className="text-sm text-[#2563eb] underline">
+                View this user&apos;s AI failures →
+              </a>
+            </div>
             <Field label="Marketing consent" value={selected.marketingConsent ? 'Yes' : 'No'} />
             <Field label="Signed up" value={day(selected.createdAt)} />
             <Field label="Last sign-in" value={dt(selected.lastSignIn)} />

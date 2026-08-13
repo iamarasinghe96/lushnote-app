@@ -19,7 +19,9 @@ function when(ms: number | null): string {
   try { return new Date(ms).toLocaleString() } catch { return '—' }
 }
 
-export default function LogsPanel() {
+// `initialSearch` lets another panel hand over a uid, so a doctor's failures are
+// one click from their user record rather than a uid you have to copy by hand.
+export default function LogsPanel({ initialSearch = '' }: { initialSearch?: string }) {
   const { user } = useAuth()
   const [tab, setTab] = useState<'logs' | 'audit'>('logs')
   const [logs, setLogs] = useState<LogRow[]>([])
@@ -28,7 +30,7 @@ export default function LogsPanel() {
   const [error, setError] = useState<string | null>(null)
 
   const [levelFilter, setLevelFilter] = useState<'all' | 'error' | 'warn' | 'info'>('all')
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(initialSearch)
 
   async function call(body: Record<string, unknown>) {
     const token = user ? await user.getIdToken() : ''
