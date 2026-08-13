@@ -27,8 +27,23 @@ export interface GeminiResult {
 // per key per warm instance; keys are used as map keys only and never logged.
 const resolvedModel = new Map<string, string>()
 
-async function pickAvailableModel(key: string, prefer: string): Promise<string | null> {
-  const cached = resolvedModel.get(`${key}:${prefer}`)
+// Rank what a key can actually run. Google retires model names ("no longer
+// available to new users"), so the newest usable flash model is chosen by score
+// rather than by a version number hard-coded here — which would go stale the
+// same way. A "-latest" alias wins because it tracks Google's current default.
+function scoreModel(name: string): number {
+  let score = name.includes('flash') ? 100 : 0
+  if (name.endsWith('-latest')) score += 40
+  if (name.includes('lite')) score -= 30
+  if (/preview|exp|thinking|tts|image|audio|embedding|learnlm/.test(name)) score -= 60
+  const v = name.match(/(\d+)\.(\d+)/)
+  if (v) score += Number(v[1]) * 10 + Number(v[2])
+  return score
+}
+
+async function pickAvailableModel(key: string, failed: string): Promise<string | null> {
+  const cacheKey = `${key}:${failed}`
+  const cached = resolvedModel.get(cacheKey)
   if (cached) return cached
   try {
     const res = await fetch(`${BASE_URL}/models?key=${key}&pageSize=200`)
@@ -37,16 +52,12 @@ async function pickAvailableModel(key: string, prefer: string): Promise<string |
     const usable = (data.models ?? [])
       .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
       .map(m => (m.name ?? '').replace(/^models\//, ''))
-      .filter(Boolean)
+      // The model we just got a 404 for is still LISTED — it is published but
+      // closed to newer keys — so it must be excluded or we retry it forever.
+      .filter(n => n && n !== failed)
     if (!usable.length) return null
-    // Same family first, then any flash (fast and cheap), then anything at all.
-    const family = prefer.replace(/-latest$/, '')
-    const choice = usable.find(n => n === prefer)
-      ?? usable.find(n => n.startsWith(family))
-      ?? usable.find(n => n.includes('flash') && !n.includes('lite'))
-      ?? usable.find(n => n.includes('flash'))
-      ?? usable[0]
-    resolvedModel.set(`${key}:${prefer}`, choice)
+    const choice = usable.reduce((best, n) => (scoreModel(n) > scoreModel(best) ? n : best))
+    resolvedModel.set(cacheKey, choice)
     return choice
   } catch {
     return null
@@ -67,7 +78,7 @@ async function geminiPost(model: string, body: object, apiKey?: string): Promise
 
   if (res.status === 404) {
     const alternative = await pickAvailableModel(key, model)
-    if (alternative && alternative !== model) res = await geminiFetch(alternative, body, key)
+    if (alternative) res = await geminiFetch(alternative, body, key)
   }
 
   if (!res.ok) {
