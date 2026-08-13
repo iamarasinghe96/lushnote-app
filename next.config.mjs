@@ -10,7 +10,10 @@ const nextConfig = {
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://apis.google.com https://accounts.google.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: https:",
+      // blob: is needed for locally-created previews (the scanned-page thumbnails
+      // come from URL.createObjectURL and were being blocked outright). Same
+      // origin-only guarantee as media-src/worker-src, which already allow it.
+      "img-src 'self' data: blob: https:",
       [
         "connect-src 'self'",
         "https://*.googleapis.com",

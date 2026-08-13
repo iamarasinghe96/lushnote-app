@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR } from '@/lib/gemini'
+import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR } from '@/lib/gemini'
 import { getProfile, updateGeminiUsage, markSharedGeminiExhausted, sharedGeminiAvailable } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
@@ -15,6 +15,17 @@ const MAX_IMAGE_BYTES = 6 * 1024 * 1024
 const MAX_IMAGES = 4
 
 const AI_LIMIT_MESSAGE = 'Dear doctor — our free AI usage limit has been reached for now. Please try again later today, or tomorrow. To keep working straight away, add your own Gemini API key in Settings → API Keys.'
+
+// Every way the doctor's OWN key can fail, each said plainly. Anything left
+// unmapped used to surface as "our free AI usage limit has been reached", which
+// sent a doctor whose key was merely being called too fast off to wait a day.
+function keyFailureMessage(err: unknown): string {
+  const m = err instanceof Error ? err.message : ''
+  if (m === GEMINI_KEY_INVALID_ERROR) return 'Google rejected your Gemini API key. Open Settings → API Keys and paste it again, or create a new key at aistudio.google.com.'
+  if (m === GEMINI_DAILY_LIMIT_ERROR) return 'Your Gemini API key has reached its daily limit with Google. It resets at midnight US Pacific time.'
+  if (m === GEMINI_RATE_LIMIT_ERROR) return 'Google is throttling your Gemini key — its free tier allows only a few requests per minute, and reading a page takes several. Wait about a minute and scan again.'
+  return `Gemini could not be reached with your key (${m || 'unknown error'}). Try again in a moment.`
+}
 
 interface OcrReply {
   patientName?: string
@@ -106,11 +117,18 @@ export async function POST(req: NextRequest) {
         try {
           raw = await call(userGeminiKey)
         } catch (err) {
-          // Keep WHY: a rejected or exhausted key of her own is the answer she
-          // needs, not a message about a usage limit she hasn't reached.
           const m = err instanceof Error ? err.message : ''
-          if (m === GEMINI_KEY_INVALID_ERROR) userKeyFailure = 'Google rejected your Gemini API key. Open Settings → API Keys and paste it again, or create a new key at aistudio.google.com.'
-          else if (m === GEMINI_DAILY_LIMIT_ERROR) userKeyFailure = 'Your own Gemini API key has hit its daily limit with Google. It resets at midnight US Pacific time.'
+          // Google's free tier allows only a handful of calls per MINUTE, and a
+          // scan is several calls. That burst limit clears in seconds, so wait
+          // and try once more before telling the doctor anything is wrong.
+          if (m === GEMINI_RATE_LIMIT_ERROR) {
+            await new Promise(r => setTimeout(r, 4000))
+            try { raw = await call(userGeminiKey) } catch (retryErr) {
+              userKeyFailure = keyFailureMessage(retryErr)
+            }
+          } else {
+            userKeyFailure = keyFailureMessage(err)
+          }
         }
       }
       if (raw === null && process.env.GEMINI_API_KEY
