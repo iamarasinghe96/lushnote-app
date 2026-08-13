@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR } from '@/lib/gemini'
 import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
-import { getProfile, updateGeminiUsage, markSharedGeminiExhausted, sharedGeminiAvailable } from '@/lib/firestore/profiles-admin'
+import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import { logToSink } from '@/lib/firestore/systemLogs'
@@ -232,18 +232,14 @@ async function runExtraction(opts: {
     }
   }
 
-  if (process.env.GEMINI_API_KEY && await sharedGeminiAvailable()) {
+  if (process.env.GEMINI_API_KEY) {
     const profile = uid ? await getProfile(uid).catch(() => null) : null
     if (!uid || checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')) {
       try {
         const { text, totalTokens } = await generateNote(prompt, system, undefined, { temperature: EXTRACTION_TEMPERATURE })
         if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
         return { content: text, provider: 'gemini' }
-      } catch (err) {
-        if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
-          await markSharedGeminiExhausted().catch(() => {})
-        }
-      }
+      } catch { /* fall through — nothing else to try */ }
     }
   }
 
@@ -770,7 +766,7 @@ ${transcript}`
     }
 
     // 2. Shared server key, gated by the per-user 20/day counter.
-    if (process.env.GEMINI_API_KEY && await sharedGeminiAvailable()) {
+    if (process.env.GEMINI_API_KEY) {
       const quota = profile?.geminiUsage ?? {}
       if (checkQuota(quota, 'gemini-2.5-flash')) {
         try {
@@ -779,7 +775,6 @@ ${transcript}`
           return NextResponse.json({ content, provider: 'gemini' })
         } catch (err) {
           if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
-            await markSharedGeminiExhausted().catch(() => {})
             geminiDaily = true
           } else {
             geminiTransient = true

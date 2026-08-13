@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR } from '@/lib/gemini'
-import { getProfile, updateGeminiUsage, markSharedGeminiExhausted, sharedGeminiAvailable } from '@/lib/firestore/profiles-admin'
+import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
 
@@ -118,32 +118,12 @@ export async function POST(req: NextRequest) {
         try {
           raw = await call(userGeminiKey)
         } catch (err) {
-          const m = err instanceof Error ? err.message : ''
-          // Google's free tier allows only a handful of calls per MINUTE, and a
-          // scan is several calls. That burst limit clears in seconds, so wait
-          // and try once more before telling the doctor anything is wrong.
-          if (m === GEMINI_RATE_LIMIT_ERROR || m === GEMINI_OVERLOADED_ERROR) {
-            await new Promise(r => setTimeout(r, 4000))
-            try { raw = await call(userGeminiKey) } catch (retryErr) {
-              userKeyFailure = keyFailureMessage(retryErr)
-            }
-          } else {
-            userKeyFailure = keyFailureMessage(err)
-          }
+          userKeyFailure = keyFailureMessage(err)
         }
       }
       if (raw === null && process.env.GEMINI_API_KEY
-          && checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')
-          && await sharedGeminiAvailable()) {
-        try {
-          raw = await call()
-        } catch (err) {
-          // The shared key belongs to the app, not to this doctor — its
-          // exhaustion is recorded globally instead of against their counter.
-          if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
-            await markSharedGeminiExhausted().catch(() => {})
-          }
-        }
+          && checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')) {
+        try { raw = await call() } catch { /* nothing else to try */ }
       }
       if (raw === null) return null
       try {

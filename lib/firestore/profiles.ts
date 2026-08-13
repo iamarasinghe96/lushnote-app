@@ -52,21 +52,3 @@ export async function updateGeminiUsage(uid: string, modelKey: string, tokens = 
     updatedAt: serverTimestamp(),
   })
 }
-
-// Google returned 429 for this key - peg the local counter to the daily
-// limit so the UI reflects the real "limit reached" state instead of a
-// stale low number, and the app routes to Groq.
-export async function markGeminiLimitReached(uid: string, modelKey: string): Promise<void> {
-  const today = quotaDate()
-  const ref = doc(db, 'users', uid)
-  const snap = await getDoc(ref)
-  const existing = (snap.data()?.geminiUsage as GeminiUsage | undefined)?.[modelKey]
-  await updateDoc(ref, {
-    [`geminiUsage.${modelKey}`]: {
-      count: GEMINI_RPD,
-      date: today,
-      tokens: existing && existing.date === today ? (existing.tokens ?? 0) : 0,
-    },
-    updatedAt: serverTimestamp(),
-  })
-}
