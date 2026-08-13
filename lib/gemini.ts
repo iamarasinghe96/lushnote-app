@@ -21,6 +21,11 @@ const TRANSCRIBE_PROMPT = 'Transcribe this audio accurately. Return only the tra
 export interface GeminiResult {
   text: string
   totalTokens: number
+  // Google's own tokeniser counts, straight off the response — never estimated
+  // here. `thoughts` is the reasoning budget 2.5 models spend before answering;
+  // it is billed but appears in neither prompt nor candidates, so a total that
+  // omits it under-reports what the doctor's key actually used.
+  usage: { prompt: number; output: number; thoughts: number; total: number }
 }
 
 // Which model a key may actually run differs by project and region, so a
@@ -158,9 +163,17 @@ async function geminiPost(model: string, body: object, apiKey?: string): Promise
     throw geminiError(`Gemini API error ${res.status}: ${meta.detail || res.statusText}`, meta)
   }
   const data = await res.json()
+  const u = (data.usageMetadata ?? {}) as Record<string, number | undefined>
+  const usage = {
+    prompt: u.promptTokenCount ?? 0,
+    output: u.candidatesTokenCount ?? 0,
+    thoughts: u.thoughtsTokenCount ?? 0,
+    total: u.totalTokenCount ?? 0,
+  }
   return {
     text: (data.candidates?.[0]?.content?.parts?.[0]?.text ?? '') as string,
-    totalTokens: (data.usageMetadata?.totalTokenCount ?? 0) as number,
+    totalTokens: usage.total,
+    usage,
   }
 }
 

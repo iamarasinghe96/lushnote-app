@@ -15,15 +15,28 @@ export async function getProfile(uid: string): Promise<User | null> {
 
 // Atomically increment today's request count (resetting on a new UTC-Pacific
 // day) and accumulate token usage, so concurrent calls can't clobber each other.
-export async function updateGeminiUsage(uid: string, modelKey: string, tokens = 0): Promise<void> {
+export async function updateGeminiUsage(
+  uid: string,
+  modelKey: string,
+  usage: number | { prompt: number; output: number; thoughts: number; total: number } = 0,
+): Promise<void> {
+  const u = typeof usage === 'number'
+    ? { prompt: 0, output: 0, thoughts: 0, total: usage }
+    : usage
   const ref = adminDb().collection('users').doc(uid)
   const today = quotaDate()
   await adminDb().runTransaction(async (tx) => {
     const snap = await tx.get(ref)
     const existing = (snap.data()?.geminiUsage as GeminiUsage | undefined)?.[modelKey]
-    const newRecord = existing && existing.date === today
-      ? { count: existing.count + 1, date: today, tokens: (existing.tokens ?? 0) + tokens }
-      : { count: 1, date: today, tokens }
+    const same = existing && existing.date === today
+    const newRecord = {
+      count: same ? existing.count + 1 : 1,
+      date: today,
+      tokens: (same ? (existing.tokens ?? 0) : 0) + u.total,
+      promptTokens: (same ? (existing.promptTokens ?? 0) : 0) + u.prompt,
+      outputTokens: (same ? (existing.outputTokens ?? 0) : 0) + u.output,
+      thoughtsTokens: (same ? (existing.thoughtsTokens ?? 0) : 0) + u.thoughts,
+    }
     tx.set(ref, { geminiUsage: { [modelKey]: newRecord }, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
   })
 }

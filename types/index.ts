@@ -402,9 +402,15 @@ interface RecordingDefaults {
 
 interface GeminiUsage {
   [modelKey: string]: {
-    count: number
+    count: number             // requests LushNote made today (the app's own tally)
     date: string              // ISO date string YYYY-MM-DD
     tokens?: number           // cumulative tokens used today
+    // Google's exact breakdown, accumulated from each response's usageMetadata.
+    // Not estimated anywhere — `thoughts` is the 2.5 reasoning budget, billed but
+    // counted in neither of the other two.
+    promptTokens?: number
+    outputTokens?: number
+    thoughtsTokens?: number
   }
 }
 

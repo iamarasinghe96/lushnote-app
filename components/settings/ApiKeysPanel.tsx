@@ -31,6 +31,12 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
   const today = quotaDate()
   const usedToday = geminiUsage?.date === today ? (geminiUsage?.count || 0) : 0
   const tokensToday = geminiUsage?.date === today ? (geminiUsage?.tokens || 0) : 0
+  const inToday = geminiUsage?.date === today ? (geminiUsage?.promptTokens || 0) : 0
+  const outToday = geminiUsage?.date === today ? (geminiUsage?.outputTokens || 0) : 0
+  const thinkToday = geminiUsage?.date === today ? (geminiUsage?.thoughtsTokens || 0) : 0
+  // With their own key the doctor is on Google's quota, not ours — the bar is
+  // then a record of what LushNote used, not an allowance about to run out.
+  const ownKey = !!profile.geminiApiKey
 
   const [geminiKey, setGeminiKey] = useState(profile.geminiApiKey ?? '')
   const [geminiSaving, setGeminiSaving] = useState(false)
@@ -128,21 +134,33 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
 
         <div className="mt-3 p-3 bg-[var(--bg)] rounded-[var(--r)] border border-[var(--border)] space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-[var(--text2)]">Daily requests</span>
-            <span className={`text-xs font-bold ${usedToday >= GEMINI_RPD ? 'text-orange-500' : 'text-[var(--text)]'}`}>
-              {usedToday} / {GEMINI_RPD}
+            <span className="text-xs font-medium text-[var(--text2)]">
+              {ownKey ? 'Requests today' : 'Daily requests'}
+            </span>
+            <span className={`text-xs font-bold ${!ownKey && usedToday >= GEMINI_RPD ? 'text-orange-500' : 'text-[var(--text)]'}`}>
+              {ownKey ? usedToday : `${usedToday} / ${GEMINI_RPD}`}
             </span>
           </div>
-          <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full ${usedToday >= GEMINI_RPD ? 'bg-orange-400' : 'bg-[var(--blue)]'}`}
-              style={{ width: `${Math.min((usedToday / GEMINI_RPD) * 100, 100)}%` }}
-            />
-          </div>
-          {tokensToday > 0 && (
-            <p className="text-xs text-[var(--text3)]">{tokensToday.toLocaleString()} tokens used today</p>
+          {!ownKey && (
+            <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${usedToday >= GEMINI_RPD ? 'bg-orange-400' : 'bg-[var(--blue)]'}`}
+                style={{ width: `${Math.min((usedToday / GEMINI_RPD) * 100, 100)}%` }}
+              />
+            </div>
           )}
-          {usedToday >= GEMINI_RPD ? (
+          {tokensToday > 0 && (
+            <p className="text-xs text-[var(--text3)]">
+              {tokensToday.toLocaleString()} tokens today
+              {(inToday || outToday) ? ` · ${inToday.toLocaleString()} in · ${outToday.toLocaleString()} out` : ''}
+              {thinkToday ? ` · ${thinkToday.toLocaleString()} thinking` : ''}
+            </p>
+          )}
+          {ownKey ? (
+            <p className="text-xs text-[var(--text3)]">
+              Counted from Google&apos;s own response on every call, so these are exact. Your key runs on Google&apos;s quota — check your remaining allowance in <ExternalLink href="https://aistudio.google.com/app/apikey">AI Studio</ExternalLink>.
+            </p>
+          ) : usedToday >= GEMINI_RPD ? (
             <p className="text-xs text-orange-500">Limit reached - add a Groq key to continue.</p>
           ) : (
             <p className="text-xs text-[var(--text3)]">Resets daily. Add a Groq key to extend.</p>

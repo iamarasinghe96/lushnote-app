@@ -216,8 +216,8 @@ async function runExtraction(opts: {
   let userKeyFailure: AiFailure | null = null
   if (userGeminiKey) {
     try {
-      const { text, totalTokens } = await generateNote(prompt, system, userGeminiKey, { temperature: EXTRACTION_TEMPERATURE })
-      if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
+      const { text, usage } = await generateNote(prompt, system, userGeminiKey, { temperature: EXTRACTION_TEMPERATURE })
+      if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
       return { content: text, provider: 'gemini' }
     } catch (err) {
       const m = err instanceof Error ? err.message : ''
@@ -240,8 +240,8 @@ async function runExtraction(opts: {
     const profile = uid ? await getProfile(uid).catch(() => null) : null
     if (!uid || checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')) {
       try {
-        const { text, totalTokens } = await generateNote(prompt, system, undefined, { temperature: EXTRACTION_TEMPERATURE })
-        if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
+        const { text, usage } = await generateNote(prompt, system, undefined, { temperature: EXTRACTION_TEMPERATURE })
+        if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
         return { content: text, provider: 'gemini' }
       } catch (err) {
         logToSink({ level: 'warn', tag: 'gemini-shared', route: '/api/generate', uid, message: describeGeminiError(err) })
@@ -753,8 +753,8 @@ ${transcript}`
     // reflects real usage (their key hits the same free-tier RPD).
     if (userGeminiKey) {
       try {
-        const { text: content, totalTokens } = await generateNote(prompt, effectiveSystemPrompt, userGeminiKey)
-        await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
+        const { text: content, usage } = await generateNote(prompt, effectiveSystemPrompt, userGeminiKey)
+        await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
         return NextResponse.json({ content, provider: 'gemini' })
       } catch (err) {
         const m = err instanceof Error ? err.message : ''
@@ -776,8 +776,8 @@ ${transcript}`
       const quota = profile?.geminiUsage ?? {}
       if (checkQuota(quota, 'gemini-2.5-flash')) {
         try {
-          const { text: content, totalTokens } = await generateNote(prompt, effectiveSystemPrompt)
-          await updateGeminiUsage(uid, 'gemini-2.5-flash', totalTokens).catch(() => {})
+          const { text: content, usage } = await generateNote(prompt, effectiveSystemPrompt)
+          await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
           return NextResponse.json({ content, provider: 'gemini' })
         } catch (err) {
           if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {

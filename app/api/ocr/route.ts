@@ -109,8 +109,8 @@ export async function POST(req: NextRequest) {
 
     const readPage = async (): Promise<OcrReply | null> => {
       const call = async (key?: string) => {
-        const { text, totalTokens } = await ocrClinicalImages(images, key)
-        await updateGeminiUsage(uidField, 'gemini-2.5-flash', totalTokens).catch(() => {})
+        const { text, usage } = await ocrClinicalImages(images, key)
+        await updateGeminiUsage(uidField, 'gemini-2.5-flash', usage).catch(() => {})
         return text
       }
       let raw: string | null = null

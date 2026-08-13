@@ -94,9 +94,15 @@ export default function UsersPanel() {
   }, [users, search])
 
   const gemini = (() => {
-    const g = selected?.geminiUsage as Record<string, { count?: number; tokens?: number; date?: string }> | null
+    const g = selected?.geminiUsage as Record<string, { count?: number; tokens?: number; promptTokens?: number; outputTokens?: number; thoughtsTokens?: number; date?: string }> | null
     const f = g?.['gemini-2.5-flash']
-    return f ? `${f.count ?? 0} req${f.tokens ? ` · ${f.tokens} tok` : ''}${f.date ? ` (${f.date})` : ''}` : '—'
+    if (!f) return '—'
+    // Google's own counts, straight off each response — never estimated.
+    const parts = [`${f.count ?? 0} req`]
+    if (f.tokens) parts.push(`${f.tokens.toLocaleString()} tok`)
+    if (f.promptTokens || f.outputTokens) parts.push(`${(f.promptTokens ?? 0).toLocaleString()} in / ${(f.outputTokens ?? 0).toLocaleString()} out`)
+    if (f.thoughtsTokens) parts.push(`${f.thoughtsTokens.toLocaleString()} thinking`)
+    return `${parts.join(' · ')}${f.date ? ` (${f.date})` : ''}`
   })()
 
   return (

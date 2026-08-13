@@ -96,9 +96,9 @@ Keep responses concise and practical.`
           const messages: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }> = [
             { role: 'user', parts: [{ text: prompt }] },
           ]
-          const { text: answer, totalTokens } = await chatResponse(messages, systemPrompt)
+          const { text: answer, usage } = await chatResponse(messages, systemPrompt)
           if (uid && typeof uid === 'string') {
-            await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
+            await updateGeminiUsage(uid, 'chat', usage).catch(() => {})
           }
           return NextResponse.json({ answer, provider: 'gemini' })
         } catch (err) {
@@ -204,9 +204,9 @@ Respond ONLY as strict JSON with no other text:
       // 2. Shared server key.
       if (process.env.GEMINI_API_KEY) {
         try {
-          const { text: answer, totalTokens } = await chatResponse(messages, systemPrompt)
+          const { text: answer, usage } = await chatResponse(messages, systemPrompt)
           if (answer.trim()) {
-            if (uid && typeof uid === 'string') await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
+            if (uid && typeof uid === 'string') await updateGeminiUsage(uid, 'chat', usage).catch(() => {})
             return NextResponse.json({ answer, provider: 'gemini' })
           }
         } catch (err) {
@@ -277,9 +277,9 @@ Return ONLY the system prompt text, nothing else - no explanation, no preamble.`
 
       if (process.env.GEMINI_API_KEY) {
         try {
-          const { text: systemPrompt, totalTokens } = await chatResponse(msgs, engineerSystemPrompt)
+          const { text: systemPrompt, usage } = await chatResponse(msgs, engineerSystemPrompt)
           if (uid && typeof uid === 'string') {
-            await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
+            await updateGeminiUsage(uid, 'chat', usage).catch(() => {})
           }
           return NextResponse.json({ systemPrompt, provider: 'gemini' })
         } catch (err) {
@@ -449,8 +449,8 @@ Return ONLY strict JSON, no markdown, no commentary:
       const quota = profile?.geminiUsage ?? {}
       if (checkQuota(quota, 'chat')) {
         try {
-          const { text: reply, totalTokens } = await chatResponse(messages, systemPrompt)
-          await updateGeminiUsage(uid, 'chat', totalTokens).catch(() => {})
+          const { text: reply, usage } = await chatResponse(messages, systemPrompt)
+          await updateGeminiUsage(uid, 'chat', usage).catch(() => {})
           return NextResponse.json({ reply, provider: 'gemini' })
         } catch (err) {
           // A momentary stumble is not the doctor's quota: it used to peg their
