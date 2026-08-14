@@ -52,6 +52,7 @@ export function redactUser(uid: string, d: Record<string, unknown>): AdminUserRo
     position: str(d.position) || undefined,
     workPhone: str(d.workPhone) || undefined,
     workplaces: wps,
+    // False on a stub written at first sign-in — the signup was never finished.
     onboardingComplete: d.onboardingComplete === true,
     termsAccepted: d.termsAccepted === true,
     marketingConsent: d.marketingConsent === true,

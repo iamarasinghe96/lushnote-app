@@ -461,14 +461,19 @@ removes the argument. `marketingConsent` stays and governs product news only.
 
 | Type | When | Constants |
 |---|---|---|
-| `welcome` | immediately at signup (onboarding calls `action:'welcome'`); the nightly sweep backfills anyone missed | — |
-| `apiSetup` | 7+ days after signup with no Gemini or Groq key | `APP_SETUP_AFTER_DAYS` |
+| `welcome` | immediately when onboarding COMPLETES (it calls `action:'welcome'`); the nightly sweep backfills anyone missed | — |
+| `signupAbandoned` | 3+ days after first sign-in with onboarding still unfinished. The ONLY email a stub is eligible for — a welcome would be untrue and an API reminder meaningless | `SIGNUP_ABANDONED_AFTER_DAYS` |
+| `apiSetup` | 3+ days after finishing signup with no Gemini or Groq key | `APP_SETUP_AFTER_DAYS` |
 | `trialEnding` | 14 days before the 6-month free period ends, ONLY for doctors with a key who generated in the last 30 days — asking someone who never got it running to enter a card is the wrong email | `FREE_TRIAL_DAYS`, `TRIAL_NOTICE_DAYS`, `RECENT_USE_DAYS` |
 
 **Everything sends automatically.** The console does not trigger sends — it edits
 the copy and audits what went out. The only manual path left is a doctor's own
 welcome, fired by onboarding.
 
+- **Profile stub:** `ensureProfileStub` (AuthProvider, on first authentication)
+  writes `users/{uid}` with `onboardingComplete: false` before onboarding runs.
+  Without it a half-finished signup left no trace — no admin row, no cohort, no
+  way to reach them. `createProfile` overwrites it wholesale on completion.
 - **Transport:** `lib/email.ts` — nodemailer over Zoho SMTP (port 465). Sending as
   the real mailbox means the "just reply to this email" in the copy actually works.
 - **Copy:** `DEFAULT_TEMPLATES` in `lib/emails/lifecycle.ts` is the default; an

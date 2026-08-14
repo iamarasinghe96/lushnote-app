@@ -9,7 +9,7 @@ import {
   type User as FirebaseUser,
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
-import { getProfile } from '@/lib/firestore/profiles'
+import { getProfile, ensureProfileStub } from '@/lib/firestore/profiles'
 import { sanitizeApiKey } from '@/lib/utils'
 import type { User } from '@/types'
 
@@ -36,7 +36,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!cancelled) setUser(firebaseUser)
 
       if (firebaseUser) {
-        const p = await getProfile(firebaseUser.uid)
+        let p = await getProfile(firebaseUser.uid)
+        // First authentication: leave a stub so a signup abandoned partway is
+        // still a record we can see and reach, instead of vanishing.
+        if (!p) {
+          await ensureProfileStub(firebaseUser.uid, firebaseUser.email ?? '', firebaseUser.displayName ?? '').catch(() => {})
+          p = await getProfile(firebaseUser.uid).catch(() => null)
+        }
         if (!cancelled) {
           setProfile(p)
           if (p?.groqApiKey && !sessionStorage.getItem('groq_api_key')) {

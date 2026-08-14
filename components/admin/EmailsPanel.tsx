@@ -5,19 +5,21 @@ import { useAuth } from '@/hooks/useAuth'
 
 const CARD = { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' } as const
 
-type EmailType = 'welcome' | 'apiSetup' | 'trialEnding'
+type EmailType = 'signupAbandoned' | 'welcome' | 'apiSetup' | 'trialEnding'
 
 const LABEL: Record<EmailType, string> = {
   welcome: 'Welcome (at signup)',
-  apiSetup: 'API not set up (day 7)',
+  signupAbandoned: 'Signup unfinished (day 3)',
+  apiSetup: 'API not set up (day 3)',
   trialEnding: 'Free period ending',
 }
 const WHEN: Record<EmailType, string> = {
   welcome: 'Sent the moment a doctor finishes signing up.',
-  apiSetup: 'Sent 7 days after signup, if no Gemini or Groq key has been saved.',
+  signupAbandoned: 'Sent 3 days after a doctor first signs in, if they never finished onboarding. They receive nothing else until they do.',
+  apiSetup: 'Sent 3 days after finishing signup, if no Gemini or Groq key has been saved.',
   trialEnding: 'Sent 14 days before the 6-month free period ends, to doctors who set up a key and used LushNote in the last 30 days.',
 }
-const TYPES: EmailType[] = ['welcome', 'apiSetup', 'trialEnding']
+const TYPES: EmailType[] = ['welcome', 'signupAbandoned', 'apiSetup', 'trialEnding']
 const PLACEHOLDERS = ['{{greeting}}', '{{name}}', '{{site}}', '{{trialEnd}}']
 
 interface Template { subject: string; body: string; customised: boolean }
@@ -122,9 +124,9 @@ export default function EmailsPanel() {
             className="ml-auto px-3 py-2 rounded-lg border border-[var(--border)] text-sm text-[#475569] disabled:opacity-50">Refresh</button>
         </div>
         <p className="text-xs text-[#94a3b8]">
-          These send automatically — the welcome the moment a doctor signs up, the other two on the daily 9am job. Nothing here needs to be triggered by hand.
+          These send automatically — the welcome the moment a doctor finishes signing up, the rest on the daily 9am job. Nothing here needs to be triggered by hand.
         </p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {TYPES.map(t => {
             const n = due.find(d => d.type === t)?.n ?? 0
             return (

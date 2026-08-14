@@ -21,6 +21,27 @@ export async function createProfile(uid: string, data: Partial<User>): Promise<v
   })
 }
 
+// A minimal record written the first time a doctor authenticates, BEFORE they
+// finish onboarding. Without it a half-finished signup leaves no trace at all —
+// no admin row, no cohort, no way to reach them. `onboardingComplete: false` is
+// what marks it a stub; the app already routes such a profile to onboarding, and
+// createProfile overwrites it wholesale on completion.
+//
+// Deliberately minimal: no `status` or `tier`, which the security rules pin on
+// create, and nothing that would make it look like a finished account.
+export async function ensureProfileStub(uid: string, email: string, displayName: string): Promise<void> {
+  const ref = doc(db, 'users', uid)
+  if ((await getDoc(ref)).exists()) return
+  await setDoc(ref, {
+    uid,
+    email,
+    displayName: displayName.slice(0, 200),
+    onboardingComplete: false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
 export async function updateProfile(uid: string, data: Partial<User>): Promise<void> {
   const ref = doc(db, 'users', uid)
   // JSON round-trip strips undefined from nested structures (workplaces array etc.)

@@ -7,7 +7,11 @@ import { DEFAULT_TEMPLATES, LIFECYCLE_TYPES, type EmailTemplate, type LifecycleE
 // with no send log would re-send the same reminder every morning forever.
 
 const DAY = 24 * 60 * 60 * 1000
-export const APP_SETUP_AFTER_DAYS = 7
+// A doctor who authenticated but never finished onboarding. They hear about the
+// half-finished signup and nothing else — the API reminder would be nonsense to
+// someone who has no account yet.
+export const SIGNUP_ABANDONED_AFTER_DAYS = 3
+export const APP_SETUP_AFTER_DAYS = 3
 // The free period, and how long before it ends the reminder goes out. Long
 // enough for a doctor to sort out billing without it landing mid-ward-round.
 export const FREE_TRIAL_DAYS = 182
@@ -66,13 +70,27 @@ export async function findCandidates(now = Date.now()): Promise<Candidate[]> {
     const sent = p.lifecycleEmails ?? {}
     const createdAt = millis(p.createdAt)
     const hasKey = !!(p.geminiApiKey?.trim() || p.groqApiKey?.trim())
+    const ageDaysRaw = createdAt ? Math.floor((now - createdAt) / DAY) : 0
+
+    // Signup never finished: this is the ONLY email they are eligible for. The
+    // welcome would be untrue and the API reminder meaningless — they have no
+    // account to put a key into yet.
+    if (p.onboardingComplete !== true) {
+      if (!sent.signupAbandoned && createdAt && ageDaysRaw >= SIGNUP_ABANDONED_AFTER_DAYS) {
+        out.push({
+          uid: p.uid, email: p.email, displayName: p.displayName ?? '', type: 'signupAbandoned',
+          reason: `${ageDaysRaw}d since first sign-in, signup unfinished`,
+        })
+      }
+      continue
+    }
 
     if (!sent.welcome) {
       out.push({ uid: p.uid, email: p.email, displayName: p.displayName ?? '', type: 'welcome', reason: 'no welcome sent yet' })
       continue   // one email per doctor per run; the reminders can wait a day
     }
 
-    const ageDays = createdAt ? Math.floor((now - createdAt) / DAY) : 0
+    const ageDays = ageDaysRaw
 
     if (!hasKey && !sent.apiSetup && createdAt && ageDays >= APP_SETUP_AFTER_DAYS) {
       out.push({ uid: p.uid, email: p.email, displayName: p.displayName ?? '', type: 'apiSetup', reason: `${ageDays}d since signup, no API key` })
@@ -143,6 +161,7 @@ export async function welcomeCandidate(uid: string): Promise<Candidate | null> {
   if (!snap.exists) return null
   const p = snap.data() as ProfileRow
   if (!p.email || p.status === 'disabled' || p.emailOptOut) return null
+  if (p.onboardingComplete !== true) return null   // a stub is not a signup
   if (p.lifecycleEmails?.welcome) return null
   return { uid, email: p.email, displayName: p.displayName ?? '', type: 'welcome', reason: 'signed up' }
 }

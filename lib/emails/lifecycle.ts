@@ -9,19 +9,21 @@ import type { OutboundEmail } from '@/lib/email'
 // The copy below is only the DEFAULT. An admin can rewrite subject and body in
 // the console; a saved draft wins, and Reset restores these.
 
-export type LifecycleEmailType = 'welcome' | 'apiSetup' | 'trialEnding'
+export type LifecycleEmailType = 'signupAbandoned' | 'welcome' | 'apiSetup' | 'trialEnding'
 
-export const LIFECYCLE_TYPES: LifecycleEmailType[] = ['welcome', 'apiSetup', 'trialEnding']
+export const LIFECYCLE_TYPES: LifecycleEmailType[] = ['welcome', 'signupAbandoned', 'apiSetup', 'trialEnding']
 
 export const LIFECYCLE_LABEL: Record<LifecycleEmailType, string> = {
+  signupAbandoned: 'Signup not finished (day 3)',
   welcome: 'Welcome (at signup)',
-  apiSetup: 'API not set up (day 7)',
+  apiSetup: 'API not set up (day 3)',
   trialEnding: 'Free period ending (payment details)',
 }
 
 export const LIFECYCLE_WHEN: Record<LifecycleEmailType, string> = {
+  signupAbandoned: '3 days after a doctor first signs in, if they never finished onboarding. They get nothing else until they do.',
   welcome: 'Immediately when a doctor finishes signing up.',
-  apiSetup: '7 days after signup, if no Gemini or Groq key has been saved.',
+  apiSetup: '3 days after finishing signup, if no Gemini or Groq key has been saved.',
   trialEnding: '14 days before the 6-month free period ends, for doctors who set up a key and have used LushNote recently.',
 }
 
@@ -38,6 +40,19 @@ const SIGN_OFF = 'The LushNote Team\nBuilt to save doctors.\nLushNote.com.au'
 export const PLACEHOLDERS = ['{{greeting}}', '{{name}}', '{{site}}', '{{trialEnd}}'] as const
 
 export const DEFAULT_TEMPLATES: Record<LifecycleEmailType, EmailTemplate> = {
+  signupAbandoned: {
+    subject: 'You started signing up for LushNote',
+    body: `{{greeting}}
+
+You started setting up LushNote a few days ago and didn't finish, so your account isn't ready to use yet.
+
+There isn't much left — your name, where you work, and an API key. [Pick up where you left off]({{site}}/onboarding). It takes about two minutes.
+
+If something in the setup didn't make sense, or you've changed your mind, just reply to this email and tell us which. Either one is useful for us to know.
+
+${SIGN_OFF}`,
+  },
+
   welcome: {
     subject: 'Welcome to LushNote',
     body: `{{greeting}}
@@ -59,7 +74,7 @@ ${SIGN_OFF}`,
     subject: 'Still need a hand setting up LushNote?',
     body: `{{greeting}}
 
-A week ago you registered for LushNote, but it looks like you never finished setting up your API key, so you haven't been able to use it yet.
+You registered for LushNote a few days ago, but it looks like you never finished setting up your API key, so you haven't been able to use it yet.
 
 Here's a link to a video on how to set up the API — [watch it here]({{site}}/setup). It's really easy and takes only 2 minutes. If you get stuck, just reply to this email or reach out to our team and we'll walk you through it.
 
