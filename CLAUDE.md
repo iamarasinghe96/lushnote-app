@@ -459,17 +459,24 @@ under the Spam Act and go to doctors regardless of `marketingConsent`. An
 unsubscribe is included anyway (`emailOptOut`), because it costs nothing and
 removes the argument. `marketingConsent` stays and governs product news only.
 
-| Type | When | Key |
+| Type | When | Constants |
 |---|---|---|
 | `welcome` | immediately at signup (onboarding calls `action:'welcome'`); the nightly sweep backfills anyone missed | — |
 | `apiSetup` | 7+ days after signup with no Gemini or Groq key | `APP_SETUP_AFTER_DAYS` |
-| `inactive` | key set up, 7+ days since the last generation (`geminiUsage[*].date`) | `INACTIVE_AFTER_DAYS` |
+| `trialEnding` | 14 days before the 6-month free period ends, ONLY for doctors with a key who generated in the last 30 days — asking someone who never got it running to enter a card is the wrong email | `FREE_TRIAL_DAYS`, `TRIAL_NOTICE_DAYS`, `RECENT_USE_DAYS` |
+
+**Everything sends automatically.** The console does not trigger sends — it edits
+the copy and audits what went out. The only manual path left is a doctor's own
+welcome, fired by onboarding.
 
 - **Transport:** `lib/email.ts` — nodemailer over Zoho SMTP (port 465). Sending as
   the real mailbox means the "just reply to this email" in the copy actually works.
-- **Copy:** `lib/emails/lifecycle.ts`. Plain text is the source of truth; the HTML
-  part is generated from it (paragraphs on blank lines, `[label](url)` → link), so
-  editing the wording never means editing markup.
+- **Copy:** `DEFAULT_TEMPLATES` in `lib/emails/lifecycle.ts` is the default; an
+  admin override lives in `emailTemplates/{type}` and wins. Reset DELETES the
+  override rather than storing a copy, so a later change to the default still
+  reaches anyone who never customised it. Placeholders: `{{greeting}}`, `{{name}}`,
+  `{{site}}`, `{{trialEnd}}`. Plain text is the source of truth; the HTML part is
+  generated from it (paragraphs on blank lines, `[label](url)` → link).
 - **Bookkeeping:** `users/{uid}.lifecycleEmails.{type}` = sent-at ms. Marked BEFORE
   the log row, so a crash between the two re-sends nothing. Every send is appended
   to `email_log` (admin-read only, denied to clients by the catch-all rule).
@@ -477,8 +484,8 @@ removes the argument. `marketingConsent` stays and governs product news only.
   `Authorization: Bearer CRON_SECRET`. Sends are spaced `GAP_MS` apart and capped
   at `MAX_PER_RUN` so a batch can't get the mailbox throttled. One email per doctor
   per run.
-- **Admin:** `/admin?section=emails` — who's due and why, the send log, **Dry run**
-  (sends nothing) and **Send now**.
+- **Admin:** `/admin?section=emails` — per-type draft editor with live preview,
+  how many are queued for the next run, and the send log.
 - **Unsubscribe:** `/unsubscribe?u=<uid>&t=<hmac>` — no sign-in, HMAC scoped to
   that uid so it can't opt out anyone else.
 - **Env:** `ZOHO_SMTP_HOST` (default `smtp.zoho.com.au`), `ZOHO_SMTP_USER`,

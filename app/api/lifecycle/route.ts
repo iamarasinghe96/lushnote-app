@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, requireUser, unauthorized } from '@/lib/adminGuard'
 import { sendEmail, emailConfigured } from '@/lib/email'
-import { buildLifecycleEmail } from '@/lib/emails/lifecycle'
-import { findCandidates, markSent, logEmail, recentEmailLog, unsubscribeUrl, welcomeCandidate, type Candidate } from '@/lib/firestore/lifecycle'
+import { renderLifecycleEmail, LIFECYCLE_TYPES, type LifecycleEmailType } from '@/lib/emails/lifecycle'
+import { findCandidates, markSent, logEmail, recentEmailLog, unsubscribeUrl, welcomeCandidate, getTemplates, templateFor, saveTemplate, resetTemplate, type Candidate } from '@/lib/firestore/lifecycle'
 import { logToSink } from '@/lib/firestore/systemLogs'
 
 // The daily lifecycle run, plus the admin console's read-only views of it.
@@ -22,14 +22,15 @@ function cronAuthorised(req: NextRequest): boolean {
   return header === `Bearer ${secret}`
 }
 
-async function send(candidates: Candidate[], dryRun: boolean) {
+async function send(candidates: Candidate[]) {
   const results: { uid: string; email: string; type: string; ok: boolean; error?: string }[] = []
   for (const c of candidates.slice(0, MAX_PER_RUN)) {
-    const mail = buildLifecycleEmail(c.type, c.displayName, unsubscribeUrl(c.uid))
-    if (dryRun) {
-      results.push({ uid: c.uid, email: c.email, type: c.type, ok: true })
-      continue
-    }
+    const tpl = await templateFor(c.type)
+    const mail = renderLifecycleEmail(tpl, {
+      displayName: c.displayName,
+      unsubscribeUrl: unsubscribeUrl(c.uid),
+      trialEnd: c.trialEnd,
+    })
     const error = await sendEmail({ ...mail, to: c.email })
     const at = Date.now()
     // Marked BEFORE the log so a crash between the two re-sends nothing: a
@@ -46,56 +47,55 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({})) as {
       action?: string
-      dryRun?: boolean
-      only?: { uid: string; type: string }[]
+      type?: string
+      subject?: string
+      template?: string
     }
-    const action = body.action ?? 'run'
+    const action = body.action ?? 'log'
 
-    // The welcome is the one email that must not wait for the nightly run — it
-    // opens with "you've just signed in". Any signed-in doctor can trigger it,
-    // but only ever for their own account, and only once.
+    // The welcome must not wait for the nightly run — it opens with "you've just
+    // signed in". Any signed-in doctor can trigger it, but only for their own
+    // account, and only once.
     if (action === 'welcome') {
       let uid: string
       try { uid = await requireUser(req) } catch { return unauthorized() }
       const candidate = await welcomeCandidate(uid)
       if (!candidate) return NextResponse.json({ sent: false, reason: 'not due' })
-      const results = await send([candidate], false)
+      const results = await send([candidate])
       return NextResponse.json({ sent: results[0]?.ok === true })
     }
 
-    const viaCron = cronAuthorised(req)
-    if (!viaCron) {
-      try { await requireAdmin(req) } catch { return unauthorized() }
-    }
+    let actorUid: string
+    try { actorUid = (await requireAdmin(req)).uid } catch { return unauthorized() }
 
-    if (action === 'preview') {
-      const candidates = await findCandidates()
-      return NextResponse.json({ configured: emailConfigured(), candidates })
-    }
-
-    if (action === 'log') {
-      return NextResponse.json({ configured: emailConfigured(), log: await recentEmailLog(150) })
-    }
-
-    if (action === 'run') {
-      if (!emailConfigured() && !body.dryRun) {
-        return NextResponse.json({ error: 'Email is not configured. Set ZOHO_SMTP_USER and ZOHO_SMTP_PASS.' }, { status: 503 })
-      }
-      const candidates = await findCandidates()
-      // A selection NARROWS the due list; it never widens it. The recipients are
-      // still whatever findCandidates decided, so a crafted request can't mail an
-      // address that isn't already due one.
-      const picked = Array.isArray(body.only)
-        ? new Set(body.only.map(o => `${o.uid}:${o.type}`))
-        : null
-      const chosen = picked ? candidates.filter(c => picked.has(`${c.uid}:${c.type}`)) : candidates
-      const results = await send(chosen, !!body.dryRun)
-      const failed = results.filter(r => !r.ok).length
-      logToSink({
-        level: failed ? 'warn' : 'info', tag: 'lifecycle-email', route: '/api/lifecycle',
-        message: `${body.dryRun ? 'dry run' : 'sent'} ${results.length} (${failed} failed) of ${candidates.length} due`,
+    if (action === 'overview') {
+      const [candidates, templates] = await Promise.all([findCandidates(), getTemplates()])
+      return NextResponse.json({
+        configured: emailConfigured(),
+        // Counts only: the console reports what the nightly run will do, it does
+        // not drive it.
+        due: LIFECYCLE_TYPES.map(t => ({ type: t, n: candidates.filter(c => c.type === t).length })),
+        templates,
+        log: await recentEmailLog(150),
       })
-      return NextResponse.json({ due: chosen.length, sent: results.length, failed, results })
+    }
+
+    const type = LIFECYCLE_TYPES.find(t => t === body.type) as LifecycleEmailType | undefined
+
+    if (action === 'saveTemplate') {
+      if (!type || !body.subject?.trim() || !body.template?.trim()) {
+        return NextResponse.json({ error: 'A subject and a body are both required.' }, { status: 400 })
+      }
+      await saveTemplate(type, { subject: body.subject.trim(), body: body.template }, actorUid)
+      logToSink({ level: 'info', tag: 'lifecycle-email', route: '/api/lifecycle', uid: actorUid, message: `template edited: ${type}` })
+      return NextResponse.json({ templates: await getTemplates() })
+    }
+
+    if (action === 'resetTemplate') {
+      if (!type) return NextResponse.json({ error: 'Unknown template' }, { status: 400 })
+      await resetTemplate(type)
+      logToSink({ level: 'info', tag: 'lifecycle-email', route: '/api/lifecycle', uid: actorUid, message: `template reset: ${type}` })
+      return NextResponse.json({ templates: await getTemplates() })
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   if (!cronAuthorised(req)) return unauthorized()
   const candidates = await findCandidates()
-  const results = await send(candidates, false)
+  const results = await send(candidates)
   const failed = results.filter(r => !r.ok).length
   logToSink({
     level: failed ? 'warn' : 'info', tag: 'lifecycle-email', route: '/api/lifecycle',

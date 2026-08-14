@@ -1,22 +1,88 @@
 import { escapeHtml } from '@/lib/utils'
 import type { OutboundEmail } from '@/lib/email'
 
-// The lifecycle emails, in the doctor's own words as drafted. Each is factual
-// and about the account the doctor opened — it promotes nothing — so it is a
-// service message rather than a commercial one, and reaches doctors who declined
-// product news. An unsubscribe is still included: it costs nothing and removes
-// the argument entirely (see CLAUDE.md, Lifecycle Emails).
+// The lifecycle emails. All three are factual messages about the account the
+// doctor opened — they promote nothing — so they are service messages rather
+// than commercial ones and reach doctors who declined product news. An
+// unsubscribe is included anyway (see CLAUDE.md, Lifecycle Emails).
+//
+// The copy below is only the DEFAULT. An admin can rewrite subject and body in
+// the console; a saved draft wins, and Reset restores these.
 
-export type LifecycleEmailType = 'welcome' | 'apiSetup' | 'inactive'
+export type LifecycleEmailType = 'welcome' | 'apiSetup' | 'trialEnding'
+
+export const LIFECYCLE_TYPES: LifecycleEmailType[] = ['welcome', 'apiSetup', 'trialEnding']
 
 export const LIFECYCLE_LABEL: Record<LifecycleEmailType, string> = {
-  welcome: 'Welcome',
-  apiSetup: 'API setup reminder (day 7)',
-  inactive: 'Inactive reminder (7 days idle)',
+  welcome: 'Welcome (at signup)',
+  apiSetup: 'API not set up (day 7)',
+  trialEnding: 'Free period ending (payment details)',
+}
+
+export const LIFECYCLE_WHEN: Record<LifecycleEmailType, string> = {
+  welcome: 'Immediately when a doctor finishes signing up.',
+  apiSetup: '7 days after signup, if no Gemini or Groq key has been saved.',
+  trialEnding: '14 days before the 6-month free period ends, for doctors who set up a key and have used LushNote recently.',
+}
+
+export interface EmailTemplate {
+  subject: string
+  body: string
 }
 
 const SITE = 'https://lushnote.com.au'
 const SIGN_OFF = 'The LushNote Team\nBuilt to save doctors.\nLushNote.com.au'
+
+// Everything the body may reference. Shown in the editor so an admin knows what
+// is available without reading the code.
+export const PLACEHOLDERS = ['{{greeting}}', '{{name}}', '{{site}}', '{{trialEnd}}'] as const
+
+export const DEFAULT_TEMPLATES: Record<LifecycleEmailType, EmailTemplate> = {
+  welcome: {
+    subject: 'Welcome to LushNote',
+    body: `{{greeting}}
+
+You've just signed in to LushNote, and we're sending this note so you remember why you did.
+
+There will come a day when the documentation backlog pushes you toward burnout on your ward. When that day comes, we want you to remember that you signed up for something built to pull you out of that hole.
+
+We know you're busy, so we'll keep it straight. Most doctors around the world aren't paid anywhere near what their work is worth. On top of saving lives, they're expected to be precise with their documentation, and that takes time and can be exhausting. That's why we built LushNote, so AI can finally be used for something that matters.
+
+That's it. We hope you have a great day.
+
+If you have any suggestions or questions, reach out to our team at this email anytime. You can always read our policy statement [here]({{site}}/terms).
+
+${SIGN_OFF}`,
+  },
+
+  apiSetup: {
+    subject: 'Still need a hand setting up LushNote?',
+    body: `{{greeting}}
+
+A week ago you registered for LushNote, but it looks like you never finished setting up your API key, so you haven't been able to use it yet.
+
+Here's a link to a video on how to set up the API — [watch it here]({{site}}/setup). It's really easy and takes only 2 minutes. If you get stuck, just reply to this email or reach out to our team and we'll walk you through it.
+
+We just don't want you to have signed up for something and never gotten the point of it.
+
+${SIGN_OFF}`,
+  },
+
+  trialEnding: {
+    subject: 'Your free period with LushNote ends soon',
+    body: `{{greeting}}
+
+Your six months of free LushNote end on {{trialEnd}}. You've been using it, so we wanted to give you fair notice rather than have it stop on you in the middle of a ward round.
+
+To keep going, add your payment details here: [set up billing]({{site}}/billing).
+
+If LushNote hasn't earned its place, do nothing. Nothing will be charged, and your notes remain yours either way — you can export them from the History tab at any time.
+
+If you have any questions, or if the price doesn't work for you, just reply to this email. We would rather hear from you than lose you quietly.
+
+${SIGN_OFF}`,
+  },
+}
 
 // "Dr. Jane Smith" → "Jane Smith". The greeting supplies its own title, and the
 // stored name usually already carries one.
@@ -24,14 +90,24 @@ function bareName(displayName: string): string {
   return (displayName || '').replace(/^(dr\.?|doctor)\s+/i, '').trim()
 }
 
-function greeting(displayName: string): string {
-  const n = bareName(displayName)
-  return n ? `Dear Dr. ${n},` : 'Dear Doctor,'
+export interface RenderContext {
+  displayName: string
+  unsubscribeUrl: string
+  trialEnd?: string
+}
+
+function fill(text: string, ctx: RenderContext): string {
+  const name = bareName(ctx.displayName)
+  return text
+    .replace(/\{\{greeting\}\}/g, name ? `Dear Dr. ${name},` : 'Dear Doctor,')
+    .replace(/\{\{name\}\}/g, name || 'Doctor')
+    .replace(/\{\{site\}\}/g, SITE)
+    .replace(/\{\{trialEnd\}\}/g, ctx.trialEnd ?? 'your renewal date')
 }
 
 // Plain text is the source of truth; the HTML part is the same words in the same
-// order. Paragraphs split on a blank line, and a lone [label](url) line becomes
-// the link — so editing the copy never means editing markup.
+// order. Paragraphs split on a blank line, and [label](url) becomes the link — so
+// editing the copy never means editing markup.
 function toHtml(body: string, unsubscribeUrl: string): string {
   const paragraphs = body.split(/\n\s*\n/).map(p => {
     const withLinks = escapeHtml(p.trim())
@@ -50,51 +126,18 @@ These are account emails about the LushNote account you opened.
 </div>`
 }
 
-function assemble(subject: string, body: string, unsubscribeUrl: string): OutboundEmail {
-  const text = `${body}\n\n—\nLushNote · admin@lushnote.com.au · lushnote.com.au\nThese are account emails about the LushNote account you opened.\nUnsubscribe: ${unsubscribeUrl}`
-  return { to: '', subject, text, html: toHtml(body, unsubscribeUrl) }
+// Strip the markdown link syntax for the plain-text part, keeping the URL.
+function plain(body: string): string {
+  return body.replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '$1: $2')
 }
 
-export function buildLifecycleEmail(
-  type: LifecycleEmailType,
-  displayName: string,
-  unsubscribeUrl: string,
-): OutboundEmail {
-  const hi = greeting(displayName)
-
-  if (type === 'welcome') {
-    return assemble('Welcome to LushNote', `${hi}
-
-You've just signed in to LushNote, and we're sending this note so you remember why you did.
-
-There will come a day when the documentation backlog pushes you toward burnout on your ward. When that day comes, we want you to remember that you signed up for something built to pull you out of that hole.
-
-We know you're busy, so we'll keep it straight. Most doctors around the world aren't paid anywhere near what their work is worth. On top of saving lives, they're expected to be precise with their documentation, and that takes time and can be exhausting. That's why we built LushNote, so AI can finally be used for something that matters.
-
-That's it. We hope you have a great day.
-
-If you have any suggestions or questions, reach out to our team at this email anytime. You can always read our policy statement [here](${SITE}/terms).
-
-${SIGN_OFF}`, unsubscribeUrl)
+export function renderLifecycleEmail(template: EmailTemplate, ctx: RenderContext): OutboundEmail {
+  const body = fill(template.body, ctx)
+  const footer = `\n\n—\nLushNote · admin@lushnote.com.au · lushnote.com.au\nThese are account emails about the LushNote account you opened.\nUnsubscribe: ${ctx.unsubscribeUrl}`
+  return {
+    to: '',
+    subject: fill(template.subject, ctx),
+    text: plain(body) + footer,
+    html: toHtml(body, ctx.unsubscribeUrl),
   }
-
-  if (type === 'apiSetup') {
-    return assemble('Still need a hand setting up LushNote?', `${hi}
-
-A week ago you registered for LushNote, but it looks like you never finished setting up your API key, so you haven't been able to use it yet.
-
-Here's a link to a video on how to set up the API — [watch it here](${SITE}/setup). It's really easy and takes only 2 minutes. If you get stuck, just reply to this email or reach out to our team and we'll walk you through it.
-
-We just don't want you to have signed up for something and never gotten the point of it.
-
-${SIGN_OFF}`, unsubscribeUrl)
-  }
-
-  return assemble('Your LushNote account is ready when you are', `${hi}
-
-Your API key is set up and LushNote is ready to go, but it's been a week since you last wrote a note with it.
-
-If something got in the way — a template that didn't fit your ward, an export that wasn't quite right — just reply to this email and tell us. We would rather fix it than have you go back to typing notes by hand.
-
-${SIGN_OFF}`, unsubscribeUrl)
 }

@@ -40,7 +40,7 @@ interface User {
   // default and this is the explicit opt-OUT the unsubscribe link sets.
   emailOptOut?: boolean
   // When each lifecycle email was sent, so a daily job never repeats one.
-  lifecycleEmails?: { welcome?: number; apiSetup?: number; inactive?: number }
+  lifecycleEmails?: { welcome?: number; apiSetup?: number; trialEnding?: number }
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
 }
