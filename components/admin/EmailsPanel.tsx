@@ -23,6 +23,8 @@ export default function EmailsPanel() {
   const [configured, setConfigured] = useState(true)
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [log, setLog] = useState<LogRow[]>([])
+  // Selection is by uid+type, since one doctor can be due more than one kind.
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
@@ -45,7 +47,11 @@ export default function EmailsPanel() {
     try {
       const [due, sent] = await Promise.all([call({ action: 'preview' }), call({ action: 'log' })])
       setConfigured(due.configured !== false)
-      setCandidates((due.candidates as Candidate[]) ?? [])
+      const list = (due.candidates as Candidate[]) ?? []
+      setCandidates(list)
+      // Everyone due is ticked by default — the panel's job is to let you take
+      // someone OUT of a run, not to make you re-pick the whole list each time.
+      setSelected(new Set(list.map(c => `${c.uid}:${c.type}`)))
       setLog((sent.log as LogRow[]) ?? [])
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not load') }
     finally { setBusy(false) }
@@ -53,11 +59,26 @@ export default function EmailsPanel() {
 
   useEffect(() => { void load() }, [load])
 
+  const chosen = candidates.filter(c => selected.has(`${c.uid}:${c.type}`))
+
+  function toggle(key: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key); else next.add(key)
+      return next
+    })
+  }
+
+  const allSelected = candidates.length > 0 && chosen.length === candidates.length
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(candidates.map(c => `${c.uid}:${c.type}`)))
+  }
+
   async function run(dryRun: boolean) {
-    if (!dryRun && !window.confirm(`Send ${candidates.length} email${candidates.length === 1 ? '' : 's'} now?`)) return
+    if (!dryRun && !window.confirm(`Send ${chosen.length} email${chosen.length === 1 ? '' : 's'} now?`)) return
     setBusy(true); setError(null); setNote(null)
     try {
-      const r = await call({ action: 'run', dryRun })
+      const r = await call({ action: 'run', dryRun, only: chosen.map(c => ({ uid: c.uid, type: c.type })) })
       setNote(dryRun
         ? `Dry run: ${r.sent} of ${r.due} would be sent. Nothing was delivered.`
         : `Sent ${r.sent} of ${r.due}${r.failed ? `, ${r.failed} failed` : ''}.`)
@@ -84,10 +105,12 @@ export default function EmailsPanel() {
           <div className="ml-auto flex gap-2">
             <button disabled={busy} onClick={() => void load()}
               className="px-3 py-2 rounded-lg border border-[var(--border)] text-sm text-[#475569] disabled:opacity-50">Refresh</button>
-            <button disabled={busy || !candidates.length} onClick={() => void run(true)}
+            <button disabled={busy || !chosen.length} onClick={() => void run(true)}
               className="px-3 py-2 rounded-lg border border-[#2563eb] text-sm text-[#2563eb] disabled:opacity-50">Dry run</button>
-            <button disabled={busy || !candidates.length || !configured} onClick={() => void run(false)}
-              className="px-3 py-2 rounded-lg bg-[#10b981] text-white text-sm disabled:opacity-50">Send now</button>
+            <button disabled={busy || !chosen.length || !configured} onClick={() => void run(false)}
+              className="px-3 py-2 rounded-lg bg-[#10b981] text-white text-sm disabled:opacity-50">
+              Send now{chosen.length ? ` (${chosen.length})` : ''}
+            </button>
           </div>
         </div>
 
@@ -121,17 +144,34 @@ export default function EmailsPanel() {
         {tab === 'due' ? (
           candidates.length === 0
             ? <p className="text-center text-[#94a3b8] text-sm py-6">Nobody is due an email.</p>
-            : <ul className="divide-y divide-[var(--border)]">
-                {candidates.map(c => (
-                  <li key={`${c.uid}-${c.type}`} className="py-2.5 flex items-start gap-3">
-                    <span className="text-[10px] font-semibold uppercase border rounded-full px-1.5 py-0.5 bg-blue-50 text-[#2563eb] border-blue-200 shrink-0 mt-0.5">{LABEL[c.type]}</span>
-                    <div className="min-w-0">
-                      <p className="text-sm text-[#0f172a] truncate">{c.displayName || '(no name)'} · {c.email}</p>
-                      <p className="text-xs text-[#94a3b8]">{c.reason}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+            : <>
+                <label className="flex items-center gap-2.5 pb-2 border-b border-[var(--border)] cursor-pointer">
+                  <input type="checkbox" checked={allSelected} onChange={toggleAll}
+                    className="w-4 h-4 accent-[#10b981]" aria-label="Select all recipients" />
+                  <span className="text-sm font-medium text-[#475569]">
+                    Select all · {chosen.length} of {candidates.length} selected
+                  </span>
+                </label>
+                <ul className="divide-y divide-[var(--border)]">
+                  {candidates.map(c => {
+                    const key = `${c.uid}:${c.type}`
+                    return (
+                      <li key={key}>
+                        <label className="py-2.5 flex items-start gap-3 cursor-pointer">
+                          <input type="checkbox" checked={selected.has(key)} onChange={() => toggle(key)}
+                            className="w-4 h-4 accent-[#10b981] mt-1 shrink-0"
+                            aria-label={`Send to ${c.email}`} />
+                          <span className="text-[10px] font-semibold uppercase border rounded-full px-1.5 py-0.5 bg-blue-50 text-[#2563eb] border-blue-200 shrink-0 mt-0.5">{LABEL[c.type]}</span>
+                          <span className="min-w-0">
+                            <span className="block text-sm text-[#0f172a] truncate">{c.displayName || '(no name)'} · {c.email}</span>
+                            <span className="block text-xs text-[#94a3b8]">{c.reason}</span>
+                          </span>
+                        </label>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </>
         ) : (
           log.length === 0
             ? <p className="text-center text-[#94a3b8] text-sm py-6">Nothing sent yet.</p>

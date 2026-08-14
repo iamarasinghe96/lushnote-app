@@ -44,7 +44,11 @@ async function send(candidates: Candidate[], dryRun: boolean) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({})) as { action?: string; dryRun?: boolean }
+    const body = await req.json().catch(() => ({})) as {
+      action?: string
+      dryRun?: boolean
+      only?: { uid: string; type: string }[]
+    }
     const action = body.action ?? 'run'
 
     // The welcome is the one email that must not wait for the nightly run — it
@@ -78,13 +82,20 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Email is not configured. Set ZOHO_SMTP_USER and ZOHO_SMTP_PASS.' }, { status: 503 })
       }
       const candidates = await findCandidates()
-      const results = await send(candidates, !!body.dryRun)
+      // A selection NARROWS the due list; it never widens it. The recipients are
+      // still whatever findCandidates decided, so a crafted request can't mail an
+      // address that isn't already due one.
+      const picked = Array.isArray(body.only)
+        ? new Set(body.only.map(o => `${o.uid}:${o.type}`))
+        : null
+      const chosen = picked ? candidates.filter(c => picked.has(`${c.uid}:${c.type}`)) : candidates
+      const results = await send(chosen, !!body.dryRun)
       const failed = results.filter(r => !r.ok).length
       logToSink({
         level: failed ? 'warn' : 'info', tag: 'lifecycle-email', route: '/api/lifecycle',
         message: `${body.dryRun ? 'dry run' : 'sent'} ${results.length} (${failed} failed) of ${candidates.length} due`,
       })
-      return NextResponse.json({ due: candidates.length, sent: results.length, failed, results })
+      return NextResponse.json({ due: chosen.length, sent: results.length, failed, results })
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
