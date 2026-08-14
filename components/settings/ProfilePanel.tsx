@@ -10,6 +10,7 @@ import {
 import { db } from '@/lib/firebase'
 import { deleteProfile, updateProfile } from '@/lib/firestore/profiles'
 import { uploadSignatureSVG } from '@/lib/storage'
+import { formatDayMonth } from '@/lib/utils'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
@@ -43,6 +44,7 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
   const { user } = useAuth()
   const [displayName, setDisplayName] = useState(profile.displayName ?? '')
   const [credentials, setCredentials] = useState(profile.credentials ?? '')
+  const [birthday, setBirthday] = useState(profile.birthday ?? '')
   const [position, setPosition] = useState(profile.position ?? '')
   const [providerNumber, setProviderNumber] = useState(profile.providerNumber ?? '')
   const [workPhone, setWorkPhone] = useState(profile.workPhone ?? '')
@@ -62,6 +64,7 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
       await onSave({
         displayName: displayName.trim(),
         credentials: credentials.trim(),
+        birthday: birthday.trim(),
         position: position.trim(),
         providerNumber: providerNumber.trim(),
         workPhone: workPhone.trim(),
@@ -186,6 +189,15 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
         value={credentials}
         onChange={e => setCredentials(e.target.value)}
         placeholder="e.g. FRANZCP, MBChB"
+      />
+      <Input
+        label="Birthday"
+        value={birthday}
+        onChange={e => setBirthday(formatDayMonth(e.target.value))}
+        inputMode="numeric"
+        maxLength={5}
+        placeholder="DD/MM"
+        hint="Optional. LushNote wishes you a happy birthday in the header — the year isn't stored."
       />
       <Input
         label="Position / Title"

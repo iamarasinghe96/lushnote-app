@@ -10,6 +10,7 @@ import { FAB } from '@/components/FAB'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { RateLimitBanner } from '@/components/ui/RateLimitBanner'
 import WhatsNewPopup from '@/components/WhatsNewPopup'
+import { resolveHolidayTheme, holidayBackgroundStyle, themeFor, readHolidayOverride, type HolidayKey } from '@/lib/holidayTheme'
 import { getInitials, applyWorkspaceTheme, resolveThemePrimary } from '@/lib/utils'
 import { getLetterhead } from '@/lib/firestore/letterheads'
 
@@ -27,6 +28,10 @@ function AppContent({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
+  // Admin preview only. Read after mount because localStorage isn't available
+  // during SSR; a real holiday never depends on it, so nothing flashes.
+  const [holidayPreview, setHolidayPreview] = useState<HolidayKey | null>(null)
+  useEffect(() => { setHolidayPreview(readHolidayOverride()) }, [])
   const menuRef = useRef<HTMLDivElement>(null)
   const [rateLimitWait, setRateLimitWait] = useState<number | null>(null)
   const [pendingRetry, setPendingRetry] = useState<(() => void) | null>(null)
@@ -103,6 +108,10 @@ function AppContent({ children }: { children: React.ReactNode }) {
     )
   }
 
+  // Resolved synchronously from today's date — no fetch, no effect — so the
+  // themed bar is correct on the FIRST paint and a refresh on the day never
+  // flashes the plain blue.
+  const holiday = resolveHolidayTheme(new Date(), profile?.birthday) ?? (holidayPreview ? themeFor(holidayPreview) : null)
   const activeWorkplace = profile?.workplaces?.find(w => w.id === profile.activeWorkplaceId)
   const avatarBg = resolveThemePrimary(activeWorkplace?.themeIndex ?? 1, activeWorkplace?.themeColor)
   const initials = getInitials(profile?.displayName || '')
@@ -121,6 +130,9 @@ function AppContent({ children }: { children: React.ReactNode }) {
           borderRadius: 30,
           boxShadow: '0 4px 20px rgba(37,99,235,0.22)',
           overflow: 'visible',
+          // Only the background changes on a holiday. Geometry, glass and every
+          // child keep their existing rules, so there is nothing to re-layout.
+          ...(holiday ? holidayBackgroundStyle(holiday) : {}),
         }}
       >
         <div className="relative z-10 flex items-center justify-between px-4 h-full">
@@ -137,7 +149,9 @@ function AppContent({ children }: { children: React.ReactNode }) {
           {profile && (
             <div className="flex flex-col min-w-0">
               <span className="text-sm font-bold text-white leading-tight truncate max-w-[200px] sm:max-w-xs">
-                {profile.displayName}
+                {holiday?.banner
+                  ? holiday.banner.replace('{name}', profile.displayName)
+                  : profile.displayName}
               </span>
               <span className="text-xs text-white/70 leading-tight truncate max-w-[200px] sm:max-w-xs">
                 {[profile.credentials, activeWorkplace?.name].filter(Boolean).join(' · ')}

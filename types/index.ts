@@ -34,6 +34,9 @@ interface User {
   geminiUsage?: GeminiUsage
   termsAccepted?: boolean
   termsAcceptedAt?: string
+  // Day and month only (DD/MM) — the header greets the doctor on it. A year is
+  // accepted and ignored: LushNote has no use for a doctor's age.
+  birthday?: string
   marketingConsent?: boolean   // opt-in for newsletters/product emails (default off)
   // Account emails (welcome, setup help). Separate from marketingConsent: these
   // are service messages about the account the doctor opened, so they are on by

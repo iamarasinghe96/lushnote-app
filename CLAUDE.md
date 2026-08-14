@@ -559,6 +559,46 @@ rotate the old hardcoded value), plus the existing `FIREBASE_ADMIN_*`,
 
 ---
 
+## Header Holiday Themes
+
+On five days the header's blue background is replaced by a tiled illustration.
+Nothing else about the header changes — geometry, glass, children and the tab bar
+are untouched.
+
+| Theme | When |
+|---|---|
+| Christmas | 24–26 December |
+| Australia Day | 26 January |
+| Anzac Day | 25 April |
+| Easter | Good Friday → Easter Monday |
+| Birthday | `profile.birthday` (DD/MM, Settings → Profile). **Beats a public holiday** |
+
+**No data source, by design.** `lib/holidayTheme.ts` computes every date locally —
+Easter from the anonymous Gregorian Computus, exact for any year — so there is no
+almanac to fetch, no repo to track and nothing to refresh each January. Cost is a
+handful of integer comparisons.
+
+**No blue flash.** `resolveHolidayTheme(new Date(), profile?.birthday)` runs
+SYNCHRONOUSLY during the layout's render, so the themed bar is right on the first
+paint and stays right through a refresh. Anything async here would flash blue.
+
+**Weight.** Only the active day's tile is ever referenced, so on 360 ordinary days
+nothing extra is requested. Tiles live in `/public/holiday/*.webp` (~480×120,
+<30 KB, seamless left↔right) and repeat with `repeat-x` — a small file stays sharp
+at any width rather than one wide image being stretched. A missing file falls back
+to a coloured gradient, so the header is never broken by an absent asset. See
+`public/holiday/README.md`.
+
+**The tint must be cleared.** `.ln-glass::before` paints the brand colour ABOVE the
+host's own background, so `holidayBackgroundStyle` sets `--lg-tint-opacity: 0`.
+Without that the blue covers the artwork at 92%. The scrim in the background stack
+then keeps white text readable over any tile.
+
+**Preview:** `/admin?section=appearance` forces a theme via localStorage — that
+browser only, survives refresh, invisible to doctors.
+
+---
+
 ## Brand Tokens
 
 | Token | Value |
