@@ -2,9 +2,14 @@
 """Turn a source illustration into the header's tile.
 
     python3 scripts/build-holiday-tiles.py incoming/christmas.png christmas
+    python3 scripts/build-holiday-tiles.py incoming/christmas.svg christmas
 
-Takes whatever an image generator produced — any size, any aspect ratio — and
-emits `public/holiday/<key>.webp` at the exact size the header wants.
+Takes whatever an image generator produced — PNG, JPEG or SVG, any size, any
+aspect ratio — and emits `public/holiday/<key>.webp` at the size the header
+wants. SVG is welcome and in fact the better source: asking a model for a flat
+illustration often makes it emit SVG code, and that code is perfectly flat by
+construction — no shading, no texture, nothing to fight. It is rasterised here
+at high resolution, so what ships is still a plain image.
 
 The important part is MIRRORING. A tile only repeats invisibly if its left and
 right edges match, and image generators almost never produce that. Mirroring
@@ -16,6 +21,7 @@ deliberate rather than as a mistake. A hard seam never does.
 Pass --no-mirror when the source is genuinely seamless already (some generators
 do produce true repeating patterns when asked).
 """
+import io
 import sys
 from pathlib import Path
 from PIL import Image, ImageEnhance
@@ -31,8 +37,22 @@ BUDGET_KB = 30
 OUT = Path(__file__).resolve().parent.parent / 'public' / 'holiday'
 
 
+def load(src_path: str) -> Image.Image:
+    if src_path.lower().endswith('.svg'):
+        import cairosvg   # only needed for SVG sources
+        png = cairosvg.svg2png(url=src_path, output_height=TILE_H * 3)
+        img = Image.open(io.BytesIO(png))
+        # An SVG may be transparent where the background was meant to be. Flatten
+        # onto black rather than leaving alpha, which WebP would keep and the
+        # header would show the page through.
+        flat = Image.new('RGB', img.size, (0, 0, 0))
+        flat.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+        return flat
+    return Image.open(src_path).convert('RGB')
+
+
 def build(src_path: str, key: str, mirror: bool = True) -> None:
-    src = Image.open(src_path).convert('RGB')
+    src = load(src_path)
 
     # Scale so the height matches, then take the middle band — the centre of a
     # generated image is where the composition is, and the edges are where the
