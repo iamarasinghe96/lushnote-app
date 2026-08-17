@@ -8,7 +8,7 @@
 // That is what lets the themed bar be correct on the FIRST paint: there is no
 // async step for the plain blue to flash through.
 
-export type HolidayKey = 'christmas' | 'australiaDay' | 'anzacDay' | 'easter' | 'birthday'
+export type HolidayKey = 'christmas' | 'australiaDay' | 'anzacDay' | 'easter' | 'naidoc' | 'birthday'
 
 export interface HolidayTheme {
   key: HolidayKey
@@ -51,6 +51,13 @@ const THEMES: Record<HolidayKey, HolidayTheme> = {
     image: '/holiday/easter.webp',
     fallback: 'linear-gradient(90deg,#6d5bb5,#8b7ad0,#6d5bb5)',
     scrim: 'rgba(60,45,110,0.45)',
+  },
+  naidoc: {
+    key: 'naidoc',
+    label: 'NAIDOC Week',
+    image: '/holiday/naidoc.webp',
+    fallback: 'linear-gradient(90deg,#7a2d10,#a8431a,#7a2d10)',
+    scrim: 'rgba(70,26,10,0.50)',
   },
   birthday: {
     key: 'birthday',
@@ -96,6 +103,19 @@ function inEaster(date: Date): boolean {
   return today >= easter - 2 * DAY && today <= easter + DAY
 }
 
+// NAIDOC Week runs Sunday to Sunday, starting the first Sunday in July —
+// computable like Easter, so it needs no yearly list either.
+export function naidocStart(year: number): Date {
+  const july1 = new Date(year, 6, 1)
+  return new Date(year, 6, 1 + ((7 - july1.getDay()) % 7))
+}
+
+function inNaidocWeek(date: Date): boolean {
+  const start = midnight(naidocStart(date.getFullYear()))
+  const today = midnight(date)
+  return today >= start && today <= start + 7 * DAY
+}
+
 /**
  * `birthday` is DD/MM or DD/MM/YYYY — the year is ignored, only the day matters.
  * A 29 February birthday falls on 28 February in a common year so it is never
@@ -123,10 +143,11 @@ export function resolveHolidayTheme(date: Date, birthday?: string): HolidayTheme
   if (isBirthday(date, birthday)) return THEMES.birthday
   const d = date.getDate()
   const mo = date.getMonth() + 1
-  if (mo === 12 && d >= 24 && d <= 26) return THEMES.christmas
+  if (mo === 12 && d >= 20 && d <= 26) return THEMES.christmas
   if (mo === 1 && d === 26) return THEMES.australiaDay
   if (mo === 4 && d === 25) return THEMES.anzacDay
   if (inEaster(date)) return THEMES.easter
+  if (inNaidocWeek(date)) return THEMES.naidoc
   return null
 }
 

@@ -567,16 +567,17 @@ are untouched.
 
 | Theme | When |
 |---|---|
-| Christmas | 24–26 December |
+| Christmas | 20–26 December |
 | Australia Day | 26 January |
 | Anzac Day | 25 April |
 | Easter | Good Friday → Easter Monday |
+| NAIDOC Week | First Sunday in July, for a week |
 | Birthday | `profile.birthday` (DD/MM, Settings → Profile). **Beats a public holiday** |
 
 **No data source, by design.** `lib/holidayTheme.ts` computes every date locally —
-Easter from the anonymous Gregorian Computus, exact for any year — so there is no
-almanac to fetch, no repo to track and nothing to refresh each January. Cost is a
-handful of integer comparisons.
+Easter from the anonymous Gregorian Computus, NAIDOC Week from the first Sunday in
+July — so there is no almanac to fetch, no repo to track and nothing to refresh
+each January. Cost is a handful of integer comparisons.
 
 **No blue flash.** `resolveHolidayTheme(new Date(), profile?.birthday)` runs
 SYNCHRONOUSLY during the layout's render, so the themed bar is right on the first

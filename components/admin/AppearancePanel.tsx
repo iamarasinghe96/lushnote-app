@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import {
   HOLIDAY_KEYS, themeFor, resolveHolidayTheme, holidayBackgroundStyle,
-  easterSunday, readHolidayOverride, writeHolidayOverride, type HolidayKey,
+  easterSunday, naidocStart, readHolidayOverride, writeHolidayOverride, type HolidayKey,
 } from '@/lib/holidayTheme'
 
 const CARD = { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' } as const
@@ -14,11 +14,14 @@ const au = (d: Date) => d.toLocaleDateString('en-AU', { day: 'numeric', month: '
 // so this table is a check on the real logic, not a second description of it.
 function nextDates(year: number) {
   const easter = easterSunday(year)
+  const naidoc = naidocStart(year)
+  const naidocEnd = new Date(naidoc.getFullYear(), naidoc.getMonth(), naidoc.getDate() + 7)
   return [
-    { key: 'christmas' as HolidayKey, when: `24–26 December ${year}` },
+    { key: 'christmas' as HolidayKey, when: `20–26 December ${year}` },
     { key: 'australiaDay' as HolidayKey, when: `26 January ${year}` },
     { key: 'anzacDay' as HolidayKey, when: `25 April ${year}` },
     { key: 'easter' as HolidayKey, when: `Good Friday to Easter Monday — Easter Sunday is ${au(easter)}` },
+    { key: 'naidoc' as HolidayKey, when: `First Sunday in July for a week — ${au(naidoc)} to ${au(naidocEnd)}` },
     { key: 'birthday' as HolidayKey, when: 'Each doctor’s own birthday, from their Settings → Profile' },
   ]
 }
