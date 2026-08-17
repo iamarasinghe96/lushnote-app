@@ -176,11 +176,11 @@ export function writeHolidayOverride(key: HolidayKey | null): void {
  *  would cover the artwork at 92% opacity. Zeroing the existing variable keeps
  *  the glass border, sheen and frost intact — only the colour wash goes, and the
  *  scrim below takes over the job of keeping white text readable. */
-export function holidayBackgroundStyle(theme: HolidayTheme): React.CSSProperties {
+export function holidayBackgroundStyle(theme: HolidayTheme, imageUrl?: string): React.CSSProperties {
   return {
     ['--lg-tint-opacity' as string]: 0,
     backgroundColor: 'transparent',
-    backgroundImage: `linear-gradient(${theme.scrim},${theme.scrim}), url(${theme.image}), ${theme.fallback}`,
+    backgroundImage: `linear-gradient(${theme.scrim},${theme.scrim}), url(${imageUrl || theme.image}), ${theme.fallback}`,
     backgroundRepeat: 'no-repeat, repeat-x, no-repeat',
     backgroundSize: 'cover, auto 100%, cover',
     backgroundPosition: 'center, center, center',

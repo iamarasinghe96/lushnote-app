@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useAuth } from '@/hooks/useAuth'
 import {
   HOLIDAY_KEYS, themeFor, resolveHolidayTheme, holidayBackgroundStyle,
   easterSunday, naidocStart, readHolidayOverride, writeHolidayOverride, type HolidayKey,
 } from '@/lib/holidayTheme'
+import { getHolidayTiles, buildTileDataUrl, type HolidayTileMap } from '@/lib/holidayTiles'
 
 const CARD = { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' } as const
 
@@ -27,15 +29,75 @@ function nextDates(year: number) {
 }
 
 export default function AppearancePanel() {
+  const { user } = useAuth()
   const [override, setOverride] = useState<HolidayKey | null>(null)
   const [year, setYear] = useState(new Date().getFullYear())
   const today = resolveHolidayTheme(new Date())
 
+  const [tiles, setTiles] = useState<HolidayTileMap>({})
+  const [editing, setEditing] = useState<HolidayKey | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [zoom, setZoom] = useState(2)
+  const [draft, setDraft] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => { setOverride(readHolidayOverride()) }, [])
+  useEffect(() => { getHolidayTiles().then(setTiles) }, [])
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3500); return () => clearTimeout(t) }, [toast])
+
+  // Rebuild on every zoom change so the pill below shows exactly what would be
+  // saved — the crop is the whole decision here, and describing it never worked.
+  useEffect(() => {
+    if (!file) { setDraft(null); return }
+    let stale = false
+    buildTileDataUrl(file, zoom).then(url => { if (!stale) setDraft(url) }).catch(() => setToast('Could not read that image'))
+    return () => { stale = true }
+  }, [file, zoom])
 
   function apply(key: HolidayKey | null) {
     writeHolidayOverride(key)
     setOverride(key)
+  }
+
+  function startEditing(key: HolidayKey) {
+    setEditing(key); setFile(null); setDraft(null); setZoom(2)
+  }
+
+  async function call(body: Record<string, unknown>) {
+    const token = user ? await user.getIdToken() : ''
+    const res = await fetch('/api/admin/holiday-tile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? 'Request failed')
+    return res.json()
+  }
+
+  async function save() {
+    if (!editing || !draft) return
+    setBusy(true)
+    try {
+      const r = await call({ action: 'upload', key: editing, dataUrl: draft }) as { url: string }
+      setTiles(prev => ({ ...prev, [editing]: r.url }))
+      setEditing(null); setFile(null); setDraft(null)
+      setToast('Saved — the header uses it from now on')
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : 'Save failed')
+    } finally { setBusy(false) }
+  }
+
+  async function reset(key: HolidayKey) {
+    setBusy(true)
+    try {
+      await call({ action: 'reset', key })
+      setTiles(prev => { const next = { ...prev }; delete next[key]; return next })
+      setToast('Removed — back to the built-in artwork')
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : 'Could not remove')
+    } finally { setBusy(false) }
   }
 
   return (
@@ -75,23 +137,77 @@ export default function AppearancePanel() {
         </div>
 
         {/* The same background rules the real header uses, at the same height. */}
-        <div className="space-y-2 pt-1">
+        <div className="space-y-4 pt-1">
           {(override ? [override] : HOLIDAY_KEYS).map(k => {
             const t = themeFor(k)
+            const isEditing = editing === k
+            const shown = isEditing && draft ? draft : tiles[k]
             return (
               <div key={k}>
-                <p className="text-[11px] uppercase tracking-wide text-[#94a3b8] mb-1">{t.label}</p>
+                <div className="flex items-baseline gap-2 mb-1">
+                  <p className="text-[11px] uppercase tracking-wide text-[#94a3b8]">{t.label}</p>
+                  {tiles[k] && <span className="text-[11px] text-[#059669]">custom artwork</span>}
+                  <button onClick={() => (isEditing ? setEditing(null) : startEditing(k))}
+                    className="ml-auto text-xs text-[#1d4ed8]">
+                    {isEditing ? 'Cancel' : tiles[k] ? 'Replace' : 'Upload artwork'}
+                  </button>
+                  {tiles[k] && !isEditing && (
+                    <button onClick={() => reset(k)} disabled={busy} className="text-xs text-[#dc2626] disabled:opacity-50">Remove</button>
+                  )}
+                </div>
+
                 <div className="flex items-center justify-between px-4"
-                  style={{ height: 60, borderRadius: 30, ...holidayBackgroundStyle(t) }}>
+                  style={{ height: 60, borderRadius: 30, ...holidayBackgroundStyle(t, shown) }}>
                   <span className="text-sm font-bold text-white truncate">
                     {t.banner ? t.banner.replace('{name}', 'Dr Jane Smith') : 'Dr Jane Smith'}
                   </span>
                   <span className="text-white font-semibold text-sm">LushNote</span>
                 </div>
+
+                {isEditing && (
+                  <div className="mt-2 rounded-xl border border-[var(--border)] p-3 space-y-3">
+                    <input ref={inputRef} type="file" accept="image/*" className="hidden"
+                      onChange={e => setFile(e.target.files?.[0] ?? null)} />
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <button onClick={() => inputRef.current?.click()}
+                        className="px-3 py-2 rounded-lg border border-[var(--border)] text-sm text-[#475569]">
+                        Choose image
+                      </button>
+                      <span className="text-xs text-[#94a3b8] truncate">{file ? file.name : 'No image chosen'}</span>
+                    </div>
+
+                    {file && (
+                      <>
+                        <label className="block">
+                          <span className="text-xs text-[#475569]">Zoom — {zoom.toFixed(1)}×</span>
+                          <input type="range" min={1} max={5} step={0.1} value={zoom}
+                            onChange={e => setZoom(Number(e.target.value))} className="w-full" />
+                          <span className="text-[11px] text-[#94a3b8]">
+                            The bar is only 60px tall, so the whole image is shrunk into it. Zoom in until a single
+                            motif is about half the height of the pill above.
+                          </span>
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <button onClick={save} disabled={busy || !draft}
+                            className="px-4 py-2 rounded-lg bg-[#1d4ed8] text-white text-sm font-medium disabled:opacity-50">
+                            {busy ? 'Saving…' : 'Save artwork'}
+                          </button>
+                          {draft && (
+                            <span className="text-[11px] text-[#94a3b8]">
+                              {Math.round(draft.length * 0.75 / 1024)} KB · 480×240 · mirrored so the repeat is seamless
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )
           })}
         </div>
+
+        {toast && <p className="text-xs text-[#475569]">{toast}</p>}
 
         {override && (
           <p className="text-xs text-amber-700">
@@ -118,12 +234,9 @@ export default function AppearancePanel() {
           ))}
         </ul>
         <p className="text-xs text-[#94a3b8]">
-          Generate artwork at 1024×1024 with about <strong>two rows</strong> of motifs — the whole square is shrunk into
-          a 60px-tall bar, so a busy five-row pattern renders each motif at around 12px. Then run{' '}
-          <code>python3 scripts/build-holiday-tiles.py &lt;file&gt; &lt;key&gt;</code> — it mirrors the tile so the repeat is
-          seamless, sizes it to 480×240 and compresses it under 30 KB. Add <code>--zoom 2.5</code> to crop into artwork
-          that came out too busy. Until a file exists the theme falls back to a plain coloured gradient, so a missing
-          image never breaks the header.
+          Upload artwork above — any size, any format. It is cropped, mirrored so the repeat has no seam, sized to
+          480×240 and compressed under 30 KB in your browser before it is saved. Until artwork exists a theme falls back
+          to a plain coloured gradient, so a missing image never breaks the header.
         </p>
       </div>
     </div>

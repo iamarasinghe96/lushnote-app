@@ -121,6 +121,12 @@ service cloud.firestore {
       allow read: if verified();
     }
 
+    // Header artwork. Read-only to doctors; written by the admin API, which uses
+    // the Admin SDK and so bypasses these rules entirely.
+    match /appearance/{docId} {
+      allow read: if verified();
+    }
+
     match /letterheadRequests/{docId} {
       allow create: if verified() && request.resource.data.requestedBy == request.auth.uid;
     }
