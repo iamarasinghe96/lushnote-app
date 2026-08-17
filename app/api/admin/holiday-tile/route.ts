@@ -1,25 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb, adminStorage } from '@/lib/firebase-admin'
 import { requireAdmin, unauthorized } from '@/lib/adminGuard'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { HOLIDAY_KEYS, type HolidayKey } from '@/lib/holidayTheme'
 
 const MAX_BYTES = 200 * 1024
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as { action: 'upload' | 'reset' | 'scrim'; key?: string; dataUrl?: string; scrimOpacity?: number }
+    const body = await req.json() as {
+      action: 'upload' | 'reset' | 'scrim' | 'campaign' | 'campaignClear'
+      key?: string; dataUrl?: string; scrimOpacity?: number
+      campaign?: { label?: string; start?: string; end?: string; banner?: string }
+    }
     const { action, key } = body
 
     try { await requireAdmin(req) } catch { return unauthorized() }
+
+    const db = adminDb()
+    const ref = db.collection('appearance').doc('holidayTiles')
+
+    if (action === 'campaignClear') {
+      await ref.set({ campaign: FieldValue.delete() }, { merge: true })
+      return NextResponse.json({ success: true })
+    }
+
+    if (action === 'campaign') {
+      const c = body.campaign ?? {}
+      const label = c.label?.trim() ?? ''
+      const start = c.start ?? ''
+      const end = c.end ?? ''
+      if (!label) return NextResponse.json({ error: 'Give the campaign a name' }, { status: 400 })
+      if (!ISO_DATE.test(start) || !ISO_DATE.test(end))
+        return NextResponse.json({ error: 'Both dates are required' }, { status: 400 })
+      if (end < start) return NextResponse.json({ error: 'The end date is before the start date' }, { status: 400 })
+      await ref.set({
+        campaign: { label: label.slice(0, 60), start, end, banner: (c.banner?.trim() ?? '').slice(0, 80) },
+      }, { merge: true })
+      return NextResponse.json({ success: true })
+    }
 
     if (!key || !(HOLIDAY_KEYS as string[]).includes(key))
       return NextResponse.json({ error: 'Unknown theme' }, { status: 400 })
     const themeKey = key as HolidayKey
 
-    const db = adminDb()
     const bucket = adminStorage().bucket()
-    const ref = db.collection('appearance').doc('holidayTiles')
     const path = `holidayTiles/${themeKey}.webp`
 
     if (action === 'reset') {

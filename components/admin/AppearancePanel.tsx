@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import {
   HOLIDAY_KEYS, themeFor, resolveHolidayTheme, holidayBackgroundStyle,
-  easterSunday, naidocStart, readHolidayOverride, writeHolidayOverride, type HolidayKey,
+  easterSunday, naidocStart, readHolidayOverride, writeHolidayOverride,
+  campaignActive, campaignTheme, type CampaignConfig, type HolidayKey,
 } from '@/lib/holidayTheme'
 import { getHolidayAppearance, buildTileDataUrl, type HolidayAppearance } from '@/lib/holidayTiles'
 
@@ -14,7 +15,7 @@ const au = (d: Date) => d.toLocaleDateString('en-AU', { day: 'numeric', month: '
 
 // When each theme next appears, computed the same way the header computes it —
 // so this table is a check on the real logic, not a second description of it.
-function nextDates(year: number) {
+function nextDates(year: number, campaign?: CampaignConfig) {
   const easter = easterSunday(year)
   const naidoc = naidocStart(year)
   const naidocEnd = new Date(naidoc.getFullYear(), naidoc.getMonth(), naidoc.getDate() + 7)
@@ -25,6 +26,12 @@ function nextDates(year: number) {
     { key: 'easter' as HolidayKey, when: `Good Friday to Easter Monday — Easter Sunday is ${au(easter)}` },
     { key: 'naidoc' as HolidayKey, when: `First Sunday in July for a week — ${au(naidoc)} to ${au(naidocEnd)}` },
     { key: 'birthday' as HolidayKey, when: 'Each doctor’s own birthday, from their Settings → Profile' },
+    {
+      key: 'campaign' as HolidayKey,
+      when: campaign?.start && campaign?.end
+        ? `${campaign.start} to ${campaign.end} — outranks every theme above`
+        : 'Not set — no dates of its own; set a window below',
+    },
   ]
 }
 
@@ -32,7 +39,11 @@ export default function AppearancePanel() {
   const { user } = useAuth()
   const [override, setOverride] = useState<HolidayKey | null>(null)
   const [year, setYear] = useState(new Date().getFullYear())
-  const today = resolveHolidayTheme(new Date())
+  const [campaign, setCampaign] = useState<CampaignConfig>({ label: '', start: '', end: '', banner: '' })
+  // Mirrors the header's own order, campaign first, so this line can't disagree
+  // with what doctors are actually seeing.
+  const today = (campaignActive(campaign, new Date()) ? campaignTheme(campaign) : null)
+    ?? resolveHolidayTheme(new Date())
 
   const [tiles, setTiles] = useState<HolidayAppearance['tiles']>({})
   const [scrims, setScrims] = useState<HolidayAppearance['scrims']>({})
@@ -45,7 +56,10 @@ export default function AppearancePanel() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { setOverride(readHolidayOverride()) }, [])
-  useEffect(() => { getHolidayAppearance().then(a => { setTiles(a.tiles); setScrims(a.scrims) }) }, [])
+  useEffect(() => { getHolidayAppearance().then(a => {
+    setTiles(a.tiles); setScrims(a.scrims)
+    if (a.campaign) setCampaign({ banner: '', ...a.campaign })
+  }) }, [])
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3500); return () => clearTimeout(t) }, [toast])
 
   // Rebuild on every zoom change so the pill below shows exactly what would be
@@ -96,6 +110,29 @@ export default function AppearancePanel() {
     catch (e) { setToast(e instanceof Error ? e.message : 'Could not save') }
   }
 
+  async function saveCampaign() {
+    setBusy(true)
+    try {
+      await call({ action: 'campaign', campaign })
+      setToast(campaignActive(campaign, new Date())
+        ? 'Live now — every doctor sees it'
+        : 'Saved — it goes up on the start date')
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : 'Save failed')
+    } finally { setBusy(false) }
+  }
+
+  async function clearCampaign() {
+    setBusy(true)
+    try {
+      await call({ action: 'campaignClear' })
+      setCampaign({ label: '', start: '', end: '', banner: '' })
+      setToast('Campaign removed')
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : 'Could not remove')
+    } finally { setBusy(false) }
+  }
+
   async function reset(key: HolidayKey) {
     setBusy(true)
     try {
@@ -138,7 +175,7 @@ export default function AppearancePanel() {
           {HOLIDAY_KEYS.map(k => (
             <button key={k} onClick={() => apply(k)}
               className={`px-3 py-1.5 rounded-lg text-sm ${override === k ? 'bg-[#1d4ed8] text-white' : 'text-[#475569] border border-[var(--border)]'}`}>
-              {themeFor(k).label}
+              {k === 'campaign' ? campaignTheme(campaign).label : themeFor(k).label}
             </button>
           ))}
         </div>
@@ -146,13 +183,16 @@ export default function AppearancePanel() {
         {/* The same background rules the real header uses, at the same height. */}
         <div className="space-y-4 pt-1">
           {(override ? [override] : HOLIDAY_KEYS).map(k => {
-            const t = themeFor(k)
+            const t = k === 'campaign' ? campaignTheme(campaign) : themeFor(k)
             const isEditing = editing === k
             const shown = isEditing && draft ? draft : tiles[k]
             return (
               <div key={k}>
                 <div className="flex items-baseline gap-2 mb-1">
                   <p className="text-[11px] uppercase tracking-wide text-[#94a3b8]">{t.label}</p>
+                  {k === 'campaign' && campaignActive(campaign, new Date()) && (
+                    <span className="text-[11px] text-[#dc2626] font-medium">live now</span>
+                  )}
                   {tiles[k] && <span className="text-[11px] text-[#059669]">custom artwork</span>}
                   <button onClick={() => (isEditing ? setEditing(null) : startEditing(k))}
                     className="ml-auto text-xs text-[#1d4ed8]">
@@ -173,6 +213,55 @@ export default function AppearancePanel() {
                   </div>
                   <span className="ln-holiday-text text-white font-semibold text-sm">LushNote</span>
                 </div>
+
+                {k === 'campaign' && (
+                  <div className="mt-2 rounded-xl border border-[var(--border)] p-3 space-y-3">
+                    <p className="text-[11px] text-[#94a3b8]">
+                      A one-off awareness window — a bushfire appeal, a public-health alert. While it runs it replaces
+                      every other theme, including a doctor&apos;s birthday, because it is put up for a reason that
+                      matters more on the day. Leave it empty and nothing changes.
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="text-xs text-[#475569]">Name</span>
+                        <input value={campaign.label} maxLength={60}
+                          onChange={e => setCampaign(c => ({ ...c, label: e.target.value }))}
+                          placeholder="Bushfire appeal"
+                          className="w-full mt-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-white text-sm" />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs text-[#475569]">Header message (optional)</span>
+                        <input value={campaign.banner ?? ''} maxLength={80}
+                          onChange={e => setCampaign(c => ({ ...c, banner: e.target.value }))}
+                          placeholder="Leave empty to keep the doctor's name"
+                          className="w-full mt-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-white text-sm" />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs text-[#475569]">Starts</span>
+                        <input type="date" value={campaign.start}
+                          onChange={e => setCampaign(c => ({ ...c, start: e.target.value }))}
+                          className="w-full mt-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-white text-sm" />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs text-[#475569]">Ends — inclusive</span>
+                        <input type="date" value={campaign.end}
+                          onChange={e => setCampaign(c => ({ ...c, end: e.target.value }))}
+                          className="w-full mt-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-white text-sm" />
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button onClick={saveCampaign} disabled={busy}
+                        className="px-4 py-2 rounded-lg bg-[#1d4ed8] text-white text-sm font-medium disabled:opacity-50">
+                        {busy ? 'Saving…' : 'Save campaign'}
+                      </button>
+                      <button onClick={clearCampaign} disabled={busy}
+                        className="text-xs text-[#dc2626] disabled:opacity-50">Clear</button>
+                      <span className="text-[11px] text-[#94a3b8]">
+                        Both dates count as whole days in the doctor&apos;s own timezone.
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 <label className="flex items-center gap-3 mt-1">
                   <span className="text-[11px] text-[#94a3b8] w-40 shrink-0">
@@ -252,9 +341,11 @@ export default function AppearancePanel() {
           </div>
         </div>
         <ul className="divide-y divide-[var(--border)]">
-          {nextDates(year).map(d => (
+          {nextDates(year, campaign).map(d => (
             <li key={d.key} className="py-2 flex items-baseline gap-3">
-              <span className="text-sm font-medium text-[#0f172a] w-32 shrink-0">{themeFor(d.key).label}</span>
+              <span className="text-sm font-medium text-[#0f172a] w-32 shrink-0">
+                {d.key === 'campaign' ? campaignTheme(campaign).label : themeFor(d.key).label}
+              </span>
               <span className="text-sm text-[#475569]">{d.when}</span>
             </li>
           ))}

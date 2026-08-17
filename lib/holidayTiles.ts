@@ -5,7 +5,7 @@
 
 import { db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
-import type { HolidayKey } from '@/lib/holidayTheme'
+import type { CampaignConfig, HolidayKey } from '@/lib/holidayTheme'
 
 export type HolidayTileMap = Partial<Record<HolidayKey, string>>
 export type HolidayScrimMap = Partial<Record<HolidayKey, number>>
@@ -13,6 +13,7 @@ export type HolidayScrimMap = Partial<Record<HolidayKey, number>>
 export interface HolidayAppearance {
   tiles: HolidayTileMap
   scrims: HolidayScrimMap
+  campaign?: CampaignConfig
 }
 
 export async function getHolidayAppearance(): Promise<HolidayAppearance> {
@@ -20,7 +21,11 @@ export async function getHolidayAppearance(): Promise<HolidayAppearance> {
     const snap = await getDoc(doc(db, 'appearance', 'holidayTiles'))
     if (!snap.exists()) return { tiles: {}, scrims: {} }
     const d = snap.data()
-    return { tiles: (d.tiles ?? {}) as HolidayTileMap, scrims: (d.scrims ?? {}) as HolidayScrimMap }
+    return {
+      tiles: (d.tiles ?? {}) as HolidayTileMap,
+      scrims: (d.scrims ?? {}) as HolidayScrimMap,
+      campaign: d.campaign as CampaignConfig | undefined,
+    }
   } catch {
     return { tiles: {}, scrims: {} }
   }

@@ -573,6 +573,7 @@ are untouched.
 | Easter | Good Friday → Easter Monday |
 | NAIDOC Week | First Sunday in July, for a week |
 | Birthday | `profile.birthday` (DD/MM, Settings → Profile). **Beats a public holiday** |
+| Campaign | An admin-set date range — **beats everything, birthday included** |
 
 **No data source, by design.** `lib/holidayTheme.ts` computes every date locally —
 Easter from the anonymous Gregorian Computus, NAIDOC Week from the first Sunday in
@@ -594,6 +595,26 @@ to a coloured gradient, so the header is never broken by an absent asset. See
 host's own background, so `holidayBackgroundStyle` sets `--lg-tint-opacity: 0`.
 Without that the blue covers the artwork at 92%. The scrim in the background stack
 then keeps white text readable over any tile.
+
+**Campaign — the one theme with no date.** A named window (`appearance/holidayTiles.campaign`
+= `{label, start, end, banner?}`, ISO dates, both inclusive) for a bushfire appeal or a
+public-health alert. It is the only theme that cannot resolve synchronously, and the only
+one that outranks a birthday — it is put up deliberately, for a reason that matters more on
+the day. Dates compare as LOCAL calendar days, so "until the 30th" is the doctor's 30th.
+
+**Artwork is uploaded, not committed.** `/admin?section=appearance` crops, mirrors and
+compresses the chosen image in the browser (`buildTileDataUrl`, lib/holidayTiles — same
+geometry as the script) and saves it to Storage + `appearance/holidayTiles.tiles.{key}`,
+which the header prefers over `/public/holiday/*.webp`. A zoom slider handles the scale
+trap: the bar is 60px tall and the tile draws at `auto 100%`, so a whole 1024² source lands
+in a 60×60 box and a five-row pattern renders each motif at ~12px.
+
+**Nothing dims the artwork.** Legibility is `.ln-holiday-text` — three blurred text-shadows
+that follow the letterforms, strength per theme via `scrims.{key}`. A full-width scrim and
+then a boxed chip were both tried and both read as a rectangle over the illustration.
+`.ln-holiday` also turns off the glass border, inner sheen and frost: the header is a
+stacking context, so its `::after` backdrop-filter blurs its OWN background — that was what
+smeared the tile.
 
 **Preview:** `/admin?section=appearance` forces a theme via localStorage — that
 browser only, survives refresh, invisible to doctors.

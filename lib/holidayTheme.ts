@@ -8,7 +8,7 @@
 // That is what lets the themed bar be correct on the FIRST paint: there is no
 // async step for the plain blue to flash through.
 
-export type HolidayKey = 'christmas' | 'australiaDay' | 'anzacDay' | 'easter' | 'naidoc' | 'birthday'
+export type HolidayKey = 'christmas' | 'australiaDay' | 'anzacDay' | 'easter' | 'naidoc' | 'birthday' | 'campaign'
 
 export interface HolidayTheme {
   key: HolidayKey
@@ -70,10 +70,52 @@ const THEMES: Record<HolidayKey, HolidayTheme> = {
     scrimRgb: '90,25,70', scrimOpacity: 0.45,
     banner: 'Happy Birthday {name}',
   },
+  // The only theme with no date of its own. Its window, name and message are
+  // set in the admin console, so a bushfire appeal or a public-health notice can
+  // go up the same afternoon without a deploy.
+  campaign: {
+    key: 'campaign',
+    label: 'Campaign',
+    image: '/holiday/campaign.webp',
+    fallback: 'linear-gradient(90deg,#7f1d1d,#b91c1c,#7f1d1d)',
+    scrimRgb: '60,10,10', scrimOpacity: 0.55,
+  },
 }
 
 export const HOLIDAY_KEYS = Object.keys(THEMES) as HolidayKey[]
 export function themeFor(key: HolidayKey): HolidayTheme { return THEMES[key] }
+
+/** An admin-set awareness window: a name, a date range, and an optional line to
+ *  show in place of the doctor's name. Dates are `YYYY-MM-DD`, both inclusive. */
+export interface CampaignConfig {
+  label: string
+  start: string
+  end: string
+  banner?: string
+}
+
+// Compared as local calendar dates, not UTC instants: "until the 30th" has to
+// mean the doctor's own 30th, or a campaign ends mid-afternoon in Australia.
+// ISO strings sort correctly, so plain string comparison is the whole test.
+function localISODate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+export function campaignActive(cfg: CampaignConfig | undefined, date: Date): boolean {
+  if (!cfg?.start || !cfg?.end) return false
+  const today = localISODate(date)
+  return today >= cfg.start && today <= cfg.end
+}
+
+/** The campaign theme wearing its configured name and message. */
+export function campaignTheme(cfg: CampaignConfig): HolidayTheme {
+  return {
+    ...THEMES.campaign,
+    label: cfg.label?.trim() || THEMES.campaign.label,
+    banner: cfg.banner?.trim() || undefined,
+  }
+}
 
 // Anonymous Gregorian Computus. Exact for any year in the Gregorian calendar,
 // which is why no almanac is needed.
@@ -141,6 +183,10 @@ function isBirthday(date: Date, birthday?: string): boolean {
  * public holiday — it is the more personal of the two, and a doctor born on
  * Christmas Day should be greeted rather than shown the same tinsel as everyone
  * else.
+ *
+ * A campaign is NOT resolved here: it has no date of its own, it comes from
+ * Firestore, and it outranks everything this function can return — see the
+ * header in app/(app)/layout.tsx.
  */
 export function resolveHolidayTheme(date: Date, birthday?: string): HolidayTheme | null {
   if (isBirthday(date, birthday)) return THEMES.birthday
