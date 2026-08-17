@@ -19,8 +19,9 @@ export interface HolidayTheme {
   fallback: string
   /** Scrim colour as an `r,g,b` triplet. */
   scrimRgb: string
-  /** How hard the scrim darkens the artwork so white text stays readable.
-   *  Adjustable per theme from the admin console; this is the starting point. */
+  /** How hard the shading darkens the artwork BEHIND THE TEXT so white stays
+   *  readable. The middle of the bar is never shaded. Adjustable per theme from
+   *  the admin console; this is the starting point. */
   scrimOpacity: number
   /** Replaces the doctor's name line for the day. `{name}` is substituted. */
   banner?: string
@@ -172,22 +173,37 @@ export function writeHolidayOverride(key: HolidayKey | null): void {
 }
 
 /** The CSS the header applies. One tile repeated across the bar, so a small
- *  image stays sharp at any width instead of being stretched.
+ *  image stays sharp at any width instead of being stretched, with a soft-edged
+ *  patch of shading at each end so white text stays legible without dimming the
+ *  illustration everywhere.
  *
  *  `--lg-tint-opacity: 0` matters: .ln-glass paints its brand tint on a ::before
  *  that sits ABOVE the host's own background, so without clearing it the blue
  *  would cover the artwork at 92% opacity. Zeroing the existing variable keeps
- *  the glass border, sheen and frost intact — only the colour wash goes, and the
- *  scrim below takes over the job of keeping white text readable. */
+ *  the glass border, sheen and frost intact — only the colour wash goes. (The
+ *  .ln-holiday class then turns the border, sheen and frost off too, since none
+ *  of them read the tint.) */
 export function holidayBackgroundStyle(theme: HolidayTheme, imageUrl?: string, scrimOpacity?: number): React.CSSProperties {
-  const scrim = `rgba(${theme.scrimRgb},${scrimOpacity ?? theme.scrimOpacity})`
+  const a = scrimOpacity ?? theme.scrimOpacity
+  const solid = `rgba(${theme.scrimRgb},${a})`
+  // Fade to the SAME colour at zero alpha, not to `transparent`. `transparent`
+  // is rgba(0,0,0,0), so interpolating towards it drags the midpoint through
+  // grey and leaves a dirty band across the artwork.
+  const clear = `rgba(${theme.scrimRgb},0)`
+  // Shade only where text sits — the name at the left, the wordmark and avatar
+  // at the right — and leave the middle as the artwork's own colours. Fixed px
+  // rather than percentages because the text blocks are a fixed width: on a
+  // wide screen the two patches are a small fraction of the bar, and on a phone
+  // they meet in the middle, which is also where the text reaches.
+  const leftMask = `linear-gradient(90deg, ${solid} 0px, ${solid} 240px, ${clear} 400px)`
+  const rightMask = `linear-gradient(270deg, ${solid} 0px, ${solid} 110px, ${clear} 240px)`
   return {
     ['--lg-tint-opacity' as string]: 0,
     backgroundColor: 'transparent',
-    backgroundImage: `linear-gradient(${scrim},${scrim}), url(${imageUrl || theme.image}), ${theme.fallback}`,
-    backgroundRepeat: 'no-repeat, repeat-x, no-repeat',
-    backgroundSize: 'cover, auto 100%, cover',
-    backgroundPosition: 'center, center, center',
+    backgroundImage: `${leftMask}, ${rightMask}, url(${imageUrl || theme.image}), ${theme.fallback}`,
+    backgroundRepeat: 'no-repeat, no-repeat, repeat-x, no-repeat',
+    backgroundSize: 'cover, cover, auto 100%, cover',
+    backgroundPosition: 'center, center, center, center',
     // The ordinary header casts a blue glow, which reads as a stray colour cast
     // once the bar is no longer blue.
     boxShadow: '0 4px 20px rgba(15,23,42,0.28)',

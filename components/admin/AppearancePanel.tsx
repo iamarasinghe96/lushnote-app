@@ -173,7 +173,7 @@ export default function AppearancePanel() {
 
                 <label className="flex items-center gap-3 mt-1">
                   <span className="text-[11px] text-[#94a3b8] w-40 shrink-0">
-                    Darkness {Math.round((scrims[k] ?? t.scrimOpacity) * 100)}%
+                    Text shading {Math.round((scrims[k] ?? t.scrimOpacity) * 100)}%
                   </span>
                   <input type="range" min={0} max={0.9} step={0.05}
                     value={scrims[k] ?? t.scrimOpacity}
@@ -258,11 +258,11 @@ export default function AppearancePanel() {
         </ul>
         <p className="text-xs text-[#94a3b8]">
           Upload artwork above — any size, any format. It is cropped, mirrored so the repeat has no seam, sized to
-          480×240 and compressed under 30 KB in your browser before it is saved, with its own colours untouched.
-          Darkness is the only thing dimming it, and it is an overlay rather than a change to the file, so it can be
-          taken back to 0% at any time — watch the white name and wordmark as you lower it, since they are the reason
-          the overlay exists. Until artwork exists a theme falls back to a plain coloured gradient, so a missing image
-          never breaks the header.
+          480×240 and compressed under 30 KB in your browser before it is saved, with its own colours untouched. Text
+          shading darkens only the two ends, behind the name and the wordmark, fading out before it reaches the middle —
+          so the artwork itself is never dimmed and the slider only decides how much protection the white text gets.
+          Until artwork exists a theme falls back to a plain coloured gradient, so a missing image never breaks the
+          header.
         </p>
       </div>
     </div>
