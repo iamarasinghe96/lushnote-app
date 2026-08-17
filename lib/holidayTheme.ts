@@ -17,11 +17,10 @@ export interface HolidayTheme {
   image: string
   /** Shown until (or if) the image loads — never a bare blue flash. */
   fallback: string
-  /** Scrim colour as an `r,g,b` triplet. */
+  /** Halo colour as an `r,g,b` triplet — a dark tone drawn from the theme. */
   scrimRgb: string
-  /** How hard the shading darkens the artwork BEHIND THE TEXT so white stays
-   *  readable. The middle of the bar is never shaded. Adjustable per theme from
-   *  the admin console; this is the starting point. */
+  /** How strong the halo around the white text is. Nothing else is darkened.
+   *  Adjustable per theme from the admin console; this is the starting point. */
   scrimOpacity: number
   /** Replaces the doctor's name line for the day. `{name}` is substituted. */
   banner?: string
@@ -175,9 +174,9 @@ export function writeHolidayOverride(key: HolidayKey | null): void {
 /** The CSS the header applies. One tile repeated across the bar, so a small
  *  image stays sharp at any width instead of being stretched.
  *
- *  Nothing here dims the artwork. Legibility is handled by .ln-holiday-chip,
- *  which puts a rounded highlight behind each run of white text and covers only
- *  what the text occupies; `--ln-holiday-chip` is the colour it reads.
+ *  Nothing here dims the artwork. Legibility is handled by .ln-holiday-text,
+ *  which gives the white text a soft halo following the letterforms, so the
+ *  illustration stays visible between them; `--ln-holiday-halo` is its colour.
  *
  *  `--lg-tint-opacity: 0` matters: .ln-glass paints its brand tint on a ::before
  *  that sits ABOVE the host's own background, so without clearing it the blue
@@ -188,7 +187,7 @@ export function writeHolidayOverride(key: HolidayKey | null): void {
 export function holidayBackgroundStyle(theme: HolidayTheme, imageUrl?: string, scrimOpacity?: number): React.CSSProperties {
   return {
     ['--lg-tint-opacity' as string]: 0,
-    ['--ln-holiday-chip' as string]: `rgba(${theme.scrimRgb},${scrimOpacity ?? theme.scrimOpacity})`,
+    ['--ln-holiday-halo' as string]: `rgba(${theme.scrimRgb},${scrimOpacity ?? theme.scrimOpacity})`,
     backgroundColor: 'transparent',
     backgroundImage: `url(${imageUrl || theme.image}), ${theme.fallback}`,
     backgroundRepeat: 'repeat-x, no-repeat',

@@ -229,16 +229,19 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
   -webkit-filter: none;
 }
 
-/* A rounded highlight behind a run of white text, so legibility costs only the
-   few hundred pixels the words actually occupy instead of a wash over the
-   artwork. The negative margins keep the chip from shifting the layout: it
-   grows outwards into the padding the header already has, so the name sits
-   exactly where it does on an ordinary blue day. */
-.ln-holiday-chip {
-  background: var(--ln-holiday-chip, rgba(15, 23, 42, 0.45));
-  border-radius: 10px;
-  padding: 2px 8px;
-  margin: -2px -8px;
+/* Legibility that follows the letterforms instead of boxing them. Three blurred
+   shadows in the theme's own dark tone stack into a soft halo that is dense
+   against each glyph and gone within a few pixels, so the artwork shows through
+   between the letters — where a rectangle would cover it. It also costs no
+   layout at all, which a padded chip did.
+
+   The tight layer does the contrast work, the wide one separates the text from
+   busy artwork, and the offset one grounds it so the words do not float. */
+.ln-holiday-text {
+  text-shadow:
+    0 0 3px var(--ln-holiday-halo, rgba(15, 23, 42, 0.55)),
+    0 0 8px var(--ln-holiday-halo, rgba(15, 23, 42, 0.55)),
+    0 1px 3px var(--ln-holiday-halo, rgba(15, 23, 42, 0.55));
 }
 
 /* Modal sheet — more opaque tint so form content stays readable over the
