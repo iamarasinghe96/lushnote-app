@@ -609,9 +609,11 @@ which the header prefers over `/public/holiday/*.webp`. A zoom slider handles th
 trap: the bar is 60px tall and the tile draws at `auto 100%`, so a whole 1024² source lands
 in a 60×60 box and a five-row pattern renders each motif at ~12px.
 
-**Nothing dims the artwork.** Legibility is `.ln-holiday-text` — three blurred text-shadows
-that follow the letterforms, strength per theme via `scrims.{key}`. A full-width scrim and
-then a boxed chip were both tried and both read as a rectangle over the illustration.
+**Nothing dims the artwork.** Legibility is `.ln-holiday-text`: a blurred wash on `::before`
+(soft-edged, so it dissolves into the illustration instead of ending at a line) under three
+glyph-tight text-shadows. Strength per theme via `scrims.{key}`, 0–1. A full-width scrim and
+a hard-edged chip were both tried and both read as a rectangle; a text-shadow alone cannot
+cover enough ground — past a point it only thickens the letters.
 `.ln-holiday` also turns off the glass border, inner sheen and frost: the header is a
 stacking context, so its `::after` backdrop-filter blurs its OWN background — that was what
 smeared the tile.

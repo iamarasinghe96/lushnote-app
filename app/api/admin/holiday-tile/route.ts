@@ -59,8 +59,8 @@ export async function POST(req: NextRequest) {
 
     if (action === 'scrim') {
       const v = body.scrimOpacity
-      if (typeof v !== 'number' || !isFinite(v) || v < 0 || v > 0.9)
-        return NextResponse.json({ error: 'Scrim must be between 0 and 0.9' }, { status: 400 })
+      if (typeof v !== 'number' || !isFinite(v) || v < 0 || v > 1)
+        return NextResponse.json({ error: 'Text highlight must be between 0 and 1' }, { status: 400 })
       await ref.set({ scrims: { [themeKey]: v } }, { merge: true })
       return NextResponse.json({ success: true })
     }

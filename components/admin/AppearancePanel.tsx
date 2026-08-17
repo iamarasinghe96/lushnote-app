@@ -267,7 +267,7 @@ export default function AppearancePanel() {
                   <span className="text-[11px] text-[#94a3b8] w-40 shrink-0">
                     Text highlight {Math.round((scrims[k] ?? t.scrimOpacity) * 100)}%
                   </span>
-                  <input type="range" min={0} max={0.9} step={0.05}
+                  <input type="range" min={0} max={1} step={0.05}
                     value={scrims[k] ?? t.scrimOpacity}
                     onChange={e => setScrims(prev => ({ ...prev, [k]: Number(e.target.value) }))}
                     onPointerUp={e => saveScrim(k, Number((e.target as HTMLInputElement).value))}
@@ -353,8 +353,8 @@ export default function AppearancePanel() {
         <p className="text-xs text-[#94a3b8]">
           Upload artwork above — any size, any format. It is cropped, mirrored so the repeat has no seam, sized to
           480×240 and compressed under 30 KB in your browser before it is saved, with its own colours untouched. Nothing
-          dims the artwork: the white text carries a soft halo that follows the letters themselves, so the illustration
-          still shows through between them, and the slider sets how strong that halo is. Until artwork exists a theme falls back to a plain coloured
+          dims the artwork: the white text sits on a soft blurred wash that dissolves into the illustration instead of
+          ending at an edge, and the slider sets how strong that is. Until artwork exists a theme falls back to a plain coloured
           gradient, so a missing image never breaks the header.
         </p>
       </div>

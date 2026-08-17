@@ -238,10 +238,32 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
    The tight layer does the contrast work, the wide one separates the text from
    busy artwork, and the offset one grounds it so the words do not float. */
 .ln-holiday-text {
+  position: relative;
+  isolation: isolate;
   text-shadow:
     0 0 3px var(--ln-holiday-halo, rgba(15, 23, 42, 0.55)),
     0 0 8px var(--ln-holiday-halo, rgba(15, 23, 42, 0.55)),
     0 1px 3px var(--ln-holiday-halo, rgba(15, 23, 42, 0.55));
+}
+
+/* The wash under the halo. A glyph-tight shadow cannot cover much ground no
+   matter how opaque it gets — past a point it only thickens the letters — so
+   the area comes from a shape behind the line instead. Blurring it is what
+   keeps it from being the rectangle we already rejected: the fill is solid in
+   the middle and dissolves over about 10px, so it reads as a brushed wash and
+   the artwork returns gradually rather than at an edge.
+
+   isolation:isolate on the parent is what lets z-index:-1 sit behind the text
+   but still above the header's own background. */
+.ln-holiday-text::before {
+  content: "";
+  position: absolute;
+  inset: -3px -10px;
+  z-index: -1;
+  border-radius: 999px;
+  background: var(--ln-holiday-halo, rgba(15, 23, 42, 0.55));
+  filter: blur(9px);
+  pointer-events: none;
 }
 
 /* Modal sheet — more opaque tint so form content stays readable over the
