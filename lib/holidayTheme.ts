@@ -184,5 +184,8 @@ export function holidayBackgroundStyle(theme: HolidayTheme, imageUrl?: string): 
     backgroundRepeat: 'no-repeat, repeat-x, no-repeat',
     backgroundSize: 'cover, auto 100%, cover',
     backgroundPosition: 'center, center, center',
+    // The ordinary header casts a blue glow, which reads as a stray colour cast
+    // once the bar is no longer blue.
+    boxShadow: '0 4px 20px rgba(15,23,42,0.28)',
   } as React.CSSProperties
 }

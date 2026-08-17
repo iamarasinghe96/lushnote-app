@@ -156,7 +156,7 @@ export default function AppearancePanel() {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between px-4"
+                <div className="ln-glass ln-glass-brand lg-frost-sm ln-holiday flex items-center justify-between px-4"
                   style={{ height: 60, borderRadius: 30, ...holidayBackgroundStyle(t, shown) }}>
                   <span className="text-sm font-bold text-white truncate">
                     {t.banner ? t.banner.replace('{name}', 'Dr Jane Smith') : 'Dr Jane Smith'}

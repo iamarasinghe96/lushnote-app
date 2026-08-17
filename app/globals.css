@@ -210,6 +210,25 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 .lg-frost-sm { --lg-frost-blur: 6px; }
 .lg-frost-lg { --lg-frost-blur: 18px; }
 
+/* Holiday artwork replaces the glass rather than sitting under it.
+   holidayBackgroundStyle clears the colour tint, but that only covers
+   background-color — the white edge, the inner sheen and the frost are a
+   border, a box-shadow and a backdrop-filter, none of which the tint reaches.
+   The frost is the worst of the three: the header is a stacking context, so its
+   ::after paints ABOVE the host background and its backdrop-filter blurs the
+   illustration itself, which is what smears the artwork. */
+.ln-glass.ln-holiday {
+  --lg-border-color: transparent;
+  --lg-shadow-color: transparent;
+  --lg-inner-glow:   transparent;
+}
+.ln-glass.ln-holiday::after {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  filter: none;
+  -webkit-filter: none;
+}
+
 /* Modal sheet — more opaque tint so form content stays readable over the
    dimmed page, while keeping the frosted/refracted edge. */
 .ln-glass-modal {

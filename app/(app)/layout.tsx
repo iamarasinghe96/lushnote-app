@@ -128,7 +128,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
       <header
         data-header
         data-glass
-        className="ln-glass ln-glass-brand lg-frost-sm absolute left-4 right-4 z-30"
+        className={`ln-glass ln-glass-brand lg-frost-sm absolute left-4 right-4 z-30${holiday ? ' ln-holiday' : ''}`}
         style={{
           top: 'calc(env(safe-area-inset-top) + 8px)',
           height: 60,
