@@ -115,7 +115,8 @@ export default function AppearancePanel() {
           ))}
         </ul>
         <p className="text-xs text-[#94a3b8]">
-          Drop the illustrations into <code>/public/holiday</code> — see the README there for the format. Until a file
+          Generate artwork at 1024×1024, then run <code>python3 scripts/build-holiday-tiles.py &lt;file&gt; &lt;key&gt;</code> —
+          it mirrors the tile so the repeat is seamless, sizes it to 480×240 and compresses it under 30 KB. Until a file
           exists the theme falls back to a plain coloured gradient, so a missing image never breaks the header.
         </p>
       </div>
