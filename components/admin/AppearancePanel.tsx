@@ -118,9 +118,12 @@ export default function AppearancePanel() {
           ))}
         </ul>
         <p className="text-xs text-[#94a3b8]">
-          Generate artwork at 1024×1024, then run <code>python3 scripts/build-holiday-tiles.py &lt;file&gt; &lt;key&gt;</code> —
-          it mirrors the tile so the repeat is seamless, sizes it to 480×240 and compresses it under 30 KB. Until a file
-          exists the theme falls back to a plain coloured gradient, so a missing image never breaks the header.
+          Generate artwork at 1024×1024 with about <strong>two rows</strong> of motifs — the whole square is shrunk into
+          a 60px-tall bar, so a busy five-row pattern renders each motif at around 12px. Then run{' '}
+          <code>python3 scripts/build-holiday-tiles.py &lt;file&gt; &lt;key&gt;</code> — it mirrors the tile so the repeat is
+          seamless, sizes it to 480×240 and compresses it under 30 KB. Add <code>--zoom 2.5</code> to crop into artwork
+          that came out too busy. Until a file exists the theme falls back to a plain coloured gradient, so a missing
+          image never breaks the header.
         </p>
       </div>
     </div>

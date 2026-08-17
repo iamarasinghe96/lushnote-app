@@ -2,25 +2,34 @@
 """Turn a source illustration into the header's tile.
 
     python3 scripts/build-holiday-tiles.py incoming/christmas.png christmas
-    python3 scripts/build-holiday-tiles.py incoming/christmas.svg christmas
+    python3 scripts/build-holiday-tiles.py incoming/christmas.png christmas --zoom 2.5
 
 Takes whatever an image generator produced — PNG, JPEG or SVG, any size, any
 aspect ratio — and emits `public/holiday/<key>.webp` at the size the header
-wants. SVG is welcome and in fact the better source: asking a model for a flat
-illustration often makes it emit SVG code, and that code is perfectly flat by
-construction — no shading, no texture, nothing to fight. It is rasterised here
-at high resolution, so what ships is still a plain image.
+wants.
 
-The important part is MIRRORING. A tile only repeats invisibly if its left and
-right edges match, and image generators almost never produce that. Mirroring
-guarantees it: the tile becomes [slice | flipped slice], so every junction —
-inside the tile and between tiles — meets an identical column of pixels. The
-cost is a symmetric look, which at 60px tall in a busy pattern reads as
-deliberate rather than as a mistake. A hard seam never does.
+SCALE IS THE THING THAT GOES WRONG. The header is 60 CSS px tall and the tile
+is drawn at `auto 100%`, so the tile's whole height maps to those 60 px — and
+because the half-tile is square, a square source lands entirely inside a 60x60
+box. Nothing is cropped; everything is shrunk. A source with five rows of
+motifs therefore renders each one about 12 px tall, which behind the scrim
+reads as noise. Aim for TWO rows in the source, so a motif lands near 30 px.
+
+--zoom N rescues a source that is too busy: it keeps the centre 1/N of the
+image and throws the rest away, so the motifs that survive are N times larger
+in the bar. 2 to 3 is the useful range for a generated 1024x1024 pattern.
+
+The other important part is MIRRORING. A tile only repeats invisibly if its
+left and right edges match, and image generators almost never produce that.
+Mirroring guarantees it: the tile becomes [slice | flipped slice], so every
+junction — inside the tile and between tiles — meets an identical column of
+pixels. The cost is a symmetric look, which at 60px tall in a busy pattern
+reads as deliberate rather than as a mistake. A hard seam never does.
 
 Pass --no-mirror when the source is genuinely seamless already (some generators
 do produce true repeating patterns when asked).
 """
+import argparse
 import io
 import sys
 from pathlib import Path
@@ -51,8 +60,14 @@ def load(src_path: str) -> Image.Image:
     return Image.open(src_path).convert('RGB')
 
 
-def build(src_path: str, key: str, mirror: bool = True) -> None:
+def build(src_path: str, key: str, mirror: bool = True, zoom: float = 1.0) -> None:
     src = load(src_path)
+
+    if zoom > 1:
+        w = max(1, round(src.width / zoom))
+        h = max(1, round(src.height / zoom))
+        src = src.crop(((src.width - w) // 2, (src.height - h) // 2,
+                        (src.width - w) // 2 + w, (src.height - h) // 2 + h))
 
     # Scale so the height matches, then take the middle band — the centre of a
     # generated image is where the composition is, and the edges are where the
@@ -87,12 +102,17 @@ def build(src_path: str, key: str, mirror: bool = True) -> None:
             break
         quality -= 8
     print(f'{dest.relative_to(OUT.parent.parent)}  {tile.width}x{tile.height}  {kb:.1f} KB  q{quality}'
-          f'{"" if mirror else "  (not mirrored)"}')
+          f'{"" if mirror else "  (not mirrored)"}{"" if zoom == 1 else f"  zoom {zoom}x"}')
 
 
 if __name__ == '__main__':
-    args = [a for a in sys.argv[1:] if a != '--no-mirror']
-    if len(args) != 2:
+    ap = argparse.ArgumentParser(add_help=False)
+    ap.add_argument('source')
+    ap.add_argument('key')
+    ap.add_argument('--no-mirror', action='store_true')
+    ap.add_argument('--zoom', type=float, default=1.0)
+    if len(sys.argv) < 3:
         print(__doc__)
         raise SystemExit(1)
-    build(args[0], args[1], mirror='--no-mirror' not in sys.argv)
+    a = ap.parse_args()
+    build(a.source, a.key, mirror=not a.no_mirror, zoom=a.zoom)
