@@ -165,15 +165,18 @@ export default function AppearancePanel() {
 
                 <div className="ln-glass ln-glass-brand lg-frost-sm ln-holiday flex items-center justify-between px-4"
                   style={{ height: 60, borderRadius: 30, ...holidayBackgroundStyle(t, shown, scrims[k]) }}>
-                  <span className="text-sm font-bold text-white truncate">
-                    {t.banner ? t.banner.replace('{name}', 'Dr Jane Smith') : 'Dr Jane Smith'}
-                  </span>
-                  <span className="text-white font-semibold text-sm">LushNote</span>
+                  <div className="ln-holiday-chip flex flex-col min-w-0 items-start">
+                    <span className="text-sm font-bold text-white leading-tight truncate">
+                      {t.banner ? t.banner.replace('{name}', 'Dr Jane Smith') : 'Dr Jane Smith'}
+                    </span>
+                    <span className="text-xs text-white/70 leading-tight truncate">MBBS · Albury Wodonga Health</span>
+                  </div>
+                  <span className="ln-holiday-chip text-white font-semibold text-sm">LushNote</span>
                 </div>
 
                 <label className="flex items-center gap-3 mt-1">
                   <span className="text-[11px] text-[#94a3b8] w-40 shrink-0">
-                    Text shading {Math.round((scrims[k] ?? t.scrimOpacity) * 100)}%
+                    Text highlight {Math.round((scrims[k] ?? t.scrimOpacity) * 100)}%
                   </span>
                   <input type="range" min={0} max={0.9} step={0.05}
                     value={scrims[k] ?? t.scrimOpacity}
@@ -258,11 +261,10 @@ export default function AppearancePanel() {
         </ul>
         <p className="text-xs text-[#94a3b8]">
           Upload artwork above — any size, any format. It is cropped, mirrored so the repeat has no seam, sized to
-          480×240 and compressed under 30 KB in your browser before it is saved, with its own colours untouched. Text
-          shading darkens only the two ends, behind the name and the wordmark, fading out before it reaches the middle —
-          so the artwork itself is never dimmed and the slider only decides how much protection the white text gets.
-          Until artwork exists a theme falls back to a plain coloured gradient, so a missing image never breaks the
-          header.
+          480×240 and compressed under 30 KB in your browser before it is saved, with its own colours untouched. Nothing
+          dims the artwork: the white text sits on its own rounded highlight, covering only the words themselves, and
+          the slider sets how strong that highlight is. Until artwork exists a theme falls back to a plain coloured
+          gradient, so a missing image never breaks the header.
         </p>
       </div>
     </div>

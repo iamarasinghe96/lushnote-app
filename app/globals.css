@@ -229,6 +229,18 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
   -webkit-filter: none;
 }
 
+/* A rounded highlight behind a run of white text, so legibility costs only the
+   few hundred pixels the words actually occupy instead of a wash over the
+   artwork. The negative margins keep the chip from shifting the layout: it
+   grows outwards into the padding the header already has, so the name sits
+   exactly where it does on an ordinary blue day. */
+.ln-holiday-chip {
+  background: var(--ln-holiday-chip, rgba(15, 23, 42, 0.45));
+  border-radius: 10px;
+  padding: 2px 8px;
+  margin: -2px -8px;
+}
+
 /* Modal sheet — more opaque tint so form content stays readable over the
    dimmed page, while keeping the frosted/refracted edge. */
 .ln-glass-modal {

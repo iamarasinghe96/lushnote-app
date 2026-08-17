@@ -173,9 +173,11 @@ export function writeHolidayOverride(key: HolidayKey | null): void {
 }
 
 /** The CSS the header applies. One tile repeated across the bar, so a small
- *  image stays sharp at any width instead of being stretched, with a soft-edged
- *  patch of shading at each end so white text stays legible without dimming the
- *  illustration everywhere.
+ *  image stays sharp at any width instead of being stretched.
+ *
+ *  Nothing here dims the artwork. Legibility is handled by .ln-holiday-chip,
+ *  which puts a rounded highlight behind each run of white text and covers only
+ *  what the text occupies; `--ln-holiday-chip` is the colour it reads.
  *
  *  `--lg-tint-opacity: 0` matters: .ln-glass paints its brand tint on a ::before
  *  that sits ABOVE the host's own background, so without clearing it the blue
@@ -184,26 +186,14 @@ export function writeHolidayOverride(key: HolidayKey | null): void {
  *  .ln-holiday class then turns the border, sheen and frost off too, since none
  *  of them read the tint.) */
 export function holidayBackgroundStyle(theme: HolidayTheme, imageUrl?: string, scrimOpacity?: number): React.CSSProperties {
-  const a = scrimOpacity ?? theme.scrimOpacity
-  const solid = `rgba(${theme.scrimRgb},${a})`
-  // Fade to the SAME colour at zero alpha, not to `transparent`. `transparent`
-  // is rgba(0,0,0,0), so interpolating towards it drags the midpoint through
-  // grey and leaves a dirty band across the artwork.
-  const clear = `rgba(${theme.scrimRgb},0)`
-  // Shade only where text sits — the name at the left, the wordmark and avatar
-  // at the right — and leave the middle as the artwork's own colours. Fixed px
-  // rather than percentages because the text blocks are a fixed width: on a
-  // wide screen the two patches are a small fraction of the bar, and on a phone
-  // they meet in the middle, which is also where the text reaches.
-  const leftMask = `linear-gradient(90deg, ${solid} 0px, ${solid} 240px, ${clear} 400px)`
-  const rightMask = `linear-gradient(270deg, ${solid} 0px, ${solid} 110px, ${clear} 240px)`
   return {
     ['--lg-tint-opacity' as string]: 0,
+    ['--ln-holiday-chip' as string]: `rgba(${theme.scrimRgb},${scrimOpacity ?? theme.scrimOpacity})`,
     backgroundColor: 'transparent',
-    backgroundImage: `${leftMask}, ${rightMask}, url(${imageUrl || theme.image}), ${theme.fallback}`,
-    backgroundRepeat: 'no-repeat, no-repeat, repeat-x, no-repeat',
-    backgroundSize: 'cover, cover, auto 100%, cover',
-    backgroundPosition: 'center, center, center, center',
+    backgroundImage: `url(${imageUrl || theme.image}), ${theme.fallback}`,
+    backgroundRepeat: 'repeat-x, no-repeat',
+    backgroundSize: 'auto 100%, cover',
+    backgroundPosition: 'center, center',
     // The ordinary header casts a blue glow, which reads as a stray colour cast
     // once the bar is no longer blue.
     boxShadow: '0 4px 20px rgba(15,23,42,0.28)',
