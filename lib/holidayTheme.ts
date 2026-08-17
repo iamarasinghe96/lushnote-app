@@ -17,8 +17,11 @@ export interface HolidayTheme {
   image: string
   /** Shown until (or if) the image loads — never a bare blue flash. */
   fallback: string
-  /** Darkens the tile so white header text stays readable on any artwork. */
-  scrim: string
+  /** Scrim colour as an `r,g,b` triplet. */
+  scrimRgb: string
+  /** How hard the scrim darkens the artwork so white text stays readable.
+   *  Adjustable per theme from the admin console; this is the starting point. */
+  scrimOpacity: number
   /** Replaces the doctor's name line for the day. `{name}` is substituted. */
   banner?: string
 }
@@ -29,42 +32,42 @@ const THEMES: Record<HolidayKey, HolidayTheme> = {
     label: 'Christmas',
     image: '/holiday/christmas.webp',
     fallback: 'linear-gradient(90deg,#0b3d2e,#134e3a,#0b3d2e)',
-    scrim: 'rgba(6,40,30,0.55)',
+    scrimRgb: '6,40,30', scrimOpacity: 0.55,
   },
   australiaDay: {
     key: 'australiaDay',
     label: 'Australia Day',
     image: '/holiday/australia-day.webp',
     fallback: 'linear-gradient(90deg,#0b2d6b,#12408f,#0b2d6b)',
-    scrim: 'rgba(8,32,80,0.50)',
+    scrimRgb: '8,32,80', scrimOpacity: 0.50,
   },
   anzacDay: {
     key: 'anzacDay',
     label: 'Anzac Day',
     image: '/holiday/anzac-day.webp',
     fallback: 'linear-gradient(90deg,#1e2a3a,#2b3b50,#1e2a3a)',
-    scrim: 'rgba(20,28,40,0.55)',
+    scrimRgb: '20,28,40', scrimOpacity: 0.55,
   },
   easter: {
     key: 'easter',
     label: 'Easter',
     image: '/holiday/easter.webp',
     fallback: 'linear-gradient(90deg,#6d5bb5,#8b7ad0,#6d5bb5)',
-    scrim: 'rgba(60,45,110,0.45)',
+    scrimRgb: '60,45,110', scrimOpacity: 0.45,
   },
   naidoc: {
     key: 'naidoc',
     label: 'NAIDOC Week',
     image: '/holiday/naidoc.webp',
     fallback: 'linear-gradient(90deg,#7a2d10,#a8431a,#7a2d10)',
-    scrim: 'rgba(70,26,10,0.50)',
+    scrimRgb: '70,26,10', scrimOpacity: 0.50,
   },
   birthday: {
     key: 'birthday',
     label: 'Birthday',
     image: '/holiday/birthday.webp',
     fallback: 'linear-gradient(90deg,#b4477f,#d4609b,#b4477f)',
-    scrim: 'rgba(90,25,70,0.45)',
+    scrimRgb: '90,25,70', scrimOpacity: 0.45,
     banner: 'Happy Birthday {name}',
   },
 }
@@ -176,11 +179,12 @@ export function writeHolidayOverride(key: HolidayKey | null): void {
  *  would cover the artwork at 92% opacity. Zeroing the existing variable keeps
  *  the glass border, sheen and frost intact — only the colour wash goes, and the
  *  scrim below takes over the job of keeping white text readable. */
-export function holidayBackgroundStyle(theme: HolidayTheme, imageUrl?: string): React.CSSProperties {
+export function holidayBackgroundStyle(theme: HolidayTheme, imageUrl?: string, scrimOpacity?: number): React.CSSProperties {
+  const scrim = `rgba(${theme.scrimRgb},${scrimOpacity ?? theme.scrimOpacity})`
   return {
     ['--lg-tint-opacity' as string]: 0,
     backgroundColor: 'transparent',
-    backgroundImage: `linear-gradient(${theme.scrim},${theme.scrim}), url(${imageUrl || theme.image}), ${theme.fallback}`,
+    backgroundImage: `linear-gradient(${scrim},${scrim}), url(${imageUrl || theme.image}), ${theme.fallback}`,
     backgroundRepeat: 'no-repeat, repeat-x, no-repeat',
     backgroundSize: 'cover, auto 100%, cover',
     backgroundPosition: 'center, center, center',

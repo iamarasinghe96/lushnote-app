@@ -6,7 +6,7 @@ import {
   HOLIDAY_KEYS, themeFor, resolveHolidayTheme, holidayBackgroundStyle,
   easterSunday, naidocStart, readHolidayOverride, writeHolidayOverride, type HolidayKey,
 } from '@/lib/holidayTheme'
-import { getHolidayTiles, buildTileDataUrl, type HolidayTileMap } from '@/lib/holidayTiles'
+import { getHolidayAppearance, buildTileDataUrl, type HolidayAppearance } from '@/lib/holidayTiles'
 
 const CARD = { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' } as const
 
@@ -34,7 +34,8 @@ export default function AppearancePanel() {
   const [year, setYear] = useState(new Date().getFullYear())
   const today = resolveHolidayTheme(new Date())
 
-  const [tiles, setTiles] = useState<HolidayTileMap>({})
+  const [tiles, setTiles] = useState<HolidayAppearance['tiles']>({})
+  const [scrims, setScrims] = useState<HolidayAppearance['scrims']>({})
   const [editing, setEditing] = useState<HolidayKey | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [zoom, setZoom] = useState(2)
@@ -44,7 +45,7 @@ export default function AppearancePanel() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { setOverride(readHolidayOverride()) }, [])
-  useEffect(() => { getHolidayTiles().then(setTiles) }, [])
+  useEffect(() => { getHolidayAppearance().then(a => { setTiles(a.tiles); setScrims(a.scrims) }) }, [])
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 3500); return () => clearTimeout(t) }, [toast])
 
   // Rebuild on every zoom change so the pill below shows exactly what would be
@@ -87,6 +88,12 @@ export default function AppearancePanel() {
     } catch (e) {
       setToast(e instanceof Error ? e.message : 'Save failed')
     } finally { setBusy(false) }
+  }
+
+  // Saved on release rather than on every drag, so one adjustment is one write.
+  async function saveScrim(key: HolidayKey, value: number) {
+    try { await call({ action: 'scrim', key, scrimOpacity: value }) }
+    catch (e) { setToast(e instanceof Error ? e.message : 'Could not save') }
   }
 
   async function reset(key: HolidayKey) {
@@ -157,12 +164,28 @@ export default function AppearancePanel() {
                 </div>
 
                 <div className="ln-glass ln-glass-brand lg-frost-sm ln-holiday flex items-center justify-between px-4"
-                  style={{ height: 60, borderRadius: 30, ...holidayBackgroundStyle(t, shown) }}>
+                  style={{ height: 60, borderRadius: 30, ...holidayBackgroundStyle(t, shown, scrims[k]) }}>
                   <span className="text-sm font-bold text-white truncate">
                     {t.banner ? t.banner.replace('{name}', 'Dr Jane Smith') : 'Dr Jane Smith'}
                   </span>
                   <span className="text-white font-semibold text-sm">LushNote</span>
                 </div>
+
+                <label className="flex items-center gap-3 mt-1">
+                  <span className="text-[11px] text-[#94a3b8] w-40 shrink-0">
+                    Darkness {Math.round((scrims[k] ?? t.scrimOpacity) * 100)}%
+                  </span>
+                  <input type="range" min={0} max={0.9} step={0.05}
+                    value={scrims[k] ?? t.scrimOpacity}
+                    onChange={e => setScrims(prev => ({ ...prev, [k]: Number(e.target.value) }))}
+                    onPointerUp={e => saveScrim(k, Number((e.target as HTMLInputElement).value))}
+                    onKeyUp={e => saveScrim(k, Number((e.target as HTMLInputElement).value))}
+                    className="flex-1" />
+                  {scrims[k] !== undefined && (
+                    <button onClick={() => { setScrims(prev => ({ ...prev, [k]: t.scrimOpacity })); saveScrim(k, t.scrimOpacity) }}
+                      className="text-[11px] text-[#475569]">Default</button>
+                  )}
+                </label>
 
                 {isEditing && (
                   <div className="mt-2 rounded-xl border border-[var(--border)] p-3 space-y-3">
@@ -235,8 +258,11 @@ export default function AppearancePanel() {
         </ul>
         <p className="text-xs text-[#94a3b8]">
           Upload artwork above — any size, any format. It is cropped, mirrored so the repeat has no seam, sized to
-          480×240 and compressed under 30 KB in your browser before it is saved. Until artwork exists a theme falls back
-          to a plain coloured gradient, so a missing image never breaks the header.
+          480×240 and compressed under 30 KB in your browser before it is saved, with its own colours untouched.
+          Darkness is the only thing dimming it, and it is an overlay rather than a change to the file, so it can be
+          taken back to 0% at any time — watch the white name and wordmark as you lower it, since they are the reason
+          the overlay exists. Until artwork exists a theme falls back to a plain coloured gradient, so a missing image
+          never breaks the header.
         </p>
       </div>
     </div>

@@ -13,7 +13,7 @@ import WhatsNewPopup from '@/components/WhatsNewPopup'
 import { resolveHolidayTheme, holidayBackgroundStyle, themeFor, readHolidayOverride, type HolidayKey } from '@/lib/holidayTheme'
 import { getInitials, applyWorkspaceTheme, resolveThemePrimary } from '@/lib/utils'
 import { getLetterhead } from '@/lib/firestore/letterheads'
-import { getHolidayTiles, type HolidayTileMap } from '@/lib/holidayTiles'
+import { getHolidayAppearance, type HolidayAppearance } from '@/lib/holidayTiles'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -35,8 +35,8 @@ function AppContent({ children }: { children: React.ReactNode }) {
   useEffect(() => { setHolidayPreview(readHolidayOverride()) }, [])
   // Artwork uploaded from the admin console wins over the file in /public. The
   // read is async, but the gradient underneath means there is nothing to flash.
-  const [holidayTiles, setHolidayTiles] = useState<HolidayTileMap>({})
-  useEffect(() => { getHolidayTiles().then(setHolidayTiles) }, [])
+  const [appearance, setAppearance] = useState<HolidayAppearance>({ tiles: {}, scrims: {} })
+  useEffect(() => { getHolidayAppearance().then(setAppearance) }, [])
   const menuRef = useRef<HTMLDivElement>(null)
   const [rateLimitWait, setRateLimitWait] = useState<number | null>(null)
   const [pendingRetry, setPendingRetry] = useState<(() => void) | null>(null)
@@ -137,7 +137,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
           overflow: 'visible',
           // Only the background changes on a holiday. Geometry, glass and every
           // child keep their existing rules, so there is nothing to re-layout.
-          ...(holiday ? holidayBackgroundStyle(holiday, holidayTiles[holiday.key]) : {}),
+          ...(holiday ? holidayBackgroundStyle(holiday, appearance.tiles[holiday.key], appearance.scrims[holiday.key]) : {}),
         }}
       >
         <div className="relative z-10 flex items-center justify-between px-4 h-full">

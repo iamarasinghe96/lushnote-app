@@ -33,7 +33,7 @@ import argparse
 import io
 import sys
 from pathlib import Path
-from PIL import Image, ImageEnhance
+from PIL import Image
 
 # The bar is 60 CSS px tall; 240 covers a 4x display with room to spare. The
 # tile renders at `auto 100%`, so a 2:1 tile shows as 120x60 CSS px and repeats
@@ -86,11 +86,9 @@ def build(src_path: str, key: str, mirror: bool = True, zoom: float = 1.0) -> No
     else:
         tile = slice_
 
-    # Take a little contrast and brightness out. White header text sits on top
-    # of this, and a calmer tile means the scrim can stay light enough to keep
-    # the artwork visible.
-    tile = ImageEnhance.Contrast(tile).enhance(0.92)
-    tile = ImageEnhance.Brightness(tile).enhance(0.88)
+    # No colour grading. Anything applied here is burnt into the saved file and
+    # can never be undone; the header's scrim does the darkening instead, and
+    # that stays adjustable.
 
     OUT.mkdir(parents=True, exist_ok=True)
     dest = OUT / f'{key}.webp'

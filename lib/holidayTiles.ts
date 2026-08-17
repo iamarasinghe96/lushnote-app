@@ -8,14 +8,21 @@ import { doc, getDoc } from 'firebase/firestore'
 import type { HolidayKey } from '@/lib/holidayTheme'
 
 export type HolidayTileMap = Partial<Record<HolidayKey, string>>
+export type HolidayScrimMap = Partial<Record<HolidayKey, number>>
 
-export async function getHolidayTiles(): Promise<HolidayTileMap> {
+export interface HolidayAppearance {
+  tiles: HolidayTileMap
+  scrims: HolidayScrimMap
+}
+
+export async function getHolidayAppearance(): Promise<HolidayAppearance> {
   try {
     const snap = await getDoc(doc(db, 'appearance', 'holidayTiles'))
-    if (!snap.exists()) return {}
-    return (snap.data().tiles ?? {}) as HolidayTileMap
+    if (!snap.exists()) return { tiles: {}, scrims: {} }
+    const d = snap.data()
+    return { tiles: (d.tiles ?? {}) as HolidayTileMap, scrims: (d.scrims ?? {}) as HolidayScrimMap }
   } catch {
-    return {}
+    return { tiles: {}, scrims: {} }
   }
 }
 
@@ -66,9 +73,9 @@ export async function buildTileDataUrl(file: File, zoom = 1): Promise<string> {
   tile.height = TILE_H
   const tc = tile.getContext('2d')
   if (!tc) throw new Error('Canvas unavailable')
-  // Take a little contrast and brightness out. White header text sits on top of
-  // this, so a calmer tile lets the scrim stay light enough to show the artwork.
-  tc.filter = 'contrast(92%) brightness(88%)'
+  // No colour grading here. Anything applied at this point is burnt into the
+  // saved file and can never be undone, so keeping the artwork's own colours is
+  // what lets the scrim — which IS reversible — be the only darkening.
   tc.drawImage(half, 0, 0)
   tc.translate(HALF_W * 2, 0)
   tc.scale(-1, 1)

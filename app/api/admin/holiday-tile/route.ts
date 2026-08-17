@@ -8,7 +8,7 @@ const MAX_BYTES = 200 * 1024
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as { action: 'upload' | 'reset'; key?: string; dataUrl?: string }
+    const body = await req.json() as { action: 'upload' | 'reset' | 'scrim'; key?: string; dataUrl?: string; scrimOpacity?: number }
     const { action, key } = body
 
     try { await requireAdmin(req) } catch { return unauthorized() }
@@ -28,6 +28,14 @@ export async function POST(req: NextRequest) {
       delete tiles[themeKey]
       await ref.set({ tiles }, { merge: false })
       return NextResponse.json({ success: true, tiles })
+    }
+
+    if (action === 'scrim') {
+      const v = body.scrimOpacity
+      if (typeof v !== 'number' || !isFinite(v) || v < 0 || v > 0.9)
+        return NextResponse.json({ error: 'Scrim must be between 0 and 0.9' }, { status: 400 })
+      await ref.set({ scrims: { [themeKey]: v } }, { merge: true })
+      return NextResponse.json({ success: true })
     }
 
     if (action === 'upload') {
