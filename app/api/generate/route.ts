@@ -193,10 +193,12 @@ async function runExtraction(opts: {
   system: string
   req: NextRequest
   uid?: string
-  // Hospital forms go onto the patient's physical chart, so fidelity beats
-  // saving quota: Groq paraphrased the same note into half its content on one
-  // run and kept it on the next, purely by which provider had capacity. Gemini
-  // leads for those, with Groq still there when Gemini is exhausted.
+  // Fidelity beats saving quota wherever a clinical record is being COPIED
+  // rather than composed: Groq paraphrased the same note into half its content
+  // on one run and kept it on the next, purely by which provider had capacity.
+  // Set for hospital forms (they go onto the patient's physical chart) and for
+  // ward-note intake. Groq still runs when Gemini is exhausted, so this costs
+  // quota rather than availability.
   preferGemini?: boolean
   // Skip Groq entirely — used to re-run a job whose Groq answer was measurably
   // incomplete, where trying Groq again would just repeat the same loss.
@@ -492,7 +494,7 @@ DICTATION:
 ${transcript}`
 
       try {
-        const first = await runExtraction({ prompt: intakePrompt, system: systemInstruction, req, uid })
+        const first = await runExtraction({ prompt: intakePrompt, system: systemInstruction, req, uid, preferGemini: true })
         // Parse in isolation: a malformed reply is the AI's problem, not
         // something to show the doctor as a raw syntax error.
         const parse = (content: string): Record<string, unknown> | null => {

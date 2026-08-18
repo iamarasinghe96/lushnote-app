@@ -264,6 +264,12 @@ stays readable; nothing is lost.
 `profile.entries[0]`, falling back to `lastEntry` then `buildPatientInfoText`.
 Feeding the whole record in turned a four-line ward round into a 13-page form.
 
+**Gemini leads, Groq follows.** `runExtraction` is Groq-first by default to save
+the 20/day Gemini quota, but ward-note intake and hospital forms pass
+`preferGemini: true` — a ward note is being COPIED, not composed, and the
+fidelity contract outranks the quota. Groq still runs when Gemini is exhausted,
+so this costs quota rather than availability.
+
 **Guards in the pipeline** (all in `/api/generate` + `/api/ocr`):
 - `sourceCoverage()` — fraction of `#`/numbered source lines present in the
   reply. Under `COVERAGE_FLOOR` (0.9) on a Groq answer → one Gemini re-run.
