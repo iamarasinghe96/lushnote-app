@@ -137,7 +137,7 @@ const AI_UNAVAILABLE = 'ai-unavailable'
 // Why nothing could answer. A doctor using her OWN Gemini key was being told a
 // free usage limit was reached and to add a key she already had — because the
 // user-key attempt failed into a bare catch and the real reason was thrown away.
-type AiFailure = 'exhausted' | 'no-key' | 'user-key-invalid' | 'user-key-quota' | 'user-key-throttled' | 'gemini-busy'
+type AiFailure = 'exhausted' | 'no-key' | 'user-key-invalid' | 'user-key-quota' | 'user-key-throttled' | 'gemini-busy' | 'all-providers'
 
 class AiUnavailable extends Error {
   constructor(readonly reason: AiFailure) { super(AI_UNAVAILABLE) }
@@ -153,6 +153,9 @@ function aiFailureMessage(err: unknown): string {
   }
   if (reason === 'gemini-busy') {
     return 'Google reported that Gemini is busy right now — nothing is wrong with your key or your quota. Wait a minute and try again.'
+  }
+  if (reason === 'all-providers') {
+    return 'Both Groq and Gemini refused this note — your keys and quotas are fine, but neither provider would answer. Wait a minute and try again; if it keeps happening, the Logs page in the admin console has what each one said.'
   }
   if (reason === 'user-key-throttled') {
     return 'Google is throttling your Gemini key — its free tier allows only a few requests per minute, and a note takes several. Wait about a minute and try again.'
@@ -202,12 +205,17 @@ async function runExtraction(opts: {
   const { prompt, system, req, uid, preferGemini, geminiOnly } = opts
   const groqKey = geminiOnly ? null : req.headers.get('x-groq-key')
   const userGeminiKey = req.headers.get('x-gemini-key')
+  // Groq's failure was logged and then dropped. On this path Groq goes FIRST,
+  // so the doctor was told "Gemini is busy" about the SECOND thing that failed
+  // while the provider that actually led the attempt went unmentioned.
+  let groqFailed = false
 
   if (groqKey && !preferGemini) {
     try {
       const { content } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
       return { content, provider: 'groq' }
     } catch (err) {
+      groqFailed = true
       // Not silent: a rate limit is routine, but a retired model looks identical
       // from here and would otherwise never surface anywhere.
       logToSink({ level: 'warn', tag: 'groq', route: '/api/generate', uid, message: err instanceof Error ? err.message.slice(0, 300) : 'unknown' })
@@ -265,7 +273,10 @@ async function runExtraction(opts: {
 
   // Nothing was even attempted: no key of any kind arrived with the request.
   const noKeyAtAll = !groqKey && !userGeminiKey && !process.env.GEMINI_API_KEY
-  throw new AiUnavailable(userKeyFailure ?? (noKeyAtAll ? 'no-key' : 'exhausted'))
+  const reason: AiFailure = groqFailed && userKeyFailure === 'gemini-busy'
+    ? 'all-providers'
+    : userKeyFailure ?? (noKeyAtAll ? 'no-key' : 'exhausted')
+  throw new AiUnavailable(reason)
 }
 
 export async function POST(req: NextRequest) {
