@@ -713,9 +713,15 @@ on `:root` from `WP_THEMES[themeIndex]`. Called on sign-in and on every workspac
 
 **Model resolution.** Both providers retire model names, so a 404 (Gemini) or a
 decommission error (Groq) asks the key what it can actually run and re-scores.
-Two rules learned the hard way: never prefer a `-latest` alias (it tracks the
-newest build, which is the one shedding load with 503), and never rank Groq
-models by parameter count — on the free tier the BIGGER model has the SMALLER
+Gemini WALKS the ranked list (`MAX_MODEL_ATTEMPTS`, 3): a 404 or a 5xx that
+outlived the backoff says nothing about the other models a key can run, and one
+key sat on 503 from `gemini-flash-latest` across attempts ten minutes apart.
+Only a model that ANSWERED is cached — caching the pick before trying it made
+one unlucky choice stick for the whole warm instance. The log carries `tried=N`
+so a busy model is distinguishable from a key nothing will serve.
+Two ranking rules learned the hard way: never prefer a `-latest` alias (it
+tracks the newest build, which is the one shedding load with 503), and never
+rank Groq models by parameter count — on the free tier the BIGGER model has the SMALLER
 per-minute allowance, so ranking by size picked `gpt-oss-120b` (8000 TPM) for a
 ~12000-token ward note and earned a 413 on every attempt, permanently.
 

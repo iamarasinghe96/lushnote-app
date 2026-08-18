@@ -55,26 +55,20 @@ function scoreModel(name: string): number {
   return score
 }
 
-async function pickAvailableModel(key: string, failed: string): Promise<string | null> {
-  const cacheKey = `${key}:${failed}`
-  const cached = resolvedModel.get(cacheKey)
-  if (cached) return cached
+async function listUsableModels(key: string, failed: string): Promise<string[]> {
   try {
     const res = await fetch(`${BASE_URL}/models?key=${key}&pageSize=200`)
-    if (!res.ok) return null
+    if (!res.ok) return []
     const data = await res.json() as { models?: { name?: string; supportedGenerationMethods?: string[] }[] }
-    const usable = (data.models ?? [])
+    return (data.models ?? [])
       .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
       .map(m => (m.name ?? '').replace(/^models\//, ''))
       // The model we just got a 404 for is still LISTED — it is published but
       // closed to newer keys — so it must be excluded or we retry it forever.
       .filter(n => n && n !== failed)
-    if (!usable.length) return null
-    const choice = usable.reduce((best, n) => (scoreModel(n) > scoreModel(best) ? n : best))
-    resolvedModel.set(cacheKey, choice)
-    return choice
+      .sort((a, b) => scoreModel(b) - scoreModel(a))
   } catch {
-    return null
+    return []
   }
 }
 
@@ -87,6 +81,9 @@ export interface GeminiFailure extends Error {
   httpStatus?: number
   providerStatus?: string
   model?: string
+  /** How many distinct models were asked before giving up. Tells a 503 on one
+   *  model apart from a key that nothing will serve. */
+  attempts?: number
   detail?: string
 }
 
@@ -120,6 +117,7 @@ export function describeGeminiError(err: unknown): string {
     e.httpStatus ? `http=${e.httpStatus}` : '',
     e.providerStatus ? `status=${e.providerStatus}` : '',
     e.model ? `model=${e.model}` : '',
+    e.attempts && e.attempts > 1 ? `tried=${e.attempts}` : '',
   ].filter(Boolean).join(' ')
   const code = e.message && !e.message.startsWith('Gemini API error') ? ` code=${e.message}` : ''
   return `${head}${code}${e.detail ? ` — ${e.detail}` : ''}`.trim() || String(e.message ?? '')
@@ -133,30 +131,60 @@ async function geminiFetch(model: string, body: object, key: string): Promise<Re
   })
 }
 
-// Google sheds load with 503 when a model is busy, and it clears in seconds.
-// Reporting the first one straight to the doctor makes their own key look
-// broken for something that is neither their fault nor lasting.
+// Google sheds load with 503 when a model is busy, and a real spike clears in
+// seconds. Reporting the first one straight to the doctor makes their own key
+// look broken for something that is neither their fault nor lasting — but the
+// wait is only worth taking on the model already chosen, since every further
+// candidate costs a whole request and the route has a deadline.
 const OVERLOAD_BACKOFF_MS = [1500, 4000]
+// One preferred model plus two alternatives. A key that can run none of three
+// has a problem no further attempt will solve.
+const MAX_MODEL_ATTEMPTS = 3
 
 async function geminiPost(model: string, body: object, apiKey?: string): Promise<GeminiResult> {
   const key = (apiKey || process.env.GEMINI_API_KEY) ?? ''
-  let target = resolvedModel.get(`${key}:${model}`) ?? model
+  const cacheKey = `${key}:${model}`
+  const tried = new Set<string>()
+  let candidates: string[] | null = null
+  let target = resolvedModel.get(cacheKey) ?? model
   let res = await geminiFetch(target, body, key)
 
-  if (res.status === 404) {
-    const alternative = await pickAvailableModel(key, model)
-    if (alternative) { target = alternative; res = await geminiFetch(target, body, key) }
-  }
+  for (let attempt = 0; ; attempt++) {
+    tried.add(target)
 
-  for (const wait of OVERLOAD_BACKOFF_MS) {
-    if (res.status < 500) break
-    await new Promise(r => setTimeout(r, wait))
+    // Only the first model earns the wait; after that we would rather ask a
+    // different model than keep asking one that has already said no twice.
+    if (attempt === 0) {
+      for (const wait of OVERLOAD_BACKOFF_MS) {
+        if (res.status < 500) break
+        await new Promise(r => setTimeout(r, wait))
+        res = await geminiFetch(target, body, key)
+      }
+    }
+
+    // Cache only what actually answered. The previous version cached the pick
+    // BEFORE trying it, so one unlucky choice stuck for the whole warm
+    // instance and every request after it failed the same way.
+    if (res.ok) { resolvedModel.set(cacheKey, target); break }
+
+    // 404 means the name is closed to this key; a 5xx that outlived the backoff
+    // means this model is not serving this key right now. Neither says anything
+    // about the OTHER models the key can run, and a doctor whose key resolved to
+    // gemini-flash-latest sat on 503 UNAVAILABLE across separate attempts ten
+    // minutes apart — not a spike, just a model that would not answer.
+    if (res.status !== 404 && res.status < 500) break
+    if (attempt + 1 >= MAX_MODEL_ATTEMPTS) break
+
+    if (!candidates) candidates = await listUsableModels(key, model)
+    const next = candidates.find(m => !tried.has(m))
+    if (!next) break
+    target = next
     res = await geminiFetch(target, body, key)
   }
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')
-    const meta = parseGeminiError(res.status, body, target)
+    const meta = { ...parseGeminiError(res.status, body, target), attempts: tried.size }
     // Google's body says WHY (e.g. "models/x is no longer available to new
     // users"); the status text alone sent us chasing the wrong thing for a day.
     if (res.status === 429) {
