@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withRequest, noteRequest } from '@/lib/requestContext'
 import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
 import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
@@ -290,7 +291,7 @@ async function runExtraction(opts: {
   throw new AiUnavailable(reason)
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const body = await req.json() as {
       uid?: string
@@ -310,6 +311,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { uid, transcript, templatePrompt, systemPrompt, mode, letterType, retry, customLetter, formName, source } = body
+    noteRequest({ uid, mode: mode ?? 'note' })
 
     // Hospital progress-note form — Groq-only extraction (same plumbing as
     // letters): pull patient identifiers + compose the note entry as prose.
@@ -543,12 +545,15 @@ ${transcript}`
         }
 
         if (patientFields) return NextResponse.json({ patientFields: appendUnfiled(transcript, patientFields) })
+        logToSink({ level: 'error', tag: 'blocked', route: '/api/generate', uid, status: 502, message: 'reply could not be parsed after every attempt' })
         return NextResponse.json({ error: 'The AI reply came back garbled. Please try again — it usually works on a second attempt.' }, { status: 502 })
       } catch (err) {
         if (err instanceof Error && err.message === AI_UNAVAILABLE) {
+          logToSink({ level: 'error', tag: 'blocked', route: '/api/generate', uid, status: 429, message: `no provider completed the note (${err instanceof AiUnavailable ? err.reason : 'exhausted'})` })
           return NextResponse.json({ error: aiFailureMessage(err) }, { status: 429 })
         }
         const msg = err instanceof Error ? err.message : 'Generation failed. Please try again.'
+        logToSink({ level: 'error', tag: 'blocked', route: '/api/generate', uid, status: 500, message: msg.slice(0, 300) })
         return NextResponse.json({ error: msg }, { status: 500 })
       }
     }
@@ -881,4 +886,11 @@ ${transcript}`
     logToSink({ level: 'error', tag: 'generate', message: detail, route: '/api/generate', status: 500 })
     return NextResponse.json({ error: `Generation failed: ${detail}` }, { status: 500 })
   }
+}
+
+// Every line logged inside this handler shares one request id, so a doctor's
+// single click reads as one story instead of scattered lines to correlate by
+// timestamp.
+export function POST(req: NextRequest) {
+  return withRequest('/api/generate', () => handlePOST(req))
 }

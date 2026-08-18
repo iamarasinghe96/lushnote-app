@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withRequest, noteRequest } from '@/lib/requestContext'
 import { chatResponse, checkQuota, GEMINI_RATE_LIMIT_ERROR, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
 import { generateNoteGroq } from '@/lib/groq'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
@@ -22,7 +23,7 @@ Respond ONLY in this exact JSON format with no other text:
 TRANSCRIPT:
 {transcript}`
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   try {
     const body = await req.json() as Record<string, unknown>
     const { type } = body
@@ -480,4 +481,11 @@ Return ONLY strict JSON, no markdown, no commentary:
     logToSink({ level: 'error', tag: 'chat', message: msg, route: '/api/chat', status: 500 })
     return NextResponse.json({ error: 'Chat failed' }, { status: 500 })
   }
+}
+
+// Every line logged inside this handler shares one request id, so a doctor's
+// single click reads as one story instead of scattered lines to correlate by
+// timestamp.
+export function POST(req: NextRequest) {
+  return withRequest('/api/chat', () => handlePOST(req))
 }

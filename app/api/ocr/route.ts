@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withRequest, noteRequest } from '@/lib/requestContext'
 import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
@@ -67,7 +68,7 @@ function assembleText(parsed: OcrReply): string {
   return (parsed.text ?? '').trim()
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   let uid = 'unknown'
   try {
     const form = await req.formData()
@@ -180,4 +181,11 @@ export async function POST(req: NextRequest) {
     logToSink({ level: 'error', tag: 'ocr', message: err instanceof Error ? err.message : 'unknown', route: '/api/ocr', status: 500, uid })
     return NextResponse.json({ error: 'Could not read that photo. Please try again.' }, { status: 500 })
   }
+}
+
+// Every line logged inside this handler shares one request id, so a doctor's
+// single click reads as one story instead of scattered lines to correlate by
+// timestamp.
+export function POST(req: NextRequest) {
+  return withRequest('/api/ocr', () => handlePOST(req))
 }

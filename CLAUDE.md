@@ -551,7 +551,20 @@ pointer (deleted on End chat) and carries `ticketId`. Dashboard "open tickets" =
 **Logs & audit** (`lib/firestore/systemLogs.ts`): `logToSink({level,tag,message,
 route,status?,uid?})` fire-and-forget → `system_logs`; `writeAudit(...)` →
 `admin_audit`. PHI-safe BY CONTRACT — scalar fields only, NEVER a request body /
-raw error / note content. Wired into the generate/transcribe/chat/support/admin
+raw error / note content.
+
+`requestId`, `mode`, `ms` and `uid` are filled in automatically from
+`lib/requestContext.ts` (AsyncLocalStorage, Node runtime only), so no call site
+has to thread them; `release` comes from `VERCEL_GIT_COMMIT_SHA`. One doctor's
+click therefore reads as one story — the provider that refused, the fallback,
+the give-up — instead of lines correlated by timestamp. `withRequest(route, fn)`
+wraps the POST of generate/transcribe/chat/ocr.
+
+**`tag: 'blocked'` = a doctor was left with nothing**, and is the ONLY thing
+logged at `level: 'error'`; a busy model that recovered is a `warn`. Errors post
+to `SLACK_WEBHOOK` (deduped per tag+message for 10 min per warm instance), so a
+real failure arrives without anyone opening the console. The Logs panel has a
+Blocked doctors filter, per-row **req**/**uid** click-to-filter, and Copy. Wired into the generate/transcribe/chat/support/admin
 catch blocks + 429s; `app/global-error.tsx` → `/api/log` captures scrubbed client
 crashes. Both collections are denied to clients by the catch-all rule (no rule
 change) and read only via `app/api/admin/logs`. Retention: add a Firestore TTL on

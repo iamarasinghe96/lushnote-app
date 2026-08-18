@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth'
 
 const CARD = { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' } as const
 
-interface LogRow { id: string; level: 'error' | 'warn' | 'info'; tag: string; message: string; route: string; status: number | null; uid: string | null; createdAt: number | null }
+interface LogRow { id: string; level: 'error' | 'warn' | 'info'; tag: string; message: string; route: string; status: number | null; uid: string | null; requestId: string | null; mode: string | null; ms: number | null; release: string | null; createdAt: number | null }
 interface AuditRow { id: string; actorUid: string; action: string; targetUid: string | null; meta: Record<string, unknown> | null; createdAt: number | null }
 
 const LEVEL_STYLE: Record<string, string> = {
@@ -49,13 +49,28 @@ export default function LogsPanel({ initialSearch = '' }: { initialSearch?: stri
 
   useEffect(() => { fetchTab(tab) /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab])
 
+  // The whole line as text, so a report can be pasted somewhere useful instead
+  // of retyped off a phone screenshot — which is how every one of these has
+  // reached me so far.
+  function copy(l: LogRow) {
+    const text = [
+      `[${l.level}] ${l.tag}${l.status != null ? ` ${l.status}` : ''}${l.mode ? ` (${l.mode})` : ''}`,
+      l.message,
+      [l.route, l.ms != null ? `${l.ms}ms` : '', l.uid ? `uid ${l.uid}` : '', l.requestId ? `req ${l.requestId}` : '', l.release ? `build ${l.release}` : '', when(l.createdAt)]
+        .filter(Boolean).join(' · '),
+    ].join('\n')
+    navigator.clipboard?.writeText(text).catch(() => {})
+  }
+
   const filteredLogs = useMemo(() => {
     const q = search.trim().toLowerCase()
     return logs.filter(l =>
       (levelFilter === 'all' || l.level === levelFilter) &&
-      (!q || `${l.tag} ${l.message} ${l.route} ${l.uid ?? ''}`.toLowerCase().includes(q))
+      (!q || `${l.tag} ${l.message} ${l.route} ${l.uid ?? ''} ${l.requestId ?? ''} ${l.mode ?? ''} ${l.release ?? ''}`.toLowerCase().includes(q))
     )
   }, [logs, levelFilter, search])
+
+  const blockedCount = useMemo(() => logs.filter(l => l.tag === 'blocked').length, [logs])
 
   const filteredAudit = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -86,7 +101,16 @@ export default function LogsPanel({ initialSearch = '' }: { initialSearch?: stri
             <option value="info">Info</option>
           </select>
         )}
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={tab === 'logs' ? 'Search message / route / uid…' : 'Search action / uid…'} className="flex-1 min-w-[180px] text-sm border border-[var(--border)] rounded-lg px-3 py-2 bg-white outline-none focus:border-[#2563eb]" />
+        {tab === 'logs' && (
+          // The triage view: not "something went wrong somewhere" but "a doctor
+          // was left with nothing". A busy model that recovered is a warning and
+          // does not belong in this list.
+          <button onClick={() => setSearch(search === 'blocked' ? '' : 'blocked')}
+            className={`text-sm rounded-lg px-3 py-2 border ${search === 'blocked' ? 'bg-[#dc2626] text-white border-[#dc2626]' : 'border-[var(--border)] text-[#475569]'}`}>
+            Blocked doctors{blockedCount ? ` (${blockedCount})` : ''}
+          </button>
+        )}
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={tab === 'logs' ? 'Search message / route / uid / request / build…' : 'Search action / uid…'} className="flex-1 min-w-[180px] text-sm border border-[var(--border)] rounded-lg px-3 py-2 bg-white outline-none focus:border-[#2563eb]" />
       </div>
 
       {error && <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">{error}<button onClick={() => fetchTab(tab)} className="ml-2 underline">Retry</button></div>}
@@ -102,12 +126,27 @@ export default function LogsPanel({ initialSearch = '' }: { initialSearch?: stri
                   <span className={`text-[10px] font-semibold uppercase border rounded-full px-1.5 py-0.5 ${LEVEL_STYLE[l.level] ?? LEVEL_STYLE.info}`}>{l.level}</span>
                   <span className="text-xs font-mono text-[#2563eb]">{l.tag}</span>
                   {l.status != null && <span className="text-xs text-[#94a3b8]">{l.status}</span>}
+                  {l.mode && <span className="text-xs text-[#475569]">{l.mode}</span>}
                   <span className="text-xs text-[#94a3b8] ml-auto">{when(l.createdAt)}</span>
                 </div>
                 <p className="text-[#0f172a] mt-1 break-words whitespace-pre-wrap">{l.message}</p>
-                <div className="flex gap-3 mt-1 text-[11px] text-[#94a3b8]">
+                <div className="flex gap-x-3 gap-y-1 mt-1 text-[11px] text-[#94a3b8] flex-wrap items-center">
                   <span>{l.route}</span>
-                  {l.uid && <span className="font-mono">uid: {l.uid}</span>}
+                  {l.ms != null && <span>{l.ms}ms</span>}
+                  {l.uid && (
+                    <button onClick={() => setSearch(l.uid ?? '')} className="font-mono hover:text-[#2563eb]" title="Show everything from this doctor">
+                      uid: {l.uid.slice(0, 10)}…
+                    </button>
+                  )}
+                  {/* One click collapses a doctor's click to the lines it produced —
+                      the provider that refused, the fallback, and the give-up. */}
+                  {l.requestId && (
+                    <button onClick={() => setSearch(l.requestId ?? '')} className="font-mono text-[#2563eb] hover:underline" title="Show only this request">
+                      req: {l.requestId}
+                    </button>
+                  )}
+                  {l.release && <span className="font-mono" title="Build that produced this line">build {l.release}</span>}
+                  <button onClick={() => copy(l)} className="ml-auto hover:text-[#2563eb]">Copy</button>
                 </div>
               </div>
             ))}

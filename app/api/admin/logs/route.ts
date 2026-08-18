@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       const snap = await db.collection('system_logs').orderBy('createdAt', 'desc').limit(limit).get()
       const logs = snap.docs.map(d => {
         const x = d.data()
-        return { id: d.id, level: x.level, tag: x.tag, message: x.message, route: x.route, status: x.status ?? null, uid: x.uid ?? null, createdAt: ts(x.createdAt) }
+        return { id: d.id, level: x.level, tag: x.tag, message: x.message, route: x.route, status: x.status ?? null, uid: x.uid ?? null, requestId: x.requestId ?? null, mode: x.mode ?? null, ms: x.ms ?? null, release: x.release ?? null, createdAt: ts(x.createdAt) }
       })
       return NextResponse.json({ logs })
     }

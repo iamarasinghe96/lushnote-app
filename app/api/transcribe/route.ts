@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withRequest, noteRequest } from '@/lib/requestContext'
 import { transcribeAudio } from '@/lib/gemini'
 import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { rateLimit } from '@/lib/rateLimit'
@@ -11,7 +12,7 @@ export const maxDuration = 60
 
 const MAX_SEGMENT_BYTES = 8 * 1024 * 1024
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const startedAt = Date.now()
   let uid = 'unknown'
   let seg = '?'
@@ -87,4 +88,11 @@ export async function POST(req: NextRequest) {
     logToSink({ level: 'error', tag: 'transcribe', message: msg, route: '/api/transcribe', status: 500, uid })
     return NextResponse.json({ error: 'Transcription failed' }, { status: 500 })
   }
+}
+
+// Every line logged inside this handler shares one request id, so a doctor's
+// single click reads as one story instead of scattered lines to correlate by
+// timestamp.
+export function POST(req: NextRequest) {
+  return withRequest('/api/transcribe', () => handlePOST(req))
 }
