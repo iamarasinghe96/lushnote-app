@@ -4,20 +4,19 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import type { Note } from '@/types'
+import { foldPatientProfiles } from '@/lib/utils'
+import type { Note, PatientProfile } from '@/types'
 
 interface ReassignModalProps {
   open: boolean
   allNotes: Note[]
+  /** Registered patients, so someone added but not yet written about is found. */
+  patientProfiles: PatientProfile[]
   onConfirm: (patient: string, regNumber: string) => void
   onClose: () => void
 }
 
-function toTitleCase(s: string) {
-  return s.replace(/\b\w/g, c => c.toUpperCase())
-}
-
-export default function ReassignModal({ open, allNotes, onConfirm, onClose }: ReassignModalProps) {
+export default function ReassignModal({ open, allNotes, patientProfiles, onConfirm, onClose }: ReassignModalProps) {
   const [patientName, setPatientName] = useState('')
   const [regNumber, setRegNumber] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
@@ -39,17 +38,18 @@ export default function ReassignModal({ open, allNotes, onConfirm, onClose }: Re
   }, [open])
 
   const patientIndex = useMemo(() => {
-    const seen = new Map<string, string>()
+    const seen = new Map<string, { name: string; reg: string }>()
     allNotes.forEach(n => {
-      if (n.patient) seen.set(n.patient.toLowerCase(), n.reg_number || '')
+      if (n.patient) seen.set(n.patient.toLowerCase(), { name: n.patient, reg: n.reg_number || '' })
     })
-    return Array.from(seen.entries()).map(([name, reg]) => ({ name, reg }))
-  }, [allNotes])
+    foldPatientProfiles(seen, patientProfiles, (name, reg) => ({ name, reg }))
+    return Array.from(seen.values())
+  }, [allNotes, patientProfiles])
 
   const filteredPatients = useMemo(() => {
     if (!patientName.trim()) return []
     const q = patientName.trim().toLowerCase()
-    return patientIndex.filter(p => p.name.includes(q)).slice(0, 8)
+    return patientIndex.filter(p => p.name.toLowerCase().includes(q)).slice(0, 8)
   }, [patientName, patientIndex])
 
   // The dropdown renders right below the input in normal flow, but the mobile
@@ -70,8 +70,12 @@ export default function ReassignModal({ open, allNotes, onConfirm, onClose }: Re
     setShowDropdown(value.trim().length > 0)
   }
 
+  // Take the name exactly as it is on the record. It used to be title-cased,
+  // because the index lower-cased every name and it had to be put back — but
+  // that also rewrote "de Souza" and "van der Berg", and reassigning under a
+  // renamed patient splits their history in two.
   function handleSelectPatient(name: string, reg: string) {
-    setPatientName(toTitleCase(name))
+    setPatientName(name)
     setRegNumber(reg)
     setShowDropdown(false)
   }
@@ -117,7 +121,7 @@ export default function ReassignModal({ open, allNotes, onConfirm, onClose }: Re
                       handleSelectPatient(p.name, p.reg)
                     }}
                   >
-                    <span>{toTitleCase(p.name)}</span>
+                    <span>{p.name}</span>
                     {p.reg && <span className="ml-2 text-xs text-[var(--text3)]">{p.reg}</span>}
                   </button>
                 ))}

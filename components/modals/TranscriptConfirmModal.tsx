@@ -4,13 +4,15 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { useAuth } from '@/hooks/useAuth'
-import { formatDob } from '@/lib/utils'
-import type { Note } from '@/types'
+import { formatDob, foldPatientProfiles } from '@/lib/utils'
+import type { Note, PatientProfile } from '@/types'
 
 interface TranscriptConfirmModalProps {
   open: boolean
   transcript: string
   allNotes: Note[]
+  /** Registered patients, so someone added but not yet written about is found. */
+  patientProfiles: PatientProfile[]
   // Details already read from the source (a scanned ward note's patient label).
   // They seed the fields; the doctor still confirms or corrects them.
   prefill?: { patient: string; regNumber: string; dob: string; gender: 'male' | 'female' | '' } | null
@@ -35,14 +37,11 @@ function suggestNextReg(allNotes: Note[]): string {
   return prefix + String(max + 1).padStart(3, '0')
 }
 
-function toTitleCase(s: string) {
-  return s.replace(/\b\w/g, c => c.toUpperCase())
-}
-
 export default function TranscriptConfirmModal({
   open,
   transcript,
   allNotes,
+  patientProfiles,
   prefill,
   onConfirm,
   onClose,
@@ -107,8 +106,9 @@ export default function TranscriptConfirmModal({
         seen.get(key)!.reg = n.reg_number
       }
     })
+    foldPatientProfiles(seen, patientProfiles, (name, reg) => ({ name, reg }))
     return Array.from(seen.values())
-  }, [allNotes])
+  }, [allNotes, patientProfiles])
 
   const filteredPatients = useMemo(() => {
     if (!patientName.trim()) return []
@@ -160,8 +160,11 @@ export default function TranscriptConfirmModal({
     setShowDropdown(value.trim().length > 0)
   }
 
+  // Verbatim. Title-casing a name off an existing record rewrote "de Souza" and
+  // "van der Berg", and the profile lookup on save matches on the name — so a
+  // rewrite is how a returning patient became a second record.
   function handleSelectPatient(name: string, reg: string) {
-    setPatientName(toTitleCase(name))
+    setPatientName(name)
     setRegNumber(reg)
     setRegOverridden(!!reg)
     setShowDropdown(false)
@@ -269,7 +272,7 @@ export default function TranscriptConfirmModal({
                           handleSelectPatient(p.name, p.reg)
                         }}
                       >
-                        <span className="text-[var(--text)]">{toTitleCase(p.name)}</span>
+                        <span className="text-[var(--text)]">{p.name}</span>
                         {p.reg && (
                           <span className="text-xs text-[var(--text3)] font-mono shrink-0">{p.reg}</span>
                         )}

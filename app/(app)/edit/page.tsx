@@ -12,7 +12,7 @@ import { getHospitalForm } from '@/lib/firestore/hospitalForms'
 import HospitalFormView from '@/components/hospital-form/HospitalFormView'
 import { registerReloadGuard } from '@/lib/reloadGuard'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { buildTemplatePrompt, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, parseNoteTemplate, serializeLetterData, parseLetterData, buildLetterText, parseHospitalFormData, notePatientDob, smartCapitalizeLines } from '@/lib/utils'
+import { buildTemplatePrompt, stripRedundantSectionLabel, autoSessionTime, getGroqKey, getGeminiKey, withTimeout, CORE_NOTE_FIELDS, parseExtraSectionsField, serializeExtraSections, parseNoteTemplate, serializeLetterData, parseLetterData, buildLetterText, parseHospitalFormData, notePatientDob, smartCapitalizeLines, foldPatientProfiles } from '@/lib/utils'
 import { getPersonalisationPrefix } from '@/lib/personalisation'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import Input from '@/components/ui/Input'
@@ -25,7 +25,7 @@ import TemplatePicker from '@/components/modals/TemplatePicker'
 import ReassignModal from '@/components/modals/ReassignModal'
 import ManualGenerateModal from '@/components/modals/ManualGenerateModal'
 import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderModal'
-import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate, ExtraSection, CustomLetterTemplate, LetterData, ReferralFields, RecordsFields, FreetextFields } from '@/types'
+import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate, ExtraSection, CustomLetterTemplate, LetterData, ReferralFields, RecordsFields, FreetextFields, PatientProfile } from '@/types'
 
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60)
@@ -393,6 +393,7 @@ function EditContent() {
   const [reassignOpen, setReassignOpen] = useState(false)
   const [manualOpen, setManualOpen] = useState(false)
   const [allNotes, setAllNotes] = useState<Note[]>([])
+  const [patientProfileList, setPatientProfileList] = useState<PatientProfile[]>([])
   const patientDobMap = useRef<Map<string, string>>(new Map())
   const [patientDropdownOpen, setPatientDropdownOpen] = useState(false)
   const [visitCount, setVisitCount] = useState<number | null>(null)
@@ -821,6 +822,7 @@ function EditContent() {
     // Cache patient DOBs (keyed by lowercased name) so letters can pre-fill DOB.
     getPatientProfiles(user.uid)
       .then(profiles => {
+        setPatientProfileList(Object.values(profiles))
         const map = new Map<string, string>()
         Object.values(profiles).forEach(p => {
           if (p.displayName && p.dob) map.set(p.displayName.trim().toLowerCase(), p.dob)
@@ -912,8 +914,9 @@ function EditContent() {
         })
       }
     })
+    foldPatientProfiles(seen, patientProfileList, (name, reg) => ({ name, reg, visits: 0, lastDate: '' }))
     return Array.from(seen.values())
-  }, [allNotes])
+  }, [allNotes, patientProfileList])
 
   const patientMatches = useMemo<PatientEntry[]>(() => {
     const q = (fields.patient ?? '').trim().toLowerCase()
@@ -2966,6 +2969,7 @@ function EditContent() {
         onClose={() => { setLetterBuilderOpen(false); setLetterBuilderInitial(null) }}
       />
       <ReassignModal
+        patientProfiles={patientProfileList}
         open={reassignOpen}
         allNotes={allNotes}
         onConfirm={handleReassign}

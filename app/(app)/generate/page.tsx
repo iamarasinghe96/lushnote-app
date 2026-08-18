@@ -147,6 +147,7 @@ export default function GeneratePage() {
   // Confirm transcript step. Null for every other pathway.
   const [scanPrefill, setScanPrefill] = useState<{ patient: string; regNumber: string; dob: string; gender: 'male' | 'female' | '' } | null>(null)
   const [allNotes, setAllNotes] = useState<Note[]>([])
+  const [patientProfileList, setPatientProfileList] = useState<PatientProfile[]>([])
   const [letterPickerOpen, setLetterPickerOpen] = useState(false)
   const [patientSaving, setPatientSaving] = useState(false)
   // Whether the naming step matched an EXISTING patient — used to suppress the
@@ -175,6 +176,7 @@ export default function GeneratePage() {
   useEffect(() => {
     if (!user) return
     listNotes(user.uid).then(setAllNotes).catch(() => {})
+    getPatientProfiles(user.uid).then(m => setPatientProfileList(Object.values(m))).catch(() => {})
   }, [user?.uid])
 
   // Hospital forms available to the active workplace (campus-gated). Mirrors the
@@ -192,6 +194,7 @@ export default function GeneratePage() {
   useEffect(() => {
     if (transcriptConfirmOpen && user) {
       listNotes(user.uid).then(setAllNotes).catch(() => {})
+      getPatientProfiles(user.uid).then(m => setPatientProfileList(Object.values(m))).catch(() => {})
     }
   }, [transcriptConfirmOpen, user?.uid])
 
@@ -848,6 +851,7 @@ export default function GeneratePage() {
         open={transcriptConfirmOpen}
         transcript={pendingTranscript}
         allNotes={allNotes}
+        patientProfiles={patientProfileList}
         prefill={scanPrefill}
         onConfirm={handleTranscriptConfirmPatient}
         onClose={() => { setTranscriptConfirmOpen(false); setPendingTranscript(''); setScanPrefill(null) }}

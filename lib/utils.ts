@@ -1130,3 +1130,30 @@ export function buildPreviewHTML(f: Partial<Note>): string {
     ${sections}
   </div>`
 }
+/**
+ * Fold registered patients into a name-keyed index built from notes.
+ *
+ * A patient index assembled from notes alone cannot see anyone who has been
+ * registered but not yet written about — which is exactly the patient a doctor
+ * is looking for when they add someone and then paste their first ward note.
+ * They fell through as "new", and a second profile was created beside the one
+ * already there.
+ *
+ * A name already in the index keeps its note-derived entry, since that carries
+ * visit counts and dates a profile has no idea about; it only borrows the UR
+ * number if it has none of its own.
+ */
+export function foldPatientProfiles<T extends { name: string; reg: string }>(
+  seen: Map<string, T>,
+  profiles: PatientProfile[],
+  make: (name: string, reg: string) => T,
+): void {
+  profiles.forEach(p => {
+    const name = (p.displayName || '').trim()
+    if (!name) return
+    const key = name.toLowerCase()
+    const existing = seen.get(key)
+    if (!existing) seen.set(key, make(name, p.urNumber || ''))
+    else if (!existing.reg && p.urNumber) existing.reg = p.urNumber
+  })
+}
