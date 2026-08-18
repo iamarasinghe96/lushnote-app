@@ -26,6 +26,10 @@ export interface GeminiResult {
   // it is billed but appears in neither prompt nor candidates, so a total that
   // omits it under-reports what the doctor's key actually used.
   usage: { prompt: number; output: number; thoughts: number; total: number }
+  /** Google's own reason for stopping — STOP, MAX_TOKENS, SAFETY … A reply cut
+   *  off at the token ceiling is indistinguishable from a malformed one once
+   *  it reaches JSON.parse, so the difference has to be carried out of here. */
+  finishReason: string
 }
 
 // Which model a key may actually run differs by project and region, so a
@@ -192,7 +196,13 @@ async function geminiPost(model: string, body: object, apiKey?: string): Promise
       // limits. Only a per-day exhaustion should lock the key out for the day.
       throw geminiError(/per\s*day/i.test(body) ? GEMINI_DAILY_LIMIT_ERROR : GEMINI_RATE_LIMIT_ERROR, meta)
     }
-    if (res.status === 400 || res.status === 403) throw geminiError(GEMINI_KEY_INVALID_ERROR, meta)
+    // 400 covers a rejected key AND a request Google did not like. Blaming the
+    // doctor's key for our own malformed generationConfig would send them off
+    // to re-paste a key that was never the problem.
+    const looksLikeKey = /api[\s_-]?key|credential|permission|unregistered|forbidden/i.test(meta.detail ?? '')
+    if (res.status === 403 || (res.status === 400 && looksLikeKey)) {
+      throw geminiError(GEMINI_KEY_INVALID_ERROR, meta)
+    }
     if (res.status >= 500) throw geminiError(GEMINI_OVERLOADED_ERROR, meta)
     throw geminiError(`Gemini API error ${res.status}: ${meta.detail || res.statusText}`, meta)
   }
@@ -204,10 +214,17 @@ async function geminiPost(model: string, body: object, apiKey?: string): Promise
     thoughts: u.thoughtsTokenCount ?? 0,
     total: u.totalTokenCount ?? 0,
   }
+  // Join every ANSWER part. Google returns `parts` as an array, and a 2.5
+  // thinking model can put a reasoning part before the reply or split a long
+  // reply across several — reading parts[0] then hands back a thought, or the
+  // first third of an object, and both arrive downstream as "not valid JSON".
+  // Parts flagged `thought` are the model's reasoning, never the answer.
+  const parts = (data.candidates?.[0]?.content?.parts ?? []) as { text?: string; thought?: boolean }[]
   return {
-    text: (data.candidates?.[0]?.content?.parts?.[0]?.text ?? '') as string,
+    text: parts.filter(p => !p.thought && typeof p.text === 'string').map(p => p.text).join(''),
     totalTokens: usage.total,
     usage,
+    finishReason: String(data.candidates?.[0]?.finishReason ?? ''),
   }
 }
 
@@ -219,7 +236,7 @@ export async function generateNote(
   prompt: string,
   systemPrompt: string,
   apiKey?: string,
-  opts?: { temperature?: number },
+  opts?: { temperature?: number; json?: boolean; uncapped?: boolean },
 ): Promise<GeminiResult> {
   const body: Record<string, unknown> = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -227,9 +244,24 @@ export async function generateNote(
   if (systemPrompt.trim()) {
     body.systemInstruction = { parts: [{ text: systemPrompt }] }
   }
+  const cfg: Record<string, unknown> = {}
   if (opts?.temperature !== undefined) {
-    body.generationConfig = { temperature: opts.temperature, maxOutputTokens: 8192 }
+    cfg.temperature = opts.temperature
+    // 8192 was chosen when only the answer counted against it. On a 2.5 model
+    // the reasoning tokens come out of the same allowance, so a long note can
+    // spend the budget thinking and return a half-written object. `uncapped`
+    // drops OUR ceiling and lets the model use its own, which is never smaller
+    // — safer than naming a bigger number, since a value above a given model's
+    // maximum is an invalid argument rather than a clamp.
+    if (!opts.uncapped) cfg.maxOutputTokens = 8192
   }
+  // Ask Google to emit JSON rather than asking the model nicely in the prompt.
+  // "Return ONLY valid JSON" is an instruction a model can and does ignore — it
+  // wraps the object in ``` fences, prefaces it, or leaves a raw newline inside
+  // a string — and every one of those arrives here as "not valid JSON". This
+  // constrains the decoder instead, so the syntax is guaranteed at the source.
+  if (opts?.json) cfg.responseMimeType = 'application/json'
+  if (Object.keys(cfg).length) body.generationConfig = cfg
   return geminiPost(PRIMARY_MODEL, body, apiKey)
 }
 

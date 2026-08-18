@@ -203,7 +203,7 @@ async function runExtraction(opts: {
   // Skip Groq entirely — used to re-run a job whose Groq answer was measurably
   // incomplete, where trying Groq again would just repeat the same loss.
   geminiOnly?: boolean
-}): Promise<{ content: string; provider: 'groq' | 'gemini' }> {
+}): Promise<{ content: string; provider: 'groq' | 'gemini'; finishReason?: string }> {
   const { prompt, system, req, uid, preferGemini, geminiOnly } = opts
   const groqKey = geminiOnly ? null : req.headers.get('x-groq-key')
   const userGeminiKey = req.headers.get('x-gemini-key')
@@ -230,9 +230,18 @@ async function runExtraction(opts: {
   let userKeyFailure: AiFailure | null = null
   if (userGeminiKey) {
     try {
-      const { text, usage } = await generateNote(prompt, system, userGeminiKey, { temperature: EXTRACTION_TEMPERATURE })
+      let { text, usage, finishReason } = await generateNote(prompt, system, userGeminiKey, { temperature: EXTRACTION_TEMPERATURE, json: true })
       if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
-      return { content: text, provider: 'gemini' }
+      // A reply that stopped at the ceiling is a half-written object, and no
+      // amount of repairing makes one parse. Google says so explicitly, so the
+      // one retry is spent on a real signal rather than on a hunch.
+      if (finishReason === 'MAX_TOKENS') {
+        logToSink({ level: 'warn', tag: 'gemini-key', route: '/api/generate', uid, message: `truncated at ceiling (thoughts=${usage.thoughts}, output=${usage.output}) — retrying uncapped` })
+        const retry = await generateNote(prompt, system, userGeminiKey, { temperature: EXTRACTION_TEMPERATURE, json: true, uncapped: true })
+        if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', retry.usage).catch(() => {})
+        text = retry.text; finishReason = retry.finishReason
+      }
+      return { content: text, provider: 'gemini', finishReason }
     } catch (err) {
       const m = err instanceof Error ? err.message : ''
       userKeyFailure = m === GEMINI_KEY_INVALID_ERROR ? 'user-key-invalid'
@@ -254,9 +263,9 @@ async function runExtraction(opts: {
     const profile = uid ? await getProfile(uid).catch(() => null) : null
     if (!uid || checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')) {
       try {
-        const { text, usage } = await generateNote(prompt, system, undefined, { temperature: EXTRACTION_TEMPERATURE })
+        const { text, usage, finishReason } = await generateNote(prompt, system, undefined, { temperature: EXTRACTION_TEMPERATURE, json: true })
         if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
-        return { content: text, provider: 'gemini' }
+        return { content: text, provider: 'gemini', finishReason }
       } catch (err) {
         logToSink({ level: 'warn', tag: 'gemini-shared', route: '/api/generate', uid, message: describeGeminiError(err) })
       }
@@ -497,18 +506,27 @@ ${transcript}`
         const first = await runExtraction({ prompt: intakePrompt, system: systemInstruction, req, uid, preferGemini: true })
         // Parse in isolation: a malformed reply is the AI's problem, not
         // something to show the doctor as a raw syntax error.
-        const parse = (content: string): Record<string, unknown> | null => {
+        // "was not valid JSON" said nothing about WHY: a reply cut off at the
+        // token ceiling and a reply full of prose look identical by the time
+        // JSON.parse rejects them. These are all scalars — a length, a flag,
+        // Google's own stop reason — so the PHI-safe contract on system_logs
+        // holds; the note itself is never written anywhere near a log.
+        const parse = (content: string, from: { provider: string; finishReason?: string }): Record<string, unknown> | null => {
           const m = content.match(/\{[\s\S]*\}/)
-          if (!m) return null
+          const why = `provider=${from.provider} finish=${from.finishReason || 'n/a'} chars=${content.length} braced=${m ? 'yes' : 'no'}`
+          if (!m) {
+            logToSink({ level: 'warn', tag: 'generate', message: `${mode} reply had no JSON object — ${why}`, route: '/api/generate', uid })
+            return null
+          }
           try {
             return JSON.parse(repairJsonControlChars(m[0])) as Record<string, unknown>
           } catch {
-            logToSink({ level: 'warn', tag: 'generate', message: `${mode} reply was not valid JSON`, route: '/api/generate', uid })
+            logToSink({ level: 'warn', tag: 'generate', message: `${mode} reply was not valid JSON — ${why}`, route: '/api/generate', uid })
             return null
           }
         }
 
-        let patientFields = parse(first.content)
+        let patientFields = parse(first.content, first)
         // This record is what a hospital form is later built from, so a dropped
         // problem list follows the patient onto their chart. When Groq's answer
         // measurably loses lines, spend one Gemini call rather than keep it.
@@ -518,7 +536,7 @@ ${transcript}`
             logToSink({ level: 'warn', tag: 'generate', message: `${mode} groq coverage ${Math.round(before * 100)}% — retrying on gemini`, route: '/api/generate', uid })
             try {
               const second = await runExtraction({ prompt: intakePrompt, system: systemInstruction, req, uid, geminiOnly: true })
-              const retried = parse(second.content)
+              const retried = parse(second.content, second)
               if (retried && sourceCoverage(transcript, flattenStrings(retried)) > before) patientFields = retried
             } catch { /* keep the first answer rather than failing outright */ }
           }

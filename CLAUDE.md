@@ -731,6 +731,16 @@ rank Groq models by parameter count — on the free tier the BIGGER model has th
 per-minute allowance, so ranking by size picked `gpt-oss-120b` (8000 TPM) for a
 ~12000-token ward note and earned a 413 on every attempt, permanently.
 
+**Reading a Gemini reply.** `parts` is an ARRAY: a 2.5 thinking model can put a
+reasoning part before the answer or split a long answer across several, so every
+non-`thought` part is joined — reading `parts[0]` handed back a thought and the
+caller reported "not valid JSON". Extraction asks for `responseMimeType:
+'application/json'` rather than trusting a "return only JSON" instruction, and
+carries `finishReason` out: `MAX_TOKENS` means a half-written object that no
+repair can parse, and earns one retry with OUR 8192 ceiling dropped (thoughts
+spend the same allowance). A 400 is only a bad key when the message says so —
+otherwise it is our own request.
+
 **Groq 413.** The refusal quotes the cap it enforced ("Limit 8000, Requested
 11808"), so `refitMaxTokens` reads the numbers back and resends once with an
 output budget that fits, rather than retrying an identical request that cannot.
