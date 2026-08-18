@@ -13,6 +13,19 @@ function isModelGone(status: number, message: string): boolean {
   return status === 400 && /does not exist|model_not_found|decommission|deprecat/i.test(message)
 }
 
+// Groq refuses an oversized request with 413 and names the cap it enforced:
+// "Limit 8000, Requested 11808". That is a hard arithmetic fact, not congestion
+// — resending the identical request can never fit — but the reply carries
+// everything needed to resize it, so read the numbers back rather than guess.
+function refitMaxTokens(message: string, sentMax: number): number | null {
+  const limit = Number(message.match(/limit\s+(\d+)/i)?.[1] ?? 0)
+  const requested = Number(message.match(/requested\s+(\d+)/i)?.[1] ?? 0)
+  if (!limit || !requested || requested <= limit) return null
+  const inputCost = requested - sentMax        // what the prompt alone is charged
+  const room = limit - inputCost - 200         // margin for the limiter's rounding
+  return room >= 512 ? room : null
+}
+
 // Pick the closest live model to the one that vanished. Text wants the largest
 // general-purpose chat model; transcription wants Whisper. Nothing is ranked by a
 // version number written here, so the next retirement resolves the same way.
@@ -23,9 +36,16 @@ function scoreGroqModel(id: string, kind: 'text' | 'transcribe'): number {
     return 10 + (n.includes('turbo') ? 20 : 0) + (n.includes('large') ? 10 : 0)
   }
   if (/whisper|tts|guard|embed|vision|moderation/.test(n)) return -1
+  // Parameter count used to be added raw, so openai/gpt-oss-120b (120) beat
+  // llama-3.3-70b-versatile (70 + 40) the day the 70B was decommissioned. Size
+  // is a poor proxy for usability anyway: on Groq's free tier the BIGGER model
+  // carries the SMALLER per-minute token allowance — 8000 against 12000 — so
+  // the biggest model available is the one least able to take a ward note. It
+  // breaks ties now instead of deciding.
   const size = n.match(/(\d+)\s*b\b/)
   return (n.includes('versatile') ? 40 : 0)
-    + (size ? Math.min(Number(size[1]), 500) : 0)
+    + (/instruct|chat/.test(n) ? 20 : 0)
+    + (size ? Math.min(Number(size[1]), 200) / 20 : 0)
     - (/preview|deprecated/.test(n) ? 50 : 0)
 }
 
@@ -66,7 +86,7 @@ export async function generateNoteGroq(
   const estimatedInputTokens = Math.ceil((systemPrompt.length + prompt.length) / 4)
   const max_tokens = maxTokens ?? Math.max(512, 12000 - estimatedInputTokens - 200)
 
-  const send = (model: string) => fetch(`${BASE_URL}/chat/completions`, {
+  const send = (model: string, cap: number) => fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -74,7 +94,7 @@ export async function generateNoteGroq(
     },
     body: JSON.stringify({
       model,
-      max_tokens,
+      max_tokens: cap,
       ...(temperature !== undefined ? { temperature } : {}),
       messages: [
         { role: 'system', content: systemPrompt },
@@ -83,13 +103,25 @@ export async function generateNoteGroq(
     }),
   })
 
-  let res = await send(resolvedGroqModel.get(`${apiKey}:${GENERATION_MODEL}`) ?? GENERATION_MODEL)
+  let model = resolvedGroqModel.get(`${apiKey}:${GENERATION_MODEL}`) ?? GENERATION_MODEL
+  let cap = max_tokens
+  let res = await send(model, cap)
+
   if (!res.ok && (res.status === 404 || res.status === 400)) {
     const peek = await res.clone().json().catch(() => ({})) as { error?: { message?: string } }
     if (isModelGone(res.status, peek?.error?.message ?? '')) {
       const alternative = await pickGroqModel(apiKey, GENERATION_MODEL, 'text')
-      if (alternative) res = await send(alternative)
+      if (alternative) { model = alternative; res = await send(model, cap) }
     }
+  }
+
+  // The output budget above is sized for the 12000-token allowance the original
+  // model had. A model with a smaller allowance refuses the whole request, so
+  // resize to the cap Groq just quoted and send once more.
+  if (res.status === 413) {
+    const peek = await res.clone().json().catch(() => ({})) as { error?: { message?: string } }
+    const refitted = refitMaxTokens(peek?.error?.message ?? '', cap)
+    if (refitted) { cap = refitted; res = await send(model, cap) }
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({})) as { error?: { message?: string } }

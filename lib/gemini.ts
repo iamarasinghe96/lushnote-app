@@ -38,10 +38,16 @@ const resolvedModel = new Map<string, string>()
 // Rank what a key can actually run. Google retires model names ("no longer
 // available to new users"), so the newest usable flash model is chosen by score
 // rather than by a version number hard-coded here — which would go stale the
-// same way. A "-latest" alias wins because it tracks Google's current default.
+// same way.
+//
+// A "-latest" alias used to win, on the reasoning that it tracks Google's
+// current default. It does, and that is the problem: the newest build is the
+// one under the most load. A doctor's key resolved to gemini-flash-latest and
+// got 503 UNAVAILABLE attempt after attempt while a pinned version answered
+// straight away. An alias also carries no version number, so it cannot be
+// compared on recency at all — it now wins only when nothing pinned is there.
 function scoreModel(name: string): number {
   let score = name.includes('flash') ? 100 : 0
-  if (name.endsWith('-latest')) score += 40
   if (name.includes('lite')) score -= 30
   if (/preview|exp|thinking|tts|image|audio|embedding|learnlm/.test(name)) score -= 60
   const v = name.match(/(\d+)\.(\d+)/)

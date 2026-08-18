@@ -711,6 +711,18 @@ on `:root` from `WP_THEMES[themeIndex]`. Called on sign-in and on every workspac
 **Generation:** Gemini `gemini-2.5-flash` → fallback Groq `llama-3.3-70b-versatile`
 **Chat / Q&A:** Gemini `gemini-2.5-flash-lite` → fallback Groq `llama-3.3-70b-versatile`
 
+**Model resolution.** Both providers retire model names, so a 404 (Gemini) or a
+decommission error (Groq) asks the key what it can actually run and re-scores.
+Two rules learned the hard way: never prefer a `-latest` alias (it tracks the
+newest build, which is the one shedding load with 503), and never rank Groq
+models by parameter count — on the free tier the BIGGER model has the SMALLER
+per-minute allowance, so ranking by size picked `gpt-oss-120b` (8000 TPM) for a
+~12000-token ward note and earned a 413 on every attempt, permanently.
+
+**Groq 413.** The refusal quotes the cap it enforced ("Limit 8000, Requested
+11808"), so `refitMaxTokens` reads the numbers back and resends once with an
+output budget that fits, rather than retrying an identical request that cannot.
+
 **Quota:** `GEMINI_RPD = 20` requests/day per model, tracked in `users/{uid}.geminiUsage`
 Structure: `{ [modelKey]: { count: number, date: 'YYYY-MM-DD' } }`
 Also cached in `localStorage('ln_gemini_usage')` as backup.
