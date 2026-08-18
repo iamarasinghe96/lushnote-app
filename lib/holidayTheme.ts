@@ -8,7 +8,7 @@
 // That is what lets the themed bar be correct on the FIRST paint: there is no
 // async step for the plain blue to flash through.
 
-export type HolidayKey = 'christmas' | 'australiaDay' | 'anzacDay' | 'easter' | 'naidoc' | 'birthday' | 'campaign'
+export type HolidayKey = 'christmas' | 'australiaDay' | 'anzacDay' | 'easter' | 'naidoc' | 'campaign'
 
 export interface HolidayTheme {
   key: HolidayKey
@@ -22,7 +22,7 @@ export interface HolidayTheme {
   /** How strong the halo around the white text is. Nothing else is darkened.
    *  Adjustable per theme from the admin console; this is the starting point. */
   scrimOpacity: number
-  /** Replaces the doctor's name line for the day. `{name}` is substituted. */
+  /** Replaces the doctor's name line while the theme is up. */
   banner?: string
 }
 
@@ -61,14 +61,6 @@ const THEMES: Record<HolidayKey, HolidayTheme> = {
     image: '/holiday/naidoc.webp',
     fallback: 'linear-gradient(90deg,#7a2d10,#a8431a,#7a2d10)',
     scrimRgb: '70,26,10', scrimOpacity: 0.50,
-  },
-  birthday: {
-    key: 'birthday',
-    label: 'Birthday',
-    image: '/holiday/birthday.webp',
-    fallback: 'linear-gradient(90deg,#b4477f,#d4609b,#b4477f)',
-    scrimRgb: '90,25,70', scrimOpacity: 0.45,
-    banner: 'Happy Birthday {name}',
   },
   // The only theme with no date of its own. Its window, name and message are
   // set in the admin console, so a bushfire appeal or a public-health notice can
@@ -162,34 +154,13 @@ function inNaidocWeek(date: Date): boolean {
 }
 
 /**
- * `birthday` is DD/MM or DD/MM/YYYY — the year is ignored, only the day matters.
- * A 29 February birthday falls on 28 February in a common year so it is never
- * skipped for three years at a time.
- */
-function isBirthday(date: Date, birthday?: string): boolean {
-  const m = (birthday ?? '').match(/^(\d{1,2})\s*\/\s*(\d{1,2})/)
-  if (!m) return false
-  const day = Number(m[1])
-  const month = Number(m[2])
-  if (!day || !month || month > 12 || day > 31) return false
-  if (date.getDate() === day && date.getMonth() + 1 === month) return true
-  const leapDay = day === 29 && month === 2
-  const isLeap = new Date(date.getFullYear(), 1, 29).getMonth() === 1
-  return leapDay && !isLeap && date.getDate() === 28 && date.getMonth() === 1
-}
-
-/**
- * The theme for a given day, or null for an ordinary one. A birthday wins over a
- * public holiday — it is the more personal of the two, and a doctor born on
- * Christmas Day should be greeted rather than shown the same tinsel as everyone
- * else.
+ * The theme for a given day, or null for an ordinary one.
  *
  * A campaign is NOT resolved here: it has no date of its own, it comes from
  * Firestore, and it outranks everything this function can return — see the
  * header in app/(app)/layout.tsx.
  */
-export function resolveHolidayTheme(date: Date, birthday?: string): HolidayTheme | null {
-  if (isBirthday(date, birthday)) return THEMES.birthday
+export function resolveHolidayTheme(date: Date): HolidayTheme | null {
   const d = date.getDate()
   const mo = date.getMonth() + 1
   if (mo === 12 && d >= 20 && d <= 26) return THEMES.christmas

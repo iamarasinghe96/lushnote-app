@@ -572,15 +572,14 @@ are untouched.
 | Anzac Day | 25 April |
 | Easter | Good Friday → Easter Monday |
 | NAIDOC Week | First Sunday in July, for a week |
-| Birthday | `profile.birthday` (DD/MM, Settings → Profile). **Beats a public holiday** |
-| Campaign | An admin-set date range — **beats everything, birthday included** |
+| Campaign | An admin-set date range — **beats every calendar theme** |
 
 **No data source, by design.** `lib/holidayTheme.ts` computes every date locally —
 Easter from the anonymous Gregorian Computus, NAIDOC Week from the first Sunday in
 July — so there is no almanac to fetch, no repo to track and nothing to refresh
 each January. Cost is a handful of integer comparisons.
 
-**No blue flash.** `resolveHolidayTheme(new Date(), profile?.birthday)` runs
+**No blue flash.** `resolveHolidayTheme(new Date())` runs
 SYNCHRONOUSLY during the layout's render, so the themed bar is right on the first
 paint and stays right through a refresh. Anything async here would flash blue.
 
@@ -599,8 +598,8 @@ then keeps white text readable over any tile.
 **Campaign — the one theme with no date.** A named window (`appearance/holidayTiles.campaign`
 = `{label, start, end, banner?}`, ISO dates, both inclusive) for a bushfire appeal or a
 public-health alert. It is the only theme that cannot resolve synchronously, and the only
-one that outranks a birthday — it is put up deliberately, for a reason that matters more on
-the day. Dates compare as LOCAL calendar days, so "until the 30th" is the doctor's 30th.
+one that outranks the calendar — it is put up deliberately, for a reason that matters more
+on the day. Dates compare as LOCAL calendar days, so "until the 30th" is the doctor's 30th.
 
 **Artwork is uploaded, not committed.** `/admin?section=appearance` crops, mirrors and
 compresses the chosen image in the browser (`buildTileDataUrl`, lib/holidayTiles — same

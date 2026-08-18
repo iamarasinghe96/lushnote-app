@@ -10,7 +10,6 @@ stays sharp at any screen width instead of one wide image being stretched.
 | `australia-day.webp` | 26 January |
 | `anzac-day.webp` | 25 April |
 | `easter.webp` | Good Friday → Easter Monday |
-| `birthday.webp` | The doctor's own birthday |
 
 ## Adding one
 

@@ -828,13 +828,6 @@ export function smartCapitalizeLines(text: string): string {
 // apostrophe or hyphen) to upper-case, leaving the rest as typed. Deterministic
 // regardless of the keyboard's shift/caps-lock state — so a name typed with caps
 // lock accidentally off still comes out "Jane Smith", "O'Brien", "Smith-Jones".
-// DD/MM as the doctor types, slash inserted automatically. Day and month only —
-// a birthday greeting needs no year, and LushNote has no use for a doctor's age.
-export function formatDayMonth(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 4)
-  return digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits
-}
-
 export function capitalizeName(raw: string): string {
   return raw.replace(/(^|[\s'-])([a-z])/g, (_m, sep: string, ch: string) => sep + ch.toUpperCase())
 }

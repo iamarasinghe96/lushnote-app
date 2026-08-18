@@ -25,7 +25,6 @@ function nextDates(year: number, campaign?: CampaignConfig) {
     { key: 'anzacDay' as HolidayKey, when: `25 April ${year}` },
     { key: 'easter' as HolidayKey, when: `Good Friday to Easter Monday — Easter Sunday is ${au(easter)}` },
     { key: 'naidoc' as HolidayKey, when: `First Sunday in July for a week — ${au(naidoc)} to ${au(naidocEnd)}` },
-    { key: 'birthday' as HolidayKey, when: 'Each doctor’s own birthday, from their Settings → Profile' },
     {
       key: 'campaign' as HolidayKey,
       when: campaign?.start && campaign?.end
@@ -218,8 +217,8 @@ export default function AppearancePanel() {
                   <div className="mt-2 rounded-xl border border-[var(--border)] p-3 space-y-3">
                     <p className="text-[11px] text-[#94a3b8]">
                       A one-off awareness window — a bushfire appeal, a public-health alert. While it runs it replaces
-                      every other theme, including a doctor&apos;s birthday, because it is put up for a reason that
-                      matters more on the day. Leave it empty and nothing changes.
+                      every other theme, because it is put up for a reason that matters more on the day. Leave it
+                      empty and nothing changes.
                     </p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="block">

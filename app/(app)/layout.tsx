@@ -116,15 +116,15 @@ function AppContent({ children }: { children: React.ReactNode }) {
   // Resolved synchronously from today's date — no fetch, no effect — so the
   // themed bar is correct on the FIRST paint and a refresh on the day never
   // flashes the plain blue.
-  // A campaign outranks every calendar theme, and the birthday too: it is put up
-  // deliberately, for a reason that matters more on the day than tinsel does.
-  // It is the one theme that cannot resolve synchronously — its window lives in
-  // Firestore — but the gradient underneath means there is still no blue flash.
+  // A campaign outranks every calendar theme: it is put up deliberately, for a
+  // reason that matters more on the day than tinsel does. It is the one theme
+  // that cannot resolve synchronously — its window lives in Firestore — but the
+  // gradient underneath means there is still no blue flash.
   const campaign = appearance.campaign && campaignActive(appearance.campaign, new Date())
     ? campaignTheme(appearance.campaign)
     : null
   const holiday = campaign
-    ?? resolveHolidayTheme(new Date(), profile?.birthday)
+    ?? resolveHolidayTheme(new Date())
     ?? (holidayPreview ? (holidayPreview === 'campaign' && appearance.campaign ? campaignTheme(appearance.campaign) : themeFor(holidayPreview)) : null)
   const activeWorkplace = profile?.workplaces?.find(w => w.id === profile.activeWorkplaceId)
   const avatarBg = resolveThemePrimary(activeWorkplace?.themeIndex ?? 1, activeWorkplace?.themeColor)
