@@ -324,3 +324,78 @@ export async function getAccessState(uid: string, now = Date.now()): Promise<{ s
     return { suspended: false, entitlement: { entitled: true, state: 'legacy', reason: 'billing read failed' } }
   }
 }
+
+// ── Consent, portal, pause ─────────────────────────────────────────────────
+
+/** Bumped whenever the billing terms change. Recorded with each consent so an
+ *  old authorisation can be read against the wording it was given under. */
+export const TOS_VERSION = '2026-08-billing-v1'
+
+/**
+ * Record that a doctor authorised the charge. Written BEFORE the payment method
+ * is confirmed, because the authorisation is what a bank asks to see in a
+ * dispute and it must exist even if the confirmation then fails. Mirrored into
+ * billing_records, which outlives the account.
+ */
+export async function recordConsent(uid: string, ip: string): Promise<{ acceptedAt: number; ip: string; tosVersion: string }> {
+  const consent = { acceptedAt: Date.now(), ip: ip.slice(0, 45), tosVersion: TOS_VERSION }
+  await adminDb().collection('users').doc(uid).set(
+    { billing: { consent, updatedAt: Date.now() } }, { merge: true },
+  )
+  await adminDb().collection('billing_records').doc(uid).set({ consent }, { merge: true })
+  return consent
+}
+
+async function customerIdFor(uid: string): Promise<string | null> {
+  const snap = await adminDb().collection('users').doc(uid).get()
+  return (snap.data()?.billing as Billing | undefined)?.stripeCustomerId ?? null
+}
+
+/**
+ * A SetupIntent, not a PaymentIntent: nothing is charged now. `automatic_payment_methods`
+ * lets Stripe decide what to offer from the customer's own location — a card
+ * everywhere, and BECS Direct Debit for Australians. The Direct Debit Request
+ * is presented and accepted inside Stripe's element, because a mandate has to
+ * be given by the account holder and cannot be entered on their behalf.
+ */
+export async function createSetupIntent(uid: string): Promise<{ clientSecret: string | null }> {
+  const customer = await customerIdFor(uid)
+  if (!customer) return { clientSecret: null }
+  const intent = await stripe().setupIntents.create({
+    customer,
+    usage: 'off_session',
+    automatic_payment_methods: { enabled: true },
+    metadata: { uid },
+  })
+  return { clientSecret: intent.client_secret }
+}
+
+/** Stripe's own portal for changing a card, cancelling, and reading invoices —
+ *  it renders mandates and dunning state correctly, which a hand-built screen
+ *  would have to keep chasing. */
+export async function createPortalSession(uid: string, returnUrl: string): Promise<{ url: string | null }> {
+  const customer = await customerIdFor(uid)
+  if (!customer) return { url: null }
+  const session = await stripe().billingPortal.sessions.create({ customer, return_url: returnUrl })
+  return { url: session.url }
+}
+
+/**
+ * Pause and resume.
+ *
+ * `pause_collection` rather than cancelling: it keeps the subscription, the
+ * payment method AND — for Australians — the BECS mandate, which is the whole
+ * point of pausing rather than leaving. `behavior: 'void'` raises no invoices
+ * while paused, and the period already paid for runs out on its own, which is
+ * what ends access.
+ */
+export async function setPaused(uid: string, paused: boolean): Promise<{ paused: boolean } | null> {
+  const snap = await adminDb().collection('users').doc(uid).get()
+  const billing = snap.data()?.billing as Billing | undefined
+  if (!billing?.subscriptionId) return null
+  await stripe().subscriptions.update(billing.subscriptionId, {
+    pause_collection: paused ? { behavior: 'void' } : null,
+  })
+  await projectSubscription(billing.subscriptionId)
+  return { paused }
+}

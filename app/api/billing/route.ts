@@ -2,15 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, unauthorized } from '@/lib/adminGuard'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { withRequest, noteRequest } from '@/lib/requestContext'
-import { startTrial, stripeEnabled, getBillingConfig, priceString, PRICE_AUD, TRIAL_MONTHS } from '@/lib/billing'
+import {
+  startTrial, stripeEnabled, getBillingConfig, priceString, PRICE_AUD, TRIAL_MONTHS,
+  createSetupIntent, createPortalSession, recordConsent, setPaused, TOS_VERSION,
+} from '@/lib/billing'
+import { adminDb } from '@/lib/firebase-admin'
+import { resolveEntitlement, type Billing } from '@/lib/entitlement'
 
-// Layer 2 surface: start a trial, and report what a doctor's billing state is.
-// The payment-capture actions (setup-intent, consent, portal, pause) arrive with
-// the /billing page in Layer 4.
+// The one authenticated billing surface: start a trial, report state, open a
+// SetupIntent, record the authorisation, hand off to Stripe's portal, pause and
+// resume. Nothing here ever sees a card or bank number — the Payment Element
+// sends those straight to Stripe.
 
 async function handlePOST(req: NextRequest) {
   try {
-    const body = await req.json() as { action?: 'start-trial' | 'public-config' }
+    const body = await req.json() as {
+      action?: 'start-trial' | 'public-config' | 'state' | 'setup-intent' | 'record-consent' | 'portal' | 'pause' | 'resume'
+      returnUrl?: string
+    }
     noteRequest({ mode: body.action ?? 'billing' })
 
     // The price and GST state are on the landing page, which nobody is signed in
@@ -42,6 +51,48 @@ async function handlePOST(req: NextRequest) {
       if (result.created) {
         logToSink({ level: 'info', tag: 'billing', route: '/api/billing', uid, message: `trial started (${result.subscriptionId})` })
       }
+      return NextResponse.json(result)
+    }
+
+    if (body.action === 'state') {
+      const snap = await adminDb().collection('users').doc(uid).get()
+      const billing = snap.data()?.billing as Billing | undefined
+      const cfg = await getBillingConfig()
+      return NextResponse.json({
+        billing: billing ?? null,
+        entitlement: resolveEntitlement(billing, Date.now()),
+        price: priceString(cfg.gstRegistered, billing?.country === 'AU'),
+        tosVersion: TOS_VERSION,
+      })
+    }
+
+    if (body.action === 'setup-intent') {
+      return NextResponse.json(await createSetupIntent(uid))
+    }
+
+    if (body.action === 'record-consent') {
+      // Behind Vercel and Cloudflare the client address is the FIRST hop of
+      // x-forwarded-for; every entry after it is a proxy. Recorded for dispute
+      // defence and nothing else.
+      const forwarded = req.headers.get('x-forwarded-for') ?? ''
+      const ip = forwarded.split(',')[0].trim() || req.headers.get('x-real-ip') || 'unknown'
+      const consent = await recordConsent(uid, ip)
+      logToSink({ level: 'info', tag: 'billing', route: '/api/billing', uid, message: `consent recorded (${consent.tosVersion})` })
+      return NextResponse.json({ consent })
+    }
+
+    if (body.action === 'portal') {
+      const returnUrl = typeof body.returnUrl === 'string' && body.returnUrl.startsWith('http')
+        ? body.returnUrl
+        : `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://lushnote.com.au'}/billing`
+      return NextResponse.json(await createPortalSession(uid, returnUrl))
+    }
+
+    if (body.action === 'pause' || body.action === 'resume') {
+      const paused = body.action === 'pause'
+      const result = await setPaused(uid, paused)
+      if (!result) return NextResponse.json({ error: 'No subscription to change' }, { status: 400 })
+      logToSink({ level: 'info', tag: 'billing', route: '/api/billing', uid, message: paused ? 'subscription paused' : 'subscription resumed' })
       return NextResponse.json(result)
     }
 
