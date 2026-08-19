@@ -4,6 +4,7 @@ import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INV
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
+import { resolveEntitlement } from '@/lib/entitlement'
 
 // Reading a photographed ward note is a single Gemini call on an image already
 // downscaled by the client, so it finishes well inside the Hobby ceiling.
@@ -92,6 +93,17 @@ async function handlePOST(req: NextRequest) {
     const profile = await getProfile(uidField).catch(() => null)
     if (profile?.status === 'disabled') {
       return NextResponse.json({ error: 'Account suspended' }, { status: 403 })
+    }
+
+    // Paid features. 402 rather than 403: suspension is a judgement about the
+    // person, this is only about the state of a subscription, and the client
+    // routes the two differently.
+    // The profile is already in hand from the suspension check, so resolve
+    // from it rather than paying for a second read of the same document.
+    const entitlement = resolveEntitlement(profile?.billing, Date.now())
+    if (!entitlement.entitled) {
+      logToSink({ level: 'info', tag: 'billing', route: '/api/ocr', uid: uid, status: 402, message: `blocked: ${entitlement.reason}` })
+      return NextResponse.json({ error: 'Your LushNote subscription needs attention — note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: entitlement.state }, { status: 402 })
     }
 
     const images: { data: string; mimeType: string }[] = []

@@ -4,6 +4,7 @@ import { transcribeAudio } from '@/lib/gemini'
 import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
+import { getAccessState } from '@/lib/billing'
 
 // Recordings are transcribed live in short (~4 min) segments, so each request
 // handles only a small independent audio file that finishes in a few seconds —
@@ -39,6 +40,19 @@ async function handlePOST(req: NextRequest) {
     if (!limit.allowed) {
       logToSink({ level: 'warn', tag: 'transcribe', message: 'rate limit exceeded', route: '/api/transcribe', status: 429, uid: uidField })
       return NextResponse.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 })
+    }
+
+    // The only AI route with no suspension check until now, and the one a
+    // recording calls most: a session is transcribed segment by segment, so a
+    // doctor whose account is gone would otherwise keep spending the key for
+    // the length of a consultation.
+    const access = await getAccessState(uidField)
+    if (access.suspended) {
+      return NextResponse.json({ error: 'Account suspended' }, { status: 403 })
+    }
+    if (!access.entitlement.entitled) {
+      logToSink({ level: 'info', tag: 'billing', route: '/api/transcribe', uid: uidField, status: 402, message: `blocked: ${access.entitlement.reason}` })
+      return NextResponse.json({ error: 'Your LushNote subscription needs attention — note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: access.entitlement.state }, { status: 402 })
     }
 
     const buffer = Buffer.from(await audio.arrayBuffer())

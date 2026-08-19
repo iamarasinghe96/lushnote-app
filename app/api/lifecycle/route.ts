@@ -3,6 +3,7 @@ import { requireAdmin, requireUser, unauthorized } from '@/lib/adminGuard'
 import { sendEmail, emailConfigured } from '@/lib/email'
 import { renderLifecycleEmail, LIFECYCLE_TYPES, type LifecycleEmailType } from '@/lib/emails/lifecycle'
 import { findCandidates, markSent, logEmail, recentEmailLog, unsubscribeUrl, welcomeCandidate, getTemplates, templateFor, saveTemplate, resetTemplate, type Candidate } from '@/lib/firestore/lifecycle'
+import { runBillingSweep } from '@/lib/firestore/billingSweep'
 import { logToSink } from '@/lib/firestore/systemLogs'
 
 // The daily lifecycle run, plus the admin console's read-only views of it.
@@ -109,6 +110,16 @@ export async function POST(req: NextRequest) {
 // Vercel Cron issues a GET. Same work, same secret.
 export async function GET(req: NextRequest) {
   if (!cronAuthorised(req)) return unauthorized()
+  // Billing state first, so a doctor paywalled tonight gets tonight's email
+  // about the state they are actually in rather than yesterday's. A failure
+  // here must not cost anyone their reminder, so it never throws outward.
+  const sweep = await runBillingSweep().catch(err => {
+    logToSink({
+      level: 'warn', tag: 'billing', route: '/api/lifecycle',
+      message: `sweep failed: ${err instanceof Error ? err.message.slice(0, 200) : 'unknown'}`,
+    })
+    return null
+  })
   const candidates = await findCandidates()
   const results = await send(candidates)
   const failed = results.filter(r => !r.ok).length
@@ -116,5 +127,5 @@ export async function GET(req: NextRequest) {
     level: failed ? 'warn' : 'info', tag: 'lifecycle-email', route: '/api/lifecycle',
     message: `cron sent ${results.length} (${failed} failed) of ${candidates.length} due`,
   })
-  return NextResponse.json({ due: candidates.length, sent: results.length, failed })
+  return NextResponse.json({ due: candidates.length, sent: results.length, failed, sweep })
 }

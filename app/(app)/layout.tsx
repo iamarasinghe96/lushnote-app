@@ -14,6 +14,12 @@ import { resolveHolidayTheme, holidayBackgroundStyle, themeFor, readHolidayOverr
 import { getInitials, applyWorkspaceTheme, resolveThemePrimary } from '@/lib/utils'
 import { getLetterhead } from '@/lib/firestore/letterheads'
 import { getHolidayAppearance, type HolidayAppearance } from '@/lib/holidayTiles'
+import { resolveEntitlement } from '@/lib/entitlement'
+import PaywallScreen from '@/components/PaywallScreen'
+
+// Where notes are made. Everything else — History, Patients, Export, Settings —
+// stays reachable when a subscription lapses.
+const CREATE_ROUTES = ['/generate', '/edit', '/transcript']
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -112,6 +118,12 @@ function AppContent({ children }: { children: React.ReactNode }) {
       </div>
     )
   }
+
+  // Paywalled: the note-creating tabs are replaced, the reading ones are not.
+  // Same verdict the API routes reach, from the same pure resolver on the same
+  // webhook-written fields — a client that decided this for itself would drift.
+  const entitlement = resolveEntitlement(profile.billing, Date.now())
+  const paywalled = !entitlement.entitled && CREATE_ROUTES.some(r => pathname.startsWith(r))
 
   // Resolved synchronously from today's date — no fetch, no effect — so the
   // themed bar is correct on the FIRST paint and a refresh on the day never
@@ -260,7 +272,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
           </div>
         )}
         <div key={pathname} className="animate-fade-in h-full" style={{ willChange: 'opacity' }}>
-          {children}
+          {paywalled ? <PaywallScreen state={entitlement.state} /> : children}
         </div>
       </main>
 

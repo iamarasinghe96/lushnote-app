@@ -5,6 +5,7 @@ import { generateNoteGroq } from '@/lib/groq'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
+import { resolveEntitlement } from '@/lib/entitlement'
 
 const TRANSCRIPT_QA_SYSTEM_PROMPT = `You are a clinical documentation assistant. The user is a psychiatrist reviewing a session transcript.
 Answer questions using ONLY information explicitly present in the transcript below.
@@ -444,6 +445,17 @@ Return ONLY strict JSON, no markdown, no commentary:
     const profile = await getProfile(uid)
     if (profile?.status === 'disabled') {
       return NextResponse.json({ error: 'Account suspended' }, { status: 403 })
+    }
+
+    // Paid features. 402 rather than 403: suspension is a judgement about the
+    // person, this is only about the state of a subscription, and the client
+    // routes the two differently.
+    // The profile is already in hand from the suspension check, so resolve
+    // from it rather than paying for a second read of the same document.
+    const entitlement = resolveEntitlement(profile?.billing, Date.now())
+    if (!entitlement.entitled) {
+      logToSink({ level: 'info', tag: 'billing', route: '/api/chat', uid: uid, status: 402, message: `blocked: ${entitlement.reason}` })
+      return NextResponse.json({ error: 'Your LushNote subscription needs attention — note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: entitlement.state }, { status: 402 })
     }
 
     if (process.env.GEMINI_API_KEY) {

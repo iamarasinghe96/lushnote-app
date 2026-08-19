@@ -304,3 +304,23 @@ export async function startTrial(uid: string): Promise<StartTrialResult> {
 
   return { created: true, reason: 'trial started', customerId: customer.id, subscriptionId: sub.id }
 }
+
+/**
+ * Suspension and entitlement in ONE read, for routes that have no profile
+ * loaded already. Everywhere the profile is in hand, call `resolveEntitlement`
+ * on it directly instead — a second read of the same document buys nothing.
+ */
+export async function getAccessState(uid: string, now = Date.now()): Promise<{ suspended: boolean; entitlement: Entitlement }> {
+  if (!uid) return { suspended: false, entitlement: { entitled: true, state: 'legacy', reason: 'no uid' } }
+  try {
+    const snap = await adminDb().collection('users').doc(uid).get()
+    const data = snap.data() as { status?: string; billing?: Billing } | undefined
+    return {
+      suspended: data?.status === 'disabled',
+      entitlement: resolveEntitlement(data?.billing, now),
+    }
+  } catch {
+    // Never lock a clinician out because a read blipped.
+    return { suspended: false, entitlement: { entitled: true, state: 'legacy', reason: 'billing read failed' } }
+  }
+}
