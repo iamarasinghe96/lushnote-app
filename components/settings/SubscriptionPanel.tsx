@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Button from '@/components/ui/Button'
 import { withTimeout } from '@/lib/utils'
+import { resolveEntitlement, type EntitlementState } from '@/lib/entitlement'
 import type { User } from '@/types'
 
 const APP_URL = 'https://www.lushnote.com.au/'
@@ -11,8 +12,42 @@ interface SubscriptionPanelProps {
   profile: User
 }
 
-export default function SubscriptionPanel({ profile: _profile }: SubscriptionPanelProps) {
+const STATE_CHIP: Record<EntitlementState, string> = {
+  legacy: 'Active',
+  exempt: 'Complimentary',
+  trialing: 'Free trial',
+  active: 'Active',
+  grace: 'Payment needed',
+  dunning: 'Payment processing',
+  paused: 'Paused',
+  paywalled: 'Paused',
+}
+
+function formatDate(ms: number): string {
+  return new Date(ms).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
+export default function SubscriptionPanel({ profile }: SubscriptionPanelProps) {
   const [linkCopied, setLinkCopied] = useState(false)
+  const [price, setPrice] = useState('AUD $30/month')
+  const billing = profile.billing
+  const entitlement = resolveEntitlement(billing, Date.now())
+
+  // The one price string, derived server-side from GST registration — so this
+  // panel, the landing page and every email always agree.
+  useEffect(() => {
+    fetch('/api/billing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'public-config' }),
+    })
+      .then(r => r.json())
+      .then((d: { price?: string; priceAu?: string }) => {
+        setPrice((billing?.country === 'AU' ? d.priceAu : d.price) ?? 'AUD $30/month')
+      })
+      .catch(() => {})
+  }, [billing?.country])
+
   const [feedbackText, setFeedbackText] = useState('')
 
   async function copyLink() {
@@ -52,20 +87,45 @@ export default function SubscriptionPanel({ profile: _profile }: SubscriptionPan
     <div className="max-w-lg space-y-6">
       {/* Plan */}
       <div className="rounded-[var(--r-lg)] border border-[var(--blue)]/30 bg-[var(--blue-lt)] p-5">
-        <h3 className="text-base font-semibold text-[var(--blue)] mb-3">LushNote is free to use</h3>
+        <div className="flex items-center gap-2 flex-wrap mb-3">
+          <h3 className="text-base font-semibold text-[var(--blue)]">Your LushNote subscription</h3>
+          <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/70 border border-[var(--blue)]/20 text-[var(--blue)]">
+            {STATE_CHIP[entitlement.state]}
+          </span>
+        </div>
+
+        {billing?.trialEndsAt && entitlement.state === 'trialing' && (
+          <p className="text-sm text-[var(--text2)] mb-3">
+            Your free trial runs until <strong>{formatDate(billing.trialEndsAt)}</strong>. No payment details are
+            needed until then, and we&apos;ll remind you a week before.
+          </p>
+        )}
+        {billing?.currentPeriodEnd && entitlement.state !== 'trialing' && (
+          <p className="text-sm text-[var(--text2)] mb-3">
+            {billing.cancelAtPeriodEnd || billing.paused ? 'Access continues until' : 'Renews'}{' '}
+            <strong>{formatDate(billing.currentPeriodEnd)}</strong>.
+          </p>
+        )}
+
         <p className="text-sm text-[var(--text2)] mb-3">
-          LushNote is free, and we intend to keep it that way for as long as we can. You bring your
-          own Gemini or Groq API key, giving you direct access to powerful AI models at minimal cost.
-          The whole point is to make a doctor&apos;s day easier so they can spend more time with patients.
+          LushNote is three months free, then {price}. Cancel anytime and keep access to the end of the period
+          you&apos;ve paid for. Card payments work worldwide; in Australia you can use direct debit instead. Your notes
+          are always yours to export, whatever you decide.
         </p>
-        <p className="text-sm text-[var(--text2)] mb-3">
-          We won&apos;t introduce a subscription unless we genuinely need to - to cover our own running
-          costs, nothing more. And if that day comes, it&apos;ll be a small, fair fee, never a cash grab.
+        <p className="text-xs text-[var(--text3)] mb-3">
+          Prices are in Australian dollars. If your card is issued outside Australia, your bank converts the charge
+          and may add a small foreign-transaction fee. You still bring your own Gemini or Groq key, so the AI runs on
+          your own quota.
         </p>
-        <p className="text-sm text-[var(--text2)]">
-          If you&apos;re rural or going through a tough financial period, just reach out - we&apos;ll make sure
-          cost is never the reason you can&apos;t use it.
+        <p className="text-sm text-[var(--text2)] mb-4">
+          If you&apos;re rural or going through a tough financial period, just reach out — we&apos;ll make sure cost
+          is never the reason you can&apos;t use it.
         </p>
+
+        <a href="/billing"
+           className="inline-block px-4 py-2 rounded-[var(--r)] bg-[var(--blue)] text-white text-sm font-medium">
+          Manage billing
+        </a>
       </div>
 
       {/* Share */}

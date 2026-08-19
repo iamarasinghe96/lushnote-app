@@ -255,7 +255,55 @@ export default function TermsPage() {
           </p>
         </Section>
 
-        <Section title="11. Data Breach Notification">
+        <Section title="11. Subscriptions and Billing">
+          <p>
+            LushNote is free for three months. After that it is AUD $30 per month, billed monthly
+            until you cancel. Nothing is charged during the trial and we do not ask for payment
+            details to start — we email you a week before the trial ends, and again on the day.
+          </p>
+          <p>
+            Prices are in Australian dollars for everyone, wherever you are. If your card is issued
+            outside Australia your bank converts the charge and may add its own foreign-transaction
+            fee, which we do not receive and cannot control.
+          </p>
+          <p>
+            <strong>Paying.</strong> Card payments are available worldwide. If you bank in Australia
+            you may instead authorise a direct debit, in which case you accept a Direct Debit Request
+            and Service Agreement presented by our payment processor at the time you enter your
+            details. Bank debits can take several business days to clear, and your access continues
+            while that happens.
+          </p>
+          <p>
+            <strong>Cancelling.</strong> You can cancel at any time. Your access continues until the
+            end of the period you have already paid for, and nothing further is charged. We do not
+            refund the unused part of a period you chose to end early.
+          </p>
+          <p>
+            <strong>Pausing.</strong> Pausing stops future charges and keeps your account, your
+            payment details and everything you have written. Access continues to the end of the
+            period you have paid for and resumes as soon as you un-pause. Pausing deletes nothing.
+          </p>
+          <p>
+            <strong>If a payment fails.</strong> Our payment processor retries over about two weeks
+            and emails you about it. If it never succeeds, creating and editing notes is paused —
+            but reading, exporting and your patient list keep working, because your clinical records
+            are never held behind a payment.
+          </p>
+          <p>
+            <strong>Refunds.</strong> If we bill you in error we refund it in full. Otherwise we do
+            not refund partly-used periods. Nothing in these terms limits your rights under the
+            Australian Consumer Law.
+          </p>
+          <p>
+            <strong>Records.</strong> Billing is handled by Gaia Symbiosis (sole trader, ABN shown on
+            your invoices). Tax invoices and receipts are emailed automatically. We are required to
+            keep invoice, transaction and GST records for five years, so those records are retained
+            even after you delete your account — see &ldquo;How Long We Keep Your Data&rdquo; above.
+            Your card and bank details are held by our payment processor, never by LushNote.
+          </p>
+        </Section>
+
+        <Section title="12. Data Breach Notification">
           <p>
             If a data breach occurs that could cause serious harm, we will notify both the
             Office of the Australian Information Commissioner and any affected users as
@@ -264,7 +312,7 @@ export default function TermsPage() {
           </p>
         </Section>
 
-        <Section title="12. Disclaimer">
+        <Section title="13. Disclaimer">
           <p>
             LushNote is provided as-is. While we work hard to keep the service reliable and
             accurate, we cannot guarantee that AI-generated notes will always be clinically
@@ -277,7 +325,7 @@ export default function TermsPage() {
           </p>
         </Section>
 
-        <Section title="13. Changes to These Terms">
+        <Section title="14. Changes to These Terms">
           <p>
             If we make significant changes to these terms, we will update the date at the top
             of this page and notify active users by email. Continuing to use LushNote after

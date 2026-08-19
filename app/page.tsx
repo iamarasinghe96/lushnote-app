@@ -22,7 +22,22 @@ export default function Page() {
   const { user, profile, loading, signInWithGoogle } = useAuth()
   const router = useRouter()
   const [signing, setSigning] = useState(false)
+  // Rendered from the GST state rather than hard-coded, so registering changes
+  // the site the same day it changes the invoices. Unauthenticated on purpose:
+  // this is the price already printed on the page.
+  const [landingPrice, setLandingPrice] = useState('AUD $30/month')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetch('/api/billing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'public-config' }),
+    })
+      .then(r => r.json())
+      .then((d: { price?: string }) => { if (d.price) setLandingPrice(d.price) })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (loading) return
@@ -227,6 +242,28 @@ export default function Page() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ── Pricing ── */}
+      <section id="pricing" className="py-20 px-4">
+        <div className="max-w-xl mx-auto text-center space-y-4">
+          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)]">
+            Three months free. Then {landingPrice}.
+          </h2>
+          <p className="text-[var(--text2)]">
+            Every feature included. No payment details to start — we&apos;ll remind you a week before the trial ends.
+            Cancel anytime and keep access to the end of the period you&apos;ve paid for; your notes are always yours
+            to export.
+          </p>
+          <p className="text-sm text-[var(--text2)]">
+            Card payments worldwide, or direct debit from an Australian bank account.
+          </p>
+          <p className="text-xs text-[var(--text3)] max-w-md mx-auto">
+            Prices are in Australian dollars. If your card is issued outside Australia, your bank converts the charge
+            and may add a small foreign-transaction fee. You bring your own Gemini or Groq API key, so the AI runs on
+            your own free quota.
+          </p>
         </div>
       </section>
 

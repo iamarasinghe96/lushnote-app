@@ -465,7 +465,7 @@ service cloud.firestore {
 
 ---
 
-## Billing (Stripe) — Layer 1 landed; Layers 2-8 in MONETIZATION_PLAN.md
+## Billing (Stripe) — all 8 layers landed; plan in MONETIZATION_PLAN.md
 
 3 months free, then AUD $30/month worldwide. Cards everywhere, BECS Direct Debit
 for AU only. The full layered plan, the confirmed decisions and the Stripe
@@ -493,6 +493,36 @@ update, and a wholesale overwrite would read as deleting the subscription.
 identifiers needed to ask Stripe about it, the billing country (for price
 display and AU turnover), and the consent record for dispute defence.
 
+**The webhook projects, it does not translate.** Every handler refetches the
+subscription from Stripe and writes current truth, because delivery order is not
+guaranteed and a stale `trialing` arriving after `active` would hand back access
+already paid for. Idempotency claims `stripe_events/{id}` with `.create()` — one
+atomic step — and RELEASES the claim if the handler throws, or Stripe's retry
+would be discarded as a duplicate. TTL is on `expiresAt` (a Timestamp holding a
+FUTURE instant; a millisecond number is ignored by the policy).
+
+**Grace expiry is swept nightly, never webhooked.** Stripe emits an event for
+everything that happens and nothing for a week passing with no payment method.
+`runBillingSweep` (lib/firestore/billingSweep.ts) runs from the 23:00 UTC cron
+BEFORE the emails, so a doctor paywalled tonight gets tonight's email. It also
+backfills trials — the same code that puts every existing doctor on a trial at
+launch — and recomputes AU turnover whole from Stripe's paid invoices.
+
+**GST never touches the price.** `tax_behavior` is fixed at creation, so $30
+stays $30 and GST is carved out of it; registering creates a Stripe Tax
+registration for AU. The turnover monitor counts AUSTRALIAN sales only — exports
+of services are GST-free and do not count towards the $75k threshold.
+
+**Paywalled = creation blocked, reading never.** AI routes 402 server-side;
+`/generate`, `/edit`, `/transcript` show `PaywallScreen`; History, Patients,
+Export, Settings and `/billing` stay open. `/billing` lives OUTSIDE the `(app)`
+group so a lapsed doctor can reach it.
+
+**Deletion keeps the money records.** `stripeOffboard` cancels the subscription
+and detaches the instrument (ending any BECS mandate) but deletes nothing;
+`billing_records/{uid}` is stamped, never removed — five years, per the ATO. No
+code path anywhere deletes from that collection.
+
 Env: `STRIPE_SECRET_KEY` (also the feature flag — absent means every billing
 path no-ops and the app behaves exactly as before), `STRIPE_PRICE_ID`,
 `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
@@ -512,7 +542,9 @@ removes the argument. `marketingConsent` stays and governs product news only.
 | `welcome` | immediately when onboarding COMPLETES (it calls `action:'welcome'`); the nightly sweep backfills anyone missed | — |
 | `signupAbandoned` | 3+ days after first sign-in with onboarding still unfinished. The ONLY email a stub is eligible for — a welcome would be untrue and an API reminder meaningless | `SIGNUP_ABANDONED_AFTER_DAYS` |
 | `apiSetup` | 3+ days after finishing signup with no Gemini or Groq key | `APP_SETUP_AFTER_DAYS` |
-| `trialEnding` | 14 days before the 6-month free period ends, ONLY for doctors with a key who generated in the last 30 days — asking someone who never got it running to enter a card is the wrong email | `FREE_TRIAL_DAYS`, `TRIAL_NOTICE_DAYS`, `RECENT_USE_DAYS` |
+| `paymentSetup7d` | 7 days before the Stripe trial ends with no payment method. Reads `billing.trialEndsAt` — never a date this app derives | — |
+| `paymentSetupDue` | On/after the trial-end day, still no payment method. A 7-day grace window follows | `GRACE_DAYS` |
+| `paywalled` | When the sweep flips `paywalledAt`. Stripe owns failed-payment emails; we speak only when ACCESS changes | — |
 
 **Everything sends automatically.** The console does not trigger sends — it edits
 the copy and audits what went out. The only manual path left is a doctor's own
