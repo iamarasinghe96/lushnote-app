@@ -8,6 +8,22 @@ import type { Query } from 'firebase-admin/firestore'
 // (never a spread), so secrets can never leak: groqApiKey, geminiApiKey,
 // signatureUrl, and the free-text emailPretext/personalisation are omitted by
 // construction. Note/patient data is NEVER read here — only counts (below).
+export interface AdminBillingSummary {
+  subscriptionStatus: string | null
+  trialEndsAt: number | null
+  currentPeriodEnd: number | null
+  cancelAtPeriodEnd: boolean
+  paused: boolean
+  paymentMethodType: string | null
+  paymentMethodStatus: string | null
+  country: string | null
+  gracePeriodEnd: number | null
+  paywalledAt: number | null
+  billingExempt: boolean
+  stripeCustomerId: string | null
+  subscriptionId: string | null
+}
+
 export interface AdminUserRow {
   uid: string
   email: string
@@ -24,6 +40,7 @@ export interface AdminUserRow {
   geminiUsage: unknown
   createdAt: number | null
   updatedAt: number | null
+  billingSummary?: AdminBillingSummary | null
 }
 
 export interface AdminUserDetail extends AdminUserRow {
@@ -37,6 +54,26 @@ const str = (v: unknown): string => (typeof v === 'string' ? v : '')
 function millis(v: unknown): number | null {
   const t = v as { toMillis?: () => number } | null
   return t && typeof t.toMillis === 'function' ? t.toMillis() : null
+}
+
+function billingSummaryOf(v: unknown): AdminBillingSummary | null {
+  if (!v || typeof v !== 'object') return null
+  const b = v as Record<string, unknown>
+  return {
+    subscriptionStatus: str(b.subscriptionStatus) || null,
+    trialEndsAt: typeof b.trialEndsAt === 'number' ? b.trialEndsAt : null,
+    currentPeriodEnd: typeof b.currentPeriodEnd === 'number' ? b.currentPeriodEnd : null,
+    cancelAtPeriodEnd: b.cancelAtPeriodEnd === true,
+    paused: b.paused === true,
+    paymentMethodType: str(b.paymentMethodType) || null,
+    paymentMethodStatus: str(b.paymentMethodStatus) || null,
+    country: str(b.country) || null,
+    gracePeriodEnd: typeof b.gracePeriodEnd === 'number' ? b.gracePeriodEnd : null,
+    paywalledAt: typeof b.paywalledAt === 'number' ? b.paywalledAt : null,
+    billingExempt: b.billingExempt === true,
+    stripeCustomerId: str(b.stripeCustomerId) || null,
+    subscriptionId: str(b.subscriptionId) || null,
+  }
 }
 
 export function redactUser(uid: string, d: Record<string, unknown>): AdminUserRow {
@@ -58,6 +95,10 @@ export function redactUser(uid: string, d: Record<string, unknown>): AdminUserRo
     termsAccepted: d.termsAccepted === true,
     marketingConsent: d.marketingConsent === true,
     geminiUsage: d.geminiUsage ?? null,
+    // A summary, not the map: no consent IP, no mandate id. The Stripe ids are
+    // here because the panel links to the dashboard with them, and they are
+    // identifiers rather than secrets.
+    billingSummary: billingSummaryOf(d.billing),
     createdAt: millis(d.createdAt),
     updatedAt: millis(d.updatedAt),
   }

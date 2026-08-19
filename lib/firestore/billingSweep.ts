@@ -10,7 +10,7 @@
 
 import { adminDb } from '@/lib/firebase-admin'
 import { logToSink } from '@/lib/firestore/systemLogs'
-import { startTrial, stripeEnabled } from '@/lib/billing'
+import { startTrial, stripeEnabled, computeAuTurnover, saveTurnoverCache } from '@/lib/billing'
 import type { Billing } from '@/lib/entitlement'
 
 /** Bounded so one night's sweep cannot run past the function's deadline. The
@@ -80,6 +80,18 @@ export async function runBillingSweep(now = Date.now()): Promise<SweepResult> {
         })
       }
     }
+  }
+
+  // Recomputed whole, every night, from Stripe's own invoices — so refunds and
+  // credit notes are reflected without anything having to replay them.
+  try {
+    await saveTurnoverCache(await computeAuTurnover(now))
+  } catch (err) {
+    result.errors++
+    logToSink({
+      level: 'warn', tag: 'billing', route: '/api/lifecycle',
+      message: `turnover refresh failed: ${err instanceof Error ? err.message.slice(0, 200) : 'unknown'}`,
+    })
   }
 
   if (result.trialsStarted || result.paywalled || result.errors) {

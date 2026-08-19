@@ -11,6 +11,7 @@ import FeedbackPanel from '@/components/admin/FeedbackPanel'
 import LetterheadsPanel from '@/components/admin/LetterheadsPanel'
 import HospitalFormsPanel from '@/components/admin/HospitalFormsPanel'
 import EmailsPanel from '@/components/admin/EmailsPanel'
+import BillingPanel from '@/components/admin/BillingPanel'
 import AppearancePanel from '@/components/admin/AppearancePanel'
 import LogsPanel from '@/components/admin/LogsPanel'
 
@@ -27,6 +28,7 @@ const SECTIONS = [
   { key: 'letterheads', label: 'Letterheads' },
   { key: 'forms', label: 'Hospital Forms' },
   { key: 'emails', label: 'Emails' },
+  { key: 'billing', label: 'Billing' },
   { key: 'appearance', label: 'Appearance' },
   { key: 'logs', label: 'Logs & Errors' },
 ] as const
@@ -43,6 +45,7 @@ const PANELS: Record<SectionKey, (q: string) => ReactNode> = {
   letterheads: () => <LetterheadsPanel />,
   forms: () => <HospitalFormsPanel />,
   emails: () => <EmailsPanel />,
+  billing: () => <BillingPanel />,
   appearance: () => <AppearancePanel />,
   logs: q => <LogsPanel initialSearch={q} />,
 }

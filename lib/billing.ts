@@ -449,3 +449,102 @@ export async function stripeOffboard(uid: string): Promise<{ cancelled: boolean;
 
   return out
 }
+
+// ── Australian turnover ────────────────────────────────────────────────────
+//
+// GST registration is compulsory once AUSTRALIAN turnover passes $75,000 in a
+// rolling 12 months. Not global revenue — sales of services to overseas
+// customers are GST-free exports and do not count towards it, which is exactly
+// the distinction that makes a naive "total revenue" number dangerous here.
+//
+// Computed from Stripe's own paid invoices rather than a ledger of our own.
+// Stripe is the system of record; a parallel tally would drift, and refunds and
+// credit notes would have to be replayed into it by hand.
+
+const AU_CUSTOMER_CACHE_LIMIT = 2000
+
+/** Australian customers, by Stripe id, from what the webhook already projected. */
+async function australianCustomerIds(): Promise<Set<string>> {
+  const snap = await adminDb().collection('users')
+    .where('billing.country', '==', 'AU')
+    .limit(AU_CUSTOMER_CACHE_LIMIT)
+    .get()
+  const ids = new Set<string>()
+  for (const d of snap.docs) {
+    const id = (d.data()?.billing as Billing | undefined)?.stripeCustomerId
+    if (id) ids.add(id)
+  }
+  return ids
+}
+
+export async function computeAuTurnover(now = Date.now()): Promise<NonNullable<BillingConfig['turnoverCache']>> {
+  const since = Math.floor((now - 365 * 24 * 60 * 60 * 1000) / 1000)
+  const auCustomers = await australianCustomerIds()
+  const byMonth = new Map<string, number>()
+  let total = 0
+
+  // Paid invoices only: an invoice that was raised and never settled is not
+  // turnover. Amounts come back in cents, already net of any credit note.
+  for await (const inv of stripe().invoices.list({ status: 'paid', created: { gte: since }, limit: 100 })) {
+    const customerId = typeof inv.customer === 'string' ? inv.customer : inv.customer?.id
+    if (!customerId || !auCustomers.has(customerId)) continue
+    const cents = inv.amount_paid ?? 0
+    total += cents
+    const month = new Date((inv.created ?? 0) * 1000).toISOString().slice(0, 7)
+    byMonth.set(month, (byMonth.get(month) ?? 0) + cents)
+  }
+
+  return {
+    auTaxable12mCents: total,
+    computedAt: now,
+    byMonth: Array.from(byMonth.entries()).map(([month, cents]) => ({ month, cents })).sort((a, b) => a.month.localeCompare(b.month)),
+  }
+}
+
+export async function saveTurnoverCache(cache: NonNullable<BillingConfig['turnoverCache']>): Promise<void> {
+  await adminDb().collection('config').doc('billing').set(
+    { turnoverCache: cache, updatedAt: Date.now() }, { merge: true },
+  )
+}
+
+/**
+ * Turn GST collection on or off.
+ *
+ * The price is NOT touched: `tax_behavior` is fixed at creation and cannot be
+ * changed once a price has been used, so the amount stays AUD $30 and the GST
+ * is carved out of it rather than added on top. What changes is a Stripe Tax
+ * registration for Australia — with one, Australian invoices show the GST
+ * component and become compliant tax invoices; without one, nothing is
+ * collected from anybody. Overseas customers are unaffected either way, because
+ * exports of services are GST-free.
+ */
+export async function setGstRegistered(registered: boolean, effectiveDate: string | null): Promise<BillingConfig> {
+  const s = stripe()
+  if (registered) {
+    const existing = await s.tax.registrations.list({ status: 'active', limit: 100 }).catch(() => null)
+    const alreadyAu = existing?.data.some(r => r.country === 'AU')
+    if (!alreadyAu) {
+      await s.tax.registrations.create({
+        country: 'AU',
+        country_options: { au: { type: 'standard' } },
+        active_from: effectiveDate ? Math.floor(new Date(`${effectiveDate}T00:00:00`).getTime() / 1000) : 'now',
+      })
+    }
+  } else {
+    // Stripe does not delete a registration; it is expired, which preserves the
+    // history of what was collected while it was live.
+    const existing = await s.tax.registrations.list({ status: 'active', limit: 100 }).catch(() => null)
+    for (const r of existing?.data ?? []) {
+      if (r.country === 'AU') await s.tax.registrations.update(r.id, { expires_at: 'now' }).catch(() => {})
+    }
+  }
+
+  const next: BillingConfig = {
+    gstRegistered: registered,
+    gstEffectiveDate: effectiveDate,
+    gstInclusive: true,
+    updatedAt: Date.now(),
+  }
+  await adminDb().collection('config').doc('billing').set(next, { merge: true })
+  return next
+}

@@ -11,6 +11,13 @@ interface UserRow {
   position?: string; workPhone?: string; workplaces: Workplace[]
   onboardingComplete: boolean; termsAccepted: boolean; marketingConsent: boolean
   geminiUsage: unknown; createdAt: number | null; updatedAt: number | null
+  billingSummary?: {
+    subscriptionStatus: string | null; trialEndsAt: number | null; currentPeriodEnd: number | null
+    cancelAtPeriodEnd: boolean; paused: boolean
+    paymentMethodType: string | null; paymentMethodStatus: string | null
+    country: string | null; gracePeriodEnd: number | null; paywalledAt: number | null
+    billingExempt: boolean; stripeCustomerId: string | null; subscriptionId: string | null
+  } | null
 }
 interface UserDetail extends UserRow { noteCount: number; patientCount: number; authDisabled: boolean | null; lastSignIn: number | null }
 
@@ -65,6 +72,25 @@ export default function UsersPanel() {
       await fetchList()
       if (action === 'remove') setSelected(null)
       else await openUser(uid)
+    } catch (e) { setToast(e instanceof Error ? e.message : 'Action failed') } finally { setBusy(false) }
+  }
+
+  // Exemption lives on the billing admin route, not the users one, so the audit
+  // trail for money decisions stays in one place.
+  async function toggleExempt(u: UserDetail) {
+    const next = !u.billingSummary?.billingExempt
+    if (next && !window.confirm(`Make ${u.displayName || u.email} permanently free?\n\nThey keep full access regardless of their subscription. Reversible at any time.`)) return
+    setBusy(true)
+    try {
+      const token = user ? await user.getIdToken() : ''
+      const res = await fetch('/api/admin/billing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'setExempt', uid: u.uid, exempt: next }),
+      })
+      if (!res.ok) throw new Error('Failed')
+      setToast(next ? 'Marked permanently free' : 'Exemption removed')
+      await openUser(u.uid)
     } catch (e) { setToast(e instanceof Error ? e.message : 'Action failed') } finally { setBusy(false) }
   }
 
@@ -137,6 +163,46 @@ export default function UsersPanel() {
             <Field label="Signed up" value={day(selected.createdAt)} />
             <Field label="Last sign-in" value={dt(selected.lastSignIn)} />
           </div>
+          {/* ── Billing ── */}
+          {selected.billingSummary && (
+            <div className="rounded-xl border border-[var(--border)] p-3 space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-[11px] uppercase tracking-wide text-[#94a3b8]">Subscription</p>
+                {selected.billingSummary.billingExempt && (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Exempt — permanently free</span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <Field label="Status" value={selected.billingSummary.paused ? 'paused' : (selected.billingSummary.subscriptionStatus ?? '—')} />
+                <Field label="Trial ends" value={day(selected.billingSummary.trialEndsAt)} />
+                <Field label={selected.billingSummary.cancelAtPeriodEnd ? 'Access ends' : 'Renews'} value={day(selected.billingSummary.currentPeriodEnd)} />
+                <Field label="Payment method" value={
+                  selected.billingSummary.paymentMethodType
+                    ? `${selected.billingSummary.paymentMethodType === 'au_becs_debit' ? 'Bank account' : 'Card'} (${selected.billingSummary.paymentMethodStatus})`
+                    : 'None'
+                } />
+                <Field label="Country" value={selected.billingSummary.country ?? '—'} />
+                <Field label="Paywalled" value={selected.billingSummary.paywalledAt ? day(selected.billingSummary.paywalledAt) : 'No'} />
+              </div>
+              <div className="flex flex-wrap gap-3 items-center pt-1">
+                <button onClick={() => toggleExempt(selected)} disabled={busy}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-[var(--border)] text-[#475569] disabled:opacity-50">
+                  {selected.billingSummary.billingExempt ? 'Remove exemption' : 'Make permanently free'}
+                </button>
+                {/* Identifiers, not secrets — refunds and disputes are handled in
+                    Stripe, which is the system of record for both. */}
+                {selected.billingSummary.stripeCustomerId && (
+                  <a href={`https://dashboard.stripe.com/customers/${selected.billingSummary.stripeCustomerId}`}
+                     target="_blank" rel="noreferrer" className="text-xs text-[#2563eb] underline">Customer in Stripe →</a>
+                )}
+                {selected.billingSummary.subscriptionId && (
+                  <a href={`https://dashboard.stripe.com/subscriptions/${selected.billingSummary.subscriptionId}`}
+                     target="_blank" rel="noreferrer" className="text-xs text-[#2563eb] underline">Subscription →</a>
+                )}
+              </div>
+            </div>
+          )}
+
           <p className="text-[11px] text-[#94a3b8]">Clinical content is never shown here — counts only, to preserve patient confidentiality.</p>
           <div className="flex flex-wrap gap-2 pt-1">
             {selected.status === 'disabled'
