@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type Stripe from 'stripe'
+import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase-admin'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { withRequest, noteRequest } from '@/lib/requestContext'
@@ -9,6 +10,8 @@ import { stripe, stripeEnabled, projectSubscription, projectCustomer } from '@/l
 // must never parse the body first. Node runtime: the Stripe SDK's crypto and the
 // Firebase Admin SDK both need it.
 export const runtime = 'nodejs'
+
+const EVENT_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
 const SUBSCRIPTION_EVENTS = new Set([
   'customer.subscription.created',
@@ -28,7 +31,15 @@ async function claimEvent(event: Stripe.Event): Promise<boolean> {
     await adminDb().collection('stripe_events').doc(event.id).create({
       type: event.type,
       created: event.created,
-      processedAt: Date.now(),   // TTL policy on this field keeps the ledger bounded
+      processedAt: Date.now(),
+      // The TTL field, and it holds an EXPIRY, not a creation time: Firestore
+      // deletes a document once this instant is in the past. It must also be a
+      // real Timestamp — a millisecond number is ignored by the policy, so the
+      // collection would have grown forever while appearing to be managed.
+      //
+      // 30 days is well past Stripe's ~3-day retry window, so no retry can
+      // arrive after its guard has been swept and be processed a second time.
+      expiresAt: Timestamp.fromMillis(Date.now() + EVENT_TTL_MS),
     })
     return true
   } catch {
