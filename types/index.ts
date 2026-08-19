@@ -58,7 +58,11 @@ interface User {
     currentPeriodEnd: number | null
     cancelAtPeriodEnd: boolean
     paused: boolean                 // projection of pause_collection
+    paymentMethodId: string | null
     paymentMethodType: 'card' | 'au_becs_debit' | null
+    // BECS only. A mandate is a separate object with its own lifecycle, and its
+    // status is the difference between "they typed a BSB" and "the bank agreed".
+    mandateId: string | null
     // 'pending' is a BECS mandate that exists but is not yet active — a real
     // state a card never has, and the reason access can't key off type alone.
     paymentMethodStatus: 'none' | 'pending' | 'active'

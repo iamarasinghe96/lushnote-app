@@ -173,6 +173,18 @@ export default function OnboardingPage() {
         })
       } catch { /* non-blocking */ }
 
+      // Start the free trial. Best-effort and idempotent by the customer id the
+      // profile already carries — the nightly sweep backfills anyone this misses,
+      // and refuses anyone who already has one. Deliberately after the profile
+      // write, because it reads onboardingComplete to decide the account is real.
+      try {
+        await fetch('/api/billing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken()}` },
+          body: JSON.stringify({ action: 'start-trial' }),
+        })
+      } catch { /* non-blocking */ }
+
       // Best-effort: notify admin so they can source/upload the letterhead
       try {
         await submitLetterheadRequest({
