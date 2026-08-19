@@ -15,6 +15,15 @@ import type { Billing, Entitlement, EntitlementState } from '@/lib/entitlement'
 
 const CARD = 'rounded-2xl border border-[var(--border)] bg-white p-5'
 
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4">
+      <dt className="text-[var(--text2)]">{label}</dt>
+      <dd className="text-[var(--text)] text-right">{value}</dd>
+    </div>
+  )
+}
+
 function formatDate(ms: number | null | undefined): string {
   if (!ms) return '—'
   return new Date(ms).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -78,6 +87,18 @@ function BillingInner() {
     return () => clearTimeout(t)
   }, [toast])
 
+  // Same call onboarding makes, and the nightly sweep after it. Idempotent and
+  // guarded server-side, so pressing it twice cannot make two subscriptions.
+  async function startTrial() {
+    setBusy(true)
+    try {
+      await call({ action: 'start-trial' })
+      await refresh()
+      setToast('Free trial started.')
+    } catch { setToast('Could not start the trial. Please try again.') }
+    finally { setBusy(false) }
+  }
+
   async function openPortal() {
     setBusy(true)
     const r = await call<{ url?: string | null }>({ action: 'portal', returnUrl: `${window.location.origin}/billing` })
@@ -125,33 +146,42 @@ function BillingInner() {
           </div>
 
           <dl className="text-sm space-y-1">
-            {isTrial && (
-              <div className="flex justify-between gap-4">
-                <dt className="text-[var(--text2)]">Free trial ends</dt>
-                <dd className="text-[var(--text)]">{formatDate(b?.trialEndsAt)}</dd>
-              </div>
+            {/* Shown whenever a trial exists, not only while it is running — a
+                doctor who has just moved onto a paid month still wants to see
+                when the free part ended. */}
+            {b?.trialEndsAt && (
+              <Row label={isTrial ? 'Free trial ends' : 'Free trial ended'} value={formatDate(b.trialEndsAt)} />
             )}
-            {!isTrial && b?.currentPeriodEnd && (
-              <div className="flex justify-between gap-4">
-                <dt className="text-[var(--text2)]">{b.cancelAtPeriodEnd || b.paused ? 'Access ends' : 'Renews'}</dt>
-                <dd className="text-[var(--text)]">{formatDate(b.currentPeriodEnd)}</dd>
-              </div>
+            {b?.currentPeriodEnd && (
+              <Row
+                label={b.cancelAtPeriodEnd || b.paused ? 'Access ends' : isTrial ? 'First charge' : 'Next charge'}
+                value={formatDate(b.currentPeriodEnd)}
+              />
             )}
-            <div className="flex justify-between gap-4">
-              <dt className="text-[var(--text2)]">Price {isTrial ? 'after trial' : ''}</dt>
-              <dd className="text-[var(--text)]">{state.price}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-[var(--text2)]">Payment method</dt>
-              <dd className="text-[var(--text)]">
-                {b?.paymentMethodType === 'au_becs_debit'
+            {b?.gracePeriodEnd && !hasMethod && (
+              <Row label="Add details by" value={formatDate(b.gracePeriodEnd)} />
+            )}
+            {b?.paywalledAt && <Row label="Paused since" value={formatDate(b.paywalledAt)} />}
+            <Row label={isTrial ? 'Price after trial' : 'Price'} value={state.price} />
+            <Row
+              label="Payment method"
+              value={
+                b?.paymentMethodType === 'au_becs_debit'
                   ? (b.paymentMethodStatus === 'active' ? 'Bank account (direct debit)' : 'Bank account — awaiting bank confirmation')
                   : b?.paymentMethodType === 'card' ? 'Card'
-                  : 'None yet'}
-              </dd>
-            </div>
+                  : 'None yet'
+              }
+            />
+            {b?.country && <Row label="Billing country" value={b.country} />}
           </dl>
 
+          {!b && (
+            <p className="text-xs text-[var(--text2)]">
+              Your subscription hasn&apos;t been set up yet — your account predates billing, so nothing has been
+              scheduled and nothing is owed. Start your free trial below whenever you like; it also starts on its own
+              overnight.
+            </p>
+          )}
           {b?.cancelAtPeriodEnd && (
             <p className="text-xs text-[var(--text2)]">
               Cancelled. You keep full access until {formatDate(b.currentPeriodEnd)}, and nothing further is charged.
@@ -166,7 +196,7 @@ function BillingInner() {
 
         <div className={CARD + ' space-y-3'}>
           <h2 className="text-sm font-semibold text-[var(--text)]">
-            {hasMethod ? 'Change payment details' : 'Add payment details'}
+            {!b ? 'Start your free trial' : hasMethod ? 'Change payment details' : 'Add payment details'}
           </h2>
           <p className="text-xs text-[var(--text2)]">
             Card payments worldwide, or direct debit from an Australian bank account. Prices are in Australian
@@ -174,7 +204,12 @@ function BillingInner() {
             foreign-transaction fee.
           </p>
 
-          {adding || !hasMethod ? (
+          {!b ? (
+            <button onClick={startTrial} disabled={busy}
+              className="px-4 py-2 rounded-[var(--r)] bg-[var(--blue)] text-white text-sm font-medium disabled:opacity-50">
+              {busy ? 'Starting…' : 'Start my free trial'}
+            </button>
+          ) : adding || !hasMethod ? (
             <PaymentSetup price={state.price} onDone={() => { setAdding(false); setToast('Payment details saved.'); void refresh() }} />
           ) : (
             <button onClick={() => setAdding(true)} disabled={busy}
