@@ -4,7 +4,7 @@ import { logToSink } from '@/lib/firestore/systemLogs'
 import { withRequest, noteRequest } from '@/lib/requestContext'
 import {
   startTrial, stripeEnabled, getBillingConfig, priceString, PRICE_AUD, TRIAL_MONTHS,
-  createSetupIntent, createPortalSession, recordConsent, setPaused, TOS_VERSION,
+  createSetupIntent, createPortalSession, recordConsent, setPaused, stripeOffboard, TOS_VERSION,
 } from '@/lib/billing'
 import { adminDb } from '@/lib/firebase-admin'
 import { resolveEntitlement, type Billing } from '@/lib/entitlement'
@@ -17,7 +17,7 @@ import { resolveEntitlement, type Billing } from '@/lib/entitlement'
 async function handlePOST(req: NextRequest) {
   try {
     const body = await req.json() as {
-      action?: 'start-trial' | 'public-config' | 'state' | 'setup-intent' | 'record-consent' | 'portal' | 'pause' | 'resume'
+      action?: 'start-trial' | 'public-config' | 'state' | 'setup-intent' | 'record-consent' | 'portal' | 'pause' | 'resume' | 'offboard-self'
       returnUrl?: string
     }
     noteRequest({ mode: body.action ?? 'billing' })
@@ -93,6 +93,16 @@ async function handlePOST(req: NextRequest) {
       const result = await setPaused(uid, paused)
       if (!result) return NextResponse.json({ error: 'No subscription to change' }, { status: 400 })
       logToSink({ level: 'info', tag: 'billing', route: '/api/billing', uid, message: paused ? 'subscription paused' : 'subscription resumed' })
+      return NextResponse.json(result)
+    }
+
+    if (body.action === 'offboard-self') {
+      // The client deletes its own Firestore data but cannot reach Stripe — the
+      // secret key is server-side. Called just before that deletion so the
+      // subscription and mandate are closed while the ids are still readable.
+      // The admin cascade does the same thing and remains the backstop.
+      const result = await stripeOffboard(uid)
+      logToSink({ level: 'info', tag: 'billing', route: '/api/billing', uid, message: `offboarded (cancelled=${result.cancelled}, detached=${result.detached})` })
       return NextResponse.json(result)
     }
 

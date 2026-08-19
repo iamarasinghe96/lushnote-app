@@ -1,4 +1,5 @@
 import { adminDb, adminStorage } from '@/lib/firebase-admin'
+import { stripeOffboard } from '@/lib/billing'
 import { adminAuth } from '@/lib/firebase-admin-auth'
 import { writeAudit } from '@/lib/firestore/systemLogs'
 import type { Query } from 'firebase-admin/firestore'
@@ -139,9 +140,13 @@ export async function clearUserStorage(uid: string, actorUid: string): Promise<v
 
 // Complete cascade: every user-owned Firestore path + Storage prefix + the Auth
 // account. Idempotent and partial-failure safe. Never touches shared config
-// (letterheads/* , hospitalForms/*).
+// (letterheads/* , hospitalForms/*), and never touches billing_records, which
+// the ATO requires be kept for five years after the account is gone.
 export async function cascadeDeleteUser(uid: string, actorUid: string, meta: Record<string, string | number | boolean | null>): Promise<void> {
   const db = adminDb()
+  // FIRST, while users/{uid} still holds the Stripe ids this needs to read.
+  // Cancels the subscription and detaches the instrument; deletes nothing.
+  await stripeOffboard(uid).catch(() => {})
   await deleteQueryChunked(db.collection('progress_notes').where('userId', '==', uid))
   await deleteQueryChunked(db.collection('users').doc(uid).collection('patientProfiles'))
   await deleteQueryChunked(db.collection('users').doc(uid).collection('transcriptDrafts'))

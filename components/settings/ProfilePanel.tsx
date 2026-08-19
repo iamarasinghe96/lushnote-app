@@ -124,6 +124,18 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
       })
     } catch (_) { /* non-fatal */ }
 
+    // Close billing BEFORE the user document goes: it holds the Stripe ids the
+    // server needs to cancel the subscription and detach the payment method.
+    // The client cannot do this itself — the Stripe secret is server-side — and
+    // the admin cascade repeats it as a backstop if this fails.
+    try {
+      await fetch('/api/billing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken()}` },
+        body: JSON.stringify({ action: 'offboard-self' }),
+      })
+    } catch (_) { /* the cascade covers it */ }
+
     // Step 3 - Batch delete progress_notes
     try {
       const snap = await getDocs(query(collection(db, 'progress_notes'), where('userId', '==', uid)))

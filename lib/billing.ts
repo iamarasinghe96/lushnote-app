@@ -399,3 +399,53 @@ export async function setPaused(uid: string, paused: boolean): Promise<{ paused:
   await projectSubscription(billing.subscriptionId)
   return { paused }
 }
+
+// ── Offboarding ────────────────────────────────────────────────────────────
+
+/**
+ * Close a doctor's billing when their account goes.
+ *
+ * Cancels the subscription and detaches the payment instrument — detaching a
+ * BECS method also ends its mandate, so no bank authority is left standing
+ * against an account that no longer exists.
+ *
+ * What it deliberately does NOT do: delete anything. The Stripe customer and
+ * its invoices stay, and `billing_records/{uid}` is stamped rather than
+ * removed, because the ATO requires five years of transaction and GST records
+ * and that obligation outlives the doctor's decision to leave. It is also why
+ * no code anywhere deletes from that collection.
+ */
+export async function stripeOffboard(uid: string): Promise<{ cancelled: boolean; detached: number }> {
+  const out = { cancelled: false, detached: 0 }
+  if (!stripeEnabled()) return out
+
+  const snap = await adminDb().collection('users').doc(uid).get()
+  const billing = snap.data()?.billing as Billing | undefined
+  const customerId = billing?.stripeCustomerId
+  if (!customerId) return out
+
+  const s = stripe()
+
+  if (billing?.subscriptionId) {
+    // Immediate, not at period end: the account is going now, and leaving a
+    // live subscription would bill someone who cannot use it.
+    await s.subscriptions.cancel(billing.subscriptionId).catch(() => {})
+    out.cancelled = true
+  }
+
+  for (const type of ['card', 'au_becs_debit'] as const) {
+    const methods = await s.paymentMethods.list({ customer: customerId, type }).catch(() => null)
+    for (const m of methods?.data ?? []) {
+      await s.paymentMethods.detach(m.id).catch(() => {})
+      out.detached++
+    }
+  }
+
+  await adminDb().collection('billing_records').doc(uid).set({
+    accountDeletedAt: Date.now(),
+    subscriptionCancelled: out.cancelled,
+    paymentMethodsDetached: out.detached,
+  }, { merge: true })
+
+  return out
+}
