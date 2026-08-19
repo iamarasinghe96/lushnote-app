@@ -2,25 +2,22 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import {
+  LIFECYCLE_LABEL, LIFECYCLE_WHEN, LIFECYCLE_TYPES, PLACEHOLDERS, renderLifecycleEmail,
+  type LifecycleEmailType,
+} from '@/lib/emails/lifecycle'
 
 const CARD = { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' } as const
 
-type EmailType = 'signupAbandoned' | 'welcome' | 'apiSetup' | 'trialEnding'
-
-const LABEL: Record<EmailType, string> = {
-  welcome: 'Welcome (at signup)',
-  signupAbandoned: 'Signup unfinished (day 3)',
-  apiSetup: 'API not set up (day 3)',
-  trialEnding: 'Free period ending',
-}
-const WHEN: Record<EmailType, string> = {
-  welcome: 'Sent the moment a doctor finishes signing up.',
-  signupAbandoned: 'Sent 3 days after a doctor first signs in, if they never finished onboarding. They receive nothing else until they do.',
-  apiSetup: 'Sent 3 days after finishing signup, if no Gemini or Groq key has been saved.',
-  trialEnding: 'Sent 14 days before the 6-month free period ends, to doctors who set up a key and used LushNote in the last 30 days.',
-}
-const TYPES: EmailType[] = ['welcome', 'signupAbandoned', 'apiSetup', 'trialEnding']
-const PLACEHOLDERS = ['{{greeting}}', '{{name}}', '{{site}}', '{{trialEnd}}']
+// Imported, not restated. These constants used to be a second copy that had to
+// be edited in step with the server's — and the preview below re-implemented the
+// substitution too, so a new placeholder silently rendered as literal braces in
+// the editor while sending correctly. lib/emails/lifecycle.ts is pure, so there
+// is no reason for a client component not to read it directly.
+type EmailType = LifecycleEmailType
+const LABEL = LIFECYCLE_LABEL
+const WHEN = LIFECYCLE_WHEN
+const TYPES = LIFECYCLE_TYPES
 
 interface Template { subject: string; body: string; customised: boolean }
 interface LogRow { id: string; uid: string; email: string; type: EmailType; subject: string; ok: boolean; error?: string | null; at: number }
@@ -101,13 +98,11 @@ export default function EmailsPanel() {
     finally { setBusy(false) }
   }
 
-  // Same substitutions the server makes, so the preview is what actually sends.
-  const preview = draft.body
-    .replace(/\{\{greeting\}\}/g, 'Dear Dr. Jane Smith,')
-    .replace(/\{\{name\}\}/g, 'Jane Smith')
-    .replace(/\{\{site\}\}/g, 'https://lushnote.com.au')
-    .replace(/\{\{trialEnd\}\}/g, '14 February 2027')
-    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '$1')
+  // The server's own renderer, not a copy of it — the preview is then the email.
+  const preview = renderLifecycleEmail(
+    { subject: draft.subject, body: draft.body },
+    { displayName: 'Dr Jane Smith', unsubscribeUrl: '#', trialEnd: '14 February 2027', price: 'AUD $30/month' },
+  ).text
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">

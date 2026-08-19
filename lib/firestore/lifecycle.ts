@@ -2,6 +2,7 @@ import { adminDb } from '@/lib/firebase-admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { DEFAULT_TEMPLATES, LIFECYCLE_TYPES, type EmailTemplate, type LifecycleEmailType } from '@/lib/emails/lifecycle'
+import type { Billing } from '@/lib/entitlement'
 
 // Who is due which email, recorded so nothing is ever sent twice. A daily job
 // with no send log would re-send the same reminder every morning forever.
@@ -14,11 +15,8 @@ export const SIGNUP_ABANDONED_AFTER_DAYS = 3
 export const APP_SETUP_AFTER_DAYS = 3
 // The free period, and how long before it ends the reminder goes out. Long
 // enough for a doctor to sort out billing without it landing mid-ward-round.
-export const FREE_TRIAL_DAYS = 182
-export const TRIAL_NOTICE_DAYS = 14
 // "Recently used" for the trial reminder: it goes to doctors LushNote is
 // actually working for, not to someone who set up a key and walked away.
-export const RECENT_USE_DAYS = 30
 
 export interface Candidate {
   uid: string
@@ -27,6 +25,7 @@ export interface Candidate {
   type: LifecycleEmailType
   reason: string        // what put them in this cohort, shown in the admin panel
   trialEnd?: string     // rendered date for {{trialEnd}}
+  country?: string      // billing country, so {{price}} matches what they'd pay
 }
 
 interface ProfileRow {
@@ -40,6 +39,7 @@ interface ProfileRow {
   emailOptOut?: boolean
   lifecycleEmails?: Partial<Record<LifecycleEmailType, number>>
   geminiUsage?: Record<string, { date?: string }>
+  billing?: Billing
   createdAt?: { toMillis?: () => number }
 }
 
@@ -48,14 +48,6 @@ function millis(v: unknown): number | null {
   return t && typeof t.toMillis === 'function' ? t.toMillis() : null
 }
 
-// Last day the doctor actually generated something. geminiUsage keeps only the
-// most recent day per model, which is exactly the signal needed here.
-function lastUsedMs(p: ProfileRow): number | null {
-  const dates = Object.values(p.geminiUsage ?? {})
-    .map(u => (u?.date ? Date.parse(`${u.date}T00:00:00Z`) : NaN))
-    .filter(n => !Number.isNaN(n))
-  return dates.length ? Math.max(...dates) : null
-}
 
 export async function findCandidates(now = Date.now()): Promise<Candidate[]> {
   const snap = await adminDb().collection('users').limit(5000).get()
@@ -92,25 +84,40 @@ export async function findCandidates(now = Date.now()): Promise<Candidate[]> {
 
     const ageDays = ageDaysRaw
 
+
     if (!hasKey && !sent.apiSetup && createdAt && ageDays >= APP_SETUP_AFTER_DAYS) {
       out.push({ uid: p.uid, email: p.email, displayName: p.displayName ?? '', type: 'apiSetup', reason: `${ageDays}d since signup, no API key` })
       continue
     }
 
-    // Billing notice: only to doctors LushNote is actually working for — a key
-    // set up AND used recently. Asking someone who never got it running to enter
-    // a card would be the wrong email entirely.
-    if (hasKey && !sent.trialEnding && createdAt) {
-      const trialEndsAt = createdAt + FREE_TRIAL_DAYS * DAY
-      const daysLeft = Math.ceil((trialEndsAt - now) / DAY)
-      const used = lastUsedMs(p)
-      const usedRecently = !!used && now - used <= RECENT_USE_DAYS * DAY
-      if (usedRecently && daysLeft <= TRIAL_NOTICE_DAYS && daysLeft >= 0) {
-        out.push({
-          uid: p.uid, email: p.email, displayName: p.displayName ?? '', type: 'trialEnding',
-          reason: `free period ends in ${daysLeft}d, used ${Math.floor((now - used!) / DAY)}d ago`,
-          trialEnd: new Date(trialEndsAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }),
-        })
+    // Billing. Reads the trial end Stripe actually set — nothing here derives a
+    // date from the signup, because only Stripe knows what the trial is and a
+    // date this app invented could disagree with the invoice.
+    //
+    // No recent-use gate: these are not marketing. They are notice that access
+    // is about to change, and a doctor who has been on leave needs them most.
+    const b = p.billing
+    if (b && !b.billingExempt) {
+      const hasMethod = b.paymentMethodStatus === 'active' || b.paymentMethodStatus === 'pending'
+      const trialEnd = b.trialEndsAt
+        ? new Date(b.trialEndsAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
+        : undefined
+
+      if (b.paywalledAt && !sent.paywalled) {
+        out.push({ uid: p.uid, email: p.email, displayName: p.displayName ?? '', type: 'paywalled', reason: 'access paused', trialEnd, country: b.country ?? undefined })
+        continue
+      }
+      if (!hasMethod && b.trialEndsAt) {
+        // "On or after the threshold", never "on the day" — the cron runs once
+        // daily and a doctor must not miss the notice because of an hour.
+        if (now >= b.trialEndsAt && !sent.paymentSetupDue) {
+          out.push({ uid: p.uid, email: p.email, displayName: p.displayName ?? '', type: 'paymentSetupDue', reason: 'trial ended, no payment method', trialEnd, country: b.country ?? undefined })
+          continue
+        }
+        if (now >= b.trialEndsAt - 7 * DAY && now < b.trialEndsAt && !sent.paymentSetup7d) {
+          out.push({ uid: p.uid, email: p.email, displayName: p.displayName ?? '', type: 'paymentSetup7d', reason: 'trial ends within 7d, no payment method', trialEnd, country: b.country ?? undefined })
+          continue
+        }
       }
     }
   }

@@ -40,7 +40,9 @@ interface User {
   // default and this is the explicit opt-OUT the unsubscribe link sets.
   emailOptOut?: boolean
   // When each lifecycle email was sent, so a daily job never repeats one.
-  lifecycleEmails?: { signupAbandoned?: number; welcome?: number; apiSetup?: number; trialEnding?: number }
+  // Old `trialEnding` stamps may still sit on existing profiles; nothing
+  // reads them now that Stripe owns the trial.
+  lifecycleEmails?: { signupAbandoned?: number; welcome?: number; apiSetup?: number; paymentSetup7d?: number; paymentSetupDue?: number; paywalled?: number }
   // Stripe state, projected by the webhook. SERVER-WRITTEN ONLY — the Firestore
   // rules pin this whole map on client updates, because a client that could edit
   // it could grant itself a subscription. Kept as one map so the pin is one

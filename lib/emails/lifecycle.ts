@@ -9,22 +9,28 @@ import type { OutboundEmail } from '@/lib/email'
 // The copy below is only the DEFAULT. An admin can rewrite subject and body in
 // the console; a saved draft wins, and Reset restores these.
 
-export type LifecycleEmailType = 'signupAbandoned' | 'welcome' | 'apiSetup' | 'trialEnding'
+export type LifecycleEmailType =
+  | 'signupAbandoned' | 'welcome' | 'apiSetup'
+  | 'paymentSetup7d' | 'paymentSetupDue' | 'paywalled'
 
-export const LIFECYCLE_TYPES: LifecycleEmailType[] = ['welcome', 'signupAbandoned', 'apiSetup', 'trialEnding']
+export const LIFECYCLE_TYPES: LifecycleEmailType[] = ['welcome', 'signupAbandoned', 'apiSetup', 'paymentSetup7d', 'paymentSetupDue', 'paywalled']
 
 export const LIFECYCLE_LABEL: Record<LifecycleEmailType, string> = {
   signupAbandoned: 'Signup not finished (day 3)',
   welcome: 'Welcome (at signup)',
   apiSetup: 'API not set up (day 3)',
-  trialEnding: 'Free period ending (payment details)',
+  paymentSetup7d: 'Trial ends in a week',
+  paymentSetupDue: 'Trial ends today',
+  paywalled: 'Access paused',
 }
 
 export const LIFECYCLE_WHEN: Record<LifecycleEmailType, string> = {
   signupAbandoned: '3 days after a doctor first signs in, if they never finished onboarding. They get nothing else until they do.',
   welcome: 'Immediately when a doctor finishes signing up.',
   apiSetup: '3 days after finishing signup, if no Gemini or Groq key has been saved.',
-  trialEnding: '14 days before the 6-month free period ends, for doctors who set up a key and have used LushNote recently.',
+  paymentSetup7d: '7 days before the free trial ends, if no payment method has been added.',
+  paymentSetupDue: 'On the day the free trial ends, if no payment method has been added. A 7-day grace window follows.',
+  paywalled: 'When the grace window runs out and note creation is paused. Stripe sends its own emails about failed payments — this one is only about access changing.',
 }
 
 export interface EmailTemplate {
@@ -37,7 +43,7 @@ const SIGN_OFF = 'The LushNote Team\nBuilt to save doctors.\nLushNote.com.au'
 
 // Everything the body may reference. Shown in the editor so an admin knows what
 // is available without reading the code.
-export const PLACEHOLDERS = ['{{greeting}}', '{{name}}', '{{site}}', '{{trialEnd}}'] as const
+export const PLACEHOLDERS = ['{{greeting}}', '{{name}}', '{{site}}', '{{trialEnd}}', '{{price}}'] as const
 
 export const DEFAULT_TEMPLATES: Record<LifecycleEmailType, EmailTemplate> = {
   signupAbandoned: {
@@ -83,17 +89,47 @@ We just don't want you to have signed up for something and never gotten the poin
 ${SIGN_OFF}`,
   },
 
-  trialEnding: {
-    subject: 'Your free period with LushNote ends soon',
+  paymentSetup7d: {
+    subject: 'Your LushNote free trial ends in a week',
     body: `{{greeting}}
 
-Your six months of free LushNote end on {{trialEnd}}. You've been using it, so we wanted to give you fair notice rather than have it stop on you in the middle of a ward round.
+Your free trial of LushNote ends on {{trialEnd}} — a week from now. We would rather tell you early than have it stop on you in the middle of a ward round.
 
-To keep going, add your payment details here: [set up billing]({{site}}/billing).
+To keep going, add your payment details here: [set up billing]({{site}}/billing). It is {{price}}, billed monthly, and you can cancel anytime.
 
-If LushNote hasn't earned its place, do nothing. Nothing will be charged, and your notes remain yours either way — you can export them from the History tab at any time.
+Card payments work anywhere in the world. If you are in Australia, you can use direct debit from your bank account instead.
 
-If you have any questions, or if the price doesn't work for you, just reply to this email. We would rather hear from you than lose you quietly.
+If LushNote has not earned its place, do nothing. Nothing will be charged, and your notes remain yours either way — you can export them from the History tab at any time.
+
+If the price does not work for you, just reply to this email. We would rather hear from you than lose you quietly.
+
+${SIGN_OFF}`,
+  },
+
+  paymentSetupDue: {
+    subject: 'Your LushNote free trial ends today',
+    body: `{{greeting}}
+
+Your free trial of LushNote ends today. Nothing stops right now — you have a further seven days to add your payment details before note creation pauses.
+
+Add them here: [set up billing]({{site}}/billing). It is {{price}}, billed monthly, cancel anytime.
+
+If you would rather stop, do nothing. Nothing will be charged, and everything you have written stays yours — History and export keep working whatever you decide.
+
+${SIGN_OFF}`,
+  },
+
+  paywalled: {
+    subject: 'Your LushNote access is paused',
+    body: `{{greeting}}
+
+Your trial and the grace period after it have both ended, so creating and editing notes is paused for now.
+
+Everything you have written is safe. History, your patient list and export all still work — your clinical records are never locked away.
+
+To start again, add your payment details here: [set up billing]({{site}}/billing). It is {{price}}, and access comes back immediately.
+
+If something about the price or the timing is the problem, reply to this email and tell us. We would rather sort it out than have you leave over it.
 
 ${SIGN_OFF}`,
   },
@@ -109,6 +145,8 @@ export interface RenderContext {
   displayName: string
   unsubscribeUrl: string
   trialEnd?: string
+  /** From priceString() — one source, so the site and the emails cannot disagree. */
+  price?: string
 }
 
 function fill(text: string, ctx: RenderContext): string {
@@ -118,6 +156,7 @@ function fill(text: string, ctx: RenderContext): string {
     .replace(/\{\{name\}\}/g, name || 'Doctor')
     .replace(/\{\{site\}\}/g, SITE)
     .replace(/\{\{trialEnd\}\}/g, ctx.trialEnd ?? 'your renewal date')
+    .replace(/\{\{price\}\}/g, ctx.price ?? 'AUD $30/month')
 }
 
 // Plain text is the source of truth; the HTML part is the same words in the same

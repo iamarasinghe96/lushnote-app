@@ -4,6 +4,7 @@ import { sendEmail, emailConfigured } from '@/lib/email'
 import { renderLifecycleEmail, LIFECYCLE_TYPES, type LifecycleEmailType } from '@/lib/emails/lifecycle'
 import { findCandidates, markSent, logEmail, recentEmailLog, unsubscribeUrl, welcomeCandidate, getTemplates, templateFor, saveTemplate, resetTemplate, type Candidate } from '@/lib/firestore/lifecycle'
 import { runBillingSweep } from '@/lib/firestore/billingSweep'
+import { getBillingConfig, priceString } from '@/lib/billing'
 import { logToSink } from '@/lib/firestore/systemLogs'
 
 // The daily lifecycle run, plus the admin console's read-only views of it.
@@ -25,12 +26,16 @@ function cronAuthorised(req: NextRequest): boolean {
 
 async function send(candidates: Candidate[]) {
   const results: { uid: string; email: string; type: string; ok: boolean; error?: string }[] = []
+  // Read once per run, not per email: the GST state is the same for everyone in
+  // a batch, and it decides how the price reads.
+  const cfg = await getBillingConfig()
   for (const c of candidates.slice(0, MAX_PER_RUN)) {
     const tpl = await templateFor(c.type)
     const mail = renderLifecycleEmail(tpl, {
       displayName: c.displayName,
       unsubscribeUrl: unsubscribeUrl(c.uid),
       trialEnd: c.trialEnd,
+      price: priceString(cfg.gstRegistered, c.country === 'AU'),
     })
     const error = await sendEmail({ ...mail, to: c.email })
     const at = Date.now()

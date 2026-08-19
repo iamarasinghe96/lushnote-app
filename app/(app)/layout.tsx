@@ -16,6 +16,7 @@ import { getLetterhead } from '@/lib/firestore/letterheads'
 import { getHolidayAppearance, type HolidayAppearance } from '@/lib/holidayTiles'
 import { resolveEntitlement } from '@/lib/entitlement'
 import PaywallScreen from '@/components/PaywallScreen'
+import BillingBanner from '@/components/BillingBanner'
 
 // Where notes are made. Everything else — History, Patients, Export, Settings —
 // stays reachable when a subscription lapses.
@@ -271,6 +272,9 @@ function AppContent({ children }: { children: React.ReactNode }) {
             />
           </div>
         )}
+        {/* Above the page, not over it: a doctor mid-note should read this, not
+            have it cover what they are writing. */}
+        {!paywalled && <BillingBanner profile={profile} uid={user.uid} />}
         <div key={pathname} className="animate-fade-in h-full" style={{ willChange: 'opacity' }}>
           {paywalled ? <PaywallScreen state={entitlement.state} /> : children}
         </div>
