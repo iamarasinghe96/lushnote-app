@@ -12,13 +12,18 @@ export async function getProfile(uid: string): Promise<User | null> {
   return snap.data() as User
 }
 
+// Merges rather than overwrites. It runs against the stub written at first
+// sign-in, so the document already exists and this is an UPDATE — and updates
+// now have to leave `billing` exactly as they found it. A full overwrite omits
+// that field, which reads as removing it, and the rules refuse. Merging is also
+// simply correct: nothing here is trying to erase state written elsewhere.
 export async function createProfile(uid: string, data: Partial<User>): Promise<void> {
   const ref = doc(db, 'users', uid)
   await setDoc(ref, {
     ...data,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  })
+  }, { merge: true })
 }
 
 // A minimal record written the first time a doctor authenticates, BEFORE they

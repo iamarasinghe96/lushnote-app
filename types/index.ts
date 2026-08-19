@@ -41,6 +41,39 @@ interface User {
   emailOptOut?: boolean
   // When each lifecycle email was sent, so a daily job never repeats one.
   lifecycleEmails?: { signupAbandoned?: number; welcome?: number; apiSetup?: number; trialEnding?: number }
+  // Stripe state, projected by the webhook. SERVER-WRITTEN ONLY — the Firestore
+  // rules pin this whole map on client updates, because a client that could edit
+  // it could grant itself a subscription. Kept as one map so the pin is one
+  // equality check rather than a clause per field.
+  //
+  // Never holds a card or bank number. Stripe holds the instrument; we hold the
+  // identifiers needed to ask Stripe about it, plus the country we bill from.
+  billing?: {
+    stripeCustomerId: string
+    subscriptionId: string | null
+    subscriptionStatus: 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'incomplete_expired'
+    // From Stripe's trial_end. The ONLY trial date in the app — nothing derives
+    // one from createdAt, because only Stripe knows what the trial really is.
+    trialEndsAt: number | null
+    currentPeriodEnd: number | null
+    cancelAtPeriodEnd: boolean
+    paused: boolean                 // projection of pause_collection
+    paymentMethodType: 'card' | 'au_becs_debit' | null
+    // 'pending' is a BECS mandate that exists but is not yet active — a real
+    // state a card never has, and the reason access can't key off type alone.
+    paymentMethodStatus: 'none' | 'pending' | 'active'
+    country: string | null          // billing country, for price display + AU turnover
+    gracePeriodEnd: number | null
+    paywalledAt: number | null
+    billingExempt?: boolean
+    // Kept for dispute defence: what they agreed to, when, and from where.
+    consent?: { acceptedAt: number; ip: string; tosVersion: string }
+    updatedAt: number
+  }
+  // When each in-app billing prompt was dismissed. Client-writable and stored on
+  // the profile rather than in localStorage so a doctor who dismisses it on the
+  // ward computer doesn't meet it again on their phone.
+  billingPrompts?: { trialReminder7d?: number; trialReminderDue?: number; paywalled?: number }
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
 }

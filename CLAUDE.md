@@ -347,6 +347,12 @@ service cloud.firestore {
           && (!('status' in request.resource.data) || request.resource.data.status == resource.data.status);
     }
 
+    function billingUntouched() {
+      return ('billing' in resource.data)
+        ? ('billing' in request.resource.data && request.resource.data.billing == resource.data.billing)
+        : !('billing' in request.resource.data);
+    }
+
     function noteValid() {
       let d = request.resource.data;
       return d.userId is string && d.userId.size() <= 128
@@ -395,6 +401,7 @@ service cloud.firestore {
           && (!('emailPretext'       in d) || (d.emailPretext       is string && d.emailPretext.size()       <= 1000))
           && (!('activeWorkplaceId'  in d) || (d.activeWorkplaceId  is string && d.activeWorkplaceId.size()  <= 100))
           && (!('onboardingComplete' in d) || (d.onboardingComplete is bool))
+          && (!('billingPrompts'     in d) || (d.billingPrompts     is map))
           && (!('notesMigrated'      in d) || (d.notesMigrated      is bool))
           && (!('workplaces'         in d) || (d.workplaces         is list   && d.workplaces.size()         <= 30))
           && (!('favoriteTemplateIds'in d) || (d.favoriteTemplateIds is list  && d.favoriteTemplateIds.size() <= 200))
@@ -415,8 +422,9 @@ service cloud.firestore {
       allow get:    if owns(userId);
       allow create: if owns(userId) && profileValid()
                     && (!('tier'   in request.resource.data) || request.resource.data.tier   == 'free')
-                    && (!('status' in request.resource.data) || request.resource.data.status == 'active');
-      allow update: if owns(userId) && profileValid() && noPrivilegeEscalation();
+                    && (!('status' in request.resource.data) || request.resource.data.status == 'active')
+                    && !('billing' in request.resource.data);
+      allow update: if owns(userId) && profileValid() && noPrivilegeEscalation() && billingUntouched();
       allow delete: if owns(userId);
 
       match /patientProfiles/{profileId} {
@@ -454,6 +462,40 @@ service cloud.firestore {
   }
 }
 ```
+
+---
+
+## Billing (Stripe) — Layer 1 landed; Layers 2-8 in MONETIZATION_PLAN.md
+
+3 months free, then AUD $30/month worldwide. Cards everywhere, BECS Direct Debit
+for AU only. The full layered plan, the confirmed decisions and the Stripe
+dashboard state live in `MONETIZATION_PLAN.md` (repo root) — read it before
+touching any billing code.
+
+**Access is decided by Stripe, never by a date this app computes.** A BECS debit
+takes days to clear, so "the trial ended, lock them out" would paywall a doctor
+whose money is already moving. `resolveEntitlement()` (`lib/entitlement.ts`) is
+PURE — no SDK, no Firestore, no env — so the client layout and the API routes
+cannot reach different verdicts. `past_due` WITH a payment method is entitled
+(Stripe is retrying, or a debit is clearing); `unpaid` is not, because that is
+what the dashboard marks a subscription once Smart Retries are exhausted.
+Unknown status fails OPEN: wrongly billing someone is recoverable, wrongly
+blocking a clinician mid-clinic is not.
+
+**`users/{uid}.billing` is server-written only** and pinned by
+`billingUntouched()`. That rule tests absence against absence, which
+`noPrivilegeEscalation()` does not: a field is also changed by being REMOVED,
+and a full-document `setDoc` that omits it would otherwise pass. This is why
+`createProfile` now merges — it runs against the first-sign-in stub, so it is an
+update, and a wholesale overwrite would read as deleting the subscription.
+
+**Never store a card or bank number.** Stripe holds the instrument; we hold the
+identifiers needed to ask Stripe about it, the billing country (for price
+display and AU turnover), and the consent record for dispute defence.
+
+Env: `STRIPE_SECRET_KEY` (also the feature flag — absent means every billing
+path no-ops and the app behaves exactly as before), `STRIPE_PRICE_ID`,
+`STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
 
 ---
 

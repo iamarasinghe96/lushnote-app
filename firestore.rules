@@ -12,6 +12,20 @@ service cloud.firestore {
           && (!('status' in request.resource.data) || request.resource.data.status == resource.data.status);
     }
 
+    // Stripe state is written ONLY by the webhook through the Admin SDK, which
+    // bypasses these rules. A client that could edit it could grant itself a
+    // subscription, so the whole map is pinned.
+    //
+    // Note what this checks that noPrivilegeEscalation() does not: a field is
+    // also changed by being REMOVED. `!('x' in request) || equal` passes a
+    // full-document setDoc that simply omits the field — which is exactly what a
+    // profile overwrite does. Absence has to be tested against absence.
+    function billingUntouched() {
+      return ('billing' in resource.data)
+        ? ('billing' in request.resource.data && request.resource.data.billing == resource.data.billing)
+        : !('billing' in request.resource.data);
+    }
+
     function noteValid() {
       let d = request.resource.data;
       return d.userId is string && d.userId.size() <= 128
@@ -63,6 +77,7 @@ service cloud.firestore {
           && (!('activeWorkplaceId'  in d) || (d.activeWorkplaceId  is string && d.activeWorkplaceId.size()  <= 100))
           && (!('onboardingComplete' in d) || (d.onboardingComplete is bool))
           && (!('marketingConsent'   in d) || (d.marketingConsent   is bool))
+          && (!('billingPrompts'     in d) || (d.billingPrompts     is map))
           && (!('notesMigrated'      in d) || (d.notesMigrated      is bool))
           && (!('workplaces'         in d) || (d.workplaces         is list   && d.workplaces.size()         <= 30))
           && (!('favoriteTemplateIds'in d) || (d.favoriteTemplateIds is list  && d.favoriteTemplateIds.size() <= 200))
@@ -83,8 +98,9 @@ service cloud.firestore {
       allow get:    if owns(userId);
       allow create: if owns(userId) && profileValid()
                     && (!('tier'   in request.resource.data) || request.resource.data.tier   == 'free')
-                    && (!('status' in request.resource.data) || request.resource.data.status == 'active');
-      allow update: if owns(userId) && profileValid() && noPrivilegeEscalation();
+                    && (!('status' in request.resource.data) || request.resource.data.status == 'active')
+                    && !('billing' in request.resource.data);
+      allow update: if owns(userId) && profileValid() && noPrivilegeEscalation() && billingUntouched();
       allow delete: if owns(userId);
 
       match /patientProfiles/{profileId} {
