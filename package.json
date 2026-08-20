@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run tests/unit"
+    "test:unit": "vitest run tests/unit",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.8.1",
@@ -23,6 +24,7 @@
     "stripe": "^22.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "~1.56.1",
     "@types/node": "^20.0.0",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^18.0.0",
