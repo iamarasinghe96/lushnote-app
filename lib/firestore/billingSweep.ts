@@ -94,6 +94,14 @@ export async function runBillingSweep(now = Date.now()): Promise<SweepResult> {
     })
   }
 
+  // Recorded, not just logged: the admin panel needs to answer "did the cron run
+  // last night" without anyone reading a log.
+  try {
+    await adminDb().collection('config').doc('billing').set({
+      lastSweep: { at: now, ...result },
+    }, { merge: true })
+  } catch { /* the sweep's real work is already done */ }
+
   if (result.trialsStarted || result.paywalled || result.errors) {
     logToSink({
       level: result.errors ? 'warn' : 'info', tag: 'billing', route: '/api/lifecycle',

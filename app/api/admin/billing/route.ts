@@ -5,7 +5,9 @@ import { logToSink, writeAudit } from '@/lib/firestore/systemLogs'
 import {
   getBillingConfig, setGstRegistered, computeAuTurnover, saveTurnoverCache,
   stripeEnabled, PRICE_AUD, GST_THRESHOLD_AUD, priceString,
+  pipelineHealth, reconcileUser, reprojectUser,
 } from '@/lib/billing'
+import { runBillingSweep } from '@/lib/firestore/billingSweep'
 
 // Admin billing surface. Reads aggregates and identifiers only — never a card,
 // a bank number, a mandate id or a consent IP, in keeping with the privacy wall
@@ -16,7 +18,8 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
-      action: 'overview' | 'setGst' | 'setExempt' | 'refreshTurnover' | 'recordsExport'
+      action: 'overview' | 'setGst' | 'setExempt' | 'refreshTurnover' | 'recordsExport' | 'health' | 'reconcile' | 'reproject' | 'runSweep'
+      lookup?: string
       registered?: boolean
       effectiveDate?: string | null
       uid?: string
@@ -48,6 +51,29 @@ export async function POST(req: NextRequest) {
           byMonth: cache?.byMonth ?? [],
         },
       })
+    }
+
+    if (body.action === 'health') {
+      return NextResponse.json(await pipelineHealth())
+    }
+
+    if (body.action === 'reconcile') {
+      return NextResponse.json(await reconcileUser(body.lookup ?? ''))
+    }
+
+    if (body.action === 'reproject') {
+      if (!body.uid) return NextResponse.json({ error: 'uid required' }, { status: 400 })
+      const ok = await reprojectUser(body.uid)
+      await writeAudit({ actorUid: actor.uid, action: 'billing.reproject', targetUid: body.uid, meta: { ok } })
+      return NextResponse.json({ success: ok })
+    }
+
+    if (body.action === 'runSweep') {
+      // The same work the 23:00 UTC cron does. Idempotent, so running it by hand
+      // to see the result changes nothing a second run would undo.
+      const result = await runBillingSweep()
+      await writeAudit({ actorUid: actor.uid, action: 'billing.runSweep', meta: { ...result } })
+      return NextResponse.json({ sweep: result })
     }
 
     if (body.action === 'refreshTurnover') {

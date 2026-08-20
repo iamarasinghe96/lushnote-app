@@ -548,3 +548,188 @@ export async function setGstRegistered(registered: boolean, effectiveDate: strin
   await adminDb().collection('config').doc('billing').set(next, { merge: true })
   return next
 }
+
+// ── Pipeline health ────────────────────────────────────────────────────────
+//
+// The whole design rests on one chain: Stripe fires an event → the webhook
+// verifies and refetches → the projection lands on users/{uid}.billing. Proving
+// that chain works should never require opening a database console, so
+// everything an admin would go looking for is answered here instead.
+
+export type StripeMode = 'test' | 'live' | 'off'
+
+export interface PipelineHealth {
+  mode: StripeMode
+  webhookConfigured: boolean
+  priceConfigured: boolean
+  /** Webhook deliveries this app actually processed, from the idempotency ledger. */
+  events: { last24h: number; last7d: number; latestAt: number | null; latestType: string | null }
+  /** How many doctors sit in each entitlement state right now. */
+  cohorts: Record<string, number>
+  lastSweep: { at: number; scanned: number; trialsStarted: number; paywalled: number; errors: number } | null
+}
+
+export function stripeMode(): StripeMode {
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) return 'off'
+  return key.startsWith('sk_live_') ? 'live' : 'test'
+}
+
+export async function pipelineHealth(now = Date.now()): Promise<PipelineHealth> {
+  const db = adminDb()
+  const DAY = 24 * 60 * 60 * 1000
+
+  // stripe_events is written once per delivery the webhook accepted, so counting
+  // it answers "is Stripe actually reaching us" without trusting anything else.
+  let last24h = 0, last7d = 0, latestAt: number | null = null, latestType: string | null = null
+  try {
+    const snap = await db.collection('stripe_events').orderBy('processedAt', 'desc').limit(500).get()
+    for (const d of snap.docs) {
+      const x = d.data() as { processedAt?: number; type?: string }
+      const at = x.processedAt ?? 0
+      if (latestAt === null) { latestAt = at; latestType = x.type ?? null }
+      if (now - at <= DAY) last24h++
+      if (now - at <= 7 * DAY) last7d++
+    }
+  } catch { /* an empty or unindexed collection is itself the answer: nothing yet */ }
+
+  const cohorts: Record<string, number> = {}
+  try {
+    const snap = await db.collection('users').limit(5000).get()
+    for (const d of snap.docs) {
+      const data = d.data() as { onboardingComplete?: boolean; status?: string; billing?: Billing }
+      // Stubs never get subscriptions, so counting them would only ever look
+      // like a backlog that never clears.
+      if (data.onboardingComplete !== true || data.status === 'disabled') continue
+      const state = resolveEntitlement(data.billing, now).state
+      cohorts[state] = (cohorts[state] ?? 0) + 1
+    }
+  } catch { /* leave empty rather than guess */ }
+
+  const cfg = await db.collection('config').doc('billing').get().catch(() => null)
+  const lastSweep = (cfg?.data()?.lastSweep as PipelineHealth['lastSweep']) ?? null
+
+  return {
+    mode: stripeMode(),
+    webhookConfigured: !!process.env.STRIPE_WEBHOOK_SECRET,
+    priceConfigured: !!process.env.STRIPE_PRICE_ID,
+    events: { last24h, last7d, latestAt, latestType },
+    cohorts,
+    lastSweep,
+  }
+}
+
+export interface Reconciliation {
+  found: boolean
+  uid?: string
+  email?: string
+  stored: Partial<Billing> | null
+  live: {
+    customerId: string | null
+    subscriptionId: string | null
+    status: string | null
+    trialEndsAt: number | null
+    currentPeriodEnd: number | null
+    cancelAtPeriodEnd: boolean | null
+    paused: boolean | null
+    defaultPaymentMethod: string | null
+  } | null
+  /** Fields where Firestore and Stripe disagree. Empty means the projection is current. */
+  drift: string[]
+  note: string
+}
+
+/**
+ * Compare what we stored against what Stripe says right now, for one doctor.
+ *
+ * This is the check that used to mean opening a database console: if `drift` is
+ * empty, the webhook chain is doing its job. Drift is not automatically a bug —
+ * an event can be seconds behind — but drift that persists means the projection
+ * has stopped.
+ */
+export async function reconcileUser(lookup: string): Promise<Reconciliation> {
+  const db = adminDb()
+  const term = lookup.trim()
+  if (!term) return { found: false, stored: null, live: null, drift: [], note: 'No user given' }
+
+  let doc = await db.collection('users').doc(term).get()
+  if (!doc.exists) {
+    const byEmail = await db.collection('users').where('email', '==', term).limit(1).get()
+    if (byEmail.empty) return { found: false, stored: null, live: null, drift: [], note: 'No doctor with that uid or email' }
+    doc = byEmail.docs[0]
+  }
+
+  const data = doc.data() as { email?: string; billing?: Billing }
+  const stored = data.billing ?? null
+  const base = { found: true, uid: doc.id, email: data.email ?? '' }
+
+  if (!stored?.stripeCustomerId) {
+    return { ...base, stored, live: null, drift: [], note: 'No subscription yet — nothing to compare' }
+  }
+  if (!stripeEnabled()) {
+    return { ...base, stored, live: null, drift: [], note: 'Stripe is not configured in this environment' }
+  }
+
+  const s = stripe()
+  let sub: Stripe.Subscription | null = null
+  try {
+    if (stored.subscriptionId) sub = await s.subscriptions.retrieve(stored.subscriptionId)
+    else {
+      const list = await s.subscriptions.list({ customer: stored.stripeCustomerId, status: 'all', limit: 1 })
+      sub = list.data[0] ?? null
+    }
+  } catch {
+    // The commonest cause by far, and worth naming rather than showing a blank:
+    // a customer created in the other mode simply does not exist in this one.
+    return {
+      ...base, stored, live: null, drift: ['subscription unreadable'],
+      note: `Stripe (${stripeMode()} mode) could not read this subscription. If the id was created in the other mode, that is expected.`,
+    }
+  }
+
+  const customer = sub ? await s.customers.retrieve(stored.stripeCustomerId).catch(() => null) : null
+  const defaultPm = customer && !('deleted' in customer && customer.deleted)
+    ? unwrapId(customer.invoice_settings?.default_payment_method as string | { id: string } | null)
+    : null
+
+  const live: Reconciliation['live'] = sub ? {
+    customerId: stored.stripeCustomerId,
+    subscriptionId: sub.id,
+    status: sub.status,
+    trialEndsAt: sub.trial_end ? sub.trial_end * 1000 : null,
+    currentPeriodEnd: sub.items?.data?.[0]?.current_period_end ? sub.items.data[0].current_period_end * 1000 : null,
+    cancelAtPeriodEnd: !!sub.cancel_at_period_end,
+    paused: !!sub.pause_collection,
+    defaultPaymentMethod: defaultPm,
+  } : null
+
+  const drift: string[] = []
+  if (live) {
+    if (stored.subscriptionStatus !== live.status) drift.push(`status: stored ${stored.subscriptionStatus} vs Stripe ${live.status}`)
+    if ((stored.trialEndsAt ?? null) !== live.trialEndsAt) drift.push('trialEndsAt')
+    if ((stored.currentPeriodEnd ?? null) !== live.currentPeriodEnd) drift.push('currentPeriodEnd')
+    if (!!stored.cancelAtPeriodEnd !== live.cancelAtPeriodEnd) drift.push('cancelAtPeriodEnd')
+    if (!!stored.paused !== live.paused) drift.push('paused')
+    if ((stored.paymentMethodId ?? null) !== live.defaultPaymentMethod) drift.push('paymentMethod')
+  } else {
+    drift.push('no subscription in Stripe')
+  }
+
+  return {
+    ...base, stored, live, drift,
+    note: drift.length
+      ? 'Firestore and Stripe disagree. Re-project to bring them into line.'
+      : 'Firestore matches Stripe — the webhook chain is current.',
+  }
+}
+
+/** Force a re-projection for one doctor: the repair for any drift found above. */
+export async function reprojectUser(uid: string): Promise<boolean> {
+  const snap = await adminDb().collection('users').doc(uid).get()
+  const billing = snap.data()?.billing as Billing | undefined
+  if (!billing?.stripeCustomerId) return false
+  const result = billing.subscriptionId
+    ? await projectSubscription(billing.subscriptionId)
+    : await projectCustomer(billing.stripeCustomerId)
+  return !!result
+}

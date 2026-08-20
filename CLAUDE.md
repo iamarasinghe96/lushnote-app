@@ -518,6 +518,16 @@ of services are GST-free and do not count towards the $75k threshold.
 Export, Settings and `/billing` stay open. `/billing` lives OUTSIDE the `(app)`
 group so a lapsed doctor can reach it.
 
+**Nothing about billing requires a database console.** `/admin?section=billing`
+reports the whole chain from inside the app: which Stripe mode the keys are in,
+whether the webhook secret is set, how many deliveries were processed in the
+last 24h/7d and when the latest landed, every doctor counted by entitlement
+state, and when the nightly sweep last ran (`config/billing.lastSweep`). A
+per-doctor lookup (`reconcileUser`) reads the stored projection AND the live
+subscription and lists any field where they disagree — drift means the webhook
+chain has stopped; empty means it is current. `reprojectUser` is the repair, and
+Run sweep triggers the cron's work by hand.
+
 **Deletion keeps the money records.** `stripeOffboard` cancels the subscription
 and detaches the instrument (ending any BECS mandate) but deletes nothing;
 `billing_records/{uid}` is stamped, never removed — five years, per the ATO. No
