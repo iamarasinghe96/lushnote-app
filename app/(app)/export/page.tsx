@@ -5,6 +5,7 @@ import { useNoteStore } from '@/hooks/useNoteStore'
 import { useAuth } from '@/hooks/useAuth'
 import { buildNoteText, buildPreviewHTML, buildLetterPreviewHTML, withTimeout } from '@/lib/utils'
 import { downloadNotePDF, shareNotePDF, printNotePDF, noteEmailSubject } from '@/lib/pdf'
+import { downloadNoteWord } from '@/lib/wordExport'
 import { downloadLetterPDF, buildLetterEmail, type LetterExportParams } from '@/lib/letterExport'
 import { copyToClipboard, openMailto, buildCoverNote, SHARE_TOAST } from '@/lib/shareExport'
 import { getPatientProfiles } from '@/lib/firestore/patients'
@@ -89,6 +90,12 @@ export default function ExportPage() {
       x => x.displayName.trim().toLowerCase() === currentNote.patient!.trim().toLowerCase()
     )
     return p ? { dob: p.dob, gender: p.gender } : undefined
+  }
+
+  async function handleWord() {
+    setMenuOpen(false)
+    try { await downloadNoteWord(currentNote, profile?.displayName, matchedPatient()) }
+    catch { showToast('Could not build the Word document.') }
   }
 
   function handlePDF() {
@@ -193,6 +200,7 @@ export default function ExportPage() {
     : [
         { label: 'Copy to Clipboard', action: handleCopyClipboard },
         { label: 'Download PDF',      action: handlePDF },
+        { label: 'Download Word',     action: handleWord },
         { label: 'Share',             action: handleShareNote },
         { label: 'Print',             action: handlePrint },
         { label: 'Submit as Text',    action: handleSubmitAsText },
