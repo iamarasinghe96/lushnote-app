@@ -562,6 +562,11 @@ export interface PipelineHealth {
   mode: StripeMode
   webhookConfigured: boolean
   priceConfigured: boolean
+  /** Whether STRIPE_PRICE_ID actually resolves in THIS mode. Set but invalid is
+   *  the dangerous state: every trial creation fails and the env var looks fine.
+   *  The commonest cause is a live price id paired with test keys. */
+  priceValid: boolean | null
+  priceError: string | null
   /** Webhook deliveries this app actually processed, from the idempotency ledger. */
   events: { last24h: number; last7d: number; latestAt: number | null; latestType: string | null }
   /** How many doctors sit in each entitlement state right now. */
@@ -609,10 +614,28 @@ export async function pipelineHealth(now = Date.now()): Promise<PipelineHealth> 
   const cfg = await db.collection('config').doc('billing').get().catch(() => null)
   const lastSweep = (cfg?.data()?.lastSweep as PipelineHealth['lastSweep']) ?? null
 
+  // Ask Stripe whether the price exists rather than trusting that the variable
+  // is populated. A wrong id fails silently at trial creation, one doctor at a
+  // time, which is exactly how it goes unnoticed.
+  let priceValid: boolean | null = null
+  let priceError: string | null = null
+  if (stripeEnabled() && process.env.STRIPE_PRICE_ID) {
+    try {
+      const price = await stripe().prices.retrieve(process.env.STRIPE_PRICE_ID)
+      priceValid = price.active !== false
+      if (!priceValid) priceError = 'The price exists but is archived in Stripe.'
+    } catch (err) {
+      priceValid = false
+      priceError = err instanceof Error ? err.message.slice(0, 200) : 'Stripe could not read this price.'
+    }
+  }
+
   return {
     mode: stripeMode(),
     webhookConfigured: !!process.env.STRIPE_WEBHOOK_SECRET,
     priceConfigured: !!process.env.STRIPE_PRICE_ID,
+    priceValid,
+    priceError,
     events: { last24h, last7d, latestAt, latestType },
     cohorts,
     lastSweep,

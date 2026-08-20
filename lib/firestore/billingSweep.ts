@@ -103,8 +103,11 @@ export async function runBillingSweep(now = Date.now()): Promise<SweepResult> {
   } catch { /* the sweep's real work is already done */ }
 
   if (result.trialsStarted || result.paywalled || result.errors) {
+    // Every attempt failing is a configuration fault, not a bad night: error
+    // level so it reaches Slack instead of sitting in a list nobody opens.
+    const systemic = result.errors > 0 && result.trialsStarted === 0
     logToSink({
-      level: result.errors ? 'warn' : 'info', tag: 'billing', route: '/api/lifecycle',
+      level: systemic ? 'error' : result.errors ? 'warn' : 'info', tag: 'billing', route: '/api/lifecycle',
       message: `sweep: ${result.scanned} scanned, ${result.trialsStarted} trials started, ${result.paywalled} paywalled, ${result.errors} errors`,
     })
   }

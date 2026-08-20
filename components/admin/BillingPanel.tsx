@@ -9,6 +9,8 @@ interface Health {
   mode: 'test' | 'live' | 'off'
   webhookConfigured: boolean
   priceConfigured: boolean
+  priceValid: boolean | null
+  priceError: string | null
   events: { last24h: number; last7d: number; latestAt: number | null; latestType: string | null }
   cohorts: Record<string, number>
   lastSweep: { at: number; scanned: number; trialsStarted: number; paywalled: number; errors: number } | null
@@ -208,11 +210,24 @@ export default function BillingPanel() {
           </p>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-            <Stat label="Keys" value={health.priceConfigured ? 'Set' : 'Missing'} bad={!health.priceConfigured} />
+            <Stat
+              label="Price"
+              value={!health.priceConfigured ? 'Missing' : health.priceValid === false ? 'Invalid' : health.priceValid ? 'Valid' : 'Set'}
+              bad={!health.priceConfigured || health.priceValid === false}
+            />
             <Stat label="Webhook secret" value={health.webhookConfigured ? 'Set' : 'Missing'} bad={!health.webhookConfigured} />
             <Stat label="Events (24h)" value={String(health.events.last24h)} />
             <Stat label="Events (7d)" value={String(health.events.last7d)} />
           </div>
+
+          {health.priceValid === false && (
+            <div className="rounded-xl border border-[#dc2626]/30 bg-red-50 px-3 py-2 text-xs text-[#dc2626]">
+              <strong>STRIPE_PRICE_ID does not resolve in {health.mode} mode.</strong> No trial can be created for
+              anyone until this is fixed — onboarding, the nightly backfill and the Start trial button all fail.
+              {health.priceError ? ` Stripe said: ${health.priceError}` : ''}
+              {' '}A price id belongs to one mode only, so a live id will not work with test keys.
+            </div>
+          )}
 
           <p className="text-[11px] text-[#94a3b8]">
             {health.events.latestAt
