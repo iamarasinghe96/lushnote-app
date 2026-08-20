@@ -1,0 +1,87 @@
+name: e2e
+
+# Runs the browser suite against the Vercel Preview deployment for this commit.
+#
+# Deliberately triggered by deployment_status rather than by pull_request: CI
+# never builds the app. Vercel already builds every branch with the real
+# environment, and a second build here would need Firebase and Stripe
+# credentials in GitHub, would test a different artefact from the one being
+# promoted, and would double the wait. So this waits for Vercel to finish and
+# tests the exact deployment a human would click Open preview on.
+#
+# The check attaches to the deployment's commit sha, which is what makes it
+# requirable in branch protection.
+
+on:
+  deployment_status:
+
+concurrency:
+  group: e2e-${{ github.event.deployment_status.environment_url || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  # The job id is the name branch protection requires — keep it stable.
+  e2e:
+    # Only a successful PREVIEW deployment. Vercel labels the environment
+    # "Preview" or "Preview – <project>" depending on the project, so match on
+    # the prefix rather than on an exact string.
+    if: >
+      github.event.deployment_status.state == 'success' && (
+        startsWith(github.event.deployment_status.environment, 'Preview') ||
+        startsWith(github.event.deployment_status.environment, 'preview')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The suite that runs must be the one on the commit that was deployed,
+          # not whatever is on main right now.
+          ref: ${{ github.event.deployment.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Confirm the preview is serving the commit under test
+        env:
+          BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          EXPECTED_SHA: ${{ github.event.deployment.sha }}
+        run: |
+          # A stale or mismatched URL produces a green run about the wrong code,
+          # which is worse than no run at all.
+          body=$(curl -sS -H "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" "${BASE_URL}/api/version")
+          sha=$(printf '%s' "$body" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).sha)}catch{console.log("")}})')
+          if [ -z "$sha" ]; then
+            echo "::error::${BASE_URL}/api/version did not return JSON. If Vercel Deployment Protection is on for previews, add the VERCEL_AUTOMATION_BYPASS_SECRET repository secret or turn protection off for previews."
+            printf '%s\n' "$body" | head -c 400
+            exit 1
+          fi
+          echo "preview reports $sha, expected $EXPECTED_SHA"
+          if [ "$sha" != "$EXPECTED_SHA" ]; then
+            echo "::error::Preview at ${BASE_URL} is serving $sha, not the commit this run is for."
+            exit 1
+          fi
+
+      - name: Playwright
+        env:
+          BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: npx playwright test
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
