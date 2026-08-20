@@ -13,6 +13,7 @@ import HospitalFormsPanel from '@/components/admin/HospitalFormsPanel'
 import EmailsPanel from '@/components/admin/EmailsPanel'
 import BillingPanel from '@/components/admin/BillingPanel'
 import AppearancePanel from '@/components/admin/AppearancePanel'
+import ReleasesPanel from '@/components/admin/ReleasesPanel'
 import LogsPanel from '@/components/admin/LogsPanel'
 
 const ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
@@ -30,6 +31,7 @@ const SECTIONS = [
   { key: 'emails', label: 'Emails' },
   { key: 'billing', label: 'Billing' },
   { key: 'appearance', label: 'Appearance' },
+  { key: 'releases', label: 'Releases' },
   { key: 'logs', label: 'Logs & Errors' },
 ] as const
 type SectionKey = (typeof SECTIONS)[number]['key']
@@ -47,6 +49,7 @@ const PANELS: Record<SectionKey, (q: string) => ReactNode> = {
   emails: () => <EmailsPanel />,
   billing: () => <BillingPanel />,
   appearance: () => <AppearancePanel />,
+  releases: () => <ReleasesPanel />,
   logs: q => <LogsPanel initialSearch={q} />,
 }
 
