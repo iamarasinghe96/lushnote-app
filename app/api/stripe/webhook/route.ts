@@ -5,6 +5,7 @@ import { adminDb } from '@/lib/firebase-admin'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { withRequest, noteRequest } from '@/lib/requestContext'
 import { stripe, stripeEnabled, projectSubscription, projectCustomer } from '@/lib/billing'
+import { subscriptionIdOf, customerIdOf, mandateStatusToPaymentStatus } from '@/lib/stripeEvents'
 
 // Signature verification needs the EXACT bytes Stripe signed, so this handler
 // must never parse the body first. Node runtime: the Stripe SDK's crypto and the
@@ -47,23 +48,6 @@ async function claimEvent(event: Stripe.Event): Promise<boolean> {
   }
 }
 
-/** The subscription this event concerns, however it happens to carry it. */
-function subscriptionIdOf(object: Record<string, unknown>): string | null {
-  const sub = object.subscription
-  if (typeof sub === 'string') return sub
-  if (sub && typeof sub === 'object' && 'id' in sub) return String((sub as { id: string }).id)
-  // A subscription event's own object IS the subscription.
-  if (object.object === 'subscription' && typeof object.id === 'string') return object.id
-  return null
-}
-
-function customerIdOf(object: Record<string, unknown>): string | null {
-  const c = object.customer
-  if (typeof c === 'string') return c
-  if (c && typeof c === 'object' && 'id' in c) return String((c as { id: string }).id)
-  return null
-}
-
 /**
  * A BECS mandate is the bank's agreement, not the doctor's typing, and it can go
  * active days after the account number is entered — or fail outright. It is the
@@ -80,7 +64,7 @@ async function writeMandate(mandate: Stripe.Mandate, byCustomer?: string | null)
     snap = await users.where('billing.stripeCustomerId', '==', byCustomer).limit(1).get()
   }
   if (!snap || snap.empty) return
-  const status = mandate.status === 'active' ? 'active' : mandate.status === 'pending' ? 'pending' : 'none'
+  const status = mandateStatusToPaymentStatus(mandate.status)
   await snap.docs[0].ref.set({
     billing: { mandateId: mandate.id, paymentMethodStatus: status, updatedAt: Date.now() },
   }, { merge: true })

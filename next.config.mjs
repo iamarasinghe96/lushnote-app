@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Evaluated once when Vercel builds, so /api/version reports when this
+  // deployment was made rather than when the serverless instance woke up.
+  env: {
+    BUILT_AT: new Date().toISOString(),
+  },
   images: {
     domains: ['lh3.googleusercontent.com'],
   },
