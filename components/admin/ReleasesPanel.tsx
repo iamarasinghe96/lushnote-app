@@ -177,7 +177,16 @@ export default function ReleasesPanel() {
                         Open preview
                       </a>
                     ) : (
-                      <span className="text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400">No preview yet</span>
+                      // Two very different causes, and blaming Vercel for a
+                      // token gap sent the last debug down the wrong path.
+                      <span
+                        className="text-xs px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400"
+                        title={pull.checks.every(c => c.status === 'missing')
+                          ? 'Either Vercel has not finished building, or the GitHub token is missing Deployments: Read.'
+                          : 'Vercel has not reported a successful preview deployment for this commit yet.'}
+                      >
+                        No preview yet
+                      </span>
                     )}
                   </div>
                 </div>
@@ -190,8 +199,8 @@ export default function ReleasesPanel() {
                         <span className="font-medium">{CHECK_LABEL[c.name] ?? c.name}</span>
                         <span>{tone.text}</span>
                         {c.url && <a href={c.url} target="_blank" rel="noreferrer" className="underline">log</a>}
-                        {c.runId && (
-                          <button onClick={() => void act({ action: 'rerun', runId: c.runId }, `Re-running ${c.name}`)} disabled={busy} className="underline disabled:opacity-50">
+                        {c.workflowRunId && (
+                          <button onClick={() => void act({ action: 'rerun', workflowRunId: c.workflowRunId }, `Re-running ${c.name}`)} disabled={busy} className="underline disabled:opacity-50">
                             re-run
                           </button>
                         )}

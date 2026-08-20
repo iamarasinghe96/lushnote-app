@@ -13,7 +13,8 @@ export interface CheckSummary {
   status: 'queued' | 'in_progress' | 'completed' | 'missing'
   conclusion: 'success' | 'failure' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | 'neutral' | 'stale' | null
   url: string | null
-  runId: number | null
+  /** The Actions run behind this check — what the Re-run button posts to. */
+  workflowRunId: number | null
 }
 
 export interface PullSummary {
@@ -36,7 +37,19 @@ export interface PullSummary {
   blockedReason: string
 }
 
-export const REQUIRED_CHECKS = ['quality', 'e2e'] as const
+/**
+ * The two gates, keyed by the workflow file that produces each.
+ *
+ * `name` is BOTH the workflow's `name:` and its job id, deliberately kept the
+ * same string in .github/workflows/*.yml. Branch protection requires the JOB
+ * name; this panel reads the WORKFLOW name. Rename one without the other and
+ * the panel silently reports "not run" forever while GitHub reports green —
+ * which would leave Promote permanently disabled with no error anywhere.
+ */
+export const REQUIRED_CHECKS = [
+  { name: 'quality', file: 'quality.yml' },
+  { name: 'e2e', file: 'e2e.yml' },
+] as const
 
 export function githubConfigured(): boolean {
   return !!process.env.GITHUB_TOKEN && !!process.env.GITHUB_REPO
@@ -110,25 +123,62 @@ async function previewUrlFor(sha: string): Promise<string | null> {
   return null
 }
 
-async function checksFor(sha: string): Promise<CheckSummary[]> {
-  const { owner, name } = repo()
-  const data = await gh<{ check_runs: Array<{ name: string; status: string; conclusion: string | null; html_url: string | null; id: number }> }>(
-    `/repos/${owner}/${name}/commits/${sha}/check-runs?per_page=100`,
-  ).catch(() => ({ check_runs: [] }))
+export interface WorkflowRun {
+  id: number
+  name: string
+  head_sha: string
+  status: string
+  conclusion: string | null
+  html_url: string | null
+}
 
-  return REQUIRED_CHECKS.map(required => {
-    // Newest first: a re-run creates a second check run with the same name, and
-    // the latest one is the answer.
-    const run = data.check_runs.filter(r => r.name === required).sort((a, b) => b.id - a.id)[0]
-    if (!run) return { name: required, status: 'missing' as const, conclusion: null, url: null, runId: null }
+/**
+ * Fold a repository's recent workflow runs into one badge per required check.
+ *
+ * Pure, and unit-tested, because this is what decides whether Promote enables:
+ * a mapping bug here either ships untested code or blocks a good release, and
+ * neither announces itself.
+ */
+export function summariseRuns(
+  runs: WorkflowRun[],
+  required: readonly { name: string }[],
+  sha: string,
+): CheckSummary[] {
+  return required.map(({ name }) => {
+    // Newest first: a re-run creates a second run for the same commit, and the
+    // latest one is the answer.
+    const run = runs
+      .filter(r => r.name === name && r.head_sha === sha)
+      .sort((a, b) => b.id - a.id)[0]
+
+    if (!run) return { name, status: 'missing' as const, conclusion: null, url: null, workflowRunId: null }
     return {
-      name: required,
+      name,
       status: run.status as CheckSummary['status'],
       conclusion: run.conclusion as CheckSummary['conclusion'],
       url: run.html_url,
-      runId: run.id,
+      workflowRunId: run.id,
     }
   })
+}
+
+/**
+ * Read from the Actions API rather than the Checks API.
+ *
+ * The panel already needs Actions read AND write for the Re-run button, so
+ * this is one permission and one source of truth instead of two — and the
+ * workflow run id comes back directly, which is what rerun actually needs.
+ * `Checks` is also not offered as a fine-grained token permission, so asking
+ * for it left every badge reading "not run" with nothing to explain why.
+ */
+async function checksFor(sha: string): Promise<CheckSummary[]> {
+  const { owner, name } = repo()
+  const perFile = await Promise.all(REQUIRED_CHECKS.map(({ file }) =>
+    gh<{ workflow_runs: WorkflowRun[] }>(
+      `/repos/${owner}/${name}/actions/workflows/${file}/runs?per_page=20`,
+    ).catch(() => ({ workflow_runs: [] as WorkflowRun[] })),
+  ))
+  return summariseRuns(perFile.flatMap(r => r.workflow_runs), REQUIRED_CHECKS, sha)
 }
 
 function blockedReasonFor(pull: RawPull, checks: CheckSummary[]): string {
@@ -197,15 +247,8 @@ export async function deleteBranch(branch: string): Promise<void> {
   await gh(`/repos/${owner}/${name}/git/refs/heads/${encodeURIComponent(branch)}`, { method: 'DELETE' }).catch(() => {})
 }
 
-export async function rerunCheck(runId: number): Promise<void> {
+export async function rerunCheck(workflowRunId: number): Promise<void> {
   const { owner, name } = repo()
-  // A check run belongs to a workflow run; re-running needs the parent's id.
-  const run = await gh<{ check_suite: { id: number } }>(`/repos/${owner}/${name}/check-runs/${runId}`)
-  const suite = await gh<{ workflow_runs: Array<{ id: number }> }>(
-    `/repos/${owner}/${name}/actions/runs?check_suite_id=${run.check_suite.id}&per_page=1`,
-  )
-  const workflowRunId = suite.workflow_runs[0]?.id
-  if (!workflowRunId) throw new Error('No workflow run behind that check')
   await gh(`/repos/${owner}/${name}/actions/runs/${workflowRunId}/rerun`, { method: 'POST' })
 }
 
