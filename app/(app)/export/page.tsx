@@ -235,6 +235,9 @@ export default function ExportPage() {
           <button
             onClick={() => setMenuOpen(o => !o)}
             disabled={isEmpty}
+            data-testid="export-menu"
+            aria-label="Export"
+            aria-expanded={menuOpen}
             className="text-white text-xs font-semibold px-4 py-2 rounded-full
                        flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none
                        motion-safe:transition-colors motion-safe:active:scale-[0.97]"

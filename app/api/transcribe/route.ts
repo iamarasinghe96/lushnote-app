@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withRequest, noteRequest } from '@/lib/requestContext'
+import { aiMockEnabled, mockTranscribeResponse } from '@/lib/e2eMock'
 import { transcribeAudio } from '@/lib/gemini'
 import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { rateLimit } from '@/lib/rateLimit'
@@ -34,6 +35,12 @@ async function handlePOST(req: NextRequest) {
     }
     if (typeof mimeType !== 'string' || !mimeType.startsWith('audio/') || mimeType.length > 100) {
       return NextResponse.json({ error: 'Invalid mimeType' }, { status: 400 })
+    }
+
+    // Preview deployments only, and never production — see lib/e2eMock.
+    if (aiMockEnabled()) {
+      logToSink({ level: 'info', tag: 'transcribe', route: '/api/transcribe', uid: uidField, message: 'mocked reply' })
+      return NextResponse.json(mockTranscribeResponse())
     }
 
     const limit = rateLimit(`${uidField}:transcribe`, 120, 60 * 60 * 1000)

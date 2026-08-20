@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withRequest, noteRequest } from '@/lib/requestContext'
+import { aiMockEnabled, mockChatResponse } from '@/lib/e2eMock'
 import { chatResponse, checkQuota, GEMINI_RATE_LIMIT_ERROR, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
 import { generateNoteGroq } from '@/lib/groq'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
@@ -28,6 +29,12 @@ async function handlePOST(req: NextRequest) {
   try {
     const body = await req.json() as Record<string, unknown>
     const { type } = body
+
+    // Preview deployments only, and never production — see lib/e2eMock.
+    if (aiMockEnabled()) {
+      logToSink({ level: 'info', tag: 'chat', route: '/api/chat', message: `mocked reply for type=${String(type)}` })
+      return NextResponse.json(mockChatResponse(type))
+    }
 
     // ── AI Assistant (FAB chat) ─────────────────────────────────────────────────
     if (type === 'assistant') {
