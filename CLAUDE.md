@@ -42,10 +42,13 @@ app/
     page.tsx
   account-deleted/
     page.tsx
+  e2e-login/
+    page.tsx                — hidden email/password sign-in for the test suite; 404 unless NEXT_PUBLIC_E2E=1
   api/
     transcribe/route.ts
     generate/route.ts
     chat/route.ts
+    version/route.ts        — public; the running commit sha + build time
 components/
   ui/                       — shared primitives (Button, Card, Modal, Input, Textarea, Badge, DatePicker, TimePicker, GenderAvatar, RateLimitBanner)
   modals/                   — TemplatePicker, TranscriptConfirmModal, ReassignModal, PatientModal
@@ -63,6 +66,14 @@ lib/
     patients.ts
 types/
   index.ts
+tests/
+  unit/                     — vitest over the pure modules (entitlement, sweep, event routing)
+  e2e/                      — Playwright smoke suite (see tests/e2e/README.md)
+.github/
+  workflows/quality.yml     — typecheck + unit tests, on every pull request
+  workflows/e2e.yml         — Playwright against the Vercel Preview, on deployment_status
+playwright.config.ts
+vitest.config.ts
 data/
   clinical-templates.json   — 116 templates (merged metadata + prompts)
   templates-prompts.json    — prompts only (source, do not modify)
@@ -86,7 +97,21 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
 NEXT_PUBLIC_FIREBASE_APP_ID
 GEMINI_API_KEY            — server-side only (API routes)
+GITHUB_TOKEN              — fine-grained PAT, this repo only: Contents RW, Pull requests RW,
+                            Checks R, Actions RW. Server-side only; used by the Releases panel.
+GITHUB_REPO               — iamarasinghe96/lushnote-app
 ```
+
+Preview environment ONLY — never tick Production on these two:
+
+```
+NEXT_PUBLIC_E2E=1         — makes /e2e-login exist
+E2E_MOCK_AI=1             — the four AI routes answer from lib/e2eMock
+```
+
+GitHub Actions secrets: `E2E_USER_EMAIL`, `E2E_USER_PASSWORD` (from Admin →
+Releases → Provision test account), and `VERCEL_AUTOMATION_BYPASS_SECRET` only
+if Deployment Protection is on for previews.
 
 User-supplied keys (sessionStorage at runtime):
 - `groqApiKey` — sessionStorage key: `groq_api_key`
@@ -589,12 +614,70 @@ welcome, fired by onboarding.
 
 ---
 
+## Release Pipeline (test → preview → promote)
+
+Nothing reaches lushnote.com.au without a pull request, two green checks and a
+deliberate click. Before this, every session pushed straight to main and main is
+the live site, so a fix for one thing shipped untested next to everything else —
+which is exactly how working features kept breaking.
+
+**The staging environment is the Vercel Preview.** Every branch push already
+gets one: the real app, the real database, built the way production is. A
+separate staging deployment would be a fourth thing to keep in sync, and a
+locally-started server would be testing a different artefact from the one being
+promoted.
+
+**CI never builds the app.** `e2e.yml` triggers on `deployment_status`, waits
+for Vercel, and runs against `environment_url`. Building again in Actions would
+need Firebase and Stripe credentials in GitHub, would double the wait, and would
+test something other than the artefact that goes live. Before opening a browser
+the job asks `/api/version` which commit the preview is serving and fails on a
+mismatch — a green run about the wrong code is worse than no run.
+
+**The AI is mocked on previews, and only there.** `aiMockEnabled()` is
+double-locked: `E2E_MOCK_AI === '1'` AND `VERCEL_ENV !== 'production'`, so
+mis-ticking a checkbox in Vercel cannot serve a doctor a fabricated note. The
+canned reply carries real `[key]` markers, so the parser, the typewriter,
+`extraSections`, autosave and both exporters all still run for real — only the
+model call is replaced.
+
+**The suite signs in for real.** Auth is a Google popup, which headless Chrome
+cannot drive, so `/e2e-login` takes an email and password. Injecting a token
+into the SDK's IndexedDB was rejected: it depends on Firebase internals and
+skips `onAuthStateChanged → profile → shell`, the very path the smoke suite
+exists to check. The page is server-rendered and calls `notFound()` without
+`NEXT_PUBLIC_E2E`, so on production no form is sent at all.
+
+**The fixture account is not an admin.** Its password lives in GitHub Actions
+secrets; a leak must not reach the admin console or the token behind the
+Releases actions. `billingExempt` keeps it out of the nightly sweep and the
+lifecycle emails, and stops a paywall failing a run for a reason unrelated to
+the change under test.
+
+**Promote is guarded on the head sha** the admin was looking at, so two pushes
+in quick succession cannot ship a commit whose checks nobody read. It refuses
+when a check has not passed; the override needs a typed reason and is logged at
+`error` level so it reaches Slack.
+
+**Unit tests cover the pure modules only** — `resolveEntitlement`, `sweepAction`,
+Stripe event routing, `aiMockEnabled`. Anything needing Firestore or Stripe is
+covered by the browser suite against a real deployment, not by mocks that would
+only ever prove the mocks work.
+
+**Deferred deliberately:** Turborepo (one app, nothing to cache — revisit with
+the mobile app and a `packages/shared`) and Docker test databases (relevant only
+after a Postgres migration). Nothing here blocks either: the tests target URLs,
+not infrastructure.
+
+---
+
 ## Admin Console (`/admin`)
 
 One client route (`app/admin/page.tsx`) with a `SECTIONS`-driven navbar; render,
 nav and `?section=` deep-link all derive from `SECTIONS` + the `PANELS` map — add a
 section by adding both entries, nothing else. Sections: **Dashboard, Users,
-Feedback, Letterheads, Hospital Forms, Logs & Errors**.
+Feedback, Letterheads, Hospital Forms, Emails, Billing, Appearance, Releases,
+Logs & Errors**.
 
 **Security model (the wall is the API, not the rules):** the Admin SDK bypasses
 Firestore rules, so every admin route gates through `requireAdmin(req)`
@@ -623,6 +706,9 @@ Gemini usage), suspend/reactivate, clear storage, remove, export.
 - **Export** = consented users only (`marketingConsent`), name/email/workplace CSV.
 
 **Emails** (`app/api/lifecycle` + `EmailsPanel`): see **Lifecycle Emails** above.
+
+**Releases** (`app/api/admin/releases` + `ReleasesPanel`): the promote surface —
+see **Release Pipeline** above. `lib/github.ts` holds every GitHub call.
 
 **Feedback + tickets:** every escalation creates a durable `support_tickets/{id}`
 doc (`{uid,ticket,name,email,topic,status:'open'|'resolved'|'closed',threadTs,
@@ -1300,6 +1386,31 @@ export async function incrementGeminiUsage(uid: string, modelKey: string) {
 - Do NOT apply glass/frosted effect to form inputs — they stay solid white
 - Do NOT skip `prefers-reduced-motion` — it is non-negotiable
 - Always run `tsc --noEmit` after editing TypeScript
-- Always commit to main directly — no new branches
-- Always start with: `git checkout main && git pull origin main`
-- After every push (regardless of which branch the session instructs), ALWAYS also run `git push origin HEAD:main` so Vercel deploys immediately — never leave changes only on a feature branch
+- Do NOT push to main — see **Git & Release Workflow** below
+
+---
+
+## Git & Release Workflow — REPLACES every earlier push rule
+
+The rules this replaces said to commit to main directly and to run
+`git push origin HEAD:main` after every push. Both are now forbidden. main IS
+lushnote.com.au, so pushing to it published untested code to doctors mid-clinic,
+and that is what kept breaking working features when an unrelated one was fixed.
+
+- **NEVER push to main.** Branch protection rejects it. Do not run
+  `git push origin HEAD:main` under any circumstances.
+- Start from main: `git checkout main && git pull origin main`, then a branch.
+- Before pushing: `npm run typecheck && npm run test:unit && npm run test:e2e`
+  (e2e runs whatever the local environment allows — the public specs need
+  nothing; CI runs the full suite against the preview).
+- Push the branch and open a pull request to main. Vercel builds a Preview and
+  Actions runs `quality` and `e2e` against it.
+- **Do NOT merge pull requests and do NOT delete branches.** The owner reviews
+  the preview and promotes from `/admin?section=releases`. Your job ends at a
+  green pull request.
+- If `e2e` fails on something unrelated to the change, say so in the pull
+  request body. Never delete or blanket-skip a test to get a green light — a
+  flaky test is quarantined with `test.fixme()`, a dated comment and a
+  follow-up, never removed.
+- A change to `.github/workflows/*` only takes effect once it is on main, so a
+  workflow edit cannot be validated by its own pull request.

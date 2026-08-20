@@ -125,6 +125,7 @@ export default function TabBar() {
             <Link
               key={href}
               href={href}
+              data-testid={`tab-${label.toLowerCase()}`}
               onClick={() => {
                 // Tapping a tab that's already active doesn't navigate (same
                 // route), so pages can't rely on a route change to reset any

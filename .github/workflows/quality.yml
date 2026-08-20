@@ -1,0 +1,34 @@
+name: quality
+
+# Types and unit tests. Neither needs Firebase, Stripe or an AI key, so this
+# workflow holds no secrets at all and reports in about a minute — it is the
+# check that should fail first when something is simply wrong.
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The job id is the name branch protection requires — keep it stable.
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:unit

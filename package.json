@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run tests/unit",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^6.8.1",
@@ -22,6 +24,7 @@
     "stripe": "^22.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "~1.56.1",
     "@types/node": "^20.0.0",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^18.0.0",
@@ -29,7 +32,8 @@
     "autoprefixer": "^10.4.0",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^3.2.7"
   },
   "comments": {
     "overrides": "firebase-admin -> jwks-rsa does require('jose'), but jose@6 is ESM-only (no CommonJS require export) and crashes with ERR_REQUIRE_ESM on Vercel's Node runtime. Pin jose to v5, which ships a CommonJS build. jwks-rsa only uses importJWK/exportSPKI, unchanged between v5 and v6."

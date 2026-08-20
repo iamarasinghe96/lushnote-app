@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withRequest, noteRequest } from '@/lib/requestContext'
+import { aiMockEnabled, mockGenerateResponse } from '@/lib/e2eMock'
 import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
 import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
@@ -313,6 +314,16 @@ async function handlePOST(req: NextRequest) {
 
     const { uid, transcript, templatePrompt, systemPrompt, mode, letterType, retry, customLetter, formName, source } = body
     noteRequest({ uid, mode: mode ?? 'note' })
+
+    // Preview deployments only, and never production — see lib/e2eMock. Placed
+    // inside withRequest so the request is still logged like any other.
+    if (aiMockEnabled()) {
+      const mocked = mockGenerateResponse(mode, letterType)
+      if (mocked) {
+        logToSink({ level: 'info', tag: 'generate', route: '/api/generate', uid, message: `mocked reply for mode=${mode ?? 'note'}` })
+        return NextResponse.json(mocked)
+      }
+    }
 
     // Hospital progress-note form — Groq-only extraction (same plumbing as
     // letters): pull patient identifiers + compose the note entry as prose.
