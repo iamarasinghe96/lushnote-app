@@ -44,3 +44,8 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# firebase emulator
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
