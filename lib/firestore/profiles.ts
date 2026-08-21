@@ -1,7 +1,8 @@
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { quotaDate } from '@/lib/utils'
 import type { User, GeminiUsage } from '@/types'
+import type { OnboardingDraft } from '@/lib/onboardingDraft'
 
 const GEMINI_RPD = 20
 
@@ -56,6 +57,28 @@ export async function updateProfile(uid: string, data: Partial<User>): Promise<v
     ...serialized,
     updatedAt: serverTimestamp(),
   })
+}
+
+/**
+ * Save what a doctor has typed into onboarding so far.
+ *
+ * Written to the stub document that already exists by this point, under a key
+ * nothing else reads — so a half-finished signup cannot be mistaken for a
+ * usable profile by anything that inspects `workplaces` or `displayName`.
+ */
+export async function saveOnboardingDraft(uid: string, draft: OnboardingDraft): Promise<void> {
+  await setDoc(doc(db, 'users', uid), {
+    onboardingDraft: { ...draft },
+    updatedAt: serverTimestamp(),
+  }, { merge: true })
+}
+
+/** Remove the draft once onboarding is finished, so it cannot be resumed over
+ *  a completed account. */
+export async function clearOnboardingDraft(uid: string): Promise<void> {
+  await setDoc(doc(db, 'users', uid), {
+    onboardingDraft: deleteField(),
+  }, { merge: true })
 }
 
 export async function deleteProfile(uid: string): Promise<void> {

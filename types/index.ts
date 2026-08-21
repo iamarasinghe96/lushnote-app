@@ -10,6 +10,9 @@ interface User {
   emailPretext: string
   activeWorkplaceId: string
   onboardingComplete: boolean
+  // What a doctor typed into onboarding before leaving. Present only while
+  // onboardingComplete is false; deleted the moment they finish.
+  onboardingDraft?: Record<string, unknown>
   notesMigrated: boolean
   workplaces: Workplace[]
   favoriteTemplateIds: (string | number)[]
