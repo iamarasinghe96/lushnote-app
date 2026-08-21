@@ -687,6 +687,25 @@ doctor — add its row before adding a feature, and check its expected outputs
 before changing code that serves it. Most pathways are still unprotected and the
 file says so honestly rather than implying coverage that does not exist.
 
+**The `preview` branch is the signed-in staging URL.** Every pull request gets
+its own Vercel preview, but each one is a NEW HOSTNAME, and a browser keeps a
+Firebase session per origin — so a fresh sign-in per pull request is not a bug
+that can be fixed, it is what different origins mean. The owner therefore has
+ONE permanent alias,
+`lushnote-app-git-preview-indika-amarasinghe-s-projects.vercel.app`, authorised
+once in Firebase → Authentication → Authorized domains, where the session
+persists indefinitely.
+
+Keeping it useful is part of opening a pull request: push the branch, then
+`git push -f origin <branch>:preview` so that alias serves whatever is currently
+under review. One thing at a time, which matches promoting one at a time. The
+per-pull-request preview links still work for comparing two builds — they just
+require signing in again, because they are different sites.
+
+Note what the authorized-domain list actually governs: OAuth redirects, so
+GOOGLE sign-in only. `/e2e-login` is email/password and needs no entry at all,
+which is why the browser suite runs against every preview without any of this.
+
 **Deferred deliberately:** Turborepo (one app, nothing to cache — revisit with
 the mobile app and a `packages/shared`) and Docker test databases (relevant only
 after a Postgres migration). Nothing here blocks either: the tests target URLs,
@@ -1434,6 +1453,9 @@ and that is what kept breaking working features when an unrelated one was fixed.
   nothing; CI runs the full suite against the preview).
 - Push the branch and open a pull request to main. Vercel builds a Preview and
   Actions runs `quality` and `e2e` against it.
+- Then `git push -f origin <branch>:preview`, so the owner's permanent staging
+  alias serves the thing under review. Without it they must sign in again on a
+  new hostname every time — see **The `preview` branch** under Release Pipeline.
 - **Do NOT merge pull requests and do NOT delete branches.** The owner reviews
   the preview and promotes from `/admin?section=releases`. Your job ends at a
   green pull request.
