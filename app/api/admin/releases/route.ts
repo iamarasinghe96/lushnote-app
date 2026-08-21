@@ -121,7 +121,18 @@ export async function POST(req: NextRequest) {
 
     if (body.action === 'rerun') {
       if (!body.workflowRunId) return NextResponse.json({ error: 'workflowRunId required' }, { status: 400 })
-      await rerunCheck(body.workflowRunId)
+      try {
+        await rerunCheck(body.workflowRunId)
+      } catch (err) {
+        // A second click while the first re-run is still going is not a fault,
+        // and a raw "GitHub 403" reads like a broken token — which is exactly
+        // the wrong thing to go looking at.
+        const msg = err instanceof Error ? err.message : ''
+        if (/already running/i.test(msg)) {
+          return NextResponse.json({ error: 'That check is already running. Give it a moment, then Refresh.' }, { status: 409 })
+        }
+        throw err
+      }
       await writeAudit({ actorUid: actor.uid, action: 'release.rerun', meta: { workflowRunId: body.workflowRunId } })
       return NextResponse.json({ success: true })
     }
