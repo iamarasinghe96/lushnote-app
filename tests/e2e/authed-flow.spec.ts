@@ -52,10 +52,14 @@ test('generates a note from a pasted transcript and exports it', async ({ signed
   await page.getByTestId('tab-export').click()
   await expect(page).toHaveURL(/\/export/)
   await expect(page.getByText(/suicidal ideation/i).first()).toBeVisible()
-})
 
-test('exports the note as PDF and as Word', async ({ signedIn: page }) => {
-  await page.goto('/export')
+  // Exporting stays in THIS test rather than getting its own.
+  //
+  // The note being exported lives in the store, in memory, and every test gets
+  // a fresh browser context — so a separate export test arrives at /export with
+  // no note, the menu is correctly disabled, and the failure looks like a
+  // broken button rather than a test that threw away its own setup. Serial mode
+  // orders tests; it does not carry client state between them.
   await page.getByTestId('export-menu').click()
 
   for (const label of ['Download PDF', 'Download Word']) {
