@@ -98,7 +98,9 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
 NEXT_PUBLIC_FIREBASE_APP_ID
 GEMINI_API_KEY            — server-side only (API routes)
 GITHUB_TOKEN              — fine-grained PAT, this repo only: Contents RW, Pull requests RW,
-                            Checks R, Actions RW. Server-side only; used by the Releases panel.
+                            Actions RW, Deployments R. NOT Checks — fine-grained tokens do not
+                            offer it, so run status is read from the Actions API. Server-side
+                            only; used by the Releases panel.
 GITHUB_REPO               — iamarasinghe96/lushnote-app
 ```
 
@@ -658,6 +660,21 @@ the change under test.
 in quick succession cannot ship a commit whose checks nobody read. It refuses
 when a check has not passed; the override needs a typed reason and is logged at
 `error` level so it reaches Slack.
+
+**The `protect main` ruleset has an EMPTY bypass list**, so GitHub refuses a red
+merge and a direct push for the admin too. Adding "Repository admin" would
+exempt the only person who pushes — the release token acts as one — and a
+ruleset that exempts everybody who uses it enforces nothing. The emergency path
+is Enforcement → Disabled → promote → Active, which is what the panel tells the
+admin when a merge is refused.
+
+**Check status comes from the Actions API, not the Checks API.** Fine-grained
+tokens offer no `Checks` permission, and the panel already needs Actions read
+AND write for Re-run — so this is one permission and one source of truth, and
+the workflow run id needed for a re-run arrives directly. `summariseRuns` is
+pure and unit-tested because it is what decides whether Promote enables. Each
+workflow's `name:` and its job id are deliberately the SAME string: branch
+protection requires the job name, the panel reads the workflow name.
 
 **Unit tests cover the pure modules only** — `resolveEntitlement`, `sweepAction`,
 Stripe event routing, `aiMockEnabled`. Anything needing Firestore or Stripe is
@@ -1424,5 +1441,9 @@ and that is what kept breaking working features when an unrelated one was fixed.
   request body. Never delete or blanket-skip a test to get a green light — a
   flaky test is quarantined with `test.fixme()`, a dated comment and a
   follow-up, never removed.
-- A change to `.github/workflows/*` only takes effect once it is on main, so a
-  workflow edit cannot be validated by its own pull request.
+- A workflow file must EXIST on main before an event can trigger it — a brand-new
+  workflow will not fire from a branch. But once it is there, EDITS take effect
+  immediately on the branch: a `deployment_status` run executes the workflow
+  from the deployed commit, not from main. Verified — an error message added on
+  a branch appeared in that branch's own run. So a workflow edit CAN be
+  validated by its own pull request; only a new workflow cannot.

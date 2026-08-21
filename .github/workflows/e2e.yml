@@ -58,6 +58,14 @@ jobs:
           # A stale or mismatched URL produces a green run about the wrong code,
           # which is worse than no run at all.
           body=$(curl -sS -H "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" "${BASE_URL}/api/version")
+          # Distinguish "no secret" from "wrong secret". They look identical in
+          # the response and have completely different fixes, and creating the
+          # bypass in Vercel without also adding it here is the easy half to do
+          # alone.
+          if [ -z "${VERCEL_AUTOMATION_BYPASS_SECRET}" ] && printf '%s' "$body" | grep -qi 'redirecting\|authenticate'; then
+            echo "::error::Preview is protected but VERCEL_AUTOMATION_BYPASS_SECRET is EMPTY in this workflow. Creating the bypass in Vercel is only half of it — add the same value at GitHub → Settings → Secrets and variables → Actions → New repository secret, named exactly VERCEL_AUTOMATION_BYPASS_SECRET."
+            exit 1
+          fi
           sha=$(printf '%s' "$body" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).sha)}catch{console.log("")}})')
           if [ -z "$sha" ]; then
             echo "::error::${BASE_URL}/api/version did not return JSON. If Vercel Deployment Protection is on for previews, add the VERCEL_AUTOMATION_BYPASS_SECRET repository secret or turn protection off for previews."

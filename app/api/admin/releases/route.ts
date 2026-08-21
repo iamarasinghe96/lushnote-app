@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       number?: number
       headSha?: string
       title?: string
-      runId?: number
+      workflowRunId?: number
       override?: boolean
       reason?: string
     }
@@ -120,9 +120,20 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.action === 'rerun') {
-      if (!body.runId) return NextResponse.json({ error: 'runId required' }, { status: 400 })
-      await rerunCheck(body.runId)
-      await writeAudit({ actorUid: actor.uid, action: 'release.rerun', meta: { runId: body.runId } })
+      if (!body.workflowRunId) return NextResponse.json({ error: 'workflowRunId required' }, { status: 400 })
+      try {
+        await rerunCheck(body.workflowRunId)
+      } catch (err) {
+        // A second click while the first re-run is still going is not a fault,
+        // and a raw "GitHub 403" reads like a broken token — which is exactly
+        // the wrong thing to go looking at.
+        const msg = err instanceof Error ? err.message : ''
+        if (/already running/i.test(msg)) {
+          return NextResponse.json({ error: 'That check is already running. Give it a moment, then Refresh.' }, { status: 409 })
+        }
+        throw err
+      }
+      await writeAudit({ actorUid: actor.uid, action: 'release.rerun', meta: { workflowRunId: body.workflowRunId } })
       return NextResponse.json({ success: true })
     }
 
@@ -144,7 +155,30 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: pull.blockedReason, blocked: true }, { status: 409 })
       }
 
-      const merged = await promotePull(number, pull.headSha, pull.title)
+      let merged: { sha: string }
+      try {
+        merged = await promotePull(number, pull.headSha, pull.title)
+      } catch (err) {
+        // With an empty bypass list the ruleset refuses a merge whose checks
+        // are red — for the admin too, which is the point. The override is
+        // still recorded, because an attempt to ship past the gate is worth
+        // knowing about whether or not it succeeded.
+        const msg = err instanceof Error ? err.message : ''
+        if (body.override && /GitHub (405|409)/.test(msg)) {
+          await writeAudit({
+            actorUid: actor.uid, action: 'release.promote.refused',
+            meta: { number, headSha: pull.headSha, reason: body.reason ?? '', blockedReason: pull.blockedReason },
+          })
+          logToSink({
+            level: 'error', tag: 'release', route: '/api/admin/releases',
+            message: `PR #${number} override refused by branch protection`,
+          })
+          return NextResponse.json({
+            error: 'Branch protection refused this merge, which is what it is for. For a genuine emergency: GitHub → Settings → Rules → protect main → set Enforcement to Disabled, promote, then set it back to Active.',
+          }, { status: 409 })
+        }
+        throw err
+      }
       await deleteBranch(pull.branch)
 
       // An override is a deliberate decision to ship something the gate refused.

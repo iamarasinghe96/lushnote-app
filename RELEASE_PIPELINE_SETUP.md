@@ -17,8 +17,9 @@ tokens → Fine-grained tokens → Generate new token**
 
 | Field | Value |
 |---|---|
-| Name | `lushnote-releases` |
-| Expiration | 1 year (calendar a renewal — the panel will start returning 401 the day it lapses) |
+| Name | `lushnote-releases` — a label only; nothing in the code reads it |
+| Description | optional. *"Admin Releases panel — lists pull requests, reads check status, squash-merges to main, re-runs workflows."* |
+| Expiration | 1 year (calendar a renewal — the panel starts returning 401 the day it lapses) |
 | Repository access | **Only select repositories** → `iamarasinghe96/lushnote-app` |
 
 Repository permissions — set exactly these four, leave everything else at
@@ -26,10 +27,15 @@ No access:
 
 | Permission | Access | Why |
 |---|---|---|
-| Contents | **Read and write** | merging a pull request writes to main |
+| Contents | **Read and write** | merging a pull request writes to main; so does deleting the branch after |
 | Pull requests | **Read and write** | listing and merging |
-| Checks | **Read** | reading whether `quality` and `e2e` passed |
-| Actions | **Read and write** | the Re-run button |
+| Actions | **Read and write** | reading whether `quality` and `e2e` passed, and the Re-run button |
+| Deployments | **Read** | the **Open preview** link — without it every pull request shows a greyed "No preview yet" forever, with nothing to say why |
+
+There is deliberately no **Checks** permission here. Fine-grained tokens do not
+offer one, so the panel reads run status from the Actions API instead — the same
+API the Re-run button already needs, which makes it one permission and one
+source of truth rather than two.
 
 Generate, then copy the token. It is shown once.
 
@@ -107,24 +113,35 @@ Actions → New repository secret**
 
 ## 6. GitHub — protect main (3 min) — **this is the switch**
 
-**Settings → Branches → Add branch ruleset** (or Add rule), targeting `main`.
+**Settings → Rules → Rulesets → New branch ruleset.**
 
-Turn on:
+| Field | Value |
+|---|---|
+| Ruleset Name | `protect main` |
+| Enforcement status | **Active** — a saved ruleset left Disabled enforces nothing |
+| Bypass list | **empty** |
+| Target branches | Add target → **Include default branch** |
 
-- **Require a pull request before merging** — 0 approvals required (you are the
-  only reviewer, and requiring one would block your own Promote button)
-- **Require status checks to pass before merging**, and add both:
-  - `quality`
-  - `e2e`
-- **Require branches to be up to date before merging**
-- **Block force pushes**
+Rules to tick: **Restrict creations**, **Restrict deletions**, **Block force
+pushes**, **Require a pull request before merging** (required approvals **0**),
+**Require status checks to pass** with **Require branches to be up to date**
+ticked and `quality` + `e2e` added.
 
-Leave "Do not allow bypassing the above settings" **off**, so the Releases
-panel's override can still ship an emergency fix. Every override is logged and
-reaches Slack.
+Leave OFF: **Require signed commits** (would reject every commit the pipeline
+pushes), **Require deployments to succeed** (`e2e` already proves the preview
+deployed and works), **Require linear history** (squash merges are linear
+anyway), and **Restrict updates** (duplicates the pull-request rule).
 
-If `quality` and `e2e` do not appear in the search box, open any pull request
-first so GitHub has seen the check names once, then come back.
+**The bypass list stays empty.** Adding "Repository admin / Always allow" looks
+harmless and is not: the release token acts as a repository admin, so it would
+exempt the only person who pushes here — a red pull request would merge and a
+direct push to main would succeed. A ruleset that exempts everybody who uses it
+enforces nothing. The emergency path is to set Enforcement to Disabled, promote,
+and set it back to Active; the panel says exactly that when a merge is refused.
+
+`e2e` will not appear in the status-check search until it has run once, which
+needs a pull request raised after `e2e.yml` reached main. Save with `quality`
+alone, let the first pull request run `e2e`, then come back and add it.
 
 From this moment, no code reaches doctors without a pull request, two green
 checks and your click.
@@ -169,7 +186,11 @@ anything else:
 | The version check fails with "did not return JSON" | Deployment Protection is on for previews — step 2's bypass secret. |
 | Panel says GitHub is not configured | `GITHUB_TOKEN` / `GITHUB_REPO` missing, or the deployment predates them. |
 | Panel returns 403 from GitHub | The token is missing one of the four permissions, or it expired. |
+| **Open preview** greyed out on every pull request | `Deployments: Read` is missing from the token. |
+| Both badges read "not run" while GitHub shows them green | The workflow's `name:` no longer matches its job id — see the comment on `REQUIRED_CHECKS` in `lib/github.ts`. |
+| Override says branch protection refused the merge | Working as intended. Set the `protect main` ruleset to Disabled, promote, set it back to Active. |
 | Google sign-in fails on a preview — black popup that vanishes | The preview hostname is not in Firebase's Authorized domains. Add the branch alias from the Vercel PR comment. The app now names this failure instead of showing a generic line. |
+| Promote fails with `Required status check "quality" is expected` | The branch is behind main, usually because another pull request was promoted first. Both checks really did pass — against the old base. Merge main in and let them re-run. |
 | A test flakes | CI retries once. If it flakes twice in a week it gets quarantined with `test.fixme()` and a follow-up — never deleted. |
 
 ## Cost
