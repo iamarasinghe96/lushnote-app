@@ -120,6 +120,34 @@ describe('users/{uid} — billing is server-written only', () => {
   })
 })
 
+describe('users/{uid} — onboarding draft', () => {
+  const DRAFT = { step: 3, displayName: 'Dr Test', workplaceName: 'City Clinic' }
+
+  it('lets a doctor save their own progress over the stub', async () => {
+    // The whole point: a signup abandoned partway can be resumed. Without this
+    // the write is denied and every keystroke is still lost.
+    await seedStub()
+    await assertSucceeds(setDoc(doc(db(UID), 'users', UID), { onboardingDraft: DRAFT }, { merge: true }))
+  })
+
+  it('lets the draft be cleared once onboarding completes', async () => {
+    await seedStub()
+    await assertSucceeds(setDoc(doc(db(UID), 'users', UID), { ...COMPLETED_PROFILE }, { merge: true }))
+  })
+
+  it('refuses a draft that is not a map', async () => {
+    await seedStub()
+    await assertFails(setDoc(doc(db(UID), 'users', UID), { onboardingDraft: 'not a map' }, { merge: true }))
+  })
+
+  it('refuses one doctor writing a draft into another profile', async () => {
+    // A draft holds their name, workplace and API keys — it is as private as
+    // the profile it lives on.
+    await seedStub()
+    await assertFails(setDoc(doc(db(OTHER), 'users', UID), { onboardingDraft: DRAFT }, { merge: true }))
+  })
+})
+
 describe('users/{uid} — ownership', () => {
   it('refuses one doctor writing another profile', async () => {
     await seedStub()

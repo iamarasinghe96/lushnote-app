@@ -52,7 +52,7 @@ export const DEFAULT_TEMPLATES: Record<LifecycleEmailType, EmailTemplate> = {
 
 You started setting up LushNote a few days ago and didn't finish, so your account isn't ready to use yet.
 
-There isn't much left — your name, where you work, and an API key. [Pick up where you left off]({{site}}/onboarding). It takes about two minutes.
+Whatever you already filled in is still there — [pick up where you left off]({{site}}/onboarding) and you'll land on the step you stopped at. There isn't much after it: your name, where you work, and an API key. About two minutes.
 
 If something in the setup didn't make sense, or you've changed your mind, just reply to this email and tell us which. Either one is useful for us to know.
 

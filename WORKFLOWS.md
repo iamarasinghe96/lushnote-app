@@ -33,6 +33,29 @@ the six-step UI itself has no browser spec yet
 | 5 | Signature | Clicks or drags an image from the gallery (the picker differs on mobile and desktop) | Background removal is **client-side**: adaptive local thresholding (Bradley–Roth integral image) separates ink from paper under uneven phone lighting, then the result is emitted as a real **SVG** of run-length rects and uploaded by `uploadSignatureSVG`. No server round-trip, and no photo is stored | nothing — skippable |
 | 6 | Review | Checks every value, ticks the terms box, optionally ticks marketing, clicks **Get started** | `createProfile` merges the whole profile over the stub, sets `onboardingComplete: true`, `status: 'active'`, `tier: 'free'`, `termsAccepted`, `termsAcceptedAt` and `marketingConsent`. Then a Stripe trial starts and the welcome email fires | **Terms must be ticked.** Marketing is optional and is recorded either way |
 
+### Leaving partway, and coming back
+
+Every keystroke is saved to `users/{uid}.onboardingDraft` — the stub document
+that already exists — debounced a second behind typing. A doctor who closes the
+tab on step four returns to step four with their answers intact, and the
+`signupAbandoned` email says so rather than inviting them to start again.
+
+- **Nothing is written for a bounce.** `draftHasContent` requires typed content,
+  so opening onboarding and leaving costs no write and shows no resume banner.
+- **The terms tick is never saved.** Consent is given at the moment of
+  completing; a tick restored from three days ago would not be that.
+- **`regPattern` is recomputed, not stored**, so the saved pattern cannot
+  disagree with the example it came from.
+- **`resumeStep` never returns a step the draft cannot pass** — a draft missing
+  a name resumes at 1, missing a workplace at 2, rather than stranding someone
+  on a disabled Continue.
+- **The draft is deleted on completion**, so it can never be resumed over a
+  finished account.
+
+Covered by `tests/unit/onboarding-draft.test.ts` (parse, content detection,
+resume point) and `tests/rules/users.rules.test.ts` (a doctor may write only
+their own draft, and only as a map).
+
 ### Correcting a mistake at review
 
 Every row on the review pane carries a pencil control.

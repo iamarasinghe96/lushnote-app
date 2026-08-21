@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut } from 'firebase/auth'
 import { useAuth } from '@/hooks/useAuth'
 import { auth } from '@/lib/firebase'
-import { createProfile, updateProfile } from '@/lib/firestore/profiles'
+import { createProfile, updateProfile, saveOnboardingDraft, clearOnboardingDraft } from '@/lib/firestore/profiles'
 import { submitLetterheadRequest } from '@/lib/firestore/letterheads'
 import { uploadSignatureSVG } from '@/lib/storage'
 import { detectIdPattern, sanitizeApiKey } from '@/lib/utils'
+import { parseOnboardingDraft, draftHasContent, resumeStep, type OnboardingDraft } from '@/lib/onboardingDraft'
 import SignatureUploader from '@/components/ui/SignatureUploader'
 import HospitalAutocomplete from '@/components/ui/HospitalAutocomplete'
 import type { WorkplaceType, Workplace } from '@/types'
@@ -63,6 +64,62 @@ export default function OnboardingPage() {
   // straight back instead of making the doctor press Continue through every
   // remaining step to reach the end again.
   const [returnToReview, setReturnToReview] = useState(false)
+  // Restoring writes to every field, which would immediately look like typing
+  // and save straight back. This gate keeps the restore from echoing.
+  const hydratedRef = useRef(false)
+  const [resumed, setResumed] = useState(false)
+
+  // ── Resume an abandoned signup ──────────────────────────────────────────
+  // Runs once, when the profile first arrives. A doctor returning days later
+  // from the abandonment email lands where they stopped, with what they typed.
+  useEffect(() => {
+    if (hydratedRef.current || !profile) return
+    hydratedRef.current = true
+    const draft = parseOnboardingDraft(profile.onboardingDraft)
+    if (!draft || !draftHasContent(draft)) return
+
+    setDisplayName(draft.displayName)
+    setCredentials(draft.credentials)
+    setPosition(draft.position)
+    setProviderNumber(draft.providerNumber)
+    setWorkPhone(draft.workPhone)
+    setWorkplaceName(draft.workplaceName)
+    setWorkplaceType(draft.workplaceType)
+    setRegSystem(draft.regSystem)
+    setRegFormat(draft.regFormat)
+    // Derived from regFormat rather than stored, so the saved pattern can never
+    // disagree with the example it came from.
+    setPatternPreview(draft.regFormat ? detectIdPattern(draft.regFormat) : null)
+    setSelectedPreset(draft.selectedPreset)
+    setEmailPretext(draft.emailPretext)
+    setGeminiApiKey(draft.geminiApiKey)
+    setGroqApiKey(draft.groqApiKey)
+    setSignatureUrl(draft.signatureUrl)
+    setMarketingConsent(draft.marketingConsent)
+    setStep(resumeStep(draft))
+    setResumed(true)
+  }, [profile])
+
+  // ── Keep the draft current ──────────────────────────────────────────────
+  // Debounced, because this fires on every keystroke. Terms acceptance is
+  // deliberately NOT saved: consent is given at the moment of completing, and a
+  // tick restored from days ago would not be that.
+  useEffect(() => {
+    if (!user || !hydratedRef.current) return
+    const draft: OnboardingDraft = {
+      step, displayName, credentials, position, providerNumber, workPhone,
+      workplaceName, workplaceType, regSystem, regFormat, selectedPreset,
+      emailPretext, geminiApiKey, groqApiKey, signatureUrl, marketingConsent,
+      savedAt: Date.now(),
+    }
+    if (!draftHasContent(draft)) return
+    const id = setTimeout(() => { void saveOnboardingDraft(user.uid, draft).catch(() => {}) }, 1000)
+    return () => clearTimeout(id)
+  }, [
+    user, step, displayName, credentials, position, providerNumber, workPhone,
+    workplaceName, workplaceType, regSystem, regFormat, selectedPreset,
+    emailPretext, geminiApiKey, groqApiKey, signatureUrl, marketingConsent,
+  ])
 
   useEffect(() => {
     if (loading) return
@@ -213,6 +270,11 @@ export default function OnboardingPage() {
         })
       } catch { /* non-blocking */ }
 
+      // The account is complete, so the draft is now something that could only
+      // be resumed OVER a finished profile. Non-blocking: a doctor who is in
+      // must not be held at the door by a cleanup write.
+      void clearOnboardingDraft(user.uid).catch(() => {})
+
       await refreshProfile()
       router.push('/generate')
     } catch (err) {
@@ -258,6 +320,12 @@ export default function OnboardingPage() {
 
         {/* Card */}
         <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#e2e8f0]">
+          {resumed && (
+            <div className="mb-4 rounded-xl border border-[#10b981]/40 bg-[#f0fdf4] px-4 py-3 text-sm text-[#065f46]">
+              Welcome back — we kept what you had already filled in. Check it still looks right as you go.
+            </div>
+          )}
+
           {step === 1 && (
             <Step1
               displayName={displayName}
