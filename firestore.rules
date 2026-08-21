@@ -7,9 +7,25 @@ service cloud.firestore {
     function ownsNote() { return verified() && request.auth.uid == resource.data.userId; }
     function writingOwnNote() { return verified() && request.auth.uid == request.resource.data.userId; }
 
+    // A client may never CHANGE its own tier or status. It may only set them the
+    // first time, and only to the same values the create rule already permits.
+    //
+    // The absence branch is not a loophole, it is the fix for one: the profile
+    // stub written at first sign-in deliberately carries no tier and no status,
+    // so completing onboarding is an UPDATE whose `resource.data.tier` does not
+    // exist. Comparing 'free' against a missing field is false, which denied
+    // every single new signup at the final step — the account could not be
+    // created at all. Absence has to be tested against absence, exactly as
+    // billingUntouched() does below.
     function noPrivilegeEscalation() {
-      return (!('tier'   in request.resource.data) || request.resource.data.tier   == resource.data.tier)
-          && (!('status' in request.resource.data) || request.resource.data.status == resource.data.status);
+      return (!('tier' in request.resource.data)
+              || (('tier' in resource.data)
+                    ? request.resource.data.tier == resource.data.tier
+                    : request.resource.data.tier == 'free'))
+          && (!('status' in request.resource.data)
+              || (('status' in resource.data)
+                    ? request.resource.data.status == resource.data.status
+                    : request.resource.data.status == 'active'));
     }
 
     // Stripe state is written ONLY by the webhook through the Admin SDK, which
