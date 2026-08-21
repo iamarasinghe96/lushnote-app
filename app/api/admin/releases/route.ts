@@ -18,6 +18,12 @@ export const runtime = 'nodejs'
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://lushnote.com.au'
 const E2E_EMAIL = 'e2e-tester@lushnote.com.au'
 
+// The one preview hostname that never changes, so a Firebase session survives
+// on it. Every other preview URL is a fresh origin and therefore a fresh
+// sign-in. Configurable because the alias is derived from the Vercel project
+// and team names, which this app has no way to know.
+const STAGING_URL = process.env.NEXT_PUBLIC_STAGING_URL ?? ''
+
 /**
  * The fixture account the browser suite signs in as.
  *
@@ -109,6 +115,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         configured: true,
         site: SITE_URL,
+        stagingUrl: STAGING_URL,
         mainSha: head,
         liveSha: live?.sha ?? null,
         liveBuiltAt: live?.builtAt ?? null,

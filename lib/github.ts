@@ -30,6 +30,11 @@ export interface PullSummary {
   additions: number
   deletions: number
   previewUrl: string | null
+  /** True when the permanent staging alias is serving THIS commit. That URL
+   *  keeps its Firebase session because it never changes hostname, so it is the
+   *  one worth linking; a per-deployment URL is a new origin and demands a fresh
+   *  sign-in every time. */
+  onStaging: boolean
   checks: CheckSummary[]
   mergeable: boolean | null
   /** Empty when the pull request is safe to promote; otherwise the reason it
@@ -100,6 +105,18 @@ interface RawPull {
   changed_files?: number
   additions?: number
   deletions?: number
+}
+
+/**
+ * The commit the permanent staging alias is serving, or null when the branch
+ * does not exist. Used to tell which open pull request the owner can reach at a
+ * URL they are already signed in to.
+ */
+export async function previewHeadSha(): Promise<string | null> {
+  const { owner, name } = repo()
+  const ref = await gh<{ object: { sha: string } }>(`/repos/${owner}/${name}/git/ref/heads/preview`)
+    .catch(() => null)
+  return ref?.object.sha ?? null
 }
 
 export async function mainHeadSha(): Promise<string> {
@@ -210,7 +227,10 @@ function blockedReasonFor(pull: RawPull, checks: CheckSummary[]): string {
 
 export async function listOpenPulls(): Promise<PullSummary[]> {
   const { owner, name } = repo()
-  const list = await gh<RawPull[]>(`/repos/${owner}/${name}/pulls?state=open&base=main&sort=updated&direction=desc&per_page=20`)
+  const [list, stagingSha] = await Promise.all([
+    gh<RawPull[]>(`/repos/${owner}/${name}/pulls?state=open&base=main&sort=updated&direction=desc&per_page=20`),
+    previewHeadSha(),
+  ])
 
   return Promise.all(list.map(async brief => {
     // mergeable and the file counts only appear on the single-pull endpoint.
@@ -229,6 +249,7 @@ export async function listOpenPulls(): Promise<PullSummary[]> {
       additions: pull.additions ?? 0,
       deletions: pull.deletions ?? 0,
       previewUrl,
+      onStaging: !!stagingSha && stagingSha === pull.head.sha,
       checks,
       mergeable: pull.mergeable ?? null,
       blockedReason: blockedReasonFor(pull, checks),
