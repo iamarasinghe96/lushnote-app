@@ -39,6 +39,14 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
-      # The emulator is a Java process; the runner already has a JDK.
+      # firebase-tools refuses any JDK older than 21, and the runner's default is
+      # older than that. Pinning it here rather than relying on whatever the
+      # image ships means the emulator cannot stop working because GitHub
+      # changed a default.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Firestore rules
         run: npm run test:rules
