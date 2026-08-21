@@ -702,6 +702,11 @@ under review. One thing at a time, which matches promoting one at a time. The
 per-pull-request preview links still work for comparing two builds — they just
 require signing in again, because they are different sites.
 
+Vercel DEDUPLICATES by commit, so pointing `preview` at main's exact commit
+builds nothing and the alias 404s with `DEPLOYMENT_NOT_FOUND`. The alias exists
+only while `preview` holds something main does not — which is the normal case,
+since it tracks whatever is under review.
+
 Note what the authorized-domain list actually governs: OAuth redirects, so
 GOOGLE sign-in only. `/e2e-login` is email/password and needs no entry at all,
 which is why the browser suite runs against every preview without any of this.
