@@ -10,6 +10,7 @@ interface Overview {
   configured: boolean
   error?: string
   site: string
+  stagingUrl: string
   mainSha: string
   liveSha: string | null
   liveBuiltAt: string | null
@@ -175,8 +176,16 @@ export default function ReleasesPanel() {
                     <a href={pull.url} target="_blank" rel="noreferrer" className="text-xs px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700">
                       Diff
                     </a>
-                    {pull.previewUrl ? (
-                      <a href={pull.previewUrl} target="_blank" rel="noreferrer" className="text-xs px-3 py-1.5 rounded-lg bg-[var(--blue)] text-white font-medium">
+                    {pull.onStaging && data?.stagingUrl ? (
+                      // The staging alias serves this exact commit, and its
+                      // hostname never changes — so the sign-in from last time
+                      // is still there. Worth preferring over the per-deployment
+                      // URL, which is a new origin and a new sign-in every push.
+                      <a href={data.stagingUrl} target="_blank" rel="noreferrer" title="Permanent staging URL — you stay signed in here" className="text-xs px-3 py-1.5 rounded-lg bg-[var(--blue)] text-white font-medium">
+                        Open staging
+                      </a>
+                    ) : pull.previewUrl ? (
+                      <a href={pull.previewUrl} target="_blank" rel="noreferrer" title="This build's own URL — a different hostname, so it will ask you to sign in again" className="text-xs px-3 py-1.5 rounded-lg bg-[var(--blue)] text-white font-medium">
                         Open preview
                       </a>
                     ) : (
