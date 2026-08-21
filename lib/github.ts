@@ -92,6 +92,11 @@ interface RawPull {
   head: { ref: string; sha: string }
   user: { login: string } | null
   mergeable: boolean | null
+  /** GitHub's own word for why a merge would be refused. 'behind' means the
+   *  branch predates main, which the ruleset rejects — reported by the merge
+   *  API as "Required status check is expected", which sends the reader
+   *  looking at checks that in fact passed. */
+  mergeable_state?: string
   changed_files?: number
   additions?: number
   deletions?: number
@@ -184,6 +189,12 @@ async function checksFor(sha: string): Promise<CheckSummary[]> {
 function blockedReasonFor(pull: RawPull, checks: CheckSummary[]): string {
   if (pull.draft) return 'Still a draft'
   if (pull.mergeable === false) return 'Conflicts with main — needs a rebase'
+  // Checked BEFORE the check states, because a branch that is behind shows
+  // every badge green and still cannot merge: the ruleset requires the checks
+  // to have run against the current base. Promoting anything else puts every
+  // remaining pull request in this state, so it is the most common blocker
+  // here, not an edge case.
+  if (pull.mergeable_state === 'behind') return 'Behind main — merge main in and let the checks re-run'
   const missing = checks.filter(c => c.status === 'missing')
   if (missing.length) {
     return missing.some(c => c.name === 'e2e')

@@ -189,6 +189,8 @@ anything else:
 | **Open preview** greyed out on every pull request | `Deployments: Read` is missing from the token. |
 | Both badges read "not run" while GitHub shows them green | The workflow's `name:` no longer matches its job id — see the comment on `REQUIRED_CHECKS` in `lib/github.ts`. |
 | Override says branch protection refused the merge | Working as intended. Set the `protect main` ruleset to Disabled, promote, set it back to Active. |
+| Google sign-in fails on a preview — black popup that vanishes | The preview hostname is not in Firebase's Authorized domains. Add the branch alias from the Vercel PR comment. The app now names this failure instead of showing a generic line. |
+| Promote fails with `Required status check "quality" is expected` | The branch is behind main, usually because another pull request was promoted first. Both checks really did pass — against the old base. Merge main in and let them re-run. |
 | A test flakes | CI retries once. If it flakes twice in a week it gets quarantined with `test.fixme()` and a follow-up — never deleted. |
 
 ## Cost
