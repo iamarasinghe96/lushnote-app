@@ -106,7 +106,10 @@ export default function ReleasesPanel() {
   const isLive = !!data && !data.deploying && live === data.mainSha
 
   return (
-    <div className="space-y-4">
+    // Same container every other admin panel uses (max-w-4xl mx-auto px-4 py-6).
+    // Without it this one inherited the full page width and sat hard against
+    // both edges.
+    <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
       {error && (
         <div className="rounded-xl px-4 py-3 text-sm text-red-700 bg-red-50 border border-red-200">{error}</div>
       )}
