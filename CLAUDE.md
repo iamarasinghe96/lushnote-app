@@ -1429,5 +1429,9 @@ and that is what kept breaking working features when an unrelated one was fixed.
   request body. Never delete or blanket-skip a test to get a green light — a
   flaky test is quarantined with `test.fixme()`, a dated comment and a
   follow-up, never removed.
-- A change to `.github/workflows/*` only takes effect once it is on main, so a
-  workflow edit cannot be validated by its own pull request.
+- A workflow file must EXIST on main before an event can trigger it — a brand-new
+  workflow will not fire from a branch. But once it is there, EDITS take effect
+  immediately on the branch: a `deployment_status` run executes the workflow
+  from the deployed commit, not from main. Verified — an error message added on
+  a branch appeared in that branch's own run. So a workflow edit CAN be
+  validated by its own pull request; only a new workflow cannot.
