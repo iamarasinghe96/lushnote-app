@@ -169,6 +169,7 @@ anything else:
 | The version check fails with "did not return JSON" | Deployment Protection is on for previews — step 2's bypass secret. |
 | Panel says GitHub is not configured | `GITHUB_TOKEN` / `GITHUB_REPO` missing, or the deployment predates them. |
 | Panel returns 403 from GitHub | The token is missing one of the four permissions, or it expired. |
+| Google sign-in fails on a preview — black popup that vanishes | The preview hostname is not in Firebase's Authorized domains. Add the branch alias from the Vercel PR comment. The app now names this failure instead of showing a generic line. |
 | A test flakes | CI retries once. If it flakes twice in a week it gets quarantined with `test.fixme()` and a follow-up — never deleted. |
 
 ## Cost
