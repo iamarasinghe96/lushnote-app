@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import { signInErrorMessage } from '@/lib/authErrors'
 
 // The hero background, shared by the in-page fixed layer AND the <body> so the
 // same gradient also fills the PWA home-indicator safe-area strip (the fixed
@@ -61,8 +62,11 @@ export default function Page() {
       setSigning(true)
       setError('')
       await signInWithGoogle()
-    } catch {
-      setError('Sign-in failed. Please try again.')
+    } catch (err) {
+      // Firebase says exactly what went wrong; show that rather than a generic
+      // line. A null message means the person simply closed the popup.
+      const message = signInErrorMessage((err as { code?: string }).code)
+      if (message) setError(message)
     } finally {
       setSigning(false)
     }

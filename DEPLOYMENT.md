@@ -57,6 +57,15 @@ Add `lushnote.com.au` and `www.lushnote.com.au`
 
 Without this step, Google sign-in will fail on the production domain.
 
+**Preview deployments need the same treatment.** Firebase runs Google OAuth only
+from hostnames on this list, and Vercel gives every branch its own. To sign in
+while reviewing a pull request, add that branch's alias — the **Preview** link in
+the Vercel PR comment, of the form
+`lushnote-app-git-<branch-slug>-<team>.vercel.app`. Add the ALIAS, not the
+hashed `lushnote-<hash>-…` URL: the alias is stable for the life of the branch,
+the hash changes on every push. There are no wildcards, so this is one entry per
+branch you want to click through.
+
 ## Step 7 — Verify
 1. Visit https://lushnote.com.au
 2. Sign in with Google
