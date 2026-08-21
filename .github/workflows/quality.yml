@@ -1,8 +1,14 @@
 name: quality
 
-# Types and unit tests. Neither needs Firebase, Stripe or an AI key, so this
-# workflow holds no secrets at all and reports in about a minute — it is the
-# check that should fail first when something is simply wrong.
+# Types, unit tests and the Firestore security rules. None of them needs a
+# Firebase project, a Stripe key or an AI key, so this workflow holds no secrets
+# at all and reports in about two minutes — it is the check that should fail
+# first when something is simply wrong.
+#
+# The rules run against the real emulator, which is the only way to test them:
+# they cannot be typechecked, and the browser suite signs in as an
+# already-onboarded fixture account, so it never walks the stub-then-complete
+# path that broke every new signup.
 
 on:
   pull_request:
@@ -32,3 +38,15 @@ jobs:
 
       - name: Unit tests
         run: npm run test:unit
+
+      # firebase-tools refuses any JDK older than 21, and the runner's default is
+      # older than that. Pinning it here rather than relying on whatever the
+      # image ships means the emulator cannot stop working because GitHub
+      # changed a default.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Firestore rules
+        run: npm run test:rules
