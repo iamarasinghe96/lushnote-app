@@ -30,10 +30,28 @@ export async function signIn(page: Page): Promise<void> {
   await page.getByTestId('e2e-password').fill(password)
   await page.getByTestId('e2e-submit').click()
 
-  // Waiting on the shell, not on the URL: the route changes the moment sign-in
-  // resolves, but the app is only usable once the profile has loaded and the
-  // tab bar is rendered.
-  await expect(page.getByTestId('tab-generate')).toBeVisible({ timeout: 30_000 })
+  // Wait on the shell OR on the form's own error, whichever arrives first.
+  //
+  // Waiting only for the shell reported "getByTestId('tab-generate') not found"
+  // for every possible cause — a disabled Email/Password provider, a stale
+  // password, a suspended account — when the page was displaying the exact
+  // Firebase reason the whole time. The same swallowed-error bug the landing
+  // page had, repeated in the tests that exist to catch such things.
+  const shell = page.getByTestId('tab-generate')
+  const failure = page.getByTestId('e2e-login-error')
+
+  await Promise.race([
+    shell.waitFor({ state: 'visible', timeout: 30_000 }),
+    failure.waitFor({ state: 'visible', timeout: 30_000 }),
+  ]).catch(() => { /* fall through to the assertions below */ })
+
+  if (await failure.isVisible().catch(() => false)) {
+    throw new Error(`/e2e-login rejected the fixture credentials: ${await failure.textContent()}`)
+  }
+
+  // The app is only usable once the profile has loaded and the tab bar renders,
+  // so the shell — not the URL — is what says sign-in actually worked.
+  await expect(shell).toBeVisible({ timeout: 30_000 })
 }
 
 export const test = base.extend<{ signedIn: Page }>({

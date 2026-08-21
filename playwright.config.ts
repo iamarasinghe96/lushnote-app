@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { STORAGE_STATE } from './tests/e2e/global-setup'
 
 // The suite runs against a URL, never against infrastructure it starts itself:
 // in CI that URL is the Vercel Preview deployment for the pull request, which
@@ -22,17 +23,18 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 2 : undefined,
   reporter: process.env.CI ? [['html', { open: 'never' }], ['github']] : [['list']],
+  globalSetup: './tests/e2e/global-setup.ts',
   globalTeardown: './tests/e2e/global-teardown.ts',
   use: {
     baseURL: BASE_URL || 'http://127.0.0.1:3000',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    // Vercel auth-walls preview deployments on some plans. When that is on, the
-    // bypass secret is the supported way through; when it is off this header is
-    // simply ignored.
-    extraHTTPHeaders: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-      ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET, 'x-vercel-set-bypass-cookie': 'true' }
-      : {},
+    // Vercel's preview protection is cleared by a cookie obtained in
+    // global-setup, NOT by extraHTTPHeaders. Headers set here go out with every
+    // request the browser makes, including the cross-origin Firebase sign-in
+    // call, where an unexpected header fails CORS preflight and surfaces as
+    // auth/network-request-failed. See tests/e2e/global-setup.ts.
+    storageState: STORAGE_STATE,
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },

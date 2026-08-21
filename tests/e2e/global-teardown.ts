@@ -1,5 +1,6 @@
 import { chromium, type FullConfig } from '@playwright/test'
 import { signIn, E2E_PATIENT } from './fixtures'
+import { STORAGE_STATE } from './global-setup'
 
 // Removes the patient this run created, through the app's own Delete Patient
 // flow — the same path a doctor uses, which also means the delete path is
@@ -14,12 +15,9 @@ export default async function globalTeardown(config: FullConfig): Promise<void> 
   const baseURL = config.projects[0]?.use?.baseURL
   const browser = await chromium.launch()
   try {
-    const context = await browser.newContext({
-      baseURL,
-      extraHTTPHeaders: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-        ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET, 'x-vercel-set-bypass-cookie': 'true' }
-        : {},
-    })
+    // Same bypass cookie the tests used, and for the same reason: a header here
+    // would reach Firebase too and break sign-in with a CORS preflight failure.
+    const context = await browser.newContext({ baseURL, storageState: STORAGE_STATE })
     const page = await context.newPage()
     await signIn(page)
     await page.goto('/patients')
