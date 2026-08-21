@@ -325,7 +325,7 @@ form exactly. Persists under the patient like letters.
 - **Editor:** `components/hospital-form/HospitalFormEditor.tsx` renders each page
   from its PNG background + an absolutely-positioned overlay table, geometry as
   CSS vars. The notes column is driven by `components/hospital-form/reflow.ts`
-  (pure, unit-tested): text wraps onto the next ruled line with real font
+  (pure; NOT yet unit-tested — see WORKFLOWS.md): text wraps onto the next ruled line with real font
   measurement (the standalone form's bug was `getComputedStyle().font` returning
   ""). Source of truth = `paragraphs: string[]`; rows are derived by word-wrap.
   Date/Time auto-fills the FIRST cell only (date row 1, time row 2). PDF export is
@@ -681,6 +681,12 @@ Stripe event routing, `aiMockEnabled`. Anything needing Firestore or Stripe is
 covered by the browser suite against a real deployment, not by mocks that would
 only ever prove the mocks work.
 
+**`WORKFLOWS.md` is the regression contract.** Every user-facing pathway, what
+it must produce, and what protects it. A workflow listed there is a promise to a
+doctor — add its row before adding a feature, and check its expected outputs
+before changing code that serves it. Most pathways are still unprotected and the
+file says so honestly rather than implying coverage that does not exist.
+
 **Deferred deliberately:** Turborepo (one app, nothing to cache — revisit with
 the mobile app and a `packages/shared`) and Docker test databases (relevant only
 after a Postgres migration). Nothing here blocks either: the tests target URLs,
@@ -990,7 +996,13 @@ Page load
     → complete     → app shell → active tab
 ```
 
-Onboarding steps: (1) Name + credentials (2) Workplace setup (3) Email template (4) Gemini key (optional) (5) Confirm
+Onboarding steps (6, all in `app/onboarding/page.tsx`): (1) About you — name +
+credentials + position + provider no. + work phone (2) Workplace (3) Email
+template (4) AI keys — separate Gemini and Groq inputs (5) Signature (6) Review.
+Only name, workplace and the terms tick are required; 3–5 are skippable.
+Every review row carries a pencil: plain text fields edit in place, workplace /
+AI keys / signature reopen their step with a **Back to review** return. The full
+pathway and its expected outputs are recorded in `WORKFLOWS.md`.
 
 ---
 

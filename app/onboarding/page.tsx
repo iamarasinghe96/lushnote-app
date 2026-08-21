@@ -59,6 +59,10 @@ export default function OnboardingPage() {
   const [marketingConsent, setMarketingConsent] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  // Set when a step is opened from the review pane, so the footer offers a way
+  // straight back instead of making the doctor press Continue through every
+  // remaining step to reach the end again.
+  const [returnToReview, setReturnToReview] = useState(false)
 
   useEffect(() => {
     if (loading) return
@@ -101,11 +105,24 @@ export default function OnboardingPage() {
   }
 
   function nextStep() {
+    if (returnToReview) { backToReview(); return }
     if (step < 6) setStep((s) => (s + 1) as Step)
   }
 
   function prevStep() {
+    if (returnToReview) { backToReview(); return }
     if (step > 1) setStep((s) => (s - 1) as Step)
+  }
+
+  /** Open a step from the review pane to correct something. */
+  function jumpToStep(target: Step) {
+    setReturnToReview(true)
+    setStep(target)
+  }
+
+  function backToReview() {
+    setReturnToReview(false)
+    setStep(6)
   }
 
   async function handleComplete() {
@@ -303,6 +320,12 @@ export default function OnboardingPage() {
               signatureUrl={signatureUrl}
               hasGemini={geminiApiKey.trim().length > 0}
               hasGroq={groqApiKey.trim().length > 0}
+              onDisplayName={setDisplayName}
+              onCredentials={setCredentials}
+              onPosition={setPosition}
+              onProviderNumber={setProviderNumber}
+              onWorkPhone={setWorkPhone}
+              onJumpToStep={jumpToStep}
               termsAccepted={termsAccepted}
               onTermsAccepted={setTermsAccepted}
               marketingConsent={marketingConsent}
@@ -315,18 +338,18 @@ export default function OnboardingPage() {
           <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#e2e8f0]">
             <button
               onClick={prevStep}
-              disabled={step === 1}
+              disabled={step === 1 && !returnToReview}
               className="text-sm text-[#475569] disabled:opacity-0"
             >
-              Back
+              {returnToReview ? 'Cancel' : 'Back'}
             </button>
             {step < 6 ? (
               <button
                 onClick={nextStep}
                 disabled={!canAdvance()}
-                className="rounded-xl bg-[#10b981] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50 active:scale-95 transition"
+                className="rounded-xl bg-[#10b981] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition"
               >
-                {step === 4 || step === 5 ? 'Next' : 'Continue'}
+                {returnToReview ? 'Back to review' : step === 4 || step === 5 ? 'Next' : 'Continue'}
               </button>
             ) : (
               <button
@@ -672,6 +695,73 @@ function Step4({
   )
 }
 
+const PencilIcon = (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+)
+
+/**
+ * One line of the review pane, with the means to correct it.
+ *
+ * A row backed by a plain text field edits here; one backed by a whole step
+ * reopens that step. Correcting a typo should never cost a doctor a walk back
+ * through every remaining screen.
+ */
+function ReviewRow({
+  row,
+  onJumpToStep,
+}: {
+  row: {
+    label: string
+    value: string
+    muted?: boolean
+    bold?: boolean
+    inline?: { current: string; onChange: (v: string) => void; type?: string }
+    jumpTo?: Step
+  }
+  onJumpToStep: (step: Step) => void
+}) {
+  const [editing, setEditing] = useState(false)
+
+  if (editing && row.inline) {
+    return (
+      <div className="flex gap-2 items-center">
+        <label className="text-[#94a3b8] w-28 flex-none" htmlFor={`review-${row.label}`}>{row.label}</label>
+        <input
+          id={`review-${row.label}`}
+          type={row.inline.type ?? 'text'}
+          value={row.inline.current}
+          onChange={(e) => row.inline!.onChange(e.target.value)}
+          onBlur={() => setEditing(false)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setEditing(false) }}
+          autoFocus
+          className="flex-1 min-w-0 rounded-lg border border-[#10b981] bg-white px-2 py-1 text-sm text-[#0f172a]"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex gap-2 items-center">
+      <span className="text-[#94a3b8] w-28 flex-none">{row.label}</span>
+      <span className={`${row.muted ? 'text-[#94a3b8] italic' : 'text-[#0f172a]'} ${row.bold ? 'font-medium' : ''} min-w-0 break-words`}>
+        {row.value}
+      </span>
+      <button
+        type="button"
+        onClick={() => (row.inline ? setEditing(true) : onJumpToStep(row.jumpTo!))}
+        aria-label={`Edit ${row.label}`}
+        title={`Edit ${row.label}`}
+        className="ml-auto flex-none text-[#94a3b8] hover:text-[#10b981] p-1 rounded motion-safe:active:scale-90 motion-safe:transition"
+      >
+        {PencilIcon}
+      </button>
+    </div>
+  )
+}
+
 function Step5({
   displayName,
   credentials,
@@ -687,6 +777,12 @@ function Step5({
   marketingConsent,
   onMarketingConsent,
   error,
+  onDisplayName,
+  onCredentials,
+  onPosition,
+  onProviderNumber,
+  onWorkPhone,
+  onJumpToStep,
 }: {
   displayName: string
   credentials: string
@@ -702,30 +798,50 @@ function Step5({
   marketingConsent: boolean
   onMarketingConsent: (v: boolean) => void
   error: string
+  onDisplayName: (v: string) => void
+  onCredentials: (v: string) => void
+  onPosition: (v: string) => void
+  onProviderNumber: (v: string) => void
+  onWorkPhone: (v: string) => void
+  onJumpToStep: (step: Step) => void
 }) {
   const aiKeys = hasGemini && hasGroq ? 'Gemini · Groq'
     : hasGemini ? 'Gemini'
     : hasGroq ? 'Groq'
     : 'None added (you can add later in Settings)'
-  const rows: { label: string; value: string; muted?: boolean; bold?: boolean }[] = [
-    { label: 'Name',         value: displayName, bold: true },
-    ...(credentials    ? [{ label: 'Credentials',    value: credentials }]    : []),
-    ...(position       ? [{ label: 'Position',       value: position }]       : []),
-    ...(providerNumber ? [{ label: 'Provider No.',   value: providerNumber }] : []),
-    ...(workPhone      ? [{ label: 'Work phone',     value: workPhone }]      : []),
-    { label: 'Workplace',    value: workplaceName },
-    { label: 'Signature',    value: signatureUrl ? 'Uploaded' : 'Not added (you can add later in Settings)', muted: !signatureUrl },
-    { label: 'AI keys',      value: aiKeys, muted: !hasGemini && !hasGroq },
+
+  // A plain text field is corrected here, in place. Anything with real UI
+  // behind it — the workplace autocomplete and its registration-format
+  // detection, the signature uploader, the API-key instructions — reopens its
+  // own step, because a one-line input on this pane could not do the same job.
+  type Row = {
+    label: string
+    value: string
+    muted?: boolean
+    bold?: boolean
+    inline?: { current: string; onChange: (v: string) => void; type?: string }
+    jumpTo?: Step
+  }
+
+  const NOT_ADDED = 'Not added'
+  const rows: Row[] = [
+    { label: 'Name',         value: displayName,    bold: true, inline: { current: displayName,    onChange: onDisplayName } },
+    { label: 'Credentials',  value: credentials    || NOT_ADDED, muted: !credentials,    inline: { current: credentials,    onChange: onCredentials } },
+    { label: 'Position',     value: position       || NOT_ADDED, muted: !position,       inline: { current: position,       onChange: onPosition } },
+    { label: 'Provider No.', value: providerNumber || NOT_ADDED, muted: !providerNumber, inline: { current: providerNumber, onChange: onProviderNumber } },
+    { label: 'Work phone',   value: workPhone      || NOT_ADDED, muted: !workPhone,      inline: { current: workPhone,      onChange: onWorkPhone, type: 'tel' } },
+    { label: 'Workplace',    value: workplaceName, jumpTo: 2 },
+    { label: 'Signature',    value: signatureUrl ? 'Uploaded' : 'Not added (you can add later in Settings)', muted: !signatureUrl, jumpTo: 5 },
+    { label: 'AI keys',      value: aiKeys, muted: !hasGemini && !hasGroq, jumpTo: 4 },
   ]
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-[#0f172a]">You&apos;re all set</h2>
+      <p className="text-sm text-[#475569]">Check anything looks wrong? Use the pencil to change it.</p>
       <div className="rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-4 space-y-2 text-sm">
-        {rows.map(({ label, value, muted, bold }) => (
-          <div key={label} className="flex gap-2">
-            <span className="text-[#94a3b8] w-28 flex-none">{label}</span>
-            <span className={`${muted ? 'text-[#94a3b8] italic' : 'text-[#0f172a]'} ${bold ? 'font-medium' : ''}`}>{value}</span>
-          </div>
+        {rows.map((row) => (
+          <ReviewRow key={row.label} row={row} onJumpToStep={onJumpToStep} />
         ))}
       </div>
 
