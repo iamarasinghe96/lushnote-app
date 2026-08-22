@@ -661,6 +661,16 @@ in quick succession cannot ship a commit whose checks nobody read. It refuses
 when a check has not passed; the override needs a typed reason and is logged at
 `error` level so it reaches Slack.
 
+**Promoting also brings the other open pull requests forward.** Every promotion
+moves main, which leaves every other open pull request behind it, and the
+ruleset then refuses them — correctly, since their checks ran against a base
+that no longer exists. The panel calls GitHub's update-branch on each one
+immediately after a merge and reports what happened, naming any that conflict.
+Deliberately NOT a workflow: a push made with the default `GITHUB_TOKEN` does
+not trigger other workflows, so an Action doing this would leave every branch up
+to date with no checks run against it — up to date and still unpromotable. On
+the admin's own token the checks fire.
+
 **The `protect main` ruleset has an EMPTY bypass list**, so GitHub refuses a red
 merge and a direct push for the admin too. Adding "Repository admin" would
 exempt the only person who pushes — the release token acts as one — and a
