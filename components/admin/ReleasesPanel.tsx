@@ -81,8 +81,11 @@ export default function ReleasesPanel() {
   async function act(body: Record<string, unknown>, success: string) {
     setBusy(true); setError(null); setNote(null)
     try {
-      await call(body)
-      setNote(success)
+      const result = await call(body)
+      // Promotion also brings the other open pull requests forward; say so,
+      // because the alternative is discovering it as a refusal days later.
+      const sync = typeof result.syncNote === 'string' ? result.syncNote : ''
+      setNote(sync ? `${success} · ${sync}` : success)
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Action failed')

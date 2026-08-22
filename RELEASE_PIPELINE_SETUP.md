@@ -192,7 +192,7 @@ anything else:
 | Override says branch protection refused the merge | Working as intended. Set the `protect main` ruleset to Disabled, promote, set it back to Active. |
 | The staging URL 404s with `DEPLOYMENT_NOT_FOUND` | Vercel deduplicates by commit, so it never builds `preview` while that branch points at the same commit as main. The alias appears once `preview` holds something main does not — which is the normal case, since it tracks whatever is under review. |
 | Google sign-in fails on a preview — black popup that vanishes | The preview hostname is not in Firebase's Authorized domains. Add the branch alias from the Vercel PR comment. The app now names this failure instead of showing a generic line. |
-| Promote fails with `Required status check "quality" is expected` | The branch is behind main, usually because another pull request was promoted first. Both checks really did pass — against the old base. Merge main in and let them re-run. |
+| Promote fails with `Required status check "quality" is expected` on a pull request you have not touched | The branch is behind main, usually because another pull request was promoted first. Both checks really did pass — against the old base. Merge main in and let them re-run — Promote now does this for you automatically, so this should only appear for a branch that conflicts. |
 | A test flakes | CI retries once. If it flakes twice in a week it gets quarantined with `test.fixme()` and a follow-up — never deleted. |
 
 ## Cost

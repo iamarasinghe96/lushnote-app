@@ -6,7 +6,7 @@ import { requireAdmin, unauthorized } from '@/lib/adminGuard'
 import { logToSink, writeAudit } from '@/lib/firestore/systemLogs'
 import {
   githubConfigured, listOpenPulls, getPull, mainHeadSha, promotePull,
-  deleteBranch, rerunCheck, liveVersion,
+  deleteBranch, rerunCheck, liveVersion, updatePullBranch, summariseSync,
 } from '@/lib/github'
 
 // The release surface. Everything a promotion needs to be a considered decision
@@ -188,6 +188,26 @@ export async function POST(req: NextRequest) {
       }
       await deleteBranch(pull.branch)
 
+      // Main has just moved, so every other open pull request is now behind it
+      // and the ruleset will refuse them until their checks re-run against the
+      // new base. Bring them forward now, while we know it happened, rather
+      // than leaving it to be rediscovered as a puzzling refusal later.
+      //
+      // Best-effort and never fatal: the promotion has already succeeded, and a
+      // conflict in some unrelated branch must not read as this release failing.
+      let syncNote = ''
+      try {
+        const remaining = (await listOpenPulls()).filter(p => p.number !== number)
+        const results = await Promise.all(remaining.map(p => updatePullBranch(p.number, p.branch)))
+        syncNote = summariseSync(results)
+        if (results.some(r => r.outcome === 'conflict' || r.outcome === 'failed')) {
+          logToSink({
+            level: 'warn', tag: 'release', route: '/api/admin/releases',
+            message: `after #${number}: ${syncNote}`,
+          })
+        }
+      } catch { /* the release itself is done */ }
+
       // An override is a deliberate decision to ship something the gate refused.
       // It is recorded with the reason given, at error level so it reaches Slack
       // — not to accuse anyone, but so a later "how did that get out" has an
@@ -203,7 +223,7 @@ export async function POST(req: NextRequest) {
           : `PR #${number} promoted`,
       })
 
-      return NextResponse.json({ success: true, mergeSha: merged.sha })
+      return NextResponse.json({ success: true, mergeSha: merged.sha, syncNote })
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
