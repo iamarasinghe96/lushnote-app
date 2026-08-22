@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { summariseRuns, REQUIRED_CHECKS, type WorkflowRun } from '@/lib/github'
+import { summariseRuns, summariseSync, REQUIRED_CHECKS, type WorkflowRun } from '@/lib/github'
 
 // This mapping decides whether Promote enables. A bug here either ships
 // untested code or blocks a good release, and neither announces itself — so
@@ -79,5 +79,43 @@ describe('REQUIRED_CHECKS', () => {
       { name: 'quality', file: 'quality.yml' },
       { name: 'e2e', file: 'e2e.yml' },
     ])
+  })
+})
+
+describe('summariseSync', () => {
+  const r = (number: number, outcome: 'updated' | 'already-current' | 'conflict' | 'failed') =>
+    ({ number, branch: `b${number}`, outcome })
+
+  it('says nothing when there was nothing to sync', () => {
+    // The last pull request in the queue: no note, no noise.
+    expect(summariseSync([])).toBe('')
+  })
+
+  it('stays silent about branches that were already current', () => {
+    expect(summariseSync([r(1, 'already-current'), r(2, 'already-current')])).toBe('')
+  })
+
+  it('counts the ones it moved forward', () => {
+    expect(summariseSync([r(1, 'updated'), r(2, 'updated')])).toBe('2 updated from main')
+  })
+
+  it('names conflicts individually, because a count cannot be acted on', () => {
+    const msg = summariseSync([r(7, 'updated'), r(8, 'conflict')])
+    expect(msg).toContain('1 updated from main')
+    expect(msg).toContain('#8')
+    expect(msg).toMatch(/rebase/)
+  })
+
+  it('pluralises so it reads like a sentence either way', () => {
+    expect(summariseSync([r(8, 'conflict')])).toMatch(/#8 has conflicts/)
+    expect(summariseSync([r(8, 'conflict'), r(9, 'conflict')])).toMatch(/#8, #9 have conflicts/)
+  })
+
+  it('reports an outright failure separately from a conflict', () => {
+    // Different causes and different fixes: one needs a rebase, the other needs
+    // someone to look at why GitHub refused.
+    const msg = summariseSync([r(3, 'failed')])
+    expect(msg).toContain('#3')
+    expect(msg).toMatch(/could not be updated/)
   })
 })

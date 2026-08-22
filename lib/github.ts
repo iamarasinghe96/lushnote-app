@@ -274,6 +274,57 @@ export async function promotePull(number: number, headSha: string, title: string
   return { sha: result.sha }
 }
 
+export type SyncOutcome = 'updated' | 'already-current' | 'conflict' | 'failed'
+
+export interface SyncResult { number: number; branch: string; outcome: SyncOutcome }
+
+/**
+ * Merge main into an open pull request, the way the Update branch button does.
+ *
+ * Every promotion moves main and leaves every other open pull request behind,
+ * and the ruleset then refuses them — correctly, because their checks ran
+ * against a base that no longer exists. Doing this by hand after each promotion
+ * is a chore that gets skipped, and a skipped one shows up as a confusing
+ * "Required status check is expected" days later.
+ *
+ * Done here rather than in a workflow on purpose: a push made with the default
+ * GITHUB_TOKEN does not trigger other workflows, so an Action doing this would
+ * leave every branch up to date with NO checks run against it — up to date and
+ * still unpromotable. This runs on the admin's own token, so the checks fire.
+ */
+export async function updatePullBranch(number: number, branch: string): Promise<SyncResult> {
+  const { owner, name } = repo()
+  try {
+    await gh(`/repos/${owner}/${name}/pulls/${number}/update-branch`, { method: 'PUT' })
+    return { number, branch, outcome: 'updated' }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : ''
+    // 422 is GitHub's answer both for "already up to date" and for a merge it
+    // cannot do itself. The wording separates them, and they need different
+    // things from the reader: nothing, versus a rebase by hand.
+    if (/merge conflict|not mergeable/i.test(msg)) return { number, branch, outcome: 'conflict' }
+    if (/GitHub 422/.test(msg)) return { number, branch, outcome: 'already-current' }
+    return { number, branch, outcome: 'failed' }
+  }
+}
+
+/** What the admin should be told about a round of syncing. Pure, so the wording
+ *  can be pinned without calling GitHub. */
+export function summariseSync(results: SyncResult[]): string {
+  if (!results.length) return ''
+  const updated = results.filter(r => r.outcome === 'updated')
+  const conflicts = results.filter(r => r.outcome === 'conflict')
+  const failed = results.filter(r => r.outcome === 'failed')
+
+  const parts: string[] = []
+  if (updated.length) parts.push(`${updated.length} updated from main`)
+  // Named individually: a conflict is the one outcome that needs a person, and
+  // a count alone would not say which.
+  if (conflicts.length) parts.push(`#${conflicts.map(r => r.number).join(', #')} ${conflicts.length === 1 ? 'has' : 'have'} conflicts and need a rebase`)
+  if (failed.length) parts.push(`#${failed.map(r => r.number).join(', #')} could not be updated`)
+  return parts.join(' · ')
+}
+
 export async function deleteBranch(branch: string): Promise<void> {
   const { owner, name } = repo()
   await gh(`/repos/${owner}/${name}/git/refs/heads/${encodeURIComponent(branch)}`, { method: 'DELETE' }).catch(() => {})
