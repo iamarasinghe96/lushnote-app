@@ -135,6 +135,12 @@ things is how a doctor rewrites a patient record while expecting a note — and
 the two are not equally reversible. A wrong note is discarded; a wrong record
 write supersedes tracked fields.
 
+### Testing this on staging
+
+Staging is a preview deployment, so `E2E_MOCK_AI` is set there — but the mock
+only answers the **fixture account**. Signed in as a real doctor you get the
+real model, which is the only way staging can be used to judge a release.
+
 ### The classifier
 
 `classifyPastedText` (`lib/pastedText.ts`) is structural, not clever, and calls

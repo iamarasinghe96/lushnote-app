@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { aiMockEnabled, mockGenerateResponse, MOCK_NOTE_CONTENT } from '@/lib/e2eMock'
+import { aiMockEnabled, mockForCaller, mockGenerateResponse, MOCK_NOTE_CONTENT } from '@/lib/e2eMock'
 
 // The only thing that matters about this module is that it can never fire in
 // production. A doctor served a canned note would have a fabricated clinical
@@ -58,5 +58,39 @@ describe('mockGenerateResponse', () => {
     expect(mockGenerateResponse('letter', 'custom')).toHaveProperty('letterFields.sections')
     expect(mockGenerateResponse('hospital-form')).toHaveProperty('formFields.noteText')
     expect(mockGenerateResponse('patient-intake')).toHaveProperty('patientFields')
+  })
+})
+
+describe('mockForCaller', () => {
+  const saved = { flag: process.env.E2E_MOCK_AI, env: process.env.VERCEL_ENV }
+  beforeEach(() => { process.env.E2E_MOCK_AI = '1'; process.env.VERCEL_ENV = 'preview' })
+  afterEach(() => {
+    if (saved.flag === undefined) delete process.env.E2E_MOCK_AI; else process.env.E2E_MOCK_AI = saved.flag
+    if (saved.env === undefined) delete process.env.VERCEL_ENV; else process.env.VERCEL_ENV = saved.env
+  })
+
+  it('mocks for the test fixture', () => {
+    expect(mockForCaller({ e2eFixture: true })).toBe(true)
+  })
+
+  it('does NOT mock for a real doctor on the same preview', () => {
+    // The bug this prevents: the owner reviewing a change on staging pasted a
+    // ward note and got "Sertraline 100mg mane" back — canned data, because the
+    // deployment was mocking everyone. Staging has to behave like the real
+    // thing for a real person, or it cannot be used to judge a release.
+    expect(mockForCaller({})).toBe(false)
+    expect(mockForCaller({ e2eFixture: false })).toBe(false)
+  })
+
+  it('fails toward the REAL model when the profile is unreadable', () => {
+    // A wasted API call is honest; silently showing fabricated clinical content
+    // to someone evaluating a release is not.
+    expect(mockForCaller(null)).toBe(false)
+    expect(mockForCaller(undefined)).toBe(false)
+  })
+
+  it('never mocks in production, fixture or not', () => {
+    process.env.VERCEL_ENV = 'production'
+    expect(mockForCaller({ e2eFixture: true })).toBe(false)
   })
 })

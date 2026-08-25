@@ -62,6 +62,10 @@ async function provisionE2eUser(): Promise<{ email: string; password: string; ui
     status: 'active',
     tier: 'free',
     onboardingComplete: true,
+    // Only this account gets mocked AI replies on a preview. Without the
+    // marker the owner reviewing a change on staging got canned answers too,
+    // which made staging useless for judging anything the model touches.
+    e2eFixture: true,
     marketingConsent: false,
     emailOptOut: true,
     activeWorkplaceId: 'e2e-clinic',

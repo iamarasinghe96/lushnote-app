@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withRequest, noteRequest } from '@/lib/requestContext'
-import { aiMockEnabled, mockOcrResponse } from '@/lib/e2eMock'
+import { mockForCaller, mockOcrResponse } from '@/lib/e2eMock'
 import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
@@ -86,7 +86,7 @@ async function handlePOST(req: NextRequest) {
     if (files.length > MAX_IMAGES) return NextResponse.json({ error: `Up to ${MAX_IMAGES} photos at a time.` }, { status: 400 })
 
     // Preview deployments only, and never production — see lib/e2eMock.
-    if (aiMockEnabled()) {
+    if (mockForCaller(await getProfile(uidField).catch(() => null))) {
       logToSink({ level: 'info', tag: 'ocr', route: '/api/ocr', uid: uidField, message: 'mocked reply' })
       return NextResponse.json(mockOcrResponse())
     }

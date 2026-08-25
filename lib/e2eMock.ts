@@ -17,9 +17,30 @@
  * environment, and the runtime check refuses production regardless — a human
  * ticking the wrong box in the Vercel dashboard cannot serve a doctor a canned
  * note.
+ *
+ * This says the deployment MAY mock. Whether a given request actually should is
+ * `mockForCaller` below — the two are separate because the same preview serves
+ * both the test suite and a human reviewing the change.
  */
 export function aiMockEnabled(): boolean {
   return process.env.E2E_MOCK_AI === '1' && process.env.VERCEL_ENV !== 'production'
+}
+
+/**
+ * Mock for the test fixture, and nobody else.
+ *
+ * Keying only on the deployment meant the owner reviewing a change on staging
+ * got canned answers too — a pasted ward note came back as "Sertraline 100mg
+ * mane" because the AI was never called. Staging is where a change is judged
+ * before it reaches doctors, so it has to behave like the real thing for a real
+ * person; only the fixture account needs determinism.
+ *
+ * Fails toward the REAL model: an unreadable profile costs a genuine API call,
+ * which is wasteful but honest. The reverse — falling back to mocks — would
+ * quietly show fabricated clinical content to someone evaluating a release.
+ */
+export function mockForCaller(profile: { e2eFixture?: boolean } | null | undefined): boolean {
+  return aiMockEnabled() && profile?.e2eFixture === true
 }
 
 /** A generated note carrying the markers a template prompt asks the model for,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withRequest, noteRequest } from '@/lib/requestContext'
-import { aiMockEnabled, mockChatResponse } from '@/lib/e2eMock'
+import { mockForCaller, mockChatResponse } from '@/lib/e2eMock'
 import { chatResponse, checkQuota, GEMINI_RATE_LIMIT_ERROR, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
 import { generateNoteGroq } from '@/lib/groq'
 import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
@@ -31,7 +31,8 @@ async function handlePOST(req: NextRequest) {
     const { type } = body
 
     // Preview deployments only, and never production — see lib/e2eMock.
-    if (aiMockEnabled()) {
+    const callerUid = typeof body.uid === 'string' ? body.uid : ''
+    if (callerUid && mockForCaller(await getProfile(callerUid).catch(() => null))) {
       logToSink({ level: 'info', tag: 'chat', route: '/api/chat', message: `mocked reply for type=${String(type)}` })
       return NextResponse.json(mockChatResponse(type))
     }
