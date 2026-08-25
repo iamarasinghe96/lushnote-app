@@ -95,11 +95,81 @@ against absence, and pinned by the rules tests so it cannot return.
 
 ---
 
+## `note-paste` — Paste a transcript or ward note
+
+**Entry:** Generate → **Paste Transcript or Ward Note** → **Paste text**
+**Ends at:** `/edit` with a generated note, OR the patient's record filled
+**Code:** `app/(app)/generate/page.tsx` → `TranscriptConfirmModal` → `TemplatePicker`
+**Coverage:** ⚠️ — the classifier is unit-tested; one browser spec covers the
+transcript half, nothing covers the ward-note half yet
+
+### The pathway
+
+| # | Step | What the doctor does | What the code does |
+|---|---|---|---|
+| 1 | Choose the source | **Paste text** (a transcript, or a Bossnet/ward note) or **Scan a ward note** (photo → OCR) | `phase: 'paste-choice'` |
+| 2 | Paste | Pastes into the box; **Continue** enables once it is non-empty | `handleTextConfirm`. `validateTranscript` requires **80 words** and at least one clinical keyword — enforced later, when a note template is actually chosen, so letters and the patient record are not blocked by it |
+| 3 | Confirm and assign | Confirms the preview, types a patient name | Autocomplete over the doctor's existing patients, built from their notes and profiles. Selecting one fills reg number, session number (+1) and last attendance |
+| 3a | New patient | Name not found, so DOB and gender (both optional) appear | Reg number suggested as `YYYYMMDDNNN`, incrementing against existing records, or matched to the workplace's own `regPattern` |
+| 4 | Pick a template | Five tabs — All, Session, Document, Letters, Patient — plus note length (Brief / Balanced / Detailed) | `TemplatePicker` |
+| 5 | Generate | Clicks a template, **or** the green default button | See below |
+
+### What the default button does — and why it depends on the content
+
+The green button is not one action. What a doctor pastes decides it:
+
+| Pasted content | Button reads | What happens |
+|---|---|---|
+| Transcript | **Skip, use default note** | Comprehensive Psychology Note (template id 1) |
+| Ward note | **Skip — add to patient record** | Fills the patient's tracked fields (`mode: 'patient-intake'`) |
+
+**A ward note is a record being COPIED, not a conversation to be written up.**
+Generating a note from one produces a worse copy of a document that already
+exists, while the tracked fields it should have filled stay empty. This applies
+whether or not the patient already exists: the fidelity contract's
+supersede-per-field and per-topic merge rules were written for *repeated* ward
+notes on the same patient, so that is exactly when they earn their keep.
+
+**The button says which it will do.** A control that silently does two different
+things is how a doctor rewrites a patient record while expecting a note — and
+the two are not equally reversible. A wrong note is discarded; a wrong record
+write supersedes tracked fields.
+
+### The classifier
+
+`classifyPastedText` (`lib/pastedText.ts`) is structural, not clever, and calls
+no model — it runs the instant text is pasted, and a wrong answer has to be
+explainable from the text alone.
+
+- **Ward-note signals:** `#` problem lines, the headings a ward round uses
+  (Current Issues, Progress, Obs, Impression, Plan …), numbered plan items,
+  mostly-short lines
+- **Transcript signals:** spoken filler (*um*, *yeah*, *you know*), heavy first
+  and second person, several question marks, one long unbroken block
+- **Ties go to transcript.** That is today's behaviour, so an uncertain call
+  changes nothing — and it puts the cost of being wrong on the recoverable side
+
+### Expected outputs — what must remain true
+
+- A transcript never routes to the patient record, however clinical its wording
+- A ward note routes to the record whether the patient is new or existing
+- The button label always matches what the button will do
+- The 80-word floor and clinical-keyword check still gate **note** generation,
+  and still do not gate letters or the patient record
+- A selected existing patient still carries reg number, session number and
+  attendance into the note
+
+Covered by `tests/unit/pasted-text.test.ts` — real ward rounds and a real
+consultation, plus the tie-break bias asserted explicitly, since flipping that
+comparison would silently point ambiguous pastes at a patient record.
+
+---
+
 ## Not yet recorded
 
 These exist and are unprotected. Each becomes a section here as it is specified:
 
-`note-paste` (⚠️ one browser spec) · `note-scan` (OCR) ❌ · `note-dictate` ❌ ·
+`note-scan` (OCR) ❌ · `note-dictate` ❌ ·
 `note-record` ❌ · `note-manual` ❌ · letters, four types ❌ · `hospital-form` ❌ ·
 `patient-add` ❌ · `patient-search` ❌ · `transcript-qa` ❌ · `history` ❌ ·
 `mode-transitions` (note ↔ letter ↔ form) ❌ · `settings-panels` ⚠️ ·

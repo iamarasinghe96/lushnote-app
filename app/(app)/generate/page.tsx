@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { openSettings, quotaDate, getGroqKey, getGeminiKey, parsePatientIntakeFields, appendPatientHistory, mergeExtras, formatOtherTopics, pushPatientEntry } from '@/lib/utils'
+import { classifyPastedText } from '@/lib/pastedText'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import Textarea from '@/components/ui/Textarea'
@@ -874,6 +875,9 @@ export default function GeneratePage() {
           onSelectCustomLetter: (t: CustomLetterTemplate) => handlePasteLetter('custom', t),
           onCreateLetterTemplate: () => { setPhase('idle'); setCustomBuilderOpen(true) },
           onAddPatient: handleAddPatientFromTranscript,
+          // Lets the picker say what Skip will do, and route a ward note to the
+          // patient record rather than writing a note from a copied record.
+          pastedKind: classifyPastedText(pendingTranscript).kind,
         })}
       />
       <LetterPickerModal
