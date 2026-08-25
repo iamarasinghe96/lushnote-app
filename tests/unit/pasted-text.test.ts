@@ -63,6 +63,37 @@ Plan
   })
 })
 
+describe('classifyPastedText — a paste that lost its newlines', () => {
+  // The case that shipped broken. Copying out of Bossnet flattens the note into
+  // one block — note "(Age: 88)UR" where a newline used to be — and the first
+  // version anchored every ward signal to a line start, so all of them scored
+  // zero and a hospital record was read as a conversation.
+  const FLATTENED = `DOB: 04/08/1938 (Age: 88)UR / Reg Number: 8518768Date & Time: 26/08/2026, 09:09 AMLocation: [Ward Name], Bed: [Insert Bed #]Clinician: Dr Indika AmarasingheAdmission Timeline: First seen on the ward today. Current Issues: # Delirium, resolving # Hypertension Progress: Settled overnight, oriented to place. Obs: BP 142/88, HR 78, afebrile. Impression: Improving. Plan: 1. Continue current medications 2. Mobilise with physio 3. Review bloods tomorrow 4. Discharge planning to commence`
+
+  it('recognises a ward note with every newline stripped', () => {
+    const c = classifyPastedText(FLATTENED)
+    expect(c.kind).toBe('ward-note')
+    expect(c.confidence).toBeGreaterThan(CONFIDENT)
+  })
+
+  it('leans on the identifying labels, which survive flattening', () => {
+    expect(classifyPastedText(FLATTENED).signals.join(' ')).toMatch(/record labels/)
+  })
+
+  it('recognises the identifying block on its own', () => {
+    // Even without headings or a problem list, DOB/UR/Ward/Bed is not speech.
+    const c = classifyPastedText('DOB: 01/01/1950 UR: 123456 Ward: 4B Bed: 12 Clinician: Dr Smith')
+    expect(c.kind).toBe('ward-note')
+  })
+
+  it('does not call a long spoken block a record just because it is unbroken', () => {
+    // The "one long block" signal is shared by transcripts and flattened
+    // records, so it only votes transcript when the record labels are absent.
+    const c = classifyPastedText('So how have you been feeling since we last spoke? '.repeat(12))
+    expect(c.kind).toBe('transcript')
+  })
+})
+
 describe('classifyPastedText — transcripts', () => {
   it('recognises a consultation', () => {
     const c = classifyPastedText(TRANSCRIPT)

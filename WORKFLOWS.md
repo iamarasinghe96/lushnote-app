@@ -149,6 +149,13 @@ explainable from the text alone.
 - **Ties go to transcript.** That is today's behaviour, so an uncertain call
   changes nothing — and it puts the cost of being wrong on the recoverable side
 
+**Every ward signal works without newlines.** The first version anchored all of
+them to line starts and was blind to the ordinary case: copying a note out of
+Bossnet flattens it into one block — `(Age: 88)UR / Reg Number:` — so every rule
+scored zero and a hospital record was read as a conversation. The identifying
+labels (DOB, UR, Ward, Bed, Clinician) are what survive that, and they are now
+the strongest signal, because a conversation never carries them.
+
 ### Expected outputs — what must remain true
 
 - A transcript never routes to the patient record, however clinical its wording

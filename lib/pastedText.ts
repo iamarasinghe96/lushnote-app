@@ -41,14 +41,31 @@ const WARD_HEADINGS = [
   'medications', 'vitals', 'examination',
 ]
 
+/** The identifying block at the top of a hospital record. These labels are the
+ *  single most reliable ward-note tell, because a conversation never carries
+ *  them and they survive a paste that has lost every newline. */
+const RECORD_LABELS = [
+  'dob', 'd\\.o\\.b', 'date of birth', 'ur', 'urn', 'mrn', 'reg number',
+  'registration number', 'patient id', 'date & time', 'date and time',
+  'location', 'ward', 'bed', 'clinician', 'consultant', 'admission',
+  'admission timeline', 'age', 'sex', 'nok', 'next of kin',
+]
+
 /** Words that only appear when someone is speaking, not writing a record. */
 const SPOKEN_MARKERS = [
   'um', 'uh', 'yeah', 'okay so', 'you know', 'i mean', 'sort of', 'kind of',
   'right so', 'mmm', 'mhm', 'like i said',
 ]
 
-function countLines(lines: string[], test: (l: string) => boolean): number {
-  return lines.filter(test).length
+function countMatches(text: string, re: RegExp): number {
+  return (text.match(re) ?? []).length
+}
+
+/** How many `Label:` pairs from a list appear anywhere in the text. Anchored on
+ *  the colon rather than a line start, because a pasted record routinely
+ *  arrives with every newline stripped. */
+function labelHits(lower: string, labels: string[]): string[] {
+  return labels.filter(l => new RegExp(`(^|[^a-z])${l}\\s*:`, 'i').test(lower))
 }
 
 /**
@@ -58,6 +75,11 @@ function countLines(lines: string[], test: (l: string) => boolean): number {
  * has and a conversation does not. Nothing here calls a model — this runs the
  * instant text is pasted, and a wrong answer must be explainable from the text
  * alone rather than from a prompt someone has to reconstruct later.
+ *
+ * Every ward signal works WITHOUT newlines. The first version anchored all of
+ * them to line starts and was blind to the ordinary case: copying a note out of
+ * Bossnet flattens it into a single block — `(Age: 88)UR / Reg Number:` — so
+ * every rule scored zero and the record was read as a conversation.
  */
 export function classifyPastedText(text: string): PastedClassification {
   const signals: string[] = []
@@ -72,22 +94,32 @@ export function classifyPastedText(text: string): PastedClassification {
   let talk = 0
 
   // ── Ward-note shapes ────────────────────────────────────────────────────
-  // A problem list is the single strongest signal: no one speaks in '#' lines.
-  const hashLines = countLines(lines, l => /^#{1,2}\s*\S/.test(l))
-  if (hashLines >= 2) { ward += 3; signals.push(`${hashLines} problem-list lines`) }
-  else if (hashLines === 1) { ward += 1; signals.push('1 problem-list line') }
+  // A problem list is the strongest single signal: no one speaks in '#' lines,
+  // and the marker survives flattening.
+  const hashes = countMatches(raw, /(^|\s)#{1,2}\s*[A-Za-z]/g)
+  if (hashes >= 2) { ward += 3; signals.push(`${hashes} problem-list markers`) }
+  else if (hashes === 1) { ward += 1; signals.push('1 problem-list marker') }
 
-  const headings = WARD_HEADINGS.filter(h =>
-    lines.some(l => new RegExp(`^\\*{0,2}${h}\\*{0,2}\\s*:?\\s*$`, 'i').test(l)),
-  )
-  if (headings.length >= 2) { ward += 3; signals.push(`headings: ${headings.slice(0, 4).join(', ')}`) }
-  else if (headings.length === 1) { ward += 1; signals.push(`heading: ${headings[0]}`) }
+  // The identifying block — DOB, UR, Ward, Bed, Clinician. A conversation has
+  // none of these, and they are what a flattened paste keeps.
+  const idLabels = labelHits(lower, RECORD_LABELS)
+  if (idLabels.length >= 3) { ward += 3; signals.push(`record labels: ${idLabels.slice(0, 5).join(', ')}`) }
+  else if (idLabels.length >= 1) { ward += 1; signals.push(`record label: ${idLabels[0]}`) }
 
-  const numbered = countLines(lines, l => /^\d+[.)]\s+\S/.test(l))
+  const headings = labelHits(lower, WARD_HEADINGS)
+  const lineHeadings = WARD_HEADINGS.filter(h =>
+    lines.some(l => new RegExp(`^\\*{0,2}${h}\\*{0,2}\\s*:?\\s*$`, 'i').test(l)))
+  const allHeadings = Array.from(new Set([...headings, ...lineHeadings]))
+  if (allHeadings.length >= 2) { ward += 3; signals.push(`headings: ${allHeadings.slice(0, 4).join(', ')}`) }
+  else if (allHeadings.length === 1) { ward += 1; signals.push(`heading: ${allHeadings[0]}`) }
+
+  // A run of numbered items, wherever it sits. A spoken plan is not numbered.
+  const numbered = countMatches(raw, /(^|\s)\d+[.)]\s+[A-Za-z]/g)
   if (numbered >= 3) { ward += 2; signals.push(`${numbered} numbered items`) }
 
-  // Short standalone lines are how a record is written; speech runs on.
-  const shortLines = countLines(lines, l => l.length < 60)
+  // Short standalone lines are how a record is written; speech runs on. Only
+  // meaningful when the paste kept its line structure.
+  const shortLines = lines.filter(l => l.length < 60).length
   if (lines.length >= 5 && shortLines / lines.length > 0.7) {
     ward += 1
     signals.push('mostly short lines')
@@ -100,14 +132,19 @@ export function classifyPastedText(text: string): PastedClassification {
 
   // First and second person is the giveaway: a record describes a patient, a
   // conversation addresses one.
-  const pronouns = (lower.match(/\b(i|you|we)\b/g) ?? []).length
+  const pronouns = countMatches(lower, /\b(i|you|we)\b/g)
   if (words > 0 && pronouns / words > 0.03) { talk += 2; signals.push('heavy first/second person') }
 
-  const questions = (raw.match(/\?/g) ?? []).length
+  const questions = countMatches(raw, /\?/g)
   if (questions >= 3) { talk += 2; signals.push(`${questions} questions`) }
 
-  // One long unbroken block is what a transcription service produces.
-  if (lines.length <= 3 && words > 150) { talk += 2; signals.push('one long unbroken block') }
+  // One long unbroken block is what a transcription service produces — but it
+  // is ALSO what a flattened record looks like, so it only counts when the
+  // record labels are absent.
+  if (lines.length <= 3 && words > 150 && idLabels.length < 2) {
+    talk += 2
+    signals.push('one long unbroken block')
+  }
 
   // ── Verdict ─────────────────────────────────────────────────────────────
   const total = ward + talk
