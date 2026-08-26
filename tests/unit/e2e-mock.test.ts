@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { aiMockEnabled, mockForCaller, mockGenerateResponse, MOCK_NOTE_CONTENT } from '@/lib/e2eMock'
+import { aiMockEnabled, mockForCaller, mockGenerateResponse, MOCK_NOTE_CONTENT, E2E_FIXTURE_EMAIL } from '@/lib/e2eMock'
 
 // The only thing that matters about this module is that it can never fire in
 // production. A doctor served a canned note would have a fabricated clinical
@@ -89,8 +89,20 @@ describe('mockForCaller', () => {
     expect(mockForCaller(undefined)).toBe(false)
   })
 
+  it('recognises the fixture by email before the flag exists', () => {
+    // The flag is written by provisioning, which runs on PRODUCTION — so the
+    // build that INTRODUCES the flag has no fixture carrying it yet, and its
+    // own test run then fails on a marker that only appears after it ships.
+    expect(mockForCaller({ email: E2E_FIXTURE_EMAIL })).toBe(true)
+  })
+
+  it('still refuses a real doctor who has neither', () => {
+    expect(mockForCaller({ email: 'doctor@example.com' })).toBe(false)
+  })
+
   it('never mocks in production, fixture or not', () => {
     process.env.VERCEL_ENV = 'production'
     expect(mockForCaller({ e2eFixture: true })).toBe(false)
+    expect(mockForCaller({ email: E2E_FIXTURE_EMAIL })).toBe(false)
   })
 })

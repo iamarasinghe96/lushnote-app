@@ -39,8 +39,20 @@ export function aiMockEnabled(): boolean {
  * which is wasteful but honest. The reverse — falling back to mocks — would
  * quietly show fabricated clinical content to someone evaluating a release.
  */
-export function mockForCaller(profile: { e2eFixture?: boolean } | null | undefined): boolean {
-  return aiMockEnabled() && profile?.e2eFixture === true
+export const E2E_FIXTURE_EMAIL = 'e2e-tester@lushnote.com.au'
+
+export function mockForCaller(
+  profile: { e2eFixture?: boolean; email?: string } | null | undefined,
+): boolean {
+  if (!aiMockEnabled() || !profile) return false
+  // The email is checked as well as the flag, and that is not belt-and-braces.
+  // The flag is written by provisioning, which runs on PRODUCTION — so the build
+  // that INTRODUCES the flag cannot have a fixture carrying it yet, and its own
+  // test run fails on a marker that only exists after it ships. The email has
+  // identified this account since the first provisioning, so it works from the
+  // first run. Reachable only on a preview, and only for an address on a domain
+  // we control.
+  return profile.e2eFixture === true || profile.email === E2E_FIXTURE_EMAIL
 }
 
 /** A generated note carrying the markers a template prompt asks the model for,
