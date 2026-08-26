@@ -17,9 +17,42 @@
  * environment, and the runtime check refuses production regardless — a human
  * ticking the wrong box in the Vercel dashboard cannot serve a doctor a canned
  * note.
+ *
+ * This says the deployment MAY mock. Whether a given request actually should is
+ * `mockForCaller` below — the two are separate because the same preview serves
+ * both the test suite and a human reviewing the change.
  */
 export function aiMockEnabled(): boolean {
   return process.env.E2E_MOCK_AI === '1' && process.env.VERCEL_ENV !== 'production'
+}
+
+/**
+ * Mock for the test fixture, and nobody else.
+ *
+ * Keying only on the deployment meant the owner reviewing a change on staging
+ * got canned answers too — a pasted ward note came back as "Sertraline 100mg
+ * mane" because the AI was never called. Staging is where a change is judged
+ * before it reaches doctors, so it has to behave like the real thing for a real
+ * person; only the fixture account needs determinism.
+ *
+ * Fails toward the REAL model: an unreadable profile costs a genuine API call,
+ * which is wasteful but honest. The reverse — falling back to mocks — would
+ * quietly show fabricated clinical content to someone evaluating a release.
+ */
+export const E2E_FIXTURE_EMAIL = 'e2e-tester@lushnote.com.au'
+
+export function mockForCaller(
+  profile: { e2eFixture?: boolean; email?: string } | null | undefined,
+): boolean {
+  if (!aiMockEnabled() || !profile) return false
+  // The email is checked as well as the flag, and that is not belt-and-braces.
+  // The flag is written by provisioning, which runs on PRODUCTION — so the build
+  // that INTRODUCES the flag cannot have a fixture carrying it yet, and its own
+  // test run fails on a marker that only exists after it ships. The email has
+  // identified this account since the first provisioning, so it works from the
+  // first run. Reachable only on a preview, and only for an address on a domain
+  // we control.
+  return profile.e2eFixture === true || profile.email === E2E_FIXTURE_EMAIL
 }
 
 /** A generated note carrying the markers a template prompt asks the model for,

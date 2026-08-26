@@ -13,6 +13,10 @@ interface User {
   // What a doctor typed into onboarding before leaving. Present only while
   // onboardingComplete is false; deleted the moment they finish.
   onboardingDraft?: Record<string, unknown>
+  // Marks the automated-test fixture account. Only that account gets mocked AI
+  // replies on a preview; a real doctor reviewing the same deployment gets the
+  // real model. Written by the admin provisioning action.
+  e2eFixture?: boolean
   notesMigrated: boolean
   workplaces: Workplace[]
   favoriteTemplateIds: (string | number)[]

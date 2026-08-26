@@ -13,8 +13,20 @@ name: quality
 on:
   pull_request:
     branches: [main]
+  # A dropped pull_request event left this check unrecoverable. GitHub created
+  # no run for one commit, and since pull_request was the only trigger, the only
+  # way to get one was a new commit — which changes the sha and discards the
+  # browser-suite result that had already passed against it. Promote then stays
+  # disabled on a branch where nothing is actually wrong.
+  #
+  # Dispatch reads its trigger list from the DEFAULT branch, so this does
+  # nothing until it is promoted; it exists for the next time, not this one.
+  workflow_dispatch:
 
 concurrency:
+  # Keyed on the ref, so a manual run on the branch and the pull request's own
+  # run do not cancel each other — the manual one exists precisely because the
+  # automatic one is missing.
   group: quality-${{ github.ref }}
   cancel-in-progress: true
 

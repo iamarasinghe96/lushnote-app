@@ -636,6 +636,15 @@ test something other than the artefact that goes live. Before opening a browser
 the job asks `/api/version` which commit the preview is serving and fails on a
 mismatch — a green run about the wrong code is worse than no run.
 
+**The mock answers the FIXTURE, not the deployment.** `aiMockEnabled()` says a
+deployment may mock; `mockForCaller(profile)` decides whether a given request
+should, and only the provisioned test account (`e2eFixture: true`) qualifies.
+Keying on the deployment alone made staging useless for judging a release: the
+owner pasted a ward note and got "Sertraline 100mg mane" back, because the model
+was never called. It fails toward the REAL model — an unreadable profile costs a
+genuine API call, which is wasteful but honest, where the reverse would quietly
+show fabricated clinical content to someone evaluating a release.
+
 **The AI is mocked on previews, and only there.** `aiMockEnabled()` is
 double-locked: `E2E_MOCK_AI === '1'` AND `VERCEL_ENV !== 'production'`, so
 mis-ticking a checkbox in Vercel cannot serve a doctor a fabricated note. The

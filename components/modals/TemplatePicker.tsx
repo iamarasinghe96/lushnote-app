@@ -19,6 +19,10 @@ interface TemplatePickerProps {
   /** When provided, a "Patient" tab offers filling this patient's tracked record
    *  (presenting issue, current issues, medications, …) from the same content. */
   onAddPatient?: () => void
+  /** What the doctor pasted, as classified on paste. A ward note is an existing
+   *  clinical record being copied, so the default action fills the patient's
+   *  record rather than writing a note from it. */
+  pastedKind?: 'ward-note' | 'transcript'
   /** Tab to show when the picker opens. Defaults to 'all'. */
   defaultTab?: Tab
   /** The template the current note was generated with (id + title enough) — shown
@@ -126,7 +130,9 @@ function matchesTab(t: AnyTemplate, tab: Tab, customIds: Set<string>): boolean {
   return true
 }
 
-export default function TemplatePicker({ open, onSelect, onCancel, onSelectLetter, customLetterTemplates = [], onSelectCustomLetter, onEditCustomLetter, onCreateLetterTemplate, onAddPatient, defaultTab, currentTemplate }: TemplatePickerProps) {
+export default function TemplatePicker({ open, onSelect, onCancel, onSelectLetter, customLetterTemplates = [], onSelectCustomLetter, onEditCustomLetter, onCreateLetterTemplate, onAddPatient, defaultTab, currentTemplate,
+  pastedKind,
+}: TemplatePickerProps) {
   const { profile, user, refreshProfile } = useAuth()
   const [builtins, setBuiltins] = useState<Template[]>([])
   const [search, setSearch] = useState('')
@@ -235,7 +241,17 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
     }
   }
 
+  const skipFillsRecord = pastedKind === 'ward-note' && !!onAddPatient
+
   function handleSkip() {
+    // A ward note is a clinical record being COPIED, not a conversation to be
+    // written up — so the default action fills the patient's tracked fields
+    // instead of generating a note from a record that already exists. The
+    // button says so; see its label below.
+    if (skipFillsRecord) {
+      onAddPatient!()
+      return
+    }
     // "Default note" is the Comprehensive Psychology Note. Use the real template
     // once built-ins have loaded; fall back to a generic note if not yet ready.
     const defaultTemplate = all.find(t => String(t.id) === String(DEFAULT_TEMPLATE_ID))
@@ -586,7 +602,7 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
                          border border-transparent rounded-[var(--r)]
                          hover:bg-[#059669] motion-safe:transition-colors"
             >
-              Skip, use default note
+              {skipFillsRecord ? 'Skip — add to patient record' : 'Skip, use default note'}
             </button>
           )}
         </div>

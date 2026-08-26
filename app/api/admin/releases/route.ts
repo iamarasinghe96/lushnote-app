@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'node:crypto'
 import { adminDb } from '@/lib/firebase-admin'
+import { E2E_FIXTURE_EMAIL } from '@/lib/e2eMock'
 import { adminAuth } from '@/lib/firebase-admin-auth'
 import { requireAdmin, unauthorized } from '@/lib/adminGuard'
 import { logToSink, writeAudit } from '@/lib/firestore/systemLogs'
@@ -16,7 +17,7 @@ import {
 export const runtime = 'nodejs'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://lushnote.com.au'
-const E2E_EMAIL = 'e2e-tester@lushnote.com.au'
+const E2E_EMAIL = E2E_FIXTURE_EMAIL
 
 // The one preview hostname that never changes, so a Firebase session survives
 // on it. Every other preview URL is a fresh origin and therefore a fresh
@@ -62,6 +63,10 @@ async function provisionE2eUser(): Promise<{ email: string; password: string; ui
     status: 'active',
     tier: 'free',
     onboardingComplete: true,
+    // Only this account gets mocked AI replies on a preview. Without the
+    // marker the owner reviewing a change on staging got canned answers too,
+    // which made staging useless for judging anything the model touches.
+    e2eFixture: true,
     marketingConsent: false,
     emailOptOut: true,
     activeWorkplaceId: 'e2e-clinic',

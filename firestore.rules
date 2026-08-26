@@ -93,6 +93,7 @@ service cloud.firestore {
           && (!('activeWorkplaceId'  in d) || (d.activeWorkplaceId  is string && d.activeWorkplaceId.size()  <= 100))
           && (!('onboardingComplete' in d) || (d.onboardingComplete is bool))
           && (!('onboardingDraft'    in d) || (d.onboardingDraft    is map))
+          && (!('e2eFixture'         in d) || (d.e2eFixture         is bool))
           && (!('marketingConsent'   in d) || (d.marketingConsent   is bool))
           && (!('billingPrompts'     in d) || (d.billingPrompts     is map))
           && (!('notesMigrated'      in d) || (d.notesMigrated      is bool))

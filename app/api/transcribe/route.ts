@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withRequest, noteRequest } from '@/lib/requestContext'
-import { aiMockEnabled, mockTranscribeResponse } from '@/lib/e2eMock'
+import { mockForCaller, mockTranscribeResponse } from '@/lib/e2eMock'
 import { transcribeAudio } from '@/lib/gemini'
 import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
+import { getProfile } from '@/lib/firestore/profiles-admin'
 import { getAccessState } from '@/lib/billing'
 
 // Recordings are transcribed live in short (~4 min) segments, so each request
@@ -38,7 +39,7 @@ async function handlePOST(req: NextRequest) {
     }
 
     // Preview deployments only, and never production — see lib/e2eMock.
-    if (aiMockEnabled()) {
+    if (mockForCaller(await getProfile(uidField).catch(() => null))) {
       logToSink({ level: 'info', tag: 'transcribe', route: '/api/transcribe', uid: uidField, message: 'mocked reply' })
       return NextResponse.json(mockTranscribeResponse())
     }
