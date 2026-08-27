@@ -135,6 +135,32 @@ things is how a doctor rewrites a patient record while expecting a note — and
 the two are not equally reversible. A wrong note is discarded; a wrong record
 write supersedes tracked fields.
 
+**A SCAN is not classified the same way.** `resolvePastedKind(classification,
+source)`:
+
+| Source | Rule |
+|---|---|
+| `paste` | whatever the classifier said; ties go to transcript |
+| `scan` | **ward note**, unless the classifier is CONFIDENT it is a transcript |
+
+Pressing **Scan a ward note** is a stated intention, and it is evidence the
+classifier does not have. It is also the input the classifier reads worst: OCR
+of handwriting loses the ruled columns, the heading case and often the colons,
+so the label and heading signals it leans on may never fire on a photograph that
+is unmistakably a ward round to a human. Until 2026-08-27 the scan path ran the
+paste classifier unchanged, so a messy OCR offered *Skip, use default note* — a
+note generated from a record.
+
+The override survives because a doctor can photograph the wrong page, and a
+sheet of dialogue should still offer to generate a note. The asymmetry is the
+point: **it takes real evidence to pull a scan off the record, and none to leave
+it there.**
+
+`beginPendingTranscript(text, source)` is the only way into the naming step and
+`source` is required, not defaulted — a new entry point that forgot to say would
+inherit the previous one's source, and a pasted transcript offering to overwrite
+a patient record does not look like a missing argument.
+
 ### Testing this on staging
 
 Staging is a preview deployment, so `E2E_MOCK_AI` is set there — but the mock
@@ -166,6 +192,8 @@ the strongest signal, because a conversation never carries them.
 
 - A transcript never routes to the patient record, however clinical its wording
 - A ward note routes to the record whether the patient is new or existing
+- A **scanned** note routes to the record unless the classifier is confident it
+  is a transcript — a weak or undecided score never pulls it off the record
 - The button label always matches what the button will do
 - The 80-word floor and clinical-keyword check still gate **note** generation,
   and still do not gate letters or the patient record

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { openSettings, quotaDate, getGroqKey, getGeminiKey, parsePatientIntakeFields, appendPatientHistory, mergeExtras, formatOtherTopics, pushPatientEntry } from '@/lib/utils'
-import { classifyPastedText } from '@/lib/pastedText'
+import { classifyPastedText, resolvePastedKind, type PastedSource } from '@/lib/pastedText'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import Textarea from '@/components/ui/Textarea'
@@ -168,6 +168,19 @@ export default function GeneratePage() {
   // requirement, so the paste itself is never blocked — this is only checked if
   // the doctor then picks a clinical note template.
   const noteBlockRef = useRef<string | null>(null)
+  // How the pending text arrived. Read once, at the template picker, to decide
+  // what the default button does — see resolvePastedKind.
+  const pendingSourceRef = useRef<PastedSource>('paste')
+
+  // The only way in. `source` is required rather than defaulted because the
+  // default button's behaviour turns on it: a new entry point that forgot to
+  // say would silently inherit the last one's source, and the failure — a
+  // pasted transcript offering to overwrite a patient record — would not look
+  // like a missing argument.
+  function beginPendingTranscript(text: string, source: PastedSource) {
+    pendingSourceRef.current = source
+    setPendingTranscript(text)
+  }
   // Accumulates across the two steps that fill it — naming the patient, then
   // picking the template — so the second write does not erase the first.
   const handoffRef = useRef<DraftHandoff>(EMPTY_HANDOFF)
@@ -305,11 +318,11 @@ export default function GeneratePage() {
     getHospitalForm(formKey).then(form => {
       if (form) { startHospitalForm(form, text); return }
       skipGenerationRef.current = !validateTranscript(text).valid
-      setPendingTranscript(text)
+      beginPendingTranscript(text, 'paste')
       setTranscriptConfirmOpen(true)
     }).catch(() => {
       skipGenerationRef.current = !validateTranscript(text).valid
-      setPendingTranscript(text)
+      beginPendingTranscript(text, 'paste')
       setTranscriptConfirmOpen(true)
     })
   }
@@ -351,7 +364,7 @@ export default function GeneratePage() {
       gender: patient.gender,
     })
     setPhase('idle')
-    setPendingTranscript(trimmed)
+    beginPendingTranscript(trimmed, 'scan')
     setTranscriptConfirmOpen(true)
   }
 
@@ -373,7 +386,7 @@ export default function GeneratePage() {
     skipGenerationRef.current = false
     setInputText('')
     setPhase('idle')
-    setPendingTranscript(text)
+    beginPendingTranscript(text, 'paste')
     setTranscriptConfirmOpen(true)
   }
 
@@ -424,7 +437,7 @@ export default function GeneratePage() {
     // so the edit page saves it without forcing (and wasting quota on) an AI note.
     skipGenerationRef.current = !validateTranscript(text).valid
     noteBlockRef.current = null
-    setPendingTranscript(text)
+    beginPendingTranscript(text, 'paste')
     setTranscriptConfirmOpen(true)
   }
 
@@ -493,7 +506,7 @@ export default function GeneratePage() {
     // transcript without auto-generating a note from it.
     skipGenerationRef.current = !validateTranscript(d.text).valid
     noteBlockRef.current = null
-    setPendingTranscript(d.text)
+    beginPendingTranscript(d.text, 'paste')
     setTranscriptConfirmOpen(true)
   }
 
@@ -912,7 +925,10 @@ export default function GeneratePage() {
           onAddPatient: handleAddPatientFromTranscript,
           // Lets the picker say what Skip will do, and route a ward note to the
           // patient record rather than writing a note from a copied record.
-          pastedKind: classifyPastedText(pendingTranscript).kind,
+          // A SCAN defaults to ward-note whatever the classifier scores — the
+          // doctor pressed "Scan a ward note", and OCR of handwriting is the one
+          // input the classifier reads worst. See resolvePastedKind.
+          pastedKind: resolvePastedKind(classifyPastedText(pendingTranscript), pendingSourceRef.current),
         })}
       />
       <LetterPickerModal
