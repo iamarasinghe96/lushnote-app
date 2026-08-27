@@ -311,7 +311,9 @@ export default function GeneratePage() {
     store.setLastTranscript(transcript ?? null)
     store.setLastTranscriptMode('dictation')
     store.setPendingHospitalFormGeneration(!!transcript)
-    if (transcript && user) deleteTranscriptDraft(user.uid).catch(() => {})
+    // Same reason as the letter path: HospitalFormView deletes the draft once
+    // the form is saved. Deleting it here threw away the recording before the
+    // form existed to replace it.
     router.push('/edit')
   }
 
@@ -471,7 +473,12 @@ export default function GeneratePage() {
     store.setLetterCommonFields({ letterDate: todayStr(), ...(known?.patient ? { patientName: known.patient } : {}) })
     if (known?.existingPatient) store.setLetterForKnownPatient(true)
     store.setPendingLetterGeneration(true)
-    if (user) deleteTranscriptDraft(user.uid).catch(() => {})
+    // The draft is NOT deleted here. It used to be, which meant the only durable
+    // copy of a dictated letter was destroyed at the moment of navigating —
+    // before the letter had been generated, let alone saved. A reload in that
+    // window lost the whole dictation with nothing left behind, not even the
+    // "Unnamed patient" row. doAutoSaveLetter clears it once the letter is
+    // actually in Firestore, which is the only point at which it is redundant.
     router.push('/edit')
   }
 

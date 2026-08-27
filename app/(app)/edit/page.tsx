@@ -9,6 +9,7 @@ import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft, getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { parseDraftHandoff, handoffIsRestorable, findTemplateById, type DraftHandoff } from '@/lib/draftHandoff'
+import { buildDictationTemplate } from '@/lib/dictationTemplate'
 import { getHospitalForm } from '@/lib/firestore/hospitalForms'
 import HospitalFormView from '@/components/hospital-form/HospitalFormView'
 import { registerReloadGuard } from '@/lib/reloadGuard'
@@ -89,6 +90,9 @@ function bulletsToNumbered(text: string): string {
 }
 
 const CORE_FIELD_SET = new Set<string>(CORE_NOTE_FIELDS as string[])
+
+/** How long the "Recording recovered" banner stays before clearing itself. */
+const RECOVERY_BANNER_MS = 8000
 
 // Note fields are plain text, so a markdown table the model echoed from a
 // template renders as walls of dashes. Drop the |---| separator rows and turn
@@ -388,6 +392,19 @@ function EditContent() {
   // original failure look like a fresh blank note.
   const [recoveredDraft, setRecoveredDraft] = useState<DraftHandoff | null>(null)
   const [changeTemplateOpen, setChangeTemplateOpen] = useState(false)
+
+  // The recovery banner is a reassurance, not a decision — it says the work came
+  // back and names the patient. Once read it is clutter sitting over the note,
+  // so it clears itself. Long enough to notice and finish reading the patient
+  // name; short enough that it is gone before the doctor starts typing.
+  //
+  // Nothing is lost by it going: the restored fields ARE the message, and the
+  // Generate note button it points at stays where it is.
+  useEffect(() => {
+    if (!recoveredDraft) return
+    const t = setTimeout(() => { if (mountedRef.current) setRecoveredDraft(null) }, RECOVERY_BANNER_MS)
+    return () => clearTimeout(t)
+  }, [recoveredDraft])
   // The template a REOPENED note was generated with (from note.templateId/Name),
   // so the picker shows "Currently using" even after a reload when the in-memory
   // lastChosenTemplate is gone.
@@ -720,7 +737,14 @@ function EditContent() {
     // deleted or unresolvable one degrades to the picker rather than blocking.
     if (handoff!.templateId) {
       const tpl = await resolveTemplateById(handoff!.templateId, profile?.customTemplates)
-      if (tpl && mountedRef.current) s.setLastChosenTemplate(tpl)
+      // A dictation stores the id of the template it STARTED from, not the
+      // widened shape it actually generates against — an id is all a template
+      // can be identified by. Rebuilding that shape here is what keeps
+      // Medications, Rating Scales, Referrals and Other Topics Dictated in a
+      // recovered dictation; resuming with the stored template alone would
+      // quietly drop the four sections the doctor was asked to dictate into.
+      const restored = tpl && draft.mode === 'dictation' ? buildDictationTemplate(tpl) : tpl
+      if (restored && mountedRef.current) s.setLastChosenTemplate(restored)
     }
     if (mountedRef.current) setRecoveredDraft(handoff!)
   }
