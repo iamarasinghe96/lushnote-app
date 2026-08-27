@@ -1504,6 +1504,17 @@ the check that settles it:
 | "X is live" / "main is at X" | `git fetch origin main && git log --oneline origin/main -1` |
 | "quality/e2e did not run" | `actions_list` `list_workflow_runs`, match on head_sha |
 | "promote it when you're ready" | check it is still open FIRST — it may already be merged |
+| about to close/reopen a PR to re-trigger `quality` | `pull_request_read` `get` and read `merged` — a merged PR can NEVER be reopened, and closing one is a silent no-op that looks like it worked |
+
+Check runs are not PR state. Reading `get_check_runs` says which commit was
+tested; it does not say whether the pull request is still open. Read both before
+acting on either — 2026-08-27, a PR was closed to re-trigger a check while it
+had already been merged and promoted minutes earlier.
+
+**A merged pull request cannot carry follow-up work.** Squash-merge means the
+branch commit is not an ancestor of main, so more commits on that branch produce
+a pull request full of already-shipped changes. Branch fresh from `origin/main`
+and cherry-pick the new work across.
 
 Report the state, then act on it. "Promote when ready" is not a status report; it
 is an instruction to go and check, and the check was this agent's job.
