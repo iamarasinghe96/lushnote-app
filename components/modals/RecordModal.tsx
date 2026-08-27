@@ -104,13 +104,18 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
   // Keep stopRef current so the auto-stop timeout always calls the latest version
   stopRef.current = doStop
 
-  // The X / backdrop / Escape while recording: abort the session and go back
-  // WITHOUT handing the transcript on to the naming step. stop() tears down the
-  // recorder loop and mic stream; we fire it and close immediately so the tap
-  // feels instant. Any segments already saved to the Firestore recovery draft
-  // (4-min chunks) are intentionally left intact — the "Unnamed patient" safety
-  // net still catches a long recording aborted by an accidental tap; a short
-  // one under 4 min has nothing saved yet, so it simply goes back with nothing.
+  // The X while recording: abort the session and go back WITHOUT handing the
+  // transcript on to the naming step. stop() tears down the recorder loop and
+  // mic stream; we fire it and close immediately so the tap feels instant.
+  //
+  // Reachable ONLY from the X now. The backdrop and Escape used to land here
+  // too, which meant a stray click during a consultation ended the recording —
+  // and under 4 minutes nothing has reached the recovery draft yet, so it ended
+  // it with nothing kept. Those two are gestures a doctor makes by accident
+  // while a session is live; the X is not. See `dismissible` on Modal.
+  //
+  // Segments already written to the Firestore recovery draft are left intact,
+  // so a deliberate abort of a long recording is still recoverable.
   function handleCancelRecording() {
     if (autoStopRef.current) {
       clearTimeout(autoStopRef.current)
@@ -161,7 +166,12 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
   }
 
   return (
-    <Modal open={open} onClose={phase === 'recording' ? handleCancelRecording : onClose} title="Record Session">
+    <Modal
+      open={open}
+      onClose={phase === 'recording' ? handleCancelRecording : onClose}
+      dismissible={phase !== 'recording'}
+      title="Record Session"
+    >
       <div className="px-5 pb-5 space-y-4">
         {interrupted && (
           <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">

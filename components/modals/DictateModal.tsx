@@ -192,10 +192,14 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
 
   stopRef.current = doStop
 
-  // The X / backdrop / Escape while recording: abort the dictation and go back
-  // WITHOUT handing the transcript on. stop() tears down the recorder loop and
-  // mic stream; fire it and close immediately so the tap feels instant. Any
-  // segments already saved to the Firestore recovery draft are left intact.
+  // The X while recording: abort the dictation and go back WITHOUT handing the
+  // transcript on. stop() tears down the recorder loop and mic stream; fire it
+  // and close immediately so the tap feels instant. Any segments already saved
+  // to the Firestore recovery draft are left intact.
+  //
+  // Reachable ONLY from the X — the backdrop and Escape are inert while
+  // recording, for the same reason as Record Session: they are gestures a
+  // doctor makes by accident, and this one ends a live capture.
   function handleCancelRecording() {
     if (autoStopRef.current) {
       clearTimeout(autoStopRef.current)
@@ -253,7 +257,13 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
     : (letterType ? LETTER_GUIDE[letterType] : [])
 
   return (
-    <Modal open={open} onClose={phase === 'recording' ? handleCancelRecording : onClose} title="Dictate Note" maxWidth="md">
+    <Modal
+      open={open}
+      onClose={phase === 'recording' ? handleCancelRecording : onClose}
+      dismissible={phase !== 'recording'}
+      title="Dictate Note"
+      maxWidth="md"
+    >
       <div className="px-5 pb-5 space-y-4">
         {interrupted && (
           <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
