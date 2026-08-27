@@ -7,7 +7,8 @@ import { useNoteStore, hydrateLetterFromNote } from '@/hooks/useNoteStore'
 import { useKeyboardCloseSafety } from '@/hooks/useKeyboardCloseSafety'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
-import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
+import { deleteTranscriptDraft, getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
+import { parseDraftHandoff, handoffIsRestorable, findTemplateById, type DraftHandoff } from '@/lib/draftHandoff'
 import { getHospitalForm } from '@/lib/firestore/hospitalForms'
 import HospitalFormView from '@/components/hospital-form/HospitalFormView'
 import { registerReloadGuard } from '@/lib/reloadGuard'
@@ -382,6 +383,10 @@ function EditContent() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
   const [generationError, setGenerationError] = useState<string | null>(null)
+  // Set when a recording's handoff was recovered from the draft after a page
+  // load. Drives the banner that says so — silence here is what made the
+  // original failure look like a fresh blank note.
+  const [recoveredDraft, setRecoveredDraft] = useState<DraftHandoff | null>(null)
   const [changeTemplateOpen, setChangeTemplateOpen] = useState(false)
   // The template a REOPENED note was generated with (from note.templateId/Name),
   // so the picker shows "Currently using" even after a reload when the in-memory
@@ -671,9 +676,68 @@ function EditContent() {
     } else {
       latestFieldsRef.current = s.currentNote
       setFields(s.currentNote)
+      // Nothing in the store and no note asked for. Either a genuinely fresh
+      // note, or a recording whose handoff a page load threw away — which used
+      // to be indistinguishable, so a lost session looked like a blank form.
+      // Ask the recovery draft which it is.
+      if (!s.currentNote.patient && !s.lastTranscript) void restoreFromDraft()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
+
+  // Put a reloaded recording back: the patient the doctor named, the template
+  // they chose, and the transcript. Generation is NOT restarted on its own —
+  // Gemini allows 20 notes a day, and a reload loop that silently spent them
+  // would replace a recoverable problem with an unrecoverable one. Restoring
+  // lastTranscript is what raises the existing "Generate note" button, so the
+  // doctor resumes with one deliberate tap.
+  async function restoreFromDraft() {
+    if (!user) return
+    const draft = await getTranscriptDraft(user.uid).catch(() => null)
+    if (!draft?.text?.trim() || !mountedRef.current) return
+    const handoff = parseDraftHandoff(draft.handoff)
+    if (!handoffIsRestorable(handoff)) return
+
+    const s = storeRef.current
+    s.setLastTranscript(draft.text)
+    s.setLastTranscriptMode((draft.mode as Note['transcriptMode']) ?? 'conversation')
+    s.setCurrentNoteId(null)
+    if (handoff!.dob || handoff!.gender) {
+      s.setPendingPatientProfile({ dob: handoff!.dob, gender: handoff!.gender })
+    }
+
+    const restored: Partial<Note> = {
+      patient: handoff!.patient,
+      reg_number: handoff!.reg_number,
+      session_number: handoff!.session_number,
+      attendance: handoff!.attendance,
+    }
+    latestFieldsRef.current = { ...latestFieldsRef.current, ...restored }
+    setFields(latestFieldsRef.current)
+    s.setCurrentNote(latestFieldsRef.current)
+
+    // The template is a convenience — a note is recoverable without it, so a
+    // deleted or unresolvable one degrades to the picker rather than blocking.
+    if (handoff!.templateId) {
+      const tpl = await resolveTemplateById(handoff!.templateId, profile?.customTemplates)
+      if (tpl && mountedRef.current) s.setLastChosenTemplate(tpl)
+    }
+    if (mountedRef.current) setRecoveredDraft(handoff!)
+  }
+
+  // The built-in templates are a ~1MB JSON file, so it loads only on the rare
+  // path that needs it rather than on every edit-page mount.
+  async function resolveTemplateById(
+    id: string,
+    custom: AnyTemplate[] | undefined,
+  ): Promise<AnyTemplate | null> {
+    try {
+      const mod = await import('@/data/clinical-templates.json')
+      return findTemplateById(id, mod.default as AnyTemplate[], custom)
+    } catch {
+      return null
+    }
+  }
 
   async function loadNote(noteId: string) {
     const note = await getNote(noteId)
@@ -2466,6 +2530,26 @@ function EditContent() {
             )}
             <button onClick={() => setGenerationError(null)} className="text-xs underline">Dismiss</button>
           </div>
+        </div>
+      )}
+
+      {/* Recovered recording — says what came back and that nothing was lost.
+          Deliberately amber, not red: this is the safety net working, and the
+          doctor's next move is one tap, not a diagnosis. */}
+      {recoveredDraft && !generationError && (
+        <div className="absolute left-4 right-4 z-20 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 flex items-center justify-between gap-2"
+             style={{ top: errorTop }}>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-amber-800 truncate">
+              Recording recovered — {recoveredDraft.patient}
+            </p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              The page reloaded before the note was made. The transcript
+              {recoveredDraft.templateTitle ? ` and ${recoveredDraft.templateTitle}` : ''} are back.
+            </p>
+          </div>
+          <button onClick={() => setRecoveredDraft(null)}
+                  className="text-xs underline text-amber-800 shrink-0">Dismiss</button>
         </div>
       )}
 

@@ -17,7 +17,8 @@ import TemplatePicker from '@/components/modals/TemplatePicker'
 import LetterPickerModal from '@/components/modals/LetterPickerModal'
 import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderModal'
 import { listNotes } from '@/lib/firestore/notes'
-import { getTranscriptDraft, deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
+import { getTranscriptDraft, deleteTranscriptDraft, saveDraftHandoff } from '@/lib/firestore/transcriptDrafts'
+import { EMPTY_HANDOFF, type DraftHandoff } from '@/lib/draftHandoff'
 import { getHospitalFormsForWorkplace, getHospitalForm } from '@/lib/firestore/hospitalForms'
 import { updateProfile } from '@/lib/firestore/profiles'
 import { getPatientProfiles, savePatientProfile } from '@/lib/firestore/patients'
@@ -167,6 +168,9 @@ export default function GeneratePage() {
   // requirement, so the paste itself is never blocked — this is only checked if
   // the doctor then picks a clinical note template.
   const noteBlockRef = useRef<string | null>(null)
+  // Accumulates across the two steps that fill it — naming the patient, then
+  // picking the template — so the second write does not erase the first.
+  const handoffRef = useRef<DraftHandoff>(EMPTY_HANDOFF)
 
   useEffect(() => {
     if (localStorage.getItem('_ln_rec_interrupted')) {
@@ -550,6 +554,18 @@ export default function GeneratePage() {
     store.setLastTranscriptMode(creationMode)
     store.setPendingPatientProfile(isNewPatient ? { dob, gender } : null)
 
+    // Everything above this line is React state, which a page load discards.
+    // Put what the doctor just typed beside the transcript in the recovery
+    // draft, so a reload between here and the edit page can hand it back
+    // instead of losing the name and resurfacing the session as "Unnamed".
+    if (user) {
+      handoffRef.current = {
+        ...EMPTY_HANDOFF,
+        patient, reg_number: regNumber, session_number: sessionNumber, attendance, dob, gender,
+      }
+      void saveDraftHandoff(user.uid, handoffRef.current)
+    }
+
     // Non-clinical transcript: skip the template picker and generation entirely.
     // Land on the edit page, where it's saved under the patient with the
     // transcript preserved and a "Generate note" button for on-demand use.
@@ -684,6 +700,25 @@ export default function GeneratePage() {
     store.setLastChosenTemplate(template)
     store.setOverrideNoteLength(noteLength as 'brief' | 'balanced' | 'detailed')
     store.setPendingAnimation(true)
+
+    // Record the template alongside the patient before navigating. The edit page
+    // consumes pendingAnimation on mount, so if that mount never happens with
+    // this store — a reload, a discarded tab — the intent to generate exists
+    // nowhere else. Written, not awaited: the doctor is mid-navigation and the
+    // net must not add latency to the path it protects.
+    if (user) {
+      handoffRef.current = {
+        ...handoffRef.current,
+        patient:        prefillPatient?.patient        ?? handoffRef.current.patient,
+        reg_number:     prefillPatient?.reg_number     ?? handoffRef.current.reg_number,
+        session_number: prefillPatient?.session_number ?? handoffRef.current.session_number,
+        attendance:     prefillPatient?.attendance     ?? handoffRef.current.attendance,
+        templateId: String(template.id),
+        templateTitle: template.title,
+        pendingGeneration: true,
+      }
+      void saveDraftHandoff(user.uid, handoffRef.current)
+    }
     setPhase('idle')
     router.push('/edit')
   }

@@ -9,6 +9,7 @@ import { getPatientProfiles, deletePatientProfile, savePatientProfile } from '@/
 import { updateProfile } from '@/lib/firestore/profiles'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
 import { getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
+import { parseDraftHandoff } from '@/lib/draftHandoff'
 import { getHospitalFormsForWorkplace } from '@/lib/firestore/hospitalForms'
 import { GenderAvatar } from '@/components/ui/GenderAvatar'
 import Modal from '@/components/ui/Modal'
@@ -582,7 +583,7 @@ export default function PatientsPage() {
   const [selectedPatient, setSelectedPatient] = useState<PatientGroup | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [editingProfile, setEditingProfile] = useState<PatientProfile | undefined>(undefined)
-  const [unfinishedDraft, setUnfinishedDraft] = useState<{ text: string; durationSec: number } | null>(null)
+  const [unfinishedDraft, setUnfinishedDraft] = useState<{ text: string; durationSec: number; patient: string } | null>(null)
   const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
     // ?view=table lands straight on the table — used after filling a patient's
     // record from a pasted note, so the doctor sees the fields that landed.
@@ -602,8 +603,12 @@ export default function PatientsPage() {
       .then(([n, p]) => { setNotes(n); setProfiles(p) })
       .finally(() => setLoading(false))
     getTranscriptDraft(user.uid).then(d => {
+      // The draft carries the name when the doctor got as far as the confirm
+      // step, so a recovered session is findable by who it is about rather than
+      // sitting in the list as an anonymous row they have to open to identify.
+      const handoff = d ? parseDraftHandoff(d.handoff) : null
       setUnfinishedDraft(d && typeof d.text === 'string' && d.text.trim().length > 0
-        ? { text: d.text, durationSec: d.durationSec ?? 0 }
+        ? { text: d.text, durationSec: d.durationSec ?? 0, patient: handoff?.patient ?? '' }
         : null)
     }).catch(() => {})
   }, [user?.uid])
@@ -1451,7 +1456,9 @@ export default function PatientsPage() {
             <GenderAvatar gender={null} size={40} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-[var(--text)] truncate">Unnamed patient</p>
+                <p className="text-sm font-semibold text-[var(--text)] truncate">
+                  {unfinishedDraft.patient || 'Unnamed patient'}
+                </p>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700
                                  bg-amber-100 border border-amber-300 rounded-full px-1.5 py-0.5 shrink-0">
                   Unfinished

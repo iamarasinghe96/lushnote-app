@@ -178,12 +178,105 @@ comparison would silently point ambiguous pastes at a patient record.
 
 ---
 
+## `note-record` — Record a session
+
+**Entry:** Generate → **Record Session**
+**Ends at:** `/edit` with a generated note
+**Code:** `RecordModal` → `useSegmentedRecorder` → `TranscriptConfirmModal` →
+`TemplatePicker` → `/edit`
+**Coverage:** ⚠️ — the handoff parser is unit-tested; nothing drives a real
+recording (headless Chrome has no microphone, and `getDisplayMedia` needs a
+picker), so the capture half is manual
+
+### The pathway
+
+| # | Step | What the doctor does | What the code does |
+|---|---|---|---|
+| 1 | Open | **Record Session** | Modal with **In-person** / **Telehealth**, and a red consent warning that never auto-dismisses |
+| 2 | Consent | Obtains the patient's consent | Nothing enforced in code — this is a prompt, deliberately, because the app cannot verify consent |
+| 3 | Pick a source | **In-person** → mic; **Telehealth** → share a window/tab **with audio** | `getUserMedia` / `getDisplayMedia` |
+| 4 | Record | Timer runs on wall clock | `useSegmentedRecorder` cuts a fresh `MediaRecorder` every **4 min** (`SEGMENT_MS`) |
+| 5 | Each segment | — | Audio uploaded to Storage **first** (durable), then transcribed, then appended to `transcriptDrafts/current` |
+| 6 | Optional | **Keep recording while I use another app** | `useRecordingPiP` — a canvas HUD in Picture-in-Picture keeps the tab unfrozen so the OS does not take the mic |
+| 7 | Interruption | A call arrives, mic is taken | `mute`/`ended` on the track flushes the in-flight segment, shows *Paused — microphone interrupted*; `unmute` resumes |
+| 8 | Stop | **Stop recording**, or the auto-stop the doctor set | Drains the queue — this is *Finishing transcript* |
+| 9 | Name | Confirm transcript → patient, reg, DOB, gender | Same modal as `note-paste` |
+| 10 | Template | **Skip, use default note** → Comprehensive Psychology Note | `handleTemplateSelect` → `/edit` |
+| 11 | Generate | Watches fields fill | `runPendingGeneration` on the edit page |
+
+Clicking the dimmed backdrop while recording does nothing — stopping a
+consultation recording must be deliberate.
+
+### Nothing may be the only copy
+
+Three independent copies exist by the time a segment completes, in this order:
+
+1. **Audio** in Storage (`recordings/{uid}/`) — survives total transcription
+   failure; the session can be re-transcribed
+2. **Text** in `users/{uid}/transcriptDrafts/current` — survives a crash, a
+   closed tab, a reload
+3. **The note** in `progress_notes` — written *before* generation runs, so a
+   failed generation cannot lose the session
+
+The counters on the recording screen report captured-vs-transcribed minutes
+honestly rather than implying success: a segment whose audio saved but whose
+transcription failed is logged as such.
+
+### The reload that used to lose a session
+
+Recorded 2026-08-27, from a real 11-minute recording.
+
+The doctor named the patient, chose a template, and landed on `/edit` with a
+blank form, no generation and **no error** — the session showing up in Patients
+as *Unnamed patient*.
+
+The store (`hooks/useNoteStore`) is plain React state with no persistence, and
+it held the entire handoff: patient name, reg, DOB/gender, the chosen template
+and `pendingAnimation`. A page load anywhere between step 9 and step 11 dropped
+all of it, and the edit page's mount effect then took its
+nothing-to-do branch — which is indistinguishable from opening a fresh note.
+
+Why a reload happens there is not exotic: the App Router hard-navigates when a
+deployment's build id changes under an open tab, and **every promote changes the
+deployment**. Shipping a release can do this to a doctor mid-note.
+
+The handoff is now written into the same recovery draft that already holds the
+transcript (`lib/draftHandoff`, `saveDraftHandoff`), at both points the doctor
+supplies something — naming the patient, then picking the template. On arriving
+at `/edit` with an empty store and no `?noteId=`, `restoreFromDraft` puts it
+back and raises a **Recording recovered** banner.
+
+**Generation is not restarted automatically.** Gemini allows 20 notes a day, and
+a reload loop that silently spent them would trade a recoverable failure for an
+unrecoverable one. Restoring the transcript raises the existing **Generate
+note** button, so resuming is one deliberate tap.
+
+### Expected outputs — what must remain true
+
+- Every 4 minutes of audio reaches Storage before its transcription is attempted
+- An interrupted recording is recoverable from the draft with no note saved
+- A page load between naming the patient and the note appearing loses **nothing**
+  the doctor typed — and says so, rather than showing a blank form
+- A recovered session appears in Patients under its **patient's name**, not
+  "Unnamed patient", once the doctor has named it
+- Recovery never fires generation by itself
+- A template deleted between recording and recovery degrades to the picker; it
+  never blocks recovery
+- The consent warning is present on every entry to the modal
+
+Covered by `tests/unit/draft-handoff.test.ts` — the parser is fed arrays,
+wrong types, partial documents and hand-edited values, because it is read back
+by a later build and `undefined` reaching a controlled input turns it
+uncontrolled mid-note.
+
+---
+
 ## Not yet recorded
 
 These exist and are unprotected. Each becomes a section here as it is specified:
 
 `note-scan` (OCR) ❌ · `note-dictate` ❌ ·
-`note-record` ❌ · `note-manual` ❌ · letters, four types ❌ · `hospital-form` ❌ ·
+`note-manual` ❌ · letters, four types ❌ · `hospital-form` ❌ ·
 `patient-add` ❌ · `patient-search` ❌ · `transcript-qa` ❌ · `history` ❌ ·
 `mode-transitions` (note ↔ letter ↔ form) ❌ · `settings-panels` ⚠️ ·
 `billing-states` ⚠️
