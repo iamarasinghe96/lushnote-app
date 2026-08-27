@@ -1488,3 +1488,30 @@ and that is what kept breaking working features when an unrelated one was fixed.
   from the deployed commit, not from main. Verified — an error message added on
   a branch appeared in that branch's own run. So a workflow edit CAN be
   validated by its own pull request; only a new workflow cannot.
+
+### Never ask the owner what the release state is — read it
+
+Every fact about branches, pull requests, checks and what is live is available
+through the API in one call. Asking the owner to go and look, or telling them to
+promote something that is already promoted, makes them the messenger for data
+they are paying to have checked. Before ANY sentence about release state, run
+the check that settles it:
+
+| Claim about to be made | Command that settles it |
+|---|---|
+| "PR #N is green / red / waiting" | `pull_request_read` `get_check_runs` on N |
+| "there is a pull request open" | `list_pull_requests` state `open` |
+| "X is live" / "main is at X" | `git fetch origin main && git log --oneline origin/main -1` |
+| "quality/e2e did not run" | `actions_list` `list_workflow_runs`, match on head_sha |
+| "promote it when you're ready" | check it is still open FIRST — it may already be merged |
+
+Report the state, then act on it. "Promote when ready" is not a status report; it
+is an instruction to go and check, and the check was this agent's job.
+
+**A push does not start `quality`.** Confirmed 2026-08-26: three consecutive
+pushes to an open pull request created no `pull_request` run, while
+`deployment_status` runs (`e2e`) fired normally throughout — so it is not the
+workflow, the quota or the YAML. Closing and reopening the pull request through
+the API starts it within seconds. After pushing, VERIFY the run exists rather
+than assuming, and reopen to trigger it when it does not. `quality.yml` also
+carries `workflow_dispatch` for the same reason, usable once it is on main.

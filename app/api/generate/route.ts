@@ -9,8 +9,11 @@ import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { resolveEntitlement } from '@/lib/entitlement'
 
-// Generating a note from a long transcript can exceed Vercel's 10s Hobby
-// default. 60s is the Hobby-plan ceiling.
+// Generating a note from a long transcript can exceed Vercel's 10s default —
+// an hour-long session is tens of thousands of tokens. 300s is the ceiling on
+// the current plan. (This comment previously said 60s was the limit while the
+// value beside it was already 300, which would send the next person reading it
+// hunting for a timeout that does not exist.)
 export const maxDuration = 300
 
 // LLMs frequently emit multi-line field values (e.g. a progress-note body or a
