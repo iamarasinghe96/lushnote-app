@@ -322,11 +322,94 @@ uncontrolled mid-note.
 
 ---
 
+## `note-dictate` — Dictate a note, letter or form
+
+**Entry:** Generate → **Dictate Note**
+**Ends at:** `/edit` with a generated note, letter, or hospital form
+**Code:** `DictateModal` → `useSegmentedRecorder` → `handleTranscriptReady`
+**Coverage:** ⚠️ — the template widening is unit-tested; the capture half is
+manual, for the same reason as `note-record` (no microphone in headless Chrome)
+
+### Two pathways, and they diverge immediately
+
+| Choice | Then | Confirm transcript? | Template picker? |
+|---|---|---|---|
+| **Start a psychiatrist note** | note checklist → dictate | **yes** — names the patient | **no** — see below |
+| **Dictate a letter or form** | pick the type → its own checklist → dictate | **no** | n/a |
+
+The letter list is built per doctor: the four built-in types, their own custom
+letter templates, and any hospital form whose `organizationKeys` match their
+active workplace. A letter generates straight from the dictation — patient name,
+DOB and the rest are extracted from what was said, so there is nothing to
+confirm first.
+
+### A dictated note does not ask for a template
+
+Pressing **Start a psychiatrist note** already says what is being written, and
+the modal then hands over a checklist to dictate against. Offering 116 templates
+afterwards asks the doctor to state the same intention twice, so dictation
+always uses **Comprehensive Psychology Note** (id 1).
+
+**Recording a session is not the same and keeps its picker.** A recorded
+consultation could legitimately be any template, and nothing about pressing
+Record says which.
+
+### The checklist and the template disagreed
+
+The modal asks the doctor to cover **nine** topics. Comprehensive Psychology
+Note has **seven** sections, and three of the nine had nowhere to go:
+
+| Topic the modal asks for | Section in template 1 |
+|---|---|
+| Current medications, adherence, side effects | **none** |
+| Any rating scale scores completed today | **none** |
+| Referrals made or correspondence to send | **none** |
+
+So the app told a doctor to dictate their medications and their PHQ-9 score into
+a template that could hold neither. All three are first-class note fields with
+their own rows in the edit page and their own headings in the PDF — they were
+simply absent from that template's section list. The picker hid this, because a
+doctor who chose a different template might land on one that had them.
+
+`buildDictationTemplate` (`lib/dictationTemplate.ts`) widens the template for
+dictation only: the missing core sections in canonical note order, plus an
+**Other Topics Dictated** extra as a catch-all.
+
+**Derived, never written back to `data/clinical-templates.json`.** The stored
+template is what a doctor gets when they pick it deliberately in another
+pathway, and editing it there would rewrite the section ordering of notes
+already saved against it.
+
+**The catch-all carries its own instruction.** `buildTemplatePrompt` only lists
+markers; a heading with no rule attached comes back empty, and the spoken detail
+it was meant to hold is dropped. Dictation wanders — a collateral call, an
+allergy, a carer's concern — and none of that may be lost because no section
+fits it.
+
+### Expected outputs — what must remain true
+
+- Every topic the checklist asks for has somewhere to land in the note
+- Anything dictated that matches no section appears under **Other Topics
+  Dictated**, never nowhere
+- Dictating a note never shows the template picker; recording a session always
+  does
+- The stored template 1 is unchanged by dictation — verified by test
+- A letter dictation never shows the Confirm transcript step
+- A hospital form or custom letter template deleted mid-dictation degrades
+  rather than losing the recording
+
+Covered by `tests/unit/dictation-template.test.ts`, which asserts the
+checklist/template contract directly against the real
+`data/clinical-templates.json` — so adding a topic to the modal without giving
+it a home fails the suite.
+
+---
+
 ## Not yet recorded
 
 These exist and are unprotected. Each becomes a section here as it is specified:
 
-`note-scan` (OCR) ❌ · `note-dictate` ❌ ·
+`note-scan` (OCR) ❌ ·
 `note-manual` ❌ · letters, four types ❌ · `hospital-form` ❌ ·
 `patient-add` ❌ · `patient-search` ❌ · `transcript-qa` ❌ · `history` ❌ ·
 `mode-transitions` (note ↔ letter ↔ form) ❌ · `settings-panels` ⚠️ ·
