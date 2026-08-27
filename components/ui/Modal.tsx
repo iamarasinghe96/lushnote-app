@@ -8,12 +8,22 @@ interface ModalProps {
   onClose: () => void
   title?: string
   maxWidth?: 'sm' | 'md' | 'lg'
+  /**
+   * Whether the two ACCIDENTAL ways out — a click on the backdrop, and Escape —
+   * close this modal. Default true.
+   *
+   * False is for a modal whose close does something destructive that a stray
+   * click must not trigger: a recording in progress, where dismissing ends a
+   * live consultation. The X stays, because that one is deliberate. This is
+   * about which gestures count as an intention, not about trapping the doctor.
+   */
+  dismissible?: boolean
   children: ReactNode
 }
 
 const maxWidthClasses = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg' }
 
-export default function Modal({ open, onClose, title, maxWidth = 'md', children }: ModalProps) {
+export default function Modal({ open, onClose, title, maxWidth = 'md', dismissible = true, children }: ModalProps) {
   const [mounted, setMounted] = useState(false)
   // Visual-viewport geometry. iOS Chrome does NOT shrink the layout viewport when
   // the on-screen keyboard opens (Safari does), so a bottom-anchored sheet stays
@@ -46,11 +56,11 @@ export default function Modal({ open, onClose, title, maxWidth = 'md', children 
   }, [open])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || !dismissible) return
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open, onClose, dismissible])
 
   if (!mounted || !open) return null
 
@@ -75,7 +85,9 @@ export default function Modal({ open, onClose, title, maxWidth = 'md', children 
     <div
       className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
       style={overlayStyle}
-      onMouseDown={onClose}
+      // mousedown, not click, so a drag that STARTS on the backdrop counts —
+      // which is exactly why it must be inert while something is recording.
+      onMouseDown={dismissible ? onClose : undefined}
       role="dialog"
       aria-modal
     >

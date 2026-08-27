@@ -186,7 +186,10 @@ comparison would silently point ambiguous pastes at a patient record.
 `TemplatePicker` → `/edit`
 **Coverage:** ⚠️ — the handoff parser is unit-tested; nothing drives a real
 recording (headless Chrome has no microphone, and `getDisplayMedia` needs a
-picker), so the capture half is manual
+picker), so the capture half is manual. `dismissible` is a component prop and
+the unit suite runs on `environment: 'node'` with no DOM, so the inert backdrop
+is **unverified by any test** — checked by hand, and stated here rather than
+implied
 
 ### The pathway
 
@@ -204,8 +207,25 @@ picker), so the capture half is manual
 | 10 | Template | **Skip, use default note** → Comprehensive Psychology Note | `handleTemplateSelect` → `/edit` |
 | 11 | Generate | Watches fields fill | `runPendingGeneration` on the edit page |
 
-Clicking the dimmed backdrop while recording does nothing — stopping a
-consultation recording must be deliberate.
+### Only a deliberate gesture may end a live recording
+
+While `phase === 'recording'`, the backdrop and Escape are **inert**
+(`dismissible={false}` on `Modal`). Stopping is the red **Stop recording**
+button; abandoning is the **X**.
+
+This was the other way round until 2026-08-27, and the code comment conceded
+it: the backdrop and Escape both ran `handleCancelRecording`, so a stray click
+beside the modal ended a live consultation. Over four minutes the recovery
+draft caught what had already been segmented; **under four minutes nothing had
+been written yet**, so an accidental click ended the recording with nothing
+kept.
+
+The distinction is which gestures are intentions. A doctor clicks beside a
+modal and presses Escape by reflex; they do not press a red Stop button or an X
+by reflex. The backdrop uses `onMouseDown`, so a *drag* beginning on the
+backdrop also counted — one more reason it could not stay live.
+
+The same applies to **Dictate Note**, which records identically.
 
 ### Nothing may be the only copy
 
@@ -260,6 +280,9 @@ note** button, so resuming is one deliberate tap.
 - A recovered session appears in Patients under its **patient's name**, not
   "Unnamed patient", once the doctor has named it
 - Recovery never fires generation by itself
+- A click on the backdrop or an Escape press while recording does **nothing** —
+  in Record Session and in Dictate Note alike
+- Stop recording still stops; the X still abandons
 - A template deleted between recording and recovery degrades to the picker; it
   never blocks recovery
 - The consent warning is present on every entry to the modal
