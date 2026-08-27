@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { classifyPastedText, isConfidentWardNote, CONFIDENT } from '@/lib/pastedText'
+import { classifyPastedText, isConfidentWardNote, resolvePastedKind, CONFIDENT } from '@/lib/pastedText'
 
 // This decides whether a paste writes a NOTE or rewrites a PATIENT RECORD.
 // Getting it wrong toward ward-note is the expensive direction: the record path
@@ -151,5 +151,53 @@ describe('isConfidentWardNote', () => {
     // The UI keeps its default wording rather than announcing a guess.
     const c = { kind: 'ward-note' as const, confidence: 0.1, signals: [] }
     expect(isConfidentWardNote(c)).toBe(false)
+  })
+})
+
+describe('resolvePastedKind — a scan is a stated intention', () => {
+  // The doctor pressed "Scan a ward note". That is evidence the classifier does
+  // not have, and it outranks a weak score — OCR of handwriting loses the ruled
+  // columns, the heading case and often the colons, so the label and heading
+  // signals may never fire on a photograph that is unmistakably a ward round to
+  // a human. Before this, a scan ran the paste classifier unchanged and a messy
+  // OCR offered "Skip, use default note" — generating a note from a record.
+
+  it('leaves a paste exactly as the classifier called it', () => {
+    expect(resolvePastedKind(classifyPastedText(WARD_NOTE), 'paste')).toBe('ward-note')
+    expect(resolvePastedKind(classifyPastedText(TRANSCRIPT), 'paste')).toBe('transcript')
+  })
+
+  it('keeps a scan on the record when the classifier says transcript weakly', () => {
+    // The case this exists for: OCR stripped the structure, so the classifier
+    // leans transcript without conviction. The button must still fill the record.
+    const weak = { kind: 'transcript' as const, confidence: 0.1, signals: [] }
+    expect(resolvePastedKind(weak, 'scan')).toBe('ward-note')
+  })
+
+  it('keeps a scan on the record when the classifier is undecided', () => {
+    const tie = { kind: 'transcript' as const, confidence: 0, signals: [] }
+    expect(resolvePastedKind(tie, 'scan')).toBe('ward-note')
+    expect(resolvePastedKind(classifyPastedText(''), 'scan')).toBe('ward-note')
+  })
+
+  it('still lets a confident transcript override a scan', () => {
+    // A doctor can photograph the wrong page. A sheet of dialogue should still
+    // offer to generate a note — the override needs real evidence, not none.
+    expect(resolvePastedKind(classifyPastedText(TRANSCRIPT), 'scan')).toBe('transcript')
+  })
+
+  it('is asymmetric, and that is the point', () => {
+    // Same weak score, opposite directions: weak-transcript cannot pull a scan
+    // off the record, and nothing needs to hold it there. Flipping this to a
+    // symmetric rule would restore the bug on exactly the input it was built
+    // for, so it is asserted directly rather than left to the two cases above.
+    const weakTranscript = { kind: 'transcript' as const, confidence: CONFIDENT - 0.01, signals: [] }
+    const strongTranscript = { kind: 'transcript' as const, confidence: CONFIDENT, signals: [] }
+    expect(resolvePastedKind(weakTranscript, 'scan')).toBe('ward-note')
+    expect(resolvePastedKind(strongTranscript, 'scan')).toBe('transcript')
+  })
+
+  it('never sends a scanned ward note anywhere but the record', () => {
+    expect(resolvePastedKind(classifyPastedText(WARD_NOTE), 'scan')).toBe('ward-note')
   })
 })

@@ -162,3 +162,34 @@ export const CONFIDENT = 0.34
 export function isConfidentWardNote(c: PastedClassification): boolean {
   return c.kind === 'ward-note' && c.confidence >= CONFIDENT
 }
+
+/** Where the text came from. A paste is ambiguous by nature; a scan is not — the
+ *  doctor pressed a button that says "Scan a ward note". */
+export type PastedSource = 'paste' | 'scan'
+
+/**
+ * What the default button should do, given the content AND how it arrived.
+ *
+ * Pasting is genuinely ambiguous: a transcript and a ward note come through the
+ * same box, so the classifier decides and ties go to transcript.
+ *
+ * Scanning is not ambiguous. The doctor chose **Scan a ward note**, which is a
+ * stated intention, and the classifier is weakest on exactly this input — OCR of
+ * handwriting loses the ruled columns, the heading case and often the colons, so
+ * the label and heading signals the classifier leans on may never fire on a
+ * photograph of a note that is unmistakably a ward round to a human. Letting a
+ * weak signal overrule a stated intention is how a copied record becomes a
+ * generated note.
+ *
+ * So a scan is a ward note unless the classifier is CONFIDENT it is a
+ * transcript. That override exists because a doctor can photograph the wrong
+ * thing, and a page of dialogue should still offer to generate a note.
+ *
+ * The asymmetry is deliberate and is the whole point: it takes real evidence to
+ * pull a scan away from the record, and none to leave it there.
+ */
+export function resolvePastedKind(c: PastedClassification, source: PastedSource): PastedKind {
+  if (source !== 'scan') return c.kind
+  const confidentTranscript = c.kind === 'transcript' && c.confidence >= CONFIDENT
+  return confidentTranscript ? 'transcript' : 'ward-note'
+}
