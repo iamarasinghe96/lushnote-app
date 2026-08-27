@@ -19,12 +19,16 @@ import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderMod
 import { listNotes } from '@/lib/firestore/notes'
 import { getTranscriptDraft, deleteTranscriptDraft, saveDraftHandoff } from '@/lib/firestore/transcriptDrafts'
 import { EMPTY_HANDOFF, type DraftHandoff } from '@/lib/draftHandoff'
+import { buildDictationTemplate } from '@/lib/dictationTemplate'
 import { getHospitalFormsForWorkplace, getHospitalForm } from '@/lib/firestore/hospitalForms'
 import { updateProfile } from '@/lib/firestore/profiles'
 import { getPatientProfiles, savePatientProfile } from '@/lib/firestore/patients'
 import type { AnyTemplate, NoteCreationMode, Note, LetterType, CustomLetterTemplate, HospitalFormDoc, PatientProfile } from '@/types'
 
 const GEMINI_RPD = 20
+
+/** Comprehensive Psychology Note. What "Start a psychiatrist note" means. */
+const DICTATION_TEMPLATE_ID = '1'
 
 type GenPhase =
   | 'idle'
@@ -592,10 +596,58 @@ export default function GeneratePage() {
       return
     }
 
+    // A dictated psychiatrist note has already said what it is. The doctor
+    // pressed "Start a psychiatrist note" and dictated against that checklist,
+    // so asking them to choose from 116 templates afterwards makes them state
+    // the same intention twice. Go straight to generation on Comprehensive
+    // Psychology Note, widened to hold every topic the checklist asked for.
+    //
+    // Recording a session is NOT the same and keeps its picker: a recorded
+    // consultation could legitimately be any template, and nothing about
+    // pressing Record says which.
+    if (creationMode === 'dictation') {
+      void startDictatedNote(patient, regNumber, sessionNumber, attendance)
+      return
+    }
+
     // Keep the recovery draft until the note is durably saved (in the edit
     // page). Deleting it here risks losing the session if the tab reloads
     // before the note is persisted.
     setPhase('template-picking')
+  }
+
+  // Resolve Comprehensive Psychology Note and start generating with it. The
+  // built-in file is large, so it is imported here rather than on every mount.
+  // If it cannot be loaded the picker still opens — a doctor must never be left
+  // holding a dictation with no way forward.
+  async function startDictatedNote(
+    patient: string, regNumber: string, sessionNumber: string, attendance: string,
+  ) {
+    let template: AnyTemplate | null = null
+    try {
+      const mod = await import('@/data/clinical-templates.json')
+      const base = (mod.default as AnyTemplate[]).find(t => String(t.id) === DICTATION_TEMPLATE_ID)
+      if (base) template = buildDictationTemplate(base)
+    } catch { /* fall through to the picker */ }
+
+    if (!template) { setPhase('template-picking'); return }
+
+    store.resetHospitalForm()
+    store.setCurrentNote({ patient, reg_number: regNumber, session_number: sessionNumber, attendance })
+    store.setCurrentNoteId(null)
+    store.setLastChosenTemplate(template)
+    store.setPendingAnimation(true)
+    if (user) {
+      handoffRef.current = {
+        ...handoffRef.current,
+        templateId: DICTATION_TEMPLATE_ID,
+        templateTitle: template.title,
+        pendingGeneration: true,
+      }
+      void saveDraftHandoff(user.uid, handoffRef.current)
+    }
+    setPhase('idle')
+    router.push('/edit')
   }
 
   // The paste pathway's picker can send this content to a letter or to the
