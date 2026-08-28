@@ -7,6 +7,7 @@ import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { resolveEntitlement } from '@/lib/entitlement'
+import { reconcileRefinedSections } from '@/lib/letterTemplateRefine'
 
 const TRANSCRIPT_QA_SYSTEM_PROMPT = `You are a clinical documentation assistant. The user is a psychiatrist reviewing a session transcript.
 Answer questions using ONLY information explicitly present in the transcript below.
@@ -357,10 +358,24 @@ Return ONLY strict JSON, no markdown, no commentary:
         try {
           const obj = JSON.parse(match[0]) as { title?: string; description?: string; sections?: { heading?: string; description?: string }[]; prompt?: string }
           if (!obj.sections || !Array.isArray(obj.sections) || !obj.sections.length) return null
+
+          // The system prompt ASKS for the exact order and number of topics, and
+          // for [KEEP EXACTLY] ones to come back untouched. Asking is not
+          // enough: a dropped or merged topic used to save silently, under the
+          // doctor's own title, and be used for every letter of that type
+          // afterwards. reconcileRefinedSections turns both into guarantees and
+          // returns null when the shape disagrees — refinement only fixes
+          // spelling, so it is never worth losing a topic the doctor asked for.
+          const reconciled = reconcileRefinedSections(
+            rawSections.map(s => ({ heading: s.heading, description: s.description, refine: s.refine })),
+            obj.sections.map(s => ({ heading: String(s?.heading ?? ''), description: String(s?.description ?? '') })),
+          )
+          if (!reconciled) return null
+
           return {
             title: String(obj.title ?? title),
             description: String(obj.description ?? description ?? ''),
-            sections: obj.sections.slice(0, 12).map(s => ({ heading: String(s?.heading ?? ''), description: String(s?.description ?? '') })).filter(s => s.heading.trim()),
+            sections: reconciled,
             prompt: String(obj.prompt ?? '').slice(0, 6000),
           }
         } catch { return null }
