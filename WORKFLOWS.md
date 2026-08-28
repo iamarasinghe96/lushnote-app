@@ -308,6 +308,7 @@ note** button, so resuming is one deliberate tap.
 - A recovered session appears in Patients under its **patient's name**, not
   "Unnamed patient", once the doctor has named it
 - Recovery never fires generation by itself
+- The recovery banner clears itself once read — it reassures, it does not ask
 - A click on the backdrop or an Escape press while recording does **nothing** —
   in Record Session and in Dictate Note alike
 - Stop recording still stops; the X still abandons
@@ -386,6 +387,33 @@ it was meant to hold is dropped. Dictation wanders — a collateral call, an
 allergy, a carer's concern — and none of that may be lost because no section
 fits it.
 
+### Surviving a reload — the same guarantee as `note-record`
+
+A dictated note writes the handoff to the recovery draft at both points it has
+something to write: the patient at the Confirm step, then the template. So a
+page load before the note is saved restores exactly as a recording does.
+
+**A recovered dictation is re-widened, not resumed on the stored template.** The
+draft can only store a template *id*, and the id is of the template the
+dictation STARTED from — not the widened shape it generates against. The edit
+page rebuilds that shape when `draft.mode === 'dictation'`. Without it a
+recovered dictation would silently lose Medications, Rating Scales, Referrals
+and Other Topics Dictated — the four sections the doctor was asked to dictate
+into.
+
+**The letter and hospital-form paths used to delete the draft on navigation.**
+Both called `deleteTranscriptDraft` the moment they pushed to `/edit` — before
+the letter or form had been generated, let alone saved. A reload in that window
+lost the entire dictation with nothing left behind, not even the amber row in
+Patients. It was strictly worse than the note path, where the draft at least
+survived. Both deletes were also redundant: `doAutoSaveLetter` and
+`HospitalFormView` each clear the draft once their document is actually in
+Firestore, which is the only moment at which it is safe.
+
+**The recovery banner clears itself** after `RECOVERY_BANNER_MS`. It is a
+reassurance, not a decision — the restored fields are the real message, and a
+permanent bar over the note is clutter once read.
+
 ### Expected outputs — what must remain true
 
 - Every topic the checklist asks for has somewhere to land in the note
@@ -397,6 +425,10 @@ fits it.
 - A letter dictation never shows the Confirm transcript step
 - A hospital form or custom letter template deleted mid-dictation degrades
   rather than losing the recording
+- A reload during a dictated note restores the patient AND the widened template
+- A reload during a dictated letter or hospital form leaves the recovery draft
+  intact — no path deletes it before the document it replaces exists
+- The recovery banner disappears on its own
 
 Covered by `tests/unit/dictation-template.test.ts`, which asserts the
 checklist/template contract directly against the real
