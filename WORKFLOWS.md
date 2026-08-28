@@ -405,6 +405,64 @@ it a home fails the suite.
 
 ---
 
+## `letter-template` — Create your own letter template
+
+**Entry:** Create Document → **Create your own template** (also from Dictate,
+the TemplatePicker letters tab, and Settings → Templates)
+**Ends at:** `users/{uid}.customLetterTemplates`, usable in every letter picker
+**Code:** `CustomLetterBuilderModal` → `/api/chat` `type:'letter-template'`
+**Coverage:** ⚠️ — the reconciliation is unit-tested; the modal itself is not
+
+The doctor gives a title and a list of topics. **Refine & save** sends them to a
+model to clean up typos and dictation artifacts and to write the extraction
+prompt a later AI uses to fill the letter. **Save as written** skips the model
+and builds a deterministic prompt instead.
+
+### The refiner may not change the shape of what the doctor asked for
+
+Refinement is **cosmetic** — it fixes spelling. The template it produces is then
+used for every letter of that type, so a topic quietly dropped or reworded here
+is wrong in every letter afterwards, under the doctor's own title.
+
+The system prompt asks for the exact order and number of topics, and for
+`[KEEP EXACTLY]` topics to come back character-for-character. Until 2026-08-28
+**nothing checked that it had**: `parseResult` accepted any JSON carrying at
+least one section, and the client accepted any non-empty list. Eight topics in,
+six back — two merged, one dropped — saved silently.
+
+This is the lesson the ward-note pipeline already records, applied here: *a
+fidelity requirement is enforced in code, not asked of the model.*
+
+`reconcileRefinedSections` (`lib/letterTemplateRefine.ts`):
+
+| Model returned | Result |
+|---|---|
+| A different NUMBER of topics | refinement **rejected whole** → save as written |
+| A `[KEEP EXACTLY]` topic, reworded | doctor's original restored |
+| An emptied heading | doctor's original heading restored |
+| An emptied description | allowed — descriptions are optional |
+
+Rejection is not a dead end: the modal already falls back to saving the topics
+as typed, which is always available and always correct. The doctor loses spell-
+checking, never a topic.
+
+**Matching is positional, never by heading.** Headings are the thing refinement
+is asked to change, so a heading cannot be the key that identifies a topic.
+
+### Expected outputs — what must remain true
+
+- The saved template has exactly the topics the doctor typed, in their order
+- A topic left untouched while editing comes back byte-identical
+- A refiner failure degrades to save-as-written, never to a dead end or a
+  silently different template
+- Refinement never invents, merges or drops a topic
+
+Covered by `tests/unit/letter-template-refine.test.ts`.
+
+---
+
+---
+
 ## Not yet recorded
 
 These exist and are unprotected. Each becomes a section here as it is specified:
