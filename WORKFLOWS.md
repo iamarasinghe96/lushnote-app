@@ -437,6 +437,81 @@ it a home fails the suite.
 
 ---
 
+## `create-document` — Create Document
+
+**Entry:** Generate → **Create Document**
+**Ends at:** `/edit` in letter mode, or in the hospital-form editor
+**Code:** `LetterPickerModal` → letter mode, or `HospitalFormView`
+**Coverage:** ⚠️ — DOB validation is unit-tested; the pickers and the AI tidy
+button are not
+
+The picker offers, in order: the four built-in letter types, the doctor's own
+custom letter templates, any hospital form whose `organizationKeys` match their
+active workplace, **Create your own template**, and **Psychiatry Clinical Note**
+separately below it.
+
+### This pathway is deliberately almost AI-free
+
+Create Document is typing, not generation — the doctor writes the document
+themselves. The single AI touch is **AI tidy** on the green bar, which rewrites
+what they already typed into formal clinical prose (`/api/chat`
+`type:'standardize'`, instructed to maintain every clinical fact and add nothing
+not present).
+
+**It is undoable, and that is not optional.** It replaces clinical text a doctor
+wrote, so a rewrite that dropped a qualifier would otherwise be unrecoverable —
+and "check it carefully afterwards" is not a safeguard, it is asking for the
+proofreading the button was pressed to avoid. Undo stays until it is used or the
+text is tidied again; a timed dismissal would remove the only way back while the
+doctor is still reading what changed. An empty or failed reply leaves the text
+alone rather than replacing a draft with nothing.
+
+**Letters do not have it yet.** A letter body is several fields — structured for
+referral and records, per-section for a custom template — so one value/onChange
+does not map onto it. Doing it there needs a per-field control or a multi-field
+pass, which is a different design, not a wider button.
+
+### Date of birth is validated; gender is not
+
+Red borders mark what the app can **know** is wrong:
+
+| Entry | Result |
+|---|---|
+| `45/45/9999`, `31/02/1990` | red — impossible date |
+| `29/02/2023` | red — "2023 is not a leap year" |
+| `29/02/2024` | fine — it is a leap year |
+| a date in the future | red |
+| `01/01/1922` (age 104) | **fine** — unusual, and real |
+| still typing (`12/12/19`) | **not** red |
+
+Nothing validated a DOB before this: `formatDob` masked digits into the right
+shape and stopped, so `45/45/9999` saved.
+
+**Two rules the tests pin.** A half-typed date is incomplete, not wrong — a
+field that goes red before it can possibly be right teaches doctors to ignore
+red. And an unusual-but-possible date is accepted; an app that argues with a
+doctor about a correct entry teaches the same lesson.
+
+**There is deliberately no name↔gender check.** "Susan cannot be male" is not
+something this app can know. In a psychiatry service a trans man who has not
+changed his name is exactly the patient such a rule would flag as a data-entry
+error, and a doctor trained to clear red borders would then be nudged to change
+a correct record. Name-gender association is also language-specific — Andrea is
+male in Italian, Jean in French. This was raised and decided on 2026-08-28.
+
+### Expected outputs — what must remain true
+
+- An impossible or future DOB is flagged before it can be saved
+- A valid but unusual DOB is never flagged
+- A partially-typed DOB is never flagged
+- Gender is never flagged against the patient's name
+- AI tidy never replaces the doctor's text with an empty or errored reply
+- AI tidy is always undoable
+
+Covered by `tests/unit/dob-validation.test.ts`.
+
+---
+
 ## `letter-template` — Create your own letter template
 
 **Entry:** Create Document → **Create your own template** (also from Dictate,

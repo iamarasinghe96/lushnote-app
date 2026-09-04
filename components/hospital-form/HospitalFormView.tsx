@@ -9,6 +9,7 @@ import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { getGroqKey, getGeminiKey, serializeHospitalFormData, smartCapitalizeLines } from '@/lib/utils'
 import { copyToClipboard, openMailto, buildCoverNote, SHARE_TOAST } from '@/lib/shareExport'
 import { GeneratingOverlay } from '@/components/ui/GeneratingOverlay'
+import FormaliseButton from '@/components/ui/FormaliseButton'
 import HospitalFormEditor, { type HospitalFormEditorHandle } from './HospitalFormEditor'
 import type { HospitalFormData, NoteInput, PatientProfile } from '@/types'
 
@@ -309,7 +310,19 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
         <span className="font-medium truncate">{form.name}</span>
         {saveState !== 'idle' && <span className="text-[11px] text-white/80">{saveState === 'saving' ? 'Saving…' : 'Saved'}</span>}
         {isGenerating && <span className="text-[11px] text-white/90">Generating…</span>}
-        <button onClick={() => router.push('/export')} className="ml-auto shrink-0 text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-full motion-safe:active:scale-95 motion-safe:transition-transform">Export</button>
+        {/* The one AI touch in this pathway: it rewrites what the doctor typed,
+            it does not compose. Hidden while generating, when the text on
+            screen is not yet theirs to tidy. */}
+        {!isGenerating && (
+          <FormaliseButton
+            className="ml-auto"
+            value={value?.noteText ?? ''}
+            onChange={next => setField({ noteText: next })}
+            documentLabel={`hospital progress note (${form.name})`}
+            uid={user?.uid}
+          />
+        )}
+        <button onClick={() => router.push('/export')} className={`${isGenerating ? 'ml-auto ' : ''}shrink-0 text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-full motion-safe:active:scale-95 motion-safe:transition-transform`}>Export</button>
       </div>
       {isGenerating && <GeneratingOverlay noun="progress note" />}
       <div className="absolute inset-0 overflow-y-auto scrollbar-none pb-tabbar" style={{ paddingTop: contentPt }}>

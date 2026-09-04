@@ -7,6 +7,7 @@ import Input from '@/components/ui/Input'
 import { savePatientProfile } from '@/lib/firestore/patients'
 import { useAuth } from '@/hooks/useAuth'
 import { formatDob, capitalizeName } from '@/lib/utils'
+import { validateDob, shouldFlagDob } from '@/lib/dobValidation'
 import type { PatientProfile } from '@/types'
 
 interface PatientModalProps {
@@ -32,6 +33,8 @@ export default function PatientModal({ open, patient, regNumber, firstSeen, onSa
 
   const [displayName, setDisplayName] = useState(patient?.displayName ?? '')
   const [dob, setDob] = useState(patient?.dob ?? '')
+  // Red only once the date is complete enough to judge — see dobValidation.
+  const dobError = shouldFlagDob(dob) ? validateDob(dob).error : null
   const [gender, setGender] = useState<string>(patient?.gender ?? '')
   const [nameError, setNameError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -88,11 +91,16 @@ export default function PatientModal({ open, patient, regNumber, firstSeen, onSa
             maxLength={10}
             value={dob}
             onChange={e => setDob(formatDob(e.target.value))}
-            className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white
+            aria-invalid={!!dobError}
+            className={`w-full rounded-[var(--r)] border bg-white
                        px-3 py-2.5 text-sm text-[var(--text)] placeholder:text-[var(--text3)]
-                       outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
-                       motion-safe:transition-colors"
+                       outline-none focus:ring-2 motion-safe:transition-colors ${
+              dobError
+                ? 'border-[var(--danger)] focus:border-[var(--danger)] focus:ring-red-500/10'
+                : 'border-[var(--border)] focus:border-[var(--blue)] focus:ring-blue-500/10'
+            }`}
           />
+          {dobError && <p className="mt-1 text-xs text-[var(--danger)]">{dobError}</p>}
         </div>
 
         <div className="w-full">

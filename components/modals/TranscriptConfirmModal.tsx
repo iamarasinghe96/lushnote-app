@@ -5,6 +5,7 @@ import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { useAuth } from '@/hooks/useAuth'
 import { formatDob, foldPatientProfiles } from '@/lib/utils'
+import { validateDob, shouldFlagDob } from '@/lib/dobValidation'
 import type { Note, PatientProfile } from '@/types'
 
 interface TranscriptConfirmModalProps {
@@ -52,6 +53,10 @@ export default function TranscriptConfirmModal({
   const [regOverridden, setRegOverridden] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
   const [dob, setDob] = useState('')
+  // Only once all eight digits are in — a half-typed date is incomplete, not
+  // wrong, and a field that goes red before it can be right teaches doctors to
+  // ignore red.
+  const dobError = shouldFlagDob(dob) ? validateDob(dob).error : null
   const [gender, setGender] = useState<'male' | 'female' | ''>('')
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -331,8 +336,19 @@ export default function TranscriptConfirmModal({
                         const el = e.target
                         setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
                       }}
-                      className="w-full px-3 py-2 text-sm bg-white border border-[var(--border)] rounded-[var(--r-sm)] text-[var(--text)] placeholder:text-[var(--text3)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 motion-safe:transition-colors"
+                      className={`w-full px-3 py-2 text-sm bg-white border rounded-[var(--r-sm)] text-[var(--text)] placeholder:text-[var(--text3)] outline-none focus:ring-2 motion-safe:transition-colors ${
+                        dobError
+                          ? 'border-[var(--danger)] focus:border-[var(--danger)] focus:ring-red-500/10'
+                          : 'border-[var(--border)] focus:border-[var(--blue)] focus:ring-blue-500/10'
+                      }`}
+                      aria-invalid={!!dobError}
                     />
+                    {/* Says what is wrong, not just that something is. A red
+                        border alone leaves the doctor re-reading a date that
+                        looks fine to them — 31/02 and a non-leap 29/02 both do. */}
+                    {dobError && (
+                      <p className="mt-1 text-xs text-[var(--danger)]">{dobError}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[var(--text)] mb-1.5">
