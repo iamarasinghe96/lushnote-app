@@ -471,6 +471,41 @@ referral and records, per-section for a custom template — so one value/onChang
 does not map onto it. Doing it there needs a per-field control or a multi-field
 pass, which is a different design, not a wider button.
 
+### It only tidies what the doctor changed
+
+A generated progress note is already formal prose. When a doctor opens one, adds
+two rough lines and presses AI tidy, rewriting the WHOLE note re-renders work
+that was correct and hands back a document they had accepted, altered in places
+they never touched.
+
+So tidy works on the lines that differ from a **baseline** — the text as it was
+generated, loaded, or last tidied — and **only those lines are sent to the
+model**. Lines it is never shown cannot be changed by it, which makes the
+guarantee structural rather than a request. Everything else is passed through
+byte-identical.
+
+`changedLines` is positional and deliberately not a real diff: an LCS match
+would call a MOVED line unchanged, but a moved line still has to land back where
+the doctor put it, and splicing to the wrong index would drop a tidied sentence
+onto the wrong plan step. Re-tidying an already-formal line is harmless; that is
+not.
+
+With no baseline every line counts as the doctor's, so a document typed from
+scratch tidies whole — which is right when all of it is their own writing.
+
+**Letters are several fields**, so every changed line across every field goes in
+ONE request and the reply either splices back completely or is discarded
+completely. A per-field request would half-succeed: some paragraphs tidied, some
+not, and no way back to a consistent letter. Metadata is excluded — there is no
+grammar to correct in "Ward 4B", and rewriting an identifier is how a letter
+reaches the wrong service.
+
+**It follows the house formatting rules** (`TIDY_FORMAT_RULES`): a heading
+wrapped in `**` stays one, a numbered item keeps its exact marker and
+indentation, no markdown tables. The note in front of the doctor already uses
+them because `/api/generate` asked for them, and a tidy pass that flattened a
+bold heading would undo formatting the preview and the PDF depend on.
+
 ### What tidying got wrong, and what now stops it
 
 Tested against the real model on 2026-09-04 with a ward-round note built to
@@ -543,9 +578,15 @@ male in Italian, Jean in French. This was raised and decided on 2026-08-28.
 - AI tidy is always undoable
 - AI tidy never changes the number of plan items — a merged or invented step
   refuses the whole rewrite and leaves the draft as typed
+- AI tidy never alters a line the doctor did not change; generated prose is not
+  sent to the model at all
+- AI tidy preserves bold headings, list markers and indentation
+- On a letter, a reply with the wrong line count changes nothing at all rather
+  than tidying some fields and not others
+- Letter metadata (unit, dates, gender, addressee) is never rewritten
 
-Covered by `tests/unit/dob-validation.test.ts` and
-`tests/unit/tidy-guard.test.ts` — the latter asserts against the **actual**
+Covered by `tests/unit/dob-validation.test.ts`, `tests/unit/tidy-diff.test.ts`,
+`tests/unit/tidy-targets.test.ts` and `tests/unit/tidy-guard.test.ts` — the latter asserts against the **actual**
 input and output from the 2026-09-04 run, so that specific regression cannot
 return.
 

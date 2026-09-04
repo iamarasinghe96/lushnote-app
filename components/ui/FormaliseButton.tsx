@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { getGroqKey } from '@/lib/utils'
 import { tidyPreservesStructure } from '@/lib/tidyGuard'
+import { TIDY_FORMAT_RULES } from '@/lib/tidyDiff'
+import { planTidy, applyTidy, type TidyTarget } from '@/lib/tidyTargets'
 
 // Tidy up the wording of something the doctor typed themselves.
 //
@@ -15,11 +17,22 @@ import { tidyPreservesStructure } from '@/lib/tidyGuard'
 // dropped a qualifier would otherwise be unrecoverable, and "check it carefully"
 // is not a safeguard — it is a request to do the proofreading the button was
 // pressed to avoid.
+//
+// It also only touches what CHANGED. A generated note is already formal prose;
+// rewriting it whole re-renders work that was correct and hands the doctor back
+// a document they had accepted, altered in places they never touched. See
+// lib/tidyDiff.
 
 interface FormaliseButtonProps {
-  /** Current text. The button disables itself when there is nothing to tidy. */
-  value: string
-  onChange: (next: string) => void
+  /**
+   * The fields making up this document. A hospital form has one; a referral
+   * letter has three; a custom template has one per section the doctor defined.
+   *
+   * Each carries its own baseline — the text as generated or loaded. Lines
+   * matching it are never sent, so the model cannot change them. A target with
+   * a null baseline was written entirely by the doctor and tidies whole.
+   */
+  targets: TidyTarget[]
   /** What kind of document this is, so the rewrite matches its register. */
   documentLabel: string
   uid?: string
@@ -44,15 +57,34 @@ const AI_GRADIENT: React.CSSProperties = {
 }
 
 export default function FormaliseButton({
-  value, onChange, documentLabel, uid, className = '',
+  targets, documentLabel, uid, className = '',
 }: FormaliseButtonProps) {
   const [working, setWorking] = useState(false)
-  const [previous, setPrevious] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Every field's value before the last tidy, so Undo restores the whole
+  // document at once. A per-field undo would let a doctor put half of it back.
+  const [previous, setPrevious] = useState<Record<string, string> | null>(null)
+  // After a successful tidy the result becomes that field's baseline: pressing
+  // again should find nothing to do until the doctor writes something new,
+  // rather than re-tidying prose this button just produced.
+  const [tidied, setTidied] = useState<Record<string, string>>({})
+
+  const effective: TidyTarget[] = targets.map(t => ({
+    ...t,
+    baseline: tidied[t.key] ?? t.baseline,
+  }))
 
   async function formalise() {
-    const raw = value.trim()
-    if (!raw || working) return
+    if (working) return
+    // Only what the doctor changed since this text was generated, loaded, or
+    // last tidied. A generated note is already formal prose; rewriting it whole
+    // re-renders work that was correct and hands back a document the doctor had
+    // already accepted, altered in places they never touched.
+    const plan = planTidy(effective)
+    if (!plan.lines.length) {
+      setError('Nothing new to tidy.')
+      return
+    }
     setWorking(true)
     setError(null)
     try {
@@ -64,14 +96,17 @@ export default function FormaliseButton({
         headers,
         body: JSON.stringify({
           type: 'standardize',
-          rawInput: raw,
+          // Only the changed lines are sent. Lines the model is never shown
+          // cannot be altered by it — the guarantee is structural rather than
+          // a request, which is the lesson the letter-template refiner taught.
+          rawInput: plan.payload,
           prompt: [
-            `This is a ${documentLabel} written by the treating doctor.`,
-            'Correct grammar, spelling and dictation artefacts, and render it as formal clinical prose.',
+            `These are lines from a ${documentLabel} written by the treating doctor.`,
+            'Correct grammar, spelling and dictation artefacts, and render each as formal clinical prose.',
+            TIDY_FORMAT_RULES,
             // Each rule below is a failure observed against the real model on
-            // 2026-09-04, not a precaution. The list rule is ALSO enforced in
-            // code (tidyPreservesStructure) because asking was not enough.
-            'Keep every numbered or lettered plan item as its own separate item, including sub-items such as "1a." — never merge a sub-item into its parent.',
+            // 2026-09-04, not a precaution. The one-line-per-line rule is ALSO
+            // enforced in code (applyTidy) because asking was not enough.
             'Do not strengthen uncertainty: "maybe", "?", "query" and "possible" must stay as hedges, and an approximate figure must not become a precise or averaged one.',
             'Do not substitute a near-synonym for a clinical word — "settles" is not "resolves", "declined" is not "refused".',
             'Expand an abbreviation only to its literal meaning, adding no detail the doctor did not write.',
@@ -88,16 +123,35 @@ export default function FormaliseButton({
         setError(data.error ?? 'Could not tidy the wording. Your text is unchanged.')
         return
       }
-      // The prompt asks for plan items to be kept separate; this is what makes
-      // it true. Observed failure: "1a. cease if delirium settles" folded into
-      // item 1, turning four plan steps into three.
-      const structure = tidyPreservesStructure(value, result)
-      if (!structure.ok) {
-        setError(structure.reason!)
+      // One reply per line sent, or nothing at all. A mismatch means there is no
+      // way to know which reply belongs to which line — and across fields, a
+      // misrouted reply would move one paragraph's prose into another.
+      const applied = applyTidy(effective, plan, result)
+      if (!applied) {
+        setError('Tidying returned a different number of lines. Your text is unchanged.')
         return
       }
-      setPrevious(value)
-      onChange(result)
+      // Structure is checked per field BEFORE anything is written, so a merged
+      // plan in one paragraph cannot leave the rest of the letter half-tidied.
+      for (const t of effective) {
+        const next = applied.updates[t.key]
+        if (next === undefined) continue
+        const check = tidyPreservesStructure(t.value, next)
+        if (!check.ok) { setError(check.reason!); return }
+      }
+      const before: Record<string, string> = {}
+      for (const t of effective) {
+        const next = applied.updates[t.key]
+        if (next === undefined) continue
+        before[t.key] = t.value
+        t.onChange(next)
+      }
+      if (!Object.keys(before).length) {
+        setError('Nothing needed changing.')
+        return
+      }
+      setPrevious(before)
+      setTidied(prev => ({ ...prev, ...applied.updates }))
     } catch {
       setError('Could not tidy the wording. Your text is unchanged.')
     } finally {
@@ -106,15 +160,21 @@ export default function FormaliseButton({
   }
 
   function undo() {
-    if (previous === null) return
-    onChange(previous)
+    if (!previous) return
+    for (const t of targets) {
+      const was = previous[t.key]
+      if (was !== undefined) t.onChange(was)
+    }
     setPrevious(null)
+    // Back to each field's own baseline, so restored text counts as the
+    // doctor's again rather than as something already tidied.
+    setTidied({})
   }
 
   // Undo stays until it is used or the text is rewritten again — a timed
   // disappearance would take the only way back with it while the doctor is
   // still reading what changed.
-  if (previous !== null) {
+  if (previous) {
     return (
       <div className={`flex items-center gap-2 ${className}`}>
         <span className="text-[11px] text-white/90">Wording tidied</span>
@@ -134,8 +194,8 @@ export default function FormaliseButton({
       <button
         type="button"
         onClick={formalise}
-        disabled={working || !value.trim()}
-        title={value.trim() ? 'Correct grammar and formalise the wording you typed' : 'Type something first'}
+        disabled={working || !targets.some(t => t.value.trim())}
+        title={targets.some(t => t.value.trim()) ? 'Correct grammar and formalise the wording you typed' : 'Type something first'}
         className={`${PILL} text-white`}
         style={AI_GRADIENT}
       >

@@ -89,6 +89,10 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
   const lastSavedRef = useRef<string | null>(null)
   const isSavingRef = useRef(false)
   const draftClearedRef = useRef(false)
+  // The note text as it arrived from somewhere other than this doctor's
+  // keyboard — a generation, or a saved form being reopened. AI tidy uses it to
+  // leave that prose alone and work only on what has been added since.
+  const [tidyBaseline, setTidyBaseline] = useState<string | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const mountedRef = useRef(true)
   useEffect(() => () => { mountedRef.current = false }, [])
@@ -99,7 +103,13 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
     initedRef.current = true
     const s = storeRef.current
     if (!s.hospitalFormData) s.setHospitalFormData({ ...emptyFormData(form.formKey), dateTime: nowDateTime() })
-    else lastSavedRef.current = serializeHospitalFormData(s.hospitalFormData) ?? null
+    else {
+      lastSavedRef.current = serializeHospitalFormData(s.hospitalFormData) ?? null
+      // Reopening a saved form: what is already written was not typed in this
+      // sitting, so AI tidy treats it as settled and works only on what the
+      // doctor adds now.
+      if (s.hospitalFormData.noteText.trim()) setTidyBaseline(s.hospitalFormData.noteText)
+    }
     if (s.pendingHospitalFormGeneration && s.lastTranscript) {
       s.setPendingHospitalFormGeneration(false)
       void generate(s.lastTranscript)
@@ -138,6 +148,7 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
           },
           noteText: smartCapitalizeLines(str('noteText') || cur.noteText),
         })
+        setTidyBaseline(smartCapitalizeLines(str('noteText') || cur.noteText))
         setToast('Form populated from dictation')
       } else {
         setGenError(data.error === 'rate_limit' ? 'AI is rate-limited. Try again shortly.' : (data.error || 'Generation failed. Fill the form manually.'))
@@ -316,8 +327,12 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
         {!isGenerating && (
           <FormaliseButton
             className="ml-auto"
-            value={value?.noteText ?? ''}
-            onChange={next => setField({ noteText: next })}
+            targets={[{
+              key: 'noteText',
+              value: value?.noteText ?? '',
+              baseline: tidyBaseline,
+              onChange: (next: string) => setField({ noteText: next }),
+            }]}
             documentLabel={`hospital progress note (${form.name})`}
             uid={user?.uid}
           />
