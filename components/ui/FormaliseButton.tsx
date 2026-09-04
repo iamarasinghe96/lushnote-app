@@ -28,6 +28,21 @@ interface FormaliseButtonProps {
 
 const PILL = 'shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full motion-safe:active:scale-95 motion-safe:transition-transform disabled:opacity-50 disabled:cursor-not-allowed'
 
+// The one control on this bar that calls a model, so it is the one control that
+// does not look like the bar. Blue → teal → green, which is the app's own
+// palette (--blue-dk, the workspace teal, the workspace green) rather than a
+// new set of colours, and reads as distinctly "AI" against the green glass.
+//
+// Every stop is dark enough to carry white text: the green end is #0e9f6e, not
+// the brand's brighter #10b981, because white on the latter is about 2.5:1 and
+// this text is 12px. A pretty button nobody can read is a worse button.
+const AI_GRADIENT: React.CSSProperties = {
+  backgroundImage: 'linear-gradient(135deg, #1d4ed8 0%, #0e7490 58%, #0e9f6e 100%)',
+  // A hairline of white lifts it off the green bar without a hard edge, and a
+  // low shadow keeps it sitting on the bar rather than floating over it.
+  boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.35), 0 1px 4px rgba(15,23,42,0.18)',
+}
+
 export default function FormaliseButton({
   value, onChange, documentLabel, uid, className = '',
 }: FormaliseButtonProps) {
@@ -103,6 +118,8 @@ export default function FormaliseButton({
     return (
       <div className={`flex items-center gap-2 ${className}`}>
         <span className="text-[11px] text-white/90">Wording tidied</span>
+        {/* Undo stays plain on purpose. The gradient marks the control that
+            calls a model; Undo only puts back what the doctor already had. */}
         <button type="button" onClick={undo}
           className={`${PILL} bg-white/20 text-white border border-white/40`}>
           Undo
@@ -119,7 +136,8 @@ export default function FormaliseButton({
         onClick={formalise}
         disabled={working || !value.trim()}
         title={value.trim() ? 'Correct grammar and formalise the wording you typed' : 'Type something first'}
-        className={`${PILL} bg-white/20 text-white border border-white/40`}
+        className={`${PILL} text-white`}
+        style={AI_GRADIENT}
       >
         {working ? 'Tidying…' : 'AI tidy'}
       </button>
