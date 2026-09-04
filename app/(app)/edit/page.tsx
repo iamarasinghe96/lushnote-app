@@ -10,6 +10,9 @@ import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients
 import { deleteTranscriptDraft, getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { parseDraftHandoff, handoffIsRestorable, findTemplateById, type DraftHandoff } from '@/lib/draftHandoff'
 import { buildDictationTemplate } from '@/lib/dictationTemplate'
+import FormaliseButton from '@/components/ui/FormaliseButton'
+import { LETTER_TYPE_LABEL } from '@/lib/utils'
+import type { TidyTarget } from '@/lib/tidyTargets'
 import { getHospitalForm } from '@/lib/firestore/hospitalForms'
 import HospitalFormView from '@/components/hospital-form/HospitalFormView'
 import { registerReloadGuard } from '@/lib/reloadGuard'
@@ -383,6 +386,11 @@ function EditContent() {
   const [transcriptExpanded, setTranscriptExpanded] = useState(false)
   const [fieldFocused, setFieldFocused] = useState(false)
   const [letterBarExpanded, setLetterBarExpanded] = useState(false)
+  // Letter prose as it arrived from generation. AI tidy leaves those lines alone
+  // and works only on what the doctor has written since — a generated letter is
+  // already formal, and re-rendering it whole hands back a document they had
+  // accepted, altered in places they never touched.
+  const [letterTidyBaseline, setLetterTidyBaseline] = useState<Record<string, string>>({})
   const [noteBarExpanded, setNoteBarExpanded] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
@@ -1779,6 +1787,27 @@ function EditContent() {
             store.customLetterSections.map(s => ({ ...s, content: secMap[s.key] !== undefined ? smartCapitalizeLines(String(secMap[s.key])) : s.content }))
           )
         }
+        // Whatever generation just wrote is the baseline for AI tidy.
+        setLetterTidyBaseline(() => {
+          const s2 = storeRef.current
+          const b: Record<string, string> = {}
+          for (const [k, v] of Object.entries({ ...s2.referralFields, ...s2.recordsFields, ...s2.freetextFields })) {
+            if (typeof v === 'string') b[k] = v
+          }
+          for (const sec of s2.customLetterSections) b[`section:${sec.key}`] = sec.content
+          return b
+        })
+        // Whatever generation just wrote becomes the baseline for AI tidy, so
+        // it will only ever touch what the doctor adds after this point.
+        setLetterTidyBaseline(() => {
+          const s2 = storeRef.current
+          const b: Record<string, string> = {}
+          for (const [k, v] of Object.entries({ ...s2.referralFields, ...s2.recordsFields, ...s2.freetextFields })) {
+            if (typeof v === 'string') b[k] = v
+          }
+          for (const sec of s2.customLetterSections) b[`section:${sec.key}`] = sec.content
+          return b
+        })
         setLetterToast('Fields populated from transcript')
       } else {
         setLetterToast(data.error || 'Generation failed. Fill fields manually.')
@@ -2342,6 +2371,50 @@ function EditContent() {
     extras.some(e => e.content.trim())
   const canGenerateFromTranscript = !isLetterMode && !!store.lastTranscript && !noteHasContent
 
+  // The prose fields of whichever letter is open. Metadata — a unit name, a
+  // date, a gender, an addressee — is deliberately excluded: there is no grammar
+  // to correct in "Ward 4B", and rewriting an identifier is how a letter reaches
+  // the wrong service.
+  const letterTidyTargets: TidyTarget[] = (() => {
+    const b = (k: string) => letterTidyBaseline[k] ?? null
+    if (letterType === 'referral') {
+      return (['presentingComplaint', 'secondParagraph', 'referralReason', 'pastMedicalHistory', 'medicationList'] as const)
+        .map(k => ({
+          key: k,
+          value: (referralFields as unknown as Record<string, string>)[k] ?? '',
+          baseline: b(k),
+          onChange: (next: string) => store.setReferralFields({ [k]: next } as Parameters<typeof store.setReferralFields>[0]),
+        }))
+    }
+    if (letterType === 'records') {
+      return [{
+        key: 'secondParagraphRecords',
+        value: store.recordsFields.secondParagraphRecords,
+        baseline: b('secondParagraphRecords'),
+        onChange: (next: string) => store.setRecordsFields({ secondParagraphRecords: next }),
+      }]
+    }
+    if (letterType === 'freetext') {
+      return [{
+        key: 'freeTextContent',
+        value: freetextFields.freeTextContent,
+        baseline: b('freeTextContent'),
+        onChange: (next: string) => store.setFreetextFields({ freeTextContent: next }),
+      }]
+    }
+    if (letterType === 'custom') {
+      return store.customLetterSections.map(sec => ({
+        key: `section:${sec.key}`,
+        value: sec.content,
+        baseline: b(`section:${sec.key}`),
+        onChange: (next: string) => store.setCustomLetterSections(
+          storeRef.current.customLetterSections.map(x => x.key === sec.key ? { ...x, content: next } : x)
+        ),
+      }))
+    }
+    return []
+  })()
+
   // The note bar's action buttons, rendered in two places: inline on the header
   // row at desktop widths, and in a collapsible second row on mobile. Defined
   // once so the two placements stay identical.
@@ -2409,6 +2482,17 @@ function EditContent() {
               <span className="text-[11px] text-white/80 shrink-0" aria-live="polite">
                 {letterSaveState === 'saving' ? 'Saving…' : 'Saved'}
               </span>
+            )}
+            {/* Same control as the hospital form's, over this letter's prose
+                fields. Hidden while generating, when the text on screen is not
+                yet the doctor's to tidy. */}
+            {!isGeneratingLetter && letterTidyTargets.length > 0 && (
+              <FormaliseButton
+                className="ml-auto"
+                targets={letterTidyTargets}
+                documentLabel={`${LETTER_TYPE_LABEL[letterType] ?? 'letter'} written by the treating doctor`}
+                uid={user?.uid}
+              />
             )}
             <button
               onClick={() => setLetterBarExpanded(v => !v)}

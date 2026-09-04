@@ -437,6 +437,161 @@ it a home fails the suite.
 
 ---
 
+## `create-document` — Create Document
+
+**Entry:** Generate → **Create Document**
+**Ends at:** `/edit` in letter mode, or in the hospital-form editor
+**Code:** `LetterPickerModal` → letter mode, or `HospitalFormView`
+**Coverage:** ⚠️ — DOB validation is unit-tested; the pickers and the AI tidy
+button are not
+
+The picker offers, in order: the four built-in letter types, the doctor's own
+custom letter templates, any hospital form whose `organizationKeys` match their
+active workplace, **Create your own template**, and **Psychiatry Clinical Note**
+separately below it.
+
+### This pathway is deliberately almost AI-free
+
+Create Document is typing, not generation — the doctor writes the document
+themselves. The single AI touch is **AI tidy** on the green bar, which rewrites
+what they already typed into formal clinical prose (`/api/chat`
+`type:'standardize'`, instructed to maintain every clinical fact and add nothing
+not present).
+
+**It is undoable, and that is not optional.** It replaces clinical text a doctor
+wrote, so a rewrite that dropped a qualifier would otherwise be unrecoverable —
+and "check it carefully afterwards" is not a safeguard, it is asking for the
+proofreading the button was pressed to avoid. Undo stays until it is used or the
+text is tidied again; a timed dismissal would remove the only way back while the
+doctor is still reading what changed. An empty or failed reply leaves the text
+alone rather than replacing a draft with nothing.
+
+**Letters do not have it yet.** A letter body is several fields — structured for
+referral and records, per-section for a custom template — so one value/onChange
+does not map onto it. Doing it there needs a per-field control or a multi-field
+pass, which is a different design, not a wider button.
+
+### It only tidies what the doctor changed
+
+A generated progress note is already formal prose. When a doctor opens one, adds
+two rough lines and presses AI tidy, rewriting the WHOLE note re-renders work
+that was correct and hands back a document they had accepted, altered in places
+they never touched.
+
+So tidy works on the lines that differ from a **baseline** — the text as it was
+generated, loaded, or last tidied — and **only those lines are sent to the
+model**. Lines it is never shown cannot be changed by it, which makes the
+guarantee structural rather than a request. Everything else is passed through
+byte-identical.
+
+`changedLines` is positional and deliberately not a real diff: an LCS match
+would call a MOVED line unchanged, but a moved line still has to land back where
+the doctor put it, and splicing to the wrong index would drop a tidied sentence
+onto the wrong plan step. Re-tidying an already-formal line is harmless; that is
+not.
+
+With no baseline every line counts as the doctor's, so a document typed from
+scratch tidies whole — which is right when all of it is their own writing.
+
+**Letters are several fields**, so every changed line across every field goes in
+ONE request and the reply either splices back completely or is discarded
+completely. A per-field request would half-succeed: some paragraphs tidied, some
+not, and no way back to a consistent letter. Metadata is excluded — there is no
+grammar to correct in "Ward 4B", and rewriting an identifier is how a letter
+reaches the wrong service.
+
+**It follows the house formatting rules** (`TIDY_FORMAT_RULES`): a heading
+wrapped in `**` stays one, a numbered item keeps its exact marker and
+indentation, no markdown tables. The note in front of the doctor already uses
+them because `/api/generate` asked for them, and a tidy pass that flattened a
+bold heading would undo formatting the preview and the PDF depend on.
+
+### What tidying got wrong, and what now stops it
+
+Tested against the real model on 2026-09-04 with a ward-round note built to
+break it. It held every fidelity trap — `IDC` left unexpanded, `?delirium` kept
+as a hedge, `denies SI, no intent, no plan` intact, doses and timing unchanged,
+`declined` not turned into "refused" — and then merged
+
+```
+1. continue quetiapine
+  1a. cease if delirium settles
+```
+
+into one numbered item. **Four plan steps in, three out.** The prompt had already
+asked for the doctor's structure to be kept; asking was not enough, which is the
+same lesson the letter-template refiner taught.
+
+`tidyPreservesStructure` (`lib/tidyGuard.ts`) now counts list items before and
+after and **refuses the replacement** if the count changed either way — merged
+or invented. Sub-items count as items in their own right, since folding `1a.`
+into `1.` is precisely the failure being caught. Prose with no list is left
+alone: reflowing sentences is what the button is for, so judging wording would
+refuse every successful rewrite.
+
+Refusing is cheap — the draft stays exactly as typed and the doctor loses a
+tidy-up. A silently shortened plan is not cheap: a conditional stop order is a
+distinct step, and on a ruled form read off paper, three items and four items
+are different documents.
+
+Three smaller drifts from the same run are addressed by prompt rules only, and
+are **not** enforced: `maybe 6 hrs` → "averaging approximately six hours per
+night", `settles` → `resolves`, and `IDC` → "indwelling **urinary** catheter".
+All three firm up something the doctor left loose. They are recorded here so the
+next person knows the direction this model drifts in.
+
+### Date of birth is validated; gender is not
+
+Red borders mark what the app can **know** is wrong:
+
+| Entry | Result |
+|---|---|
+| `45/45/9999`, `31/02/1990` | red — impossible date |
+| `29/02/2023` | red — "2023 is not a leap year" |
+| `29/02/2024` | fine — it is a leap year |
+| a date in the future | red |
+| `01/01/1922` (age 104) | **fine** — unusual, and real |
+| still typing (`12/12/19`) | **not** red |
+
+Nothing validated a DOB before this: `formatDob` masked digits into the right
+shape and stopped, so `45/45/9999` saved.
+
+**Two rules the tests pin.** A half-typed date is incomplete, not wrong — a
+field that goes red before it can possibly be right teaches doctors to ignore
+red. And an unusual-but-possible date is accepted; an app that argues with a
+doctor about a correct entry teaches the same lesson.
+
+**There is deliberately no name↔gender check.** "Susan cannot be male" is not
+something this app can know. In a psychiatry service a trans man who has not
+changed his name is exactly the patient such a rule would flag as a data-entry
+error, and a doctor trained to clear red borders would then be nudged to change
+a correct record. Name-gender association is also language-specific — Andrea is
+male in Italian, Jean in French. This was raised and decided on 2026-08-28.
+
+### Expected outputs — what must remain true
+
+- An impossible or future DOB is flagged before it can be saved
+- A valid but unusual DOB is never flagged
+- A partially-typed DOB is never flagged
+- Gender is never flagged against the patient's name
+- AI tidy never replaces the doctor's text with an empty or errored reply
+- AI tidy is always undoable
+- AI tidy never changes the number of plan items — a merged or invented step
+  refuses the whole rewrite and leaves the draft as typed
+- AI tidy never alters a line the doctor did not change; generated prose is not
+  sent to the model at all
+- AI tidy preserves bold headings, list markers and indentation
+- On a letter, a reply with the wrong line count changes nothing at all rather
+  than tidying some fields and not others
+- Letter metadata (unit, dates, gender, addressee) is never rewritten
+
+Covered by `tests/unit/dob-validation.test.ts`, `tests/unit/tidy-diff.test.ts`,
+`tests/unit/tidy-targets.test.ts` and `tests/unit/tidy-guard.test.ts` — the latter asserts against the **actual**
+input and output from the 2026-09-04 run, so that specific regression cannot
+return.
+
+---
+
 ## `letter-template` — Create your own letter template
 
 **Entry:** Create Document → **Create your own template** (also from Dictate,
