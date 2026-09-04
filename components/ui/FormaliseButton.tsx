@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { getGroqKey } from '@/lib/utils'
+import { tidyPreservesStructure } from '@/lib/tidyGuard'
 
 // Tidy up the wording of something the doctor typed themselves.
 //
@@ -49,7 +50,18 @@ export default function FormaliseButton({
         body: JSON.stringify({
           type: 'standardize',
           rawInput: raw,
-          prompt: `This is a ${documentLabel} written by the treating doctor. Correct grammar, spelling and dictation artefacts, and render it as formal clinical prose. Keep the doctor's own structure, order and clinical meaning. Do not add, infer or remove any clinical detail.`,
+          prompt: [
+            `This is a ${documentLabel} written by the treating doctor.`,
+            'Correct grammar, spelling and dictation artefacts, and render it as formal clinical prose.',
+            // Each rule below is a failure observed against the real model on
+            // 2026-09-04, not a precaution. The list rule is ALSO enforced in
+            // code (tidyPreservesStructure) because asking was not enough.
+            'Keep every numbered or lettered plan item as its own separate item, including sub-items such as "1a." — never merge a sub-item into its parent.',
+            'Do not strengthen uncertainty: "maybe", "?", "query" and "possible" must stay as hedges, and an approximate figure must not become a precise or averaged one.',
+            'Do not substitute a near-synonym for a clinical word — "settles" is not "resolves", "declined" is not "refused".',
+            'Expand an abbreviation only to its literal meaning, adding no detail the doctor did not write.',
+            'Do not add, infer or remove any clinical detail.',
+          ].join(' '),
           uid,
         }),
       })
@@ -59,6 +71,14 @@ export default function FormaliseButton({
       // it with nothing would destroy the draft to report a failure.
       if (!result || result.startsWith('Error:')) {
         setError(data.error ?? 'Could not tidy the wording. Your text is unchanged.')
+        return
+      }
+      // The prompt asks for plan items to be kept separate; this is what makes
+      // it true. Observed failure: "1a. cease if delirium settles" folded into
+      // item 1, turning four plan steps into three.
+      const structure = tidyPreservesStructure(value, result)
+      if (!structure.ok) {
+        setError(structure.reason!)
         return
       }
       setPrevious(value)

@@ -471,6 +471,40 @@ referral and records, per-section for a custom template — so one value/onChang
 does not map onto it. Doing it there needs a per-field control or a multi-field
 pass, which is a different design, not a wider button.
 
+### What tidying got wrong, and what now stops it
+
+Tested against the real model on 2026-09-04 with a ward-round note built to
+break it. It held every fidelity trap — `IDC` left unexpanded, `?delirium` kept
+as a hedge, `denies SI, no intent, no plan` intact, doses and timing unchanged,
+`declined` not turned into "refused" — and then merged
+
+```
+1. continue quetiapine
+  1a. cease if delirium settles
+```
+
+into one numbered item. **Four plan steps in, three out.** The prompt had already
+asked for the doctor's structure to be kept; asking was not enough, which is the
+same lesson the letter-template refiner taught.
+
+`tidyPreservesStructure` (`lib/tidyGuard.ts`) now counts list items before and
+after and **refuses the replacement** if the count changed either way — merged
+or invented. Sub-items count as items in their own right, since folding `1a.`
+into `1.` is precisely the failure being caught. Prose with no list is left
+alone: reflowing sentences is what the button is for, so judging wording would
+refuse every successful rewrite.
+
+Refusing is cheap — the draft stays exactly as typed and the doctor loses a
+tidy-up. A silently shortened plan is not cheap: a conditional stop order is a
+distinct step, and on a ruled form read off paper, three items and four items
+are different documents.
+
+Three smaller drifts from the same run are addressed by prompt rules only, and
+are **not** enforced: `maybe 6 hrs` → "averaging approximately six hours per
+night", `settles` → `resolves`, and `IDC` → "indwelling **urinary** catheter".
+All three firm up something the doctor left loose. They are recorded here so the
+next person knows the direction this model drifts in.
+
 ### Date of birth is validated; gender is not
 
 Red borders mark what the app can **know** is wrong:
@@ -507,8 +541,13 @@ male in Italian, Jean in French. This was raised and decided on 2026-08-28.
 - Gender is never flagged against the patient's name
 - AI tidy never replaces the doctor's text with an empty or errored reply
 - AI tidy is always undoable
+- AI tidy never changes the number of plan items — a merged or invented step
+  refuses the whole rewrite and leaves the draft as typed
 
-Covered by `tests/unit/dob-validation.test.ts`.
+Covered by `tests/unit/dob-validation.test.ts` and
+`tests/unit/tidy-guard.test.ts` — the latter asserts against the **actual**
+input and output from the 2026-09-04 run, so that specific regression cannot
+return.
 
 ---
 
