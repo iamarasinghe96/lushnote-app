@@ -7,7 +7,7 @@ import { useNoteStore, hydrateLetterFromNote } from '@/hooks/useNoteStore'
 import { useKeyboardCloseSafety } from '@/hooks/useKeyboardCloseSafety'
 import { saveNote, updateNote, listNotes, getNote } from '@/lib/firestore/notes'
 import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients'
-import { deleteTranscriptDraft, getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
+import { deleteTranscriptDraft, listTranscriptDrafts } from '@/lib/firestore/transcriptDrafts'
 import { parseDraftHandoff, handoffIsRestorable, findTemplateById, type DraftHandoff } from '@/lib/draftHandoff'
 import { buildDictationTemplate } from '@/lib/dictationTemplate'
 import FormaliseButton from '@/components/ui/FormaliseButton'
@@ -718,7 +718,12 @@ function EditContent() {
   // doctor resumes with one deliberate tap.
   async function restoreFromDraft() {
     if (!user) return
-    const draft = await getTranscriptDraft(user.uid).catch(() => null)
+    // The store is empty (that is why we are here), so the draft id it held is
+    // gone too — take the newest unfinished recording. Every other one stays put
+    // and is still listed in Patients, so nothing is consumed by guessing.
+    const list = await listTranscriptDrafts(user.uid).catch(() => [])
+    const draft = list[0] ?? null
+    if (draft) storeRef.current.setActiveDraftId(draft.id)
     if (!draft?.text?.trim() || !mountedRef.current) return
     const handoff = parseDraftHandoff(draft.handoff)
     if (!handoffIsRestorable(handoff)) return
@@ -1143,7 +1148,10 @@ function EditContent() {
       // safe to remove. Do it once per transcript (not on every autosave).
       if (s.lastTranscript && s.lastTranscript.trim() && !draftClearedRef.current && user) {
         draftClearedRef.current = true
-        deleteTranscriptDraft(user.uid).catch(() => {})
+        // Only the draft this note came from. Clearing by any other rule would
+        // delete a different patient's unfinished recording.
+        const id = storeRef.current.activeDraftId
+        if (id) deleteTranscriptDraft(user.uid, id).catch(() => {})
       }
       if (flashField && mountedRef.current) {
         setSaveFlashFields(prev => new Set(Array.from(prev).concat(flashField)))
@@ -1239,7 +1247,10 @@ function EditContent() {
       lastSavedLetterDataRef.current = serialized
       if (s.lastTranscript && s.lastTranscript.trim() && !draftClearedRef.current) {
         draftClearedRef.current = true
-        deleteTranscriptDraft(user.uid).catch(() => {})
+        // Only the draft this note came from. Clearing by any other rule would
+        // delete a different patient's unfinished recording.
+        const id = storeRef.current.activeDraftId
+        if (id) deleteTranscriptDraft(user.uid, id).catch(() => {})
       }
       if (mountedRef.current) {
         setLetterSaveState('saved')

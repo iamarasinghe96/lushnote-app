@@ -24,6 +24,9 @@ interface StartOpts {
 interface StopResult {
   text: string
   duration: number
+  /** Which recovery draft this recording wrote to, so the caller can clear the
+   *  right one once the note is durably saved. */
+  draftId: string
 }
 
 interface SegResult {
@@ -198,7 +201,9 @@ export function useSegmentedRecorder() {
         // must be visible, not swallowed — surface the Firebase error code so
         // the recording screen shows exactly what went wrong.
         try {
-          await saveTranscriptDraft(opts.uid, {
+          // Keyed by this recording's own session id, so a later recording can
+          // never overwrite it and a handoff can never land on the wrong one.
+          await saveTranscriptDraft(opts.uid, sessionIdRef.current, {
             text: textRef.current,
             mode: opts.mode,
             letterType: opts.letterType ?? null,
@@ -282,6 +287,10 @@ export function useSegmentedRecorder() {
     track.addEventListener('unmute', resumeAfterMicBack)
   }
 
+  // Exposed so a caller that abandons a recording — without awaiting stop() —
+  // can still clear exactly the draft it created, and no other.
+  const currentDraftId = useCallback(() => sessionIdRef.current, [])
+
   const start = useCallback((stream: MediaStream, opts: StartOpts) => {
     setError(null)
     setAudioError(null)
@@ -337,8 +346,8 @@ export function useSegmentedRecorder() {
     pausedRef.current = false
     setIsRecording(false)
     setMicLost(false)
-    return { text: textRef.current, duration: dur }
+    return { text: textRef.current, duration: dur, draftId: sessionIdRef.current }
   }, [releaseWakeLock])
 
-  return { isRecording, duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, error, micLost, start, stop }
+  return { isRecording, duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, error, micLost, start, stop, currentDraftId }
 }

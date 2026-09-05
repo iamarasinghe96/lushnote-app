@@ -53,8 +53,11 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
   const genderRef = useRef<HTMLDivElement>(null)
   const {
     duration, audioSavedMin, transcribedMin, failures, lastError, micLost,
-    start, stop, error: recError,
+    start, stop, currentDraftId, error: recError,
   } = useSegmentedRecorder()
+  // Which draft this intake recording created, so abandoning it clears that one
+  // and never another patient's unfinished recording.
+  const intakeDraftIdRef = useRef<string>('')
 
   useEffect(() => {
     if (!open) {
@@ -193,6 +196,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
       start(stream, { uid: user.uid, mode: 'dictation', letterType: 'patient-intake' })
+      intakeDraftIdRef.current = currentDraftId()
       setPhase('recording')
     } catch {
       setPermError('Microphone access denied. Please allow access and try again.')
@@ -207,8 +211,9 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
       streamRef.current = null
     }
     // The intake draft has served its purpose — clear it so it doesn't surface
-    // as an "unfinished recording" in the note-recovery flow.
-    if (user) deleteTranscriptDraft(user.uid).catch(() => {})
+    // as an "unfinished recording" in the note-recovery flow. By id, so it can
+    // only ever remove this recording's own draft.
+    if (user) deleteTranscriptDraft(user.uid, result.draftId).catch(() => {})
 
     // The recording can't be replayed, so always save — passing any failure up
     // as a warning rather than silently leaving the fields blank.
@@ -225,8 +230,9 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
       streamRef.current = null
     }
     // The intake draft is tagged 'patient-intake' and is not a recoverable note —
-    // clear it so it can't surface in the note-recovery banner.
-    if (user) deleteTranscriptDraft(user.uid).catch(() => {})
+    // clear it so it can't surface in the note-recovery banner. stop() has not
+    // been awaited here, so the id comes from the ref captured at start.
+    if (user && intakeDraftIdRef.current) deleteTranscriptDraft(user.uid, intakeDraftIdRef.current).catch(() => {})
     onClose()
   }
 
