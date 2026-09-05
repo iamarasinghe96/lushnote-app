@@ -10,6 +10,7 @@ import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients
 import { deleteTranscriptDraft, listTranscriptDrafts } from '@/lib/firestore/transcriptDrafts'
 import { parseDraftHandoff, handoffIsRestorable, findTemplateById, type DraftHandoff } from '@/lib/draftHandoff'
 import { buildDictationTemplate } from '@/lib/dictationTemplate'
+import { classifyGenerationFailure, failureDialogCopy, type GenerationFailure } from '@/lib/generationFailure'
 import FormaliseButton from '@/components/ui/FormaliseButton'
 import { LETTER_TYPE_LABEL } from '@/lib/utils'
 import type { TidyTarget } from '@/lib/tidyTargets'
@@ -23,6 +24,7 @@ import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY
 import Input from '@/components/ui/Input'
 import { GeneratingOverlay } from '@/components/ui/GeneratingOverlay'
 import Textarea from '@/components/ui/Textarea'
+import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import DatePicker from '@/components/ui/DatePicker'
 import TimePicker from '@/components/ui/TimePicker'
@@ -395,6 +397,9 @@ function EditContent() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationStatus, setGenerationStatus] = useState<string | null>(null)
   const [generationError, setGenerationError] = useState<string | null>(null)
+  // Set only once a retry has ALSO failed. Drives the dialog — a doctor who has
+  // watched generation run twice needs telling, not a strip they might miss.
+  const [generationFailure, setGenerationFailure] = useState<GenerationFailure | null>(null)
   // Set when a recording's handoff was recovered from the draft after a page
   // load. Drives the banner that says so — silence here is what made the
   // original failure look like a fresh blank note.
@@ -1607,7 +1612,8 @@ function EditContent() {
           }))
           return
         }
-        throw new Error(data?.error ?? (res.status === 502 || res.status === 504 || res.status === 413 ? 'The note took too long to generate — a very long session can exceed the time limit. Please try again, or generate from a shorter section of the transcript.' : 'Generation failed'))
+        const failure = classifyGenerationFailure(data?.error, res.status)
+        throw Object.assign(new Error(failure.message), { failure })
       }
 
       const data = await parseJsonSafe<{ content?: string; provider?: string; groqTokensUsed?: number }>(res)
@@ -1642,15 +1648,33 @@ function EditContent() {
 
     } catch (err) {
       statusTimers.forEach(clearTimeout)
+      if (!mountedRef.current) return
+
+      const failure = (err as { failure?: GenerationFailure }).failure
+        ?? classifyGenerationFailure(err instanceof Error ? err.message : undefined)
+
+      // Try once more before saying anything. Most failures here are a busy
+      // model or a gateway timeout on a long consultation, and succeed on the
+      // second attempt — a doctor should not have to press the button the app
+      // could have pressed. Not blanket: a bad key, a spent quota or a lapsed
+      // subscription fails the same way twice, and a second spinner before the
+      // same answer is worse than the answer.
+      if (failure.kind === 'transient' && !isRetry) {
+        setGenerationStatus('Trying again')
+        void runPendingGeneration(true)
+        return
+      }
+
       // Snap the header fields to full values so a failed generation doesn't
       // leave a half-typed name/date in the form.
       metaAnimRef.current?.cancel()
       metaAnimRef.current = null
-      if (!mountedRef.current) return
       setIsGenerating(false)
       setGenerationStatus(null)
       autoSaveEnabledRef.current = true
-      setGenerationError(err instanceof Error ? err.message : 'Generation failed')
+      // A dialog, not a strip above an empty form: the doctor has just watched
+      // it work for a minute and needs to be told plainly that it did not.
+      setGenerationFailure(failure)
     }
   }
 
@@ -2652,6 +2676,27 @@ function EditContent() {
         </div>
       )}
 
+      {/* Generation failed twice. A dialog rather than a strip: the doctor has
+          watched it run for a minute and needs to be told, not to notice. */}
+      <Modal open={!!generationFailure} onClose={() => setGenerationFailure(null)}
+             title={generationFailure ? failureDialogCopy(generationFailure).title : ''} maxWidth="sm">
+        {generationFailure && (
+          <div className="px-5 pb-5 space-y-4">
+            <p className="text-sm text-[var(--text2)]">
+              {failureDialogCopy(generationFailure).body}
+            </p>
+            <div className="flex gap-2">
+              <Button variant="secondary" className="flex-1" onClick={() => setGenerationFailure(null)}>
+                Close
+              </Button>
+              <Button className="flex-1" onClick={() => { setGenerationFailure(null); runPendingGeneration(true) }}>
+                Try again
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* Recovered recording — says what came back and that nothing was lost.
           Deliberately amber, not red: this is the safety net working, and the
           doctor's next move is one tap, not a diagnosis. */}
@@ -2660,12 +2705,9 @@ function EditContent() {
              style={{ top: errorTop }}>
           <div className="min-w-0">
             <p className="text-sm font-medium text-amber-800 truncate">
-              Recording recovered — {recoveredDraft.patient}
+              Recovered — {recoveredDraft.patient}
             </p>
-            <p className="text-xs text-amber-700 mt-0.5">
-              The page reloaded before the note was made. The transcript
-              {recoveredDraft.templateTitle ? ` and ${recoveredDraft.templateTitle}` : ''} are back.
-            </p>
+            <p className="text-xs text-amber-700 mt-0.5">Your transcript is back.</p>
           </div>
           <button onClick={() => setRecoveredDraft(null)}
                   className="text-xs underline text-amber-800 shrink-0">Dismiss</button>
