@@ -270,6 +270,57 @@ The counters on the recording screen report captured-vs-transcribed minutes
 honestly rather than implying success: a segment whose audio saved but whose
 transcription failed is logged as such.
 
+### One draft per recording, and what expires
+
+`users/{uid}/transcriptDrafts/{sessionId}` — keyed by the recorder's own session
+id. It used to be a single document called `current`, which meant:
+
+- recording a **second** patient before the first became a note **overwrote the
+  first**, silently. The modal said "A previous recording was interrupted" but
+  that was informational; nothing warned that continuing would discard it.
+- the write **merged**, so a half-finished handoff survived onto the new
+  transcript — patient B's session carrying **patient A's** name, reg number and
+  date of birth. Recovery would then restore the wrong identity onto the wrong
+  recording.
+
+Per-session documents make both impossible: nothing shares a key, so nothing can
+bleed. Patients lists **one amber row per unfinished recording**, and each row
+deep-links to its own draft (`?recover=1&draft=<id>`) rather than to "the
+newest", which would open a different patient's session.
+
+`store.activeDraftId` tracks which draft the work in hand came from, so saving a
+note clears **that** one. Clearing by any other rule would delete a different
+patient's unfinished recording.
+
+**They expire, because a draft is a full patient transcript.**
+`DRAFT_TTL_DAYS` (7) from the LAST save, so a recording still being added to is
+never treated as abandoned, plus a `MAX_LIVE_DRAFTS` ceiling. Pruning happens on
+read — the moment a doctor opens the app is the cheapest time to tidy up, and it
+works whether or not anyone has configured a TTL policy. A draft with **no**
+timestamp is treated as old, not new: it predates the field, and showing a stale
+transcript as the newest recording is how a doctor opens the wrong session.
+
+**Still to do by hand:** add a Firestore TTL policy on
+`transcriptDrafts.expiresAt`. Read-time pruning misses the doctor who never
+comes back, and `expiresAt` is written as a real `Timestamp` because the policy
+ignores a millisecond number — the trap `stripe_events` already hit.
+
+### What happens if the AI fails to generate
+
+Nothing is lost and nothing loops.
+
+The note is written to Firestore **before** the AI call, carrying patient, date,
+clinician and the full transcript, precisely so a failed generation cannot lose
+the session. It is in Patients and History immediately.
+
+On failure the doctor gets the reason, **Generate manually** (a complete prompt
+to paste into any external AI when quota is gone), and — because the note has a
+transcript and no content — **Generate note** on the green bar, which is the
+retry. Opening it from Patients and regenerating works too.
+
+It attempts **once**. The only automatic retry is a Groq rate limit, which shows
+a countdown and retries a single time when it expires: a known wait, not a loop.
+
 ### The reload that used to lose a session
 
 Recorded 2026-08-27, from a real 11-minute recording.
@@ -428,6 +479,11 @@ permanent bar over the note is clutter once read.
 - A reload during a dictated note restores the patient AND the widened template
 - A reload during a dictated letter or hospital form leaves the recovery draft
   intact — no path deletes it before the document it replaces exists
+- A second recording NEVER overwrites an unfinished first one
+- A handoff can never attach to a recording it did not come from
+- Saving a note clears only the draft that note came from
+- A failed generation leaves a saved note with its transcript, and retries only
+  when the doctor asks
 - The recovery banner disappears on its own
 
 Covered by `tests/unit/dictation-template.test.ts`, which asserts the

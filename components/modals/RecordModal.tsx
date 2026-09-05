@@ -11,7 +11,7 @@ import type { RecordingDefaults } from '@/types'
 interface RecordModalProps {
   open: boolean
   onClose: () => void
-  onTranscriptReady: (text: string, duration: number) => void
+  onTranscriptReady: (text: string, duration: number, draftId: string) => void
   recordingDefaults?: RecordingDefaults
   // Whether a genuinely recoverable transcript draft exists in Firestore right
   // now (the same signal that drives the Generate-page recovery banner and
@@ -98,7 +98,7 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
     }
     // Hand the finished transcript to the parent. Do NOT call onClose() here —
     // the parent closes this modal by flipping its phase.
-    onTranscriptReady(result.text, result.duration)
+    onTranscriptReady(result.text, result.duration, result.draftId)
   }
 
   // Keep stopRef current so the auto-stop timeout always calls the latest version

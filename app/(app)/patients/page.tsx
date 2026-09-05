@@ -8,7 +8,7 @@ import { LETTER_TYPE_LABEL, notePatientDob, buildPatientInfoText, isTrackedPatie
 import { getPatientProfiles, deletePatientProfile, savePatientProfile } from '@/lib/firestore/patients'
 import { updateProfile } from '@/lib/firestore/profiles'
 import { listNotes, deleteNote, renamePatientInNotes } from '@/lib/firestore/notes'
-import { getTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
+import { listTranscriptDrafts } from '@/lib/firestore/transcriptDrafts'
 import { parseDraftHandoff } from '@/lib/draftHandoff'
 import { getHospitalFormsForWorkplace } from '@/lib/firestore/hospitalForms'
 import { GenderAvatar } from '@/components/ui/GenderAvatar'
@@ -583,7 +583,10 @@ export default function PatientsPage() {
   const [selectedPatient, setSelectedPatient] = useState<PatientGroup | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [editingProfile, setEditingProfile] = useState<PatientProfile | undefined>(undefined)
-  const [unfinishedDraft, setUnfinishedDraft] = useState<{ text: string; durationSec: number; patient: string } | null>(null)
+  // One row per unfinished recording. There can genuinely be several now that
+  // drafts are per session — before, a second recording silently overwrote the
+  // first, so only one could ever exist.
+  const [unfinishedDrafts, setUnfinishedDrafts] = useState<{ id: string; text: string; durationSec: number; patient: string }[]>([])
   const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
     // ?view=table lands straight on the table — used after filling a patient's
     // record from a pasted note, so the doctor sees the fields that landed.
@@ -602,14 +605,16 @@ export default function PatientsPage() {
     Promise.all([listNotes(user.uid), getPatientProfiles(user.uid)])
       .then(([n, p]) => { setNotes(n); setProfiles(p) })
       .finally(() => setLoading(false))
-    getTranscriptDraft(user.uid).then(d => {
+    listTranscriptDrafts(user.uid).then(list => {
       // The draft carries the name when the doctor got as far as the confirm
       // step, so a recovered session is findable by who it is about rather than
       // sitting in the list as an anonymous row they have to open to identify.
-      const handoff = d ? parseDraftHandoff(d.handoff) : null
-      setUnfinishedDraft(d && typeof d.text === 'string' && d.text.trim().length > 0
-        ? { text: d.text, durationSec: d.durationSec ?? 0, patient: handoff?.patient ?? '' }
-        : null)
+      setUnfinishedDrafts(list.map(d => ({
+        id: d.id,
+        text: d.text,
+        durationSec: d.durationSec ?? 0,
+        patient: parseDraftHandoff(d.handoff)?.patient ?? '',
+      })))
     }).catch(() => {})
   }, [user?.uid])
 
@@ -1447,9 +1452,10 @@ export default function PatientsPage() {
             the recovery draft (not in progress_notes, so it can't group like a
             real patient). Surface it here as an "Unnamed patient" row so the
             doctor can find it in the list and tap through to name + generate. */}
-        {unfinishedDraft && (
+        {unfinishedDrafts.map(d => (
           <div
-            onClick={() => router.push('/generate?recover=1')}
+            key={d.id}
+            onClick={() => router.push(`/generate?recover=1&draft=${encodeURIComponent(d.id)}`)}
             className="flex items-center gap-3 px-4 py-3 border-b border-amber-200 bg-amber-50/60
                        hover:bg-amber-50 cursor-pointer transition-colors"
           >
@@ -1457,7 +1463,7 @@ export default function PatientsPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-semibold text-[var(--text)] truncate">
-                  {unfinishedDraft.patient || 'Unnamed patient'}
+                  {d.patient || 'Unnamed patient'}
                 </p>
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700
                                  bg-amber-100 border border-amber-300 rounded-full px-1.5 py-0.5 shrink-0">
@@ -1466,7 +1472,7 @@ export default function PatientsPage() {
               </div>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <span className="text-xs text-[var(--text3)]">
-                  ~{unfinishedDraft.text.trim().split(/\s+/).length} words captured
+                  ~{d.text.trim().split(/\s+/).length} words captured
                 </span>
                 <span className="text-xs text-[var(--text3)]">·</span>
                 <span className="text-xs text-amber-700">Tap to name &amp; generate</span>
@@ -1477,7 +1483,7 @@ export default function PatientsPage() {
               <polyline points="9,18 15,12 9,6"/>
             </svg>
           </div>
-        )}
+        ))}
         {loading ? (
           <div className="space-y-0">
             {[0, 1, 2, 3].map(i => (
@@ -1490,7 +1496,7 @@ export default function PatientsPage() {
               </div>
             ))}
           </div>
-        ) : filteredPatients.length === 0 && !unfinishedDraft ? (
+        ) : filteredPatients.length === 0 && !unfinishedDrafts.length ? (
           <div className="flex items-center justify-center h-40 text-center px-4">
             <p className="text-sm text-[var(--text3)]">
               {search || quickFilter ? 'No patients match your filters.' : 'No patients yet.'}

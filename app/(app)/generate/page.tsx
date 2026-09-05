@@ -17,7 +17,7 @@ import TemplatePicker from '@/components/modals/TemplatePicker'
 import LetterPickerModal from '@/components/modals/LetterPickerModal'
 import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderModal'
 import { listNotes } from '@/lib/firestore/notes'
-import { getTranscriptDraft, deleteTranscriptDraft, saveDraftHandoff } from '@/lib/firestore/transcriptDrafts'
+import { listTranscriptDrafts, deleteTranscriptDraft, saveDraftHandoff, type TranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { EMPTY_HANDOFF, type DraftHandoff } from '@/lib/draftHandoff'
 import { buildDictationTemplate } from '@/lib/dictationTemplate'
 import { getHospitalFormsForWorkplace, getHospitalForm } from '@/lib/firestore/hospitalForms'
@@ -141,7 +141,11 @@ export default function GeneratePage() {
   const store = useNoteStore()
 
   const [phase, setPhase] = useState<GenPhase>('idle')
-  const [recoveredDraft, setRecoveredDraft] = useState<{ text: string; letterType: string | null; durationSec: number } | null>(null)
+  // The newest unfinished recording, plus how many there are in total. Drafts
+  // are per recording session now, so a doctor can genuinely have more than one
+  // — each is listed in Patients; the banner offers the most recent.
+  const [recoveredDraft, setRecoveredDraft] = useState<TranscriptDraft | null>(null)
+  const [draftCount, setDraftCount] = useState(0)
   const [inputText, setInputText] = useState('')
   const [pendingTranscript, setPendingTranscript] = useState('')
   const [creationMode, setCreationMode] = useState<NoteCreationMode>('paste')
@@ -188,6 +192,9 @@ export default function GeneratePage() {
   // Accumulates across the two steps that fill it — naming the patient, then
   // picking the template — so the second write does not erase the first.
   const handoffRef = useRef<DraftHandoff>(EMPTY_HANDOFF)
+  // The draft the work in hand belongs to. A ref because the handoff is written
+  // in the same tick the doctor confirms, before a state update would land.
+  const activeDraftIdRef = useRef<string>('')
 
   useEffect(() => {
     if (localStorage.getItem('_ln_rec_interrupted')) {
@@ -400,15 +407,20 @@ export default function GeneratePage() {
   // finished, so it can be recovered instead of lost.
   useEffect(() => {
     if (!user) return
-    getTranscriptDraft(user.uid).then(d => {
-      if (!(d && typeof d.text === 'string' && d.text.trim().length > 0)) return
-      const draft = { text: d.text, letterType: d.letterType ?? null, durationSec: d.durationSec ?? 0 }
-      setRecoveredDraft(draft)
-      // Arriving from the Patients "Unnamed" entry (?recover=1) skips the banner
-      // and drops the doctor straight into naming the patient.
-      if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('recover') === '1') {
-        recoverDraftIntoNaming(draft)
-      }
+    listTranscriptDrafts(user.uid).then(list => {
+      setDraftCount(list.length)
+      const d = list[0]
+      if (!d) return
+      setRecoveredDraft(d)
+      // Arriving from a Patients unfinished row (?recover=1&draft=<id>) skips
+      // the banner and drops the doctor straight into naming THAT recording —
+      // not merely the newest, which would open the wrong patient's session.
+      if (typeof window === 'undefined') return
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('recover') !== '1') return
+      const wanted = params.get('draft')
+      const target = wanted ? list.find(x => x.id === wanted) : d
+      if (target) { setRecoveredDraft(target); recoverDraftIntoNaming(target) }
     }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid])
@@ -416,7 +428,11 @@ export default function GeneratePage() {
   // The modals now record and transcribe live in segments and hand us the
   // finished transcript text. All we do here is route it into the note or
   // letter flow.
-  async function handleTranscriptReady(text: string, duration: number, letterType?: LetterType | null, customTemplateId?: string) {
+  async function handleTranscriptReady(text: string, duration: number, draftId: string, letterType?: LetterType | null, customTemplateId?: string) {
+    // Remember which draft this recording wrote to, so whatever it becomes —
+    // note, letter or form — clears that one and not another patient's.
+    store.setActiveDraftId(draftId)
+    activeDraftIdRef.current = draftId
     store.setLastRecordingDuration(duration)
     // Capture the wall-clock end of the recording for the auto session End time.
     store.setLastRecordingEndTime(Date.now())
@@ -495,7 +511,7 @@ export default function GeneratePage() {
   // Drop a recovered draft into the patient-naming step (TranscriptConfirmModal),
   // or the letter flow if it was a dictated letter. Shared by the banner's "Add
   // patient details" button and the ?recover=1 deep-link from the Patients tab.
-  function recoverDraftIntoNaming(d: { text: string; letterType: string | null; durationSec: number }) {
+  function recoverDraftIntoNaming(d: TranscriptDraft) {
     setRecoveredDraft(null)
     store.setLastRecordingDuration(d.durationSec)
     store.setLastRecordingEndTime(Date.now())
@@ -517,6 +533,11 @@ export default function GeneratePage() {
     // transcript without auto-generating a note from it.
     skipGenerationRef.current = !validateTranscript(d.text).valid
     noteBlockRef.current = null
+    // Adopt this draft as the one in hand, so the handoff written at the naming
+    // step lands on it and the edit page later clears it — not some other
+    // patient's unfinished recording.
+    activeDraftIdRef.current = d.id
+    store.setActiveDraftId(d.id)
     beginPendingTranscript(d.text, 'paste')
     setTranscriptConfirmOpen(true)
   }
@@ -526,8 +547,10 @@ export default function GeneratePage() {
   }
 
   function discardRecoveredDraft() {
-    if (user) deleteTranscriptDraft(user.uid).catch(() => {})
+    const id = recoveredDraft?.id
+    if (user && id) deleteTranscriptDraft(user.uid, id).catch(() => {})
     setRecoveredDraft(null)
+    setDraftCount(c => Math.max(0, c - 1))
   }
 
   // Generate a note straight from a recovered transcript WITHOUT the patient
@@ -536,6 +559,10 @@ export default function GeneratePage() {
   function generateFromDraftDirect() {
     const d = recoveredDraft
     if (!d) return
+    // Same reason as recoverDraftIntoNaming: whatever this becomes must clear
+    // THIS draft when it is durably saved, not another recording's.
+    activeDraftIdRef.current = d.id
+    store.setActiveDraftId(d.id)
     setRecoveredDraft(null)
     store.setLastRecordingDuration(d.durationSec)
     store.setLastRecordingEndTime(Date.now())
@@ -587,7 +614,7 @@ export default function GeneratePage() {
         ...EMPTY_HANDOFF,
         patient, reg_number: regNumber, session_number: sessionNumber, attendance, dob, gender,
       }
-      void saveDraftHandoff(user.uid, handoffRef.current)
+      void saveDraftHandoff(user.uid, activeDraftIdRef.current, handoffRef.current)
     }
 
     // Non-clinical transcript: skip the template picker and generation entirely.
@@ -651,7 +678,7 @@ export default function GeneratePage() {
         templateTitle: template.title,
         pendingGeneration: true,
       }
-      void saveDraftHandoff(user.uid, handoffRef.current)
+      void saveDraftHandoff(user.uid, activeDraftIdRef.current, handoffRef.current)
     }
     setPhase('idle')
     router.push('/edit')
@@ -726,7 +753,7 @@ export default function GeneratePage() {
         ...(prefillPatient?.reg_number ? { urNumber: prefillPatient.reg_number } : {}),
       })
       store.setPendingPatientProfile(null)
-      if (user) deleteTranscriptDraft(user.uid).catch(() => {})
+      if (user && activeDraftIdRef.current) deleteTranscriptDraft(user.uid, activeDraftIdRef.current).catch(() => {})
       // Land on this patient's card with the details already open, so the
       // extracted fields are right there to check.
       router.push(`/patients?patient=${encodeURIComponent(name)}&expand=1`)
@@ -789,7 +816,7 @@ export default function GeneratePage() {
         templateTitle: template.title,
         pendingGeneration: true,
       }
-      void saveDraftHandoff(user.uid, handoffRef.current)
+      void saveDraftHandoff(user.uid, activeDraftIdRef.current, handoffRef.current)
     }
     setPhase('idle')
     router.push('/edit')
