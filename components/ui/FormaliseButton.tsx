@@ -82,7 +82,7 @@ export default function FormaliseButton({
     // already accepted, altered in places they never touched.
     const plan = planTidy(effective)
     if (!plan.lines.length) {
-      setError('Nothing new to tidy.')
+      setError('Nothing new to tidy')
       return
     }
     setWorking(true)
@@ -120,7 +120,7 @@ export default function FormaliseButton({
       // An empty or errored reply must leave the doctor's text alone. Replacing
       // it with nothing would destroy the draft to report a failure.
       if (!result || result.startsWith('Error:')) {
-        setError(data.error ?? 'Could not tidy the wording. Your text is unchanged.')
+        setError('Couldn’t tidy — text unchanged')
         return
       }
       // One reply per line sent, or nothing at all. A mismatch means there is no
@@ -128,7 +128,7 @@ export default function FormaliseButton({
       // misrouted reply would move one paragraph's prose into another.
       const applied = applyTidy(effective, plan, result)
       if (!applied) {
-        setError('Tidying returned a different number of lines. Your text is unchanged.')
+        setError('Tidy skipped — text unchanged')
         return
       }
       // Structure is checked per field BEFORE anything is written, so a merged
@@ -147,13 +147,13 @@ export default function FormaliseButton({
         t.onChange(next)
       }
       if (!Object.keys(before).length) {
-        setError('Nothing needed changing.')
+        setError('Already tidy')
         return
       }
       setPrevious(before)
       setTidied(prev => ({ ...prev, ...applied.updates }))
     } catch {
-      setError('Could not tidy the wording. Your text is unchanged.')
+      setError('Couldn’t tidy — text unchanged')
     } finally {
       setWorking(false)
     }
@@ -177,7 +177,7 @@ export default function FormaliseButton({
   if (previous) {
     return (
       <div className={`flex items-center gap-2 ${className}`}>
-        <span className="text-[11px] text-white/90">Wording tidied</span>
+        <span className="text-[11px] text-white/90">Tidied</span>
         {/* Undo stays plain on purpose. The gradient marks the control that
             calls a model; Undo only puts back what the doctor already had. */}
         <button type="button" onClick={undo}

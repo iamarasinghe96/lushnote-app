@@ -10,6 +10,12 @@ once. Add a row before adding a feature.
 **Status legend:** ✅ covered by an automated check · ⚠️ partially covered ·
 ❌ no automated coverage
 
+**Notification copy:** a title that names the action, and at most one short line
+under it. Say what happened and what to do — not why the app works the way it
+does. "Finish your last recording · ~840 words, saved" replaced a
+three-clause paragraph explaining the patient-details step. Doctors read these
+between patients.
+
 ---
 
 ## `signup` — Sign up and onboarding
@@ -307,19 +313,36 @@ ignores a millisecond number — the trap `stripe_events` already hit.
 
 ### What happens if the AI fails to generate
 
-Nothing is lost and nothing loops.
-
 The note is written to Firestore **before** the AI call, carrying patient, date,
 clinician and the full transcript, precisely so a failed generation cannot lose
 the session. It is in Patients and History immediately.
 
-On failure the doctor gets the reason, **Generate manually** (a complete prompt
-to paste into any external AI when quota is gone), and — because the note has a
-transcript and no content — **Generate note** on the green bar, which is the
-retry. Opening it from Patients and regenerating works too.
+**It retries once, by itself.** Most failures here are a busy model or a gateway
+timeout on a long consultation and succeed on the second attempt — a doctor
+should not have to press a button the app could have pressed. The status line
+says *Trying again* so the wait is explained rather than mysterious.
 
-It attempts **once**. The only automatic retry is a Groq rate limit, which shows
-a countdown and retries a single time when it expires: a known wait, not a loop.
+**But not blanket.** `classifyGenerationFailure` decides:
+
+| Failure | Retried? |
+|---|---|
+| Gateway timeout (502/504), garbled reply, dropped connection, unknown 500 | **yes** |
+| Daily quota spent, bad API key, lapsed subscription, suspension | **no** |
+| Transcript too short; request too large (413) | **no** |
+
+A wrong key or a spent quota fails identically the second time, and a doctor
+watching a spinner for a pointless attempt is worse than being told at once.
+Unknown failures retry, because one extra attempt costs seconds while refusing
+to retry a recoverable fault costs the note.
+
+**When the retry also fails, a dialog says so.** Not a strip above an empty
+form — the doctor has watched it run for a minute and needs telling, not to
+notice. Two lines: the reason, then the way forward (Billing, Settings, tomorrow,
+or "your recording is saved — try again from Patients"). **Try again** and
+**Close** are the buttons.
+
+Nothing loops. The one automatic wait is a Groq rate limit, which shows a
+countdown and retries a single time when it expires.
 
 ### The reload that used to lose a session
 
@@ -482,8 +505,10 @@ permanent bar over the note is clutter once read.
 - A second recording NEVER overwrites an unfinished first one
 - A handoff can never attach to a recording it did not come from
 - Saving a note clears only the draft that note came from
-- A failed generation leaves a saved note with its transcript, and retries only
-  when the doctor asks
+- A failed generation leaves a saved note with its transcript
+- Generation retries once by itself, and only where a retry could succeed
+- A second failure is announced in a dialog, never left as a strip to notice
+- No failure path loops
 - The recovery banner disappears on its own
 
 Covered by `tests/unit/dictation-template.test.ts`, which asserts the

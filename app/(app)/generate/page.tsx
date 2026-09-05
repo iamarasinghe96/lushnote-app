@@ -858,9 +858,12 @@ export default function GeneratePage() {
 
         {recoveredDraft && (
           <div className="rounded-[var(--r-lg)] border border-amber-300 bg-amber-50 p-4 space-y-2">
-            <p className="text-sm font-semibold text-amber-900">Recording not finished</p>
+            <p className="text-sm font-semibold text-amber-900">Finish your last recording</p>
+            {/* Say what it is and that it is safe. Anything more is explaining
+                the app instead of offering the next tap. */}
             <p className="text-xs text-amber-800">
-              A recording was captured (~{recoveredDraft.text.trim().split(/\s+/).length} words) but no note was created — the patient details step wasn&apos;t completed. Add the patient details, or generate a note now from the transcript as it is.
+              ~{recoveredDraft.text.trim().split(/\s+/).length} words, saved.
+              {draftCount > 1 ? ` ${draftCount - 1} more in Patients.` : ''}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="primary" size="sm" onClick={useRecoveredDraft}>Add patient details</Button>
