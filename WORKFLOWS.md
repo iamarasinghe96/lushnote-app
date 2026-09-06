@@ -10,6 +10,12 @@ once. Add a row before adding a feature.
 **Status legend:** ✅ covered by an automated check · ⚠️ partially covered ·
 ❌ no automated coverage
 
+**Notification copy:** a title that names the action, and at most one short line
+under it. Say what happened and what to do — not why the app works the way it
+does. "Finish your last recording · ~840 words, saved" replaced a
+three-clause paragraph explaining the patient-details step. Doctors read these
+between patients.
+
 ---
 
 ## `signup` — Sign up and onboarding
@@ -270,6 +276,74 @@ The counters on the recording screen report captured-vs-transcribed minutes
 honestly rather than implying success: a segment whose audio saved but whose
 transcription failed is logged as such.
 
+### One draft per recording, and what expires
+
+`users/{uid}/transcriptDrafts/{sessionId}` — keyed by the recorder's own session
+id. It used to be a single document called `current`, which meant:
+
+- recording a **second** patient before the first became a note **overwrote the
+  first**, silently. The modal said "A previous recording was interrupted" but
+  that was informational; nothing warned that continuing would discard it.
+- the write **merged**, so a half-finished handoff survived onto the new
+  transcript — patient B's session carrying **patient A's** name, reg number and
+  date of birth. Recovery would then restore the wrong identity onto the wrong
+  recording.
+
+Per-session documents make both impossible: nothing shares a key, so nothing can
+bleed. Patients lists **one amber row per unfinished recording**, and each row
+deep-links to its own draft (`?recover=1&draft=<id>`) rather than to "the
+newest", which would open a different patient's session.
+
+`store.activeDraftId` tracks which draft the work in hand came from, so saving a
+note clears **that** one. Clearing by any other rule would delete a different
+patient's unfinished recording.
+
+**They expire, because a draft is a full patient transcript.**
+`DRAFT_TTL_DAYS` (7) from the LAST save, so a recording still being added to is
+never treated as abandoned, plus a `MAX_LIVE_DRAFTS` ceiling. Pruning happens on
+read — the moment a doctor opens the app is the cheapest time to tidy up, and it
+works whether or not anyone has configured a TTL policy. A draft with **no**
+timestamp is treated as old, not new: it predates the field, and showing a stale
+transcript as the newest recording is how a doctor opens the wrong session.
+
+**Still to do by hand:** add a Firestore TTL policy on
+`transcriptDrafts.expiresAt`. Read-time pruning misses the doctor who never
+comes back, and `expiresAt` is written as a real `Timestamp` because the policy
+ignores a millisecond number — the trap `stripe_events` already hit.
+
+### What happens if the AI fails to generate
+
+The note is written to Firestore **before** the AI call, carrying patient, date,
+clinician and the full transcript, precisely so a failed generation cannot lose
+the session. It is in Patients and History immediately.
+
+**It retries once, by itself.** Most failures here are a busy model or a gateway
+timeout on a long consultation and succeed on the second attempt — a doctor
+should not have to press a button the app could have pressed. The status line
+says *Trying again* so the wait is explained rather than mysterious.
+
+**But not blanket.** `classifyGenerationFailure` decides:
+
+| Failure | Retried? |
+|---|---|
+| Gateway timeout (502/504), garbled reply, dropped connection, unknown 500 | **yes** |
+| Daily quota spent, bad API key, lapsed subscription, suspension | **no** |
+| Transcript too short; request too large (413) | **no** |
+
+A wrong key or a spent quota fails identically the second time, and a doctor
+watching a spinner for a pointless attempt is worse than being told at once.
+Unknown failures retry, because one extra attempt costs seconds while refusing
+to retry a recoverable fault costs the note.
+
+**When the retry also fails, a dialog says so.** Not a strip above an empty
+form — the doctor has watched it run for a minute and needs telling, not to
+notice. Two lines: the reason, then the way forward (Billing, Settings, tomorrow,
+or "your recording is saved — try again from Patients"). **Try again** and
+**Close** are the buttons.
+
+Nothing loops. The one automatic wait is a Groq rate limit, which shows a
+countdown and retries a single time when it expires.
+
 ### The reload that used to lose a session
 
 Recorded 2026-08-27, from a real 11-minute recording.
@@ -428,6 +502,13 @@ permanent bar over the note is clutter once read.
 - A reload during a dictated note restores the patient AND the widened template
 - A reload during a dictated letter or hospital form leaves the recovery draft
   intact — no path deletes it before the document it replaces exists
+- A second recording NEVER overwrites an unfinished first one
+- A handoff can never attach to a recording it did not come from
+- Saving a note clears only the draft that note came from
+- A failed generation leaves a saved note with its transcript
+- Generation retries once by itself, and only where a retry could succeed
+- A second failure is announced in a dialog, never left as a strip to notice
+- No failure path loops
 - The recovery banner disappears on its own
 
 Covered by `tests/unit/dictation-template.test.ts`, which asserts the

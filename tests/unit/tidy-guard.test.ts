@@ -51,7 +51,7 @@ describe('tidyPreservesStructure', () => {
   it('refuses the exact rewrite that merged the plan', () => {
     const check = tidyPreservesStructure(PLAN, MERGED)
     expect(check.ok).toBe(false)
-    expect(check.reason).toContain('4 items into 3')
+    expect(check.reason).toContain('drop 1 plan item')
   })
 
   it('accepts a rewrite that kept every item', () => {
@@ -79,7 +79,8 @@ describe('tidyPreservesStructure', () => {
 
   it('says what would have been lost, not just that it refused', () => {
     const check = tidyPreservesStructure('1. a\n2. b\n3. c', '1. a and b\n2. c')
-    expect(check.reason).toContain('3 items into 2')
-    expect(check.reason).toContain('unchanged')
+    // Names the loss, not the mechanism: "drop 1 plan item" is what a doctor
+    // needs; the before/after counts are for the log, not the bar.
+    expect(check.reason).toContain('drop 1 plan item')
   })
 })

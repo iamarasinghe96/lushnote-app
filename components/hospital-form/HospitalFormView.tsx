@@ -182,7 +182,7 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
       if (s.hospitalFormNoteId) await updateNote(s.hospitalFormNoteId, noteData)
       else { const id = await saveNote(noteData); s.setHospitalFormNoteId(id) }
       lastSavedRef.current = serialized
-      if (s.lastTranscript?.trim() && !draftClearedRef.current) { draftClearedRef.current = true; deleteTranscriptDraft(user.uid).catch(() => {}) }
+      if (s.lastTranscript?.trim() && !draftClearedRef.current && s.activeDraftId) { draftClearedRef.current = true; deleteTranscriptDraft(user.uid, s.activeDraftId).catch(() => {}) }
       if (mountedRef.current) { setSaveState('saved'); setTimeout(() => { if (mountedRef.current) setSaveState('idle') }, 1500) }
     } catch { if (mountedRef.current) setSaveState('idle') }
     finally { isSavingRef.current = false }

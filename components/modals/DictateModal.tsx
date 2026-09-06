@@ -11,7 +11,7 @@ import type { RecordingDefaults, LetterType, CustomLetterTemplate, HospitalFormD
 interface DictateModalProps {
   open: boolean
   onClose: () => void
-  onTranscriptReady: (text: string, duration: number, letterType?: LetterType | null, customTemplateId?: string) => void
+  onTranscriptReady: (text: string, duration: number, draftId: string, letterType?: LetterType | null, customTemplateId?: string) => void
   onHospitalFormReady?: (text: string, duration: number, form: HospitalFormDoc) => void
   recordingDefaults?: RecordingDefaults
   customTemplates?: CustomLetterTemplate[]
@@ -187,7 +187,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
       onHospitalFormReady(result.text, result.duration, hospitalForm)
       return
     }
-    onTranscriptReady(result.text, result.duration, letterType, customTemplate?.id)
+    onTranscriptReady(result.text, result.duration, result.draftId, letterType, customTemplate?.id)
   }
 
   stopRef.current = doStop

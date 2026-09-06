@@ -56,6 +56,11 @@ interface NoteStore {
   hospitalForm: HospitalFormDoc | null
   hospitalFormData: HospitalFormData | null
   hospitalFormNoteId: string | null      // Firestore doc id of the open form (null = unsaved)
+  // Which recovery draft the work in hand came from, so the right one is cleared
+  // when it is durably saved. Drafts are per recording session, so clearing the
+  // wrong one would delete a DIFFERENT patient's unfinished recording.
+  activeDraftId: string | null
+  setActiveDraftId: (id: string | null) => void
   pendingHospitalFormGeneration: boolean
   setHospitalForm: (f: HospitalFormDoc | null) => void
   setHospitalFormData: (d: HospitalFormData | null) => void
@@ -117,6 +122,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   const [hospitalForm, setHospitalForm] = useState<HospitalFormDoc | null>(null)
   const [hospitalFormData, setHospitalFormData] = useState<HospitalFormData | null>(null)
   const [hospitalFormNoteId, setHospitalFormNoteId] = useState<string | null>(null)
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null)
   const [pendingHospitalFormGeneration, setPendingHospitalFormGeneration] = useState(false)
 
   function resetHospitalForm() {
@@ -185,6 +191,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       hospitalForm,
       hospitalFormData,
       hospitalFormNoteId,
+      activeDraftId, setActiveDraftId,
       pendingHospitalFormGeneration,
       setHospitalForm,
       setHospitalFormData,
