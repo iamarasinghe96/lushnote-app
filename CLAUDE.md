@@ -1221,10 +1221,36 @@ function lnRecallSearch(query: string, allNotes: Note[]): Note[] {
 ## FAB Chat
 
 - Green circle `#10b981`, `position: fixed`, `bottom: 80px`, `left: 16px`, `z-index: 60`
-- Click → 2 sub-buttons slide up: "AI Assistant" + "Live Support"
-- Bottom-LEFT. The root is `items-start` and both sub-buttons use
-  `transformOrigin: 'bottom left'` — all three go together, or the buttons
+- Click → sub-buttons slide up. **AI Assistant only** — Live Support moved to
+  Settings (see below)
+- Bottom-LEFT. The root is `items-start` and the sub-buttons use
+  `transformOrigin: 'bottom left'` — all of it goes together, or the buttons
   right-align under a left-hand FAB and pop away from it instead of out of it
+
+### Live Support lives in Settings, and its thread lives at the ROOT
+
+`Settings → Live Support` (`components/settings/SupportPanel.tsx`). The panel is
+only a view: the conversation is held by `SupportThreadProvider`
+(`hooks/useSupportThread.tsx`), mounted in **`app/layout.tsx`**.
+
+It has to be the root layout. `app/settings/` is a SIBLING of `app/(app)/`, not
+a child, so their only shared ancestor is the root — a provider in the app
+layout would be invisible to Settings, and the two trees would poll separately
+and disagree about what had been read.
+
+**Polling must outlive the panel.** The 20s background poll exists to tell a
+doctor a human replied; if it only ran while Settings was open, the one moment
+it matters is the one moment it would not run. The panel calls `setPanelOpen`
+so the provider knows to poll at 5s, clear the badge and advance the read
+marker instead of badging.
+
+**The unread mark rides the header avatar** (`app/(app)/layout.tsx`) and the
+Live Support row in the user menu — the avatar is the one control on every
+screen that leads to Settings.
+
+`LUSHNOTE_KB`, `SUPPORT_TOPICS` and `playSupportChime` live in
+`lib/supportKb.ts`, shared by the AI assistant (still on the FAB) and support
+triage (now in Settings) so the two cannot drift.
 - Slack webhook: `'https://hooks.slack.com' + '/services/T0B5HRCD3QT/B0B5X3GJYBW/wmD9BaIPKisWj0rQ67vWdmnQ'`
   (split string prevents GitHub secret scanning)
 - Slack failure → fallback `mailto:iamarasinghe96@gmail.com`
@@ -1382,7 +1408,7 @@ Sections: diagnosis, presentation, history, medications, mse, content, scales, r
 ## Settings Deep-link
 
 User menu in header has 7 labelled links to `/settings?tab={tabId}`:
-profile, workplaces, templates, transcripts, api-keys, personalisation, subscription
+profile, workplaces, templates, transcripts, api-keys, personalisation, subscription, support
 
 `app/settings/page.tsx` reads `?tab=` from `useSearchParams()` on mount and sets active panel.
 

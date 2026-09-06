@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { NoteStoreProvider, useNoteStore } from '@/hooks/useNoteStore'
+import { useSupportThread } from '@/hooks/useSupportThread'
 import TabBar from '@/components/tabs/TabBar'
 import { FAB } from '@/components/FAB'
 import { PullToRefresh } from '@/components/PullToRefresh'
@@ -142,6 +143,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
   const activeWorkplace = profile?.workplaces?.find(w => w.id === profile.activeWorkplaceId)
   const avatarBg = resolveThemePrimary(activeWorkplace?.themeIndex ?? 1, activeWorkplace?.themeColor)
   const initials = getInitials(profile?.displayName || '')
+  const { hasUnread: supportUnread } = useSupportThread()
 
   return (
     <div className="relative flex flex-col bg-[var(--bg)]" style={{ height: '100dvh' }}>
@@ -201,6 +203,15 @@ function AppContent({ children }: { children: React.ReactNode }) {
             >
               {initials}
             </button>
+            {/* Support moved into Settings, but a human reply still has to be
+                noticeable from anywhere. The dot rides the avatar, which is the
+                one control on every screen that leads to Settings. */}
+            {supportUnread && (
+              <span
+                className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-600 border-2 border-white motion-safe:animate-pulse"
+                aria-hidden
+              />
+            )}
 
             {menuOpen && (
               <div
@@ -220,14 +231,18 @@ function AppContent({ children }: { children: React.ReactNode }) {
                   { label: 'API Keys',        tab: 'api-keys' },
                   { label: 'Personalisation', tab: 'personalisation' },
                   { label: 'Subscription',    tab: 'subscription' },
+                  { label: 'Live Support',    tab: 'support' },
                 ] as const).map(({ label, tab }) => (
                   <Link
                     key={tab}
                     href={`/settings?tab=${tab}`}
                     onClick={() => setMenuOpen(false)}
-                    className="block px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--bg)] rounded-lg mx-1"
+                    className="flex items-center justify-between gap-2 px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--bg)] rounded-lg mx-1"
                   >
                     {label}
+                    {tab === 'support' && supportUnread && (
+                      <span className="w-2 h-2 rounded-full bg-red-600 shrink-0 motion-safe:animate-pulse" aria-label="new reply" />
+                    )}
                   </Link>
                 ))}
 

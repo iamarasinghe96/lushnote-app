@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/components/AuthProvider'
+import { SupportThreadProvider } from '@/hooks/useSupportThread'
 import { LiquidGlass } from '@/components/LiquidGlass'
 import './globals.css'
 
@@ -53,7 +54,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={inter.className}>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        {/* Support lives at the ROOT because app/settings is a SIBLING of
+            app/(app), not a child — their only shared ancestor is here. It also
+            has to keep polling while the panel is closed, so a human reply
+            raises the badge wherever the doctor happens to be. */}
+        <AuthProvider>
+          <SupportThreadProvider>{children}</SupportThreadProvider>
+        </AuthProvider>
         <LiquidGlass />
 
         {/* Liquid-glass refraction filter — fractal noise piped through a

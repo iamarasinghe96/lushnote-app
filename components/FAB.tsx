@@ -3,28 +3,11 @@
 import { useEffect, useRef, useState, useCallback, Fragment, type ReactNode } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import { LUSHNOTE_KB } from '@/lib/supportKb'
 import { listNotes } from '@/lib/firestore/notes'
 import { getGroqKey } from '@/lib/utils'
 import type { Note } from '@/types'
 
-const LUSHNOTE_KB = `LushNote is a clinical note builder for clinicians.
-Features: 116 clinical note templates, voice recording and transcription, AI note generation, patient management, referral/records/custom letters, hospital progress-note forms, and PDF/clipboard/email/Share export.
-API: Users bring their own Gemini API key (free from aistudio.google.com) and optionally a Groq key.
-Gemini limit: 20 notes/day free tier. A Groq key extends this significantly.
-Templates: 116 built-in templates across Progress Notes, Assessments, Therapy Notes, Risk & Safety. Create your own in Settings > Templates.
-Export: PDF (formatted A4), clipboard copy, email, and Share (attaches the PDF file). Print produces the same PDF as the download.
-Personalisation: Set your professional identity, treatment approaches, and document style in Settings > Personalisation.
-Common issues: Generation fails → check your API key in Settings > API Keys. Recording won't start → check microphone permissions in your browser settings. Recording stops when the phone is locked → iOS suspends web apps when the screen turns off, so keep the screen on during a session.
-
-LushNote official policy (Terms of Service & Privacy Policy) — this is the ONLY source of truth for any privacy, data, security, storage, or terms question. Full policy: https://www.lushnote.com.au/terms
-- Audio recordings: audio is streamed for transcription, converted to text, then immediately discarded. The audio file is NEVER stored, uploaded, or archived. Only the resulting transcript TEXT is kept, saved as part of the note in your account; you can review, edit, or delete it like any other note content.
-- Clinical notes & letters: stored securely and encrypted, accessible only by you. No LushNote team member, developer, or administrator can view your patient data — there is no admin view.
-- AI training: your notes, transcripts, and patient information are NEVER used to train or improve any AI model. Data is sent to AI providers only to fulfil your immediate request.
-- Transcript redaction: optional (Settings > Transcripts) — removes patient names, DOB, phone numbers, and other identifiers before anything is sent to an AI provider.
-- Account deletion: delete your account any time from Settings > Profile; all notes, patient profiles, and account details are permanently and irreversibly removed (no backups).
-- Compliance: designed to comply with the Australian Privacy Act 1988 (Cth) and the Australian Privacy Principles; governed by Australian law.
-- API keys: your Gemini/Groq keys are stored securely and used only for AI requests on your behalf.
-- Contact: admin@lushnote.com.au.`
 
 // Tappable starter questions shown in the empty AI Assistant — a mix of app
 // FAQ, functionality/how-to, privacy/policy, and patient-recall examples.
@@ -63,30 +46,7 @@ const SAMPLE_QUESTIONS: { group: string; items: string[] }[] = [
 ]
 
 // Canned first-step topics for Live Support (no AI at this stage).
-const SUPPORT_TOPICS: { key: string; label: string; prompt: string }[] = [
-  { key: 'bug', label: 'Report a bug', prompt: 'Please describe the bug in a few sentences — what you did, what happened, and paste any error message you saw.' },
-  { key: 'feature', label: 'Feature or UX suggestion', prompt: "Great — tell us your idea in a few sentences: what you'd like and why it would help." },
-  { key: 'question', label: 'Ask a question', prompt: "Sure — describe your question in a sentence or two and we'll help." },
-  { key: 'account', label: 'Account or privacy', prompt: 'Please describe your account or privacy question in a few sentences.' },
-  { key: 'other', label: 'Something else', prompt: 'Please describe what you need help with, and paste any error you saw.' },
-]
 
-// Short chime when a new human reply arrives while the support chat is closed.
-function playSupportChime() {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!Ctx) return
-    const ctx = new Ctx()
-    const o = ctx.createOscillator(); const g = ctx.createGain()
-    o.type = 'sine'; o.frequency.value = 880
-    o.connect(g); g.connect(ctx.destination)
-    g.gain.setValueAtTime(0.0001, ctx.currentTime)
-    g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.02)
-    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35)
-    o.start(); o.stop(ctx.currentTime + 0.36)
-    o.onended = () => ctx.close()
-  } catch { /* audio not available */ }
-}
 
 const STOP_WORDS = new Set([
   'the', 'who', 'what', 'when', 'where', 'which', 'that', 'this', 'with', 'from',
@@ -268,62 +228,27 @@ interface ChatMessage {
   content: string
 }
 
-interface SupportMessage {
-  role: string
-  text: string
-  ts: string
-}
 
 export function FAB() {
   const pathname = usePathname()
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
-  const [panel, setPanel] = useState<'ai' | 'support' | null>(null)
+  const [panel, setPanel] = useState<'ai' | null>(null)
   const [aiMessages, setAiMessages] = useState<ChatMessage[]>([])
   const [patientNames, setPatientNames] = useState<string[]>([])
   const [aiInput, setAiInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
-  const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([])
-  const [supportInput, setSupportInput] = useState('')
-  const [supportSending, setSupportSending] = useState(false)
-  const [supportTwoWay, setSupportTwoWay] = useState<boolean | null>(null)
-  const [supportStage, setSupportStage] = useState<'menu' | 'chat'>('menu')
-  const [supportTopic, setSupportTopic] = useState('')
-  const [supportTicket, setSupportTicket] = useState<string | null>(null)
-  const [supportYesNo, setSupportYesNo] = useState(false)
-  const [supportEscalated, setSupportEscalated] = useState(false)
-  const [awaitingDescription, setAwaitingDescription] = useState(false)
-  const [hasUnread, setHasUnread] = useState(false)
   const { user, profile } = useAuth()
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const supportEndRef = useRef<HTMLDivElement>(null)
   const notesCacheRef = useRef<{ notes: Note[]; fetchedAt: number } | null>(null)
-  const seenSupportTsRef = useRef<Set<string>>(new Set())
-  const threadActiveRef = useRef(false)
-  const primedRef = useRef(false)
-  const localSeqRef = useRef(0)
   const panelRef = useRef(panel)
   panelRef.current = panel
-  // Mirror of the conversation, updated synchronously so escalate() can build the
-  // transcript including a message pushed in the same handler run (React state
-  // updates are async, so reading supportMessages there misses the latest line).
-  const supportMessagesRef = useRef<SupportMessage[]>([])
-  // Auto-ends an abandoned support chat after 30 min of no user activity.
-  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const pushSupport = useCallback((role: 'user' | 'support', text: string) => {
-    const msg: SupportMessage = { role, text, ts: `local-${Date.now()}-${localSeqRef.current++}` }
-    supportMessagesRef.current = [...supportMessagesRef.current, msg]
-    setSupportMessages(prev => [...prev, msg])
-  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [aiMessages, aiLoading])
 
-  useEffect(() => {
-    supportEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [supportMessages])
 
   // Close sub-buttons on outside click
   useEffect(() => {
@@ -337,111 +262,8 @@ export function FAB() {
     return () => document.removeEventListener('mousedown', onMouseDown)
   }, [expanded])
 
-  // Tell the server the doctor has read up to this Slack ts, so already-seen
-  // replies don't come back as "unread" on the next fresh page load.
-  const markSupportRead = useCallback(async (ts: string) => {
-    if (!user || !ts) return
-    try {
-      await fetch('/api/support', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'markRead', uid: user.uid, ts }),
-      })
-    } catch { /* best-effort; next open retries */ }
-  }, [user])
 
-  // Poll the Slack thread for human replies. A FRESH page load never replays the
-  // whole thread — the doctor lands on the clean topic menu and only genuinely
-  // new admin replies (newer than their server-side read marker) surface. Within
-  // a session we append only unseen admin messages, so local bot/doctor messages
-  // are never clobbered. A new reply while the chat is closed raises the badge +
-  // chime; while the panel is open we advance the read marker.
-  const pollSupport = useCallback(async () => {
-    if (!user) return
-    try {
-      const res = await fetch('/api/support', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'poll', uid: user.uid }),
-      })
-      const data = await res.json() as { twoWay: boolean; messages?: SupportMessage[]; threadExists?: boolean; ticket?: string | null; lastReadTs?: string | null }
-      setSupportTwoWay(data.twoWay)
-      if (data.threadExists) threadActiveRef.current = true
-      if (data.ticket) setSupportTicket(prev => prev ?? data.ticket ?? null)
-      if (!data.twoWay || !data.messages) return
-
-      const seen = seenSupportTsRef.current
-      const admin = data.messages.filter(m => m.role === 'support')
-      const panelOpen = panelRef.current === 'support'
-      let newestTs = ''
-      for (const m of data.messages) {
-        if (!newestTs || parseFloat(m.ts) > parseFloat(newestTs)) newestTs = m.ts
-      }
-
-      if (!primedRef.current) {
-        primedRef.current = true
-        data.messages.forEach(m => seen.add(m.ts))
-        const lastRead = data.lastReadTs ? parseFloat(data.lastReadTs) : null
-        // Rehydrate an ONGOING conversation from the thread so a page refresh
-        // keeps the history (local bubbles are lost on reload). Ended or
-        // auto-ended chats have no thread, so nothing resurfaces — the doctor
-        // lands on the clean topic menu. Only rehydrate when we have no local
-        // chat yet (a fresh load), never clobbering an in-session conversation.
-        if (data.threadExists && data.messages.length && supportMessagesRef.current.length === 0) {
-          setSupportMessages(data.messages)
-          supportMessagesRef.current = data.messages
-          setSupportEscalated(true)
-          setSupportStage('chat')
-          const hasNewAdmin = lastRead !== null && admin.some(m => parseFloat(m.ts) > lastRead)
-          if (hasNewAdmin && !panelOpen) { setHasUnread(true); playSupportChime() }
-        }
-        if (lastRead === null && newestTs) {
-          // Legacy thread with no read marker: catch it up so it doesn't badge
-          // forever (history is still shown via the rehydration above).
-          markSupportRead(newestTs)
-        }
-      } else {
-        const fresh = admin.filter(m => !seen.has(m.ts))
-        data.messages.forEach(m => seen.add(m.ts))
-        if (fresh.length) {
-          setSupportMessages(prev => [...prev, ...fresh])
-          setSupportEscalated(true)
-          setSupportStage('chat')
-          if (!panelOpen) { setHasUnread(true); playSupportChime() }
-        }
-      }
-
-      if (panelOpen && newestTs) markSupportRead(newestTs)
-    } catch {
-      // transient network failure - next poll retries
-    }
-  }, [user, markSupportRead])
-
-  // Prime once on mount + a light background poll so a reply raises the badge
-  // even when the chat is closed (only if the doctor has an active thread).
-  useEffect(() => {
-    if (!user) return
-    pollSupport()
-    const id = setInterval(() => {
-      if (panelRef.current !== 'support' && threadActiveRef.current) pollSupport()
-    }, 20000)
-    return () => clearInterval(id)
-  }, [user, pollSupport])
-
-  // While the panel is open: clear the badge and poll faster for live replies.
-  // We do NOT force the escalated chat view here — a fresh open lands on the
-  // clean topic menu; only a genuinely new admin reply (handled in pollSupport)
-  // switches to chat, so an old resolved thread never resurfaces.
-  useEffect(() => {
-    if (panel !== 'support' || !user) return
-    setHasUnread(false)
-    pollSupport()
-    const interval = setInterval(pollSupport, 5000)
-    return () => clearInterval(interval)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panel, user])
-
-  function openPanel(type: 'ai' | 'support') {
+  function openPanel(type: 'ai') {
     setPanel(type)
     setExpanded(false)
   }
@@ -523,172 +345,7 @@ export function FAB() {
     }
   }
 
-  // Reset the 30-minute inactivity countdown on any user action in the support
-  // chat. When it fires (no user activity for 30 min) the chat auto-ends, closing
-  // the Slack thread so the next visit starts fresh.
-  function bumpSupportActivity() {
-    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
-    inactivityTimerRef.current = setTimeout(() => { endChat() }, 30 * 60 * 1000)
-  }
 
-  useEffect(() => () => { if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current) }, [])
-
-  // Step 1: doctor taps a topic (no AI) → we ask for a description.
-  function pickTopic(t: typeof SUPPORT_TOPICS[number]) {
-    setSupportTopic(t.label)
-    setSupportStage('chat')
-    setAwaitingDescription(true)
-    pushSupport('support', t.prompt)
-    bumpSupportActivity()
-  }
-
-  // Step 2: doctor describes the issue → AI decides if it can answer or escalate.
-  async function submitDescription(text: string) {
-    pushSupport('user', text)
-    bumpSupportActivity()
-    setAwaitingDescription(false)
-    setSupportSending(true)
-    try {
-      // No x-groq-key: support triage runs on LushNote's own Groq key server-side,
-      // so it never spends the doctor's Groq/Gemini allowance.
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'support-triage', topic: supportTopic, description: text, kb: LUSHNOTE_KB }),
-      })
-      const data = await res.json() as { canHelp?: boolean; answer?: string }
-      if (data.canHelp && data.answer?.trim()) {
-        pushSupport('support', data.answer.trim())
-        setSupportYesNo(true)   // ask "did this solve it?"
-      } else {
-        await escalate()
-      }
-    } catch {
-      await escalate()
-    } finally {
-      setSupportSending(false)
-    }
-  }
-
-  // Step 3: yes/no after an AI answer. No → escalate to a human.
-  async function answerYesNo(solved: boolean) {
-    setSupportYesNo(false)
-    bumpSupportActivity()
-    if (solved) {
-      pushSupport('user', 'Yes, that solved it')
-      pushSupport('support', 'Great — glad that sorted it! Pick a topic below any time you need us again.')
-      setSupportStage('menu')
-    } else {
-      pushSupport('user', "No, it didn't help")
-      await escalate()
-    }
-  }
-
-  // Escalate: open/reuse the Slack thread with a ticket number + the transcript.
-  async function escalate() {
-    if (!user) return
-    const transcript = supportMessagesRef.current
-      .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`).join('\n')
-    setSupportSending(true)
-    try {
-      const res = await fetch('/api/support', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'escalate', uid: user.uid, name: profile?.displayName ?? '',
-          email: user.email ?? '', topic: supportTopic, transcript,
-        }),
-      })
-      if (!res.ok) throw new Error('escalate failed')
-      const data = await res.json() as { twoWay: boolean; ticket?: string }
-      const ticket = data.ticket ?? null
-      setSupportTicket(ticket)
-      setSupportEscalated(true)
-      setSupportStage('chat')
-      threadActiveRef.current = true
-      setSupportTwoWay(data.twoWay)
-      pushSupport('support', `Thanks — I've passed this to our team.${ticket ? ` Your ticket is ${ticket}.` : ''} We'll reply right here, and you can follow up any time at admin@lushnote.com.au${ticket ? ` quoting ${ticket}` : ''}. Add anything else below.`)
-      if (data.twoWay) pollSupport()
-    } catch {
-      // The Slack post can succeed even when the response is lost (e.g. a
-      // serverless timeout). Check whether a thread actually got created before
-      // alarming the doctor — if it did, the escalation worked.
-      setSupportEscalated(true)
-      setSupportStage('chat')
-      try {
-        await pollSupport()
-      } catch { /* ignore */ }
-      if (threadActiveRef.current) {
-        pushSupport('support', "Thanks — I've passed this to our team. We'll reply right here, and you can follow up any time at admin@lushnote.com.au. Add anything else below.")
-      } else {
-        pushSupport('support', "Sorry — I couldn't reach our team just now. Please email admin@lushnote.com.au and we'll help.")
-      }
-    } finally {
-      setSupportSending(false)
-    }
-  }
-
-  // Post-escalation: doctor's typed message goes to the human thread.
-  async function sendToHuman(text: string) {
-    if (!user) return
-    pushSupport('user', text)
-    bumpSupportActivity()
-    setSupportSending(true)
-    try {
-      const res = await fetch('/api/support', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send', uid: user.uid, name: profile?.displayName ?? '', email: user.email ?? '', message: text }),
-      })
-      const data = await res.json() as { twoWay: boolean; error?: string }
-      if (data.error) throw new Error(data.error)
-      setSupportTwoWay(data.twoWay)
-      if (data.twoWay) pollSupport()
-      else pushSupport('support', "Message received. We'll get back to you by email shortly.")
-    } catch {
-      pushSupport('support', 'Message could not be sent. Please email admin@lushnote.com.au directly.')
-    } finally {
-      setSupportSending(false)
-    }
-  }
-
-  // End chat: close the Slack thread (fresh ticket next time) and reset to the
-  // topic menu so the old conversation no longer shows.
-  async function endChat() {
-    if (inactivityTimerRef.current) { clearTimeout(inactivityTimerRef.current); inactivityTimerRef.current = null }
-    if (user) {
-      try {
-        await fetch('/api/support', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'close', uid: user.uid }),
-        })
-      } catch { /* reset locally regardless */ }
-    }
-    setSupportMessages([])
-    supportMessagesRef.current = []
-    setSupportStage('menu')
-    setSupportTopic('')
-    setSupportTicket(null)
-    setSupportYesNo(false)
-    setSupportEscalated(false)
-    setAwaitingDescription(false)
-    setSupportInput('')
-    setHasUnread(false)
-    seenSupportTsRef.current = new Set()
-    primedRef.current = true
-    threadActiveRef.current = false
-  }
-
-  // The input send button — routes to the right step.
-  function handleSupportInput() {
-    const text = supportInput.trim()
-    if (!text || supportSending) return
-    setSupportInput('')
-    if (awaitingDescription) submitDescription(text)
-    else if (supportEscalated) sendToHuman(text)
-    else submitDescription(text)
-  }
 
   if (pathname === '/transcript') return null
 
@@ -701,25 +358,6 @@ export function FAB() {
       <div id="ln-fab-root" className="fixed left-4 z-[60] flex flex-col items-start gap-2" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}>
         {expanded && (
           <>
-            <button
-              onClick={() => openPanel('support')}
-              className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium border
-                         motion-safe:transition-transform motion-safe:active:scale-[0.97] ${
-                hasUnread ? 'text-white border-transparent' : 'text-[var(--text)] border-[var(--border)]'
-              }`}
-              style={{
-                background: hasUnread ? '#dc2626' : 'rgba(255,255,255,0.85)',
-                backdropFilter: 'blur(12px)',
-                boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
-                animation: 'fab-pop-in 0.18s cubic-bezier(0.22,1,0.36,1) both',
-                animationDelay: '70ms',
-                transformOrigin: 'bottom left',
-              }}
-              aria-label={hasUnread ? 'Live Support — new reply' : 'Live Support'}
-            >
-              {hasUnread && <span className="w-2 h-2 rounded-full bg-white motion-safe:animate-pulse" aria-hidden />}
-              Live Support
-            </button>
             <button
               onClick={() => openPanel('ai')}
               className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-[var(--text)]
@@ -741,17 +379,14 @@ export function FAB() {
           className="relative w-14 h-14 rounded-full text-white flex items-center justify-center
                      motion-safe:transition-colors motion-safe:active:scale-[0.97]"
           style={{
-            background: hasUnread ? '#dc2626' : '#10b981',
+            background: '#10b981',
             boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
           }}
-          aria-label={hasUnread ? 'Open chat — new reply' : 'Open chat'}
+          aria-label="Open assistant"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
-          {hasUnread && (
-            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-600 border-2 border-white motion-safe:animate-pulse" aria-hidden />
-          )}
         </button>
       </div>
 
@@ -853,149 +488,6 @@ export function FAB() {
         </div>
       )}
 
-      {/* Live Support panel */}
-      {panel === 'support' && (
-        <div className="fixed inset-0 z-[110] flex flex-col" style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(12px)', paddingTop: 'env(safe-area-inset-top)' }}>
-          <div
-            className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] shrink-0"
-            style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
-          >
-            <div>
-              <span className="font-semibold text-[var(--text)]">Live Support</span>
-              {supportTicket ? (
-                <p className="text-[11px] text-[var(--text3)]">Ticket {supportTicket} · replies appear here</p>
-              ) : supportEscalated ? (
-                <p className="text-[11px] text-[var(--text3)]">Replies appear here as they arrive</p>
-              ) : (
-                <p className="text-[11px] text-[var(--text3)]">We&rsquo;re here to help</p>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {(supportMessages.length > 0 || supportEscalated) && (
-                <button
-                  onClick={endChat}
-                  className="text-xs font-medium text-[var(--text2)] border border-[var(--border)] px-3 py-1 rounded-full
-                             hover:text-[var(--danger)] hover:border-[var(--danger)]/50 hover:bg-[var(--bg)] motion-safe:transition-colors"
-                >
-                  End chat
-                </button>
-              )}
-              <button
-                onClick={() => setPanel(null)}
-                className="text-[var(--text3)] hover:text-[var(--text)] w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--bg)] motion-safe:transition-colors"
-                aria-label="Minimize"
-                title="Minimize"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-                  <line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {supportStage === 'menu' && supportMessages.length === 0 && (
-              <p className="text-sm text-[var(--text3)] text-center mt-2">
-                Hi{profile?.displayName ? `, ${profile.displayName.split(' ')[0]}` : ''}! What can we help you with?
-              </p>
-            )}
-            {supportMessages.map((m) => (
-              <div key={m.ts} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] rounded-[var(--r-lg)] px-4 py-3 text-sm ${
-                  m.role === 'user'
-                    ? 'bg-[var(--blue)] text-white rounded-br-sm'
-                    : 'bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] rounded-bl-sm'
-                }`}>
-                  <p className="whitespace-pre-wrap">{m.text}</p>
-                </div>
-              </div>
-            ))}
-
-            {supportSending && (
-              <div className="flex justify-start">
-                <div className="bg-[var(--bg)] border border-[var(--border)] rounded-[var(--r-lg)] rounded-bl-sm px-4 py-3">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-[var(--text3)] rounded-full motion-safe:animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-2 h-2 bg-[var(--text3)] rounded-full motion-safe:animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-2 h-2 bg-[var(--text3)] rounded-full motion-safe:animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 1: canned topic menu (no AI) */}
-            {supportStage === 'menu' && !supportSending && (
-              <div className="flex flex-col gap-2 pt-1">
-                {SUPPORT_TOPICS.map(t => (
-                  <button
-                    key={t.key}
-                    type="button"
-                    onClick={() => pickTopic(t)}
-                    className="text-left text-sm text-[var(--text)] bg-[var(--bg)] border border-[var(--border)]
-                               rounded-[var(--r)] px-3 py-2.5 hover:border-[var(--blue)]/50 hover:bg-white
-                               motion-safe:transition-colors motion-safe:active:scale-[0.99]"
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Step 3: did the AI answer solve it? */}
-            {supportYesNo && !supportSending && (
-              <div className="flex flex-col gap-2 pt-1">
-                <p className="text-xs text-[var(--text3)] text-center">Did this solve your issue?</p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => answerYesNo(true)}
-                    className="flex-1 text-sm font-medium text-white bg-[#10b981] rounded-[var(--r)] py-2.5
-                               motion-safe:transition-transform motion-safe:active:scale-[0.97]"
-                  >
-                    Yes, solved
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => answerYesNo(false)}
-                    className="flex-1 text-sm font-medium text-[var(--text)] bg-[var(--bg)] border border-[var(--border)]
-                               rounded-[var(--r)] py-2.5 hover:border-[var(--blue)]/50 motion-safe:transition-transform motion-safe:active:scale-[0.97]"
-                  >
-                    No, still need help
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div ref={supportEndRef} />
-          </div>
-
-          {/* Input — shown only when we're expecting free text (describe / live chat) */}
-          {supportStage === 'chat' && !supportYesNo && (
-            <div
-              className="border-t border-[var(--border)] p-3 flex gap-2 shrink-0"
-              style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)', paddingBottom: 'max(env(safe-area-inset-bottom), 12px)' }}
-            >
-              <input
-                type="text"
-                value={supportInput}
-                onChange={e => setSupportInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSupportInput()}
-                placeholder={awaitingDescription ? 'Describe it…' : 'Type a message…'}
-                className="flex-1 text-sm border border-[var(--border)] rounded-[var(--r)] px-3 py-2 bg-white
-                           focus:outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 transition-colors"
-              />
-              <button
-                onClick={handleSupportInput}
-                disabled={supportSending || !supportInput.trim()}
-                className="bg-[var(--blue)] text-white text-sm font-medium px-4 py-2 rounded-[var(--r)] disabled:opacity-50
-                           motion-safe:transition-transform motion-safe:active:scale-[0.97]"
-              >
-                Send
-              </button>
-            </div>
-          )}
-        </div>
-      )}
     </>
   )
 }

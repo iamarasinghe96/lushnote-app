@@ -782,6 +782,47 @@ transcript and the real quote from the report.
 
 ---
 
+## `support` — Live Support
+
+**Entry:** header avatar → **Live Support**, or `/settings?tab=support`
+**Ends at:** a Slack thread with a ticket, replies arriving back in the panel
+**Code:** `hooks/useSupportThread.tsx` (root provider) →
+`components/settings/SupportPanel.tsx` → `/api/support`
+**Coverage:** ❌ — no automated coverage; the Slack round-trip is manual
+
+Topic menu → describe the issue → AI triage answers or escalates → a human
+thread with a ticket number. Ending the chat closes the Slack thread so the next
+visit starts fresh; 30 minutes of inactivity ends it automatically.
+
+### It moved out of the FAB, and that changed where the state lives
+
+`app/settings/` is a **sibling** of `app/(app)/`, not a child. Their only shared
+ancestor is `app/layout.tsx`, so the thread is provided from the root. A
+provider in the app layout would be invisible to Settings, and the two trees
+would poll separately and disagree about what had been read.
+
+**Polling outlives the panel.** The 20s background poll is the whole point of
+the badge — if it only ran while the panel was open, the one moment it matters
+is the one moment it would not run. The panel calls `setPanelOpen(true)` on
+mount so the provider switches to the 5s cadence, clears the badge and advances
+the server-side read marker instead of raising it.
+
+**The unread mark rides the header avatar**, plus the Live Support row in the
+user menu. The avatar is the only control present on every screen that leads to
+Settings.
+
+### Expected outputs — what must remain true
+
+- A human reply raises the badge wherever the doctor is in the app, not only in
+  Settings
+- Opening the panel clears the badge and advances the read marker
+- A fresh page load lands on the clean topic menu; an ended thread never
+  resurfaces
+- An ongoing thread rehydrates on reload without clobbering an in-session chat
+- Ending the chat closes the Slack thread, so the next visit gets a new ticket
+
+---
+
 ## Not yet recorded
 
 These exist and are unprotected. Each becomes a section here as it is specified:
