@@ -695,7 +695,10 @@ export function FAB() {
   return (
     <>
       {/* FAB button + sub-buttons */}
-      <div id="ln-fab-root" className="fixed right-4 z-[60] flex flex-col items-end gap-2" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}>
+      {/* Bottom-LEFT. items-start and the transform origins below go with it —
+          left-aligned sub-buttons that still expand out of the button rather
+          than away from it. */}
+      <div id="ln-fab-root" className="fixed left-4 z-[60] flex flex-col items-start gap-2" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}>
         {expanded && (
           <>
             <button
@@ -710,7 +713,7 @@ export function FAB() {
                 boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
                 animation: 'fab-pop-in 0.18s cubic-bezier(0.22,1,0.36,1) both',
                 animationDelay: '70ms',
-                transformOrigin: 'bottom right',
+                transformOrigin: 'bottom left',
               }}
               aria-label={hasUnread ? 'Live Support — new reply' : 'Live Support'}
             >
@@ -726,7 +729,7 @@ export function FAB() {
                 backdropFilter: 'blur(12px)',
                 boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
                 animation: 'fab-pop-in 0.18s cubic-bezier(0.22,1,0.36,1) both',
-                transformOrigin: 'bottom right',
+                transformOrigin: 'bottom left',
               }}
             >
               AI Assistant

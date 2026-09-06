@@ -1220,8 +1220,11 @@ function lnRecallSearch(query: string, allNotes: Note[]): Note[] {
 
 ## FAB Chat
 
-- Green circle `#10b981`, `position: fixed`, `bottom: 80px`, `right: 16px`, `z-index: 60`
+- Green circle `#10b981`, `position: fixed`, `bottom: 80px`, `left: 16px`, `z-index: 60`
 - Click → 2 sub-buttons slide up: "AI Assistant" + "Live Support"
+- Bottom-LEFT. The root is `items-start` and both sub-buttons use
+  `transformOrigin: 'bottom left'` — all three go together, or the buttons
+  right-align under a left-hand FAB and pop away from it instead of out of it
 - Slack webhook: `'https://hooks.slack.com' + '/services/T0B5HRCD3QT/B0B5X3GJYBW/wmD9BaIPKisWj0rQ67vWdmnQ'`
   (split string prevents GitHub secret scanning)
 - Slack failure → fallback `mailto:iamarasinghe96@gmail.com`
