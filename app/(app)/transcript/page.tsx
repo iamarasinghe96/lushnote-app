@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { useAuth } from '@/hooks/useAuth'
+import { findQuoteRange } from '@/lib/quoteMatch'
 import { useKeyboardCloseSafety } from '@/hooks/useKeyboardCloseSafety'
 import { getGroqKey, getGeminiKey, withTimeout } from '@/lib/utils'
 
@@ -14,6 +15,9 @@ export default function TranscriptPage() {
   const [expanded, setExpanded] = useState(false)
   const [chatFocused, setChatFocused] = useState(false)
   const [copied, setCopied] = useState(false)
+  // Set when a quote cannot be located. The old code returned silently, so a
+  // failed lookup was indistinguishable from a dead button.
+  const [quoteMiss, setQuoteMiss] = useState(false)
   const [messages, setMessages] = useState<{ role: 'user' | 'ai'; content: string; quote?: string }[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -165,6 +169,7 @@ export default function TranscriptPage() {
   }
 
   function trsHighlightQuote(quote: string) {
+    setQuoteMiss(false)
     if (!transcriptRef.current || !quote) return
     const el = transcriptRef.current
 
@@ -177,15 +182,18 @@ export default function TranscriptPage() {
     })
 
     const text = el.textContent || ''
-    let matchIdx = text.indexOf(quote)
-    let matchStr = quote
-
-    if (matchIdx === -1) {
-      const first5 = quote.split(/\s+/).slice(0, 5).join(' ')
-      matchIdx = text.indexOf(first5)
-      matchStr = first5
+    // Case- and whitespace-insensitive: the model capitalises a fragment it
+    // lifts from mid-sentence, and the transcript renders whitespace-pre-wrap
+    // so its textContent keeps line breaks the model returned as spaces. An
+    // exact indexOf misses both. See lib/quoteMatch.
+    const found = findQuoteRange(text, quote)
+    if (!found) {
+      // Say so. Returning silently is what made this read as a dead button.
+      setQuoteMiss(true)
+      return
     }
-    if (matchIdx === -1) return
+    const matchIdx = found.start
+    const matchLen = found.end - found.start
 
     // Open the transcript so the highlighted quote is scrollable into view, then
     // (after the expand re-render) mark it yellow and jump to it.
@@ -205,9 +213,9 @@ export default function TranscriptPage() {
           startNode = node
           startOffset = matchIdx - charCount
         }
-        if (startNode && charCount + len >= matchIdx + matchStr.length) {
+        if (startNode && charCount + len >= matchIdx + matchLen) {
           endNode = node
-          endOffset = matchIdx + matchStr.length - charCount
+          endOffset = matchIdx + matchLen - charCount
           break
         }
         charCount += len
@@ -314,6 +322,9 @@ export default function TranscriptPage() {
                   &ldquo;{m.quote}&rdquo;
                   <span className="not-italic text-[var(--blue)] ml-1">· tap to find in transcript</span>
                 </p>
+              )}
+              {m.quote && m.role === 'ai' && quoteMiss && (
+                <p className="text-xs mt-1 text-[var(--text3)]">Not found in the transcript</p>
               )}
             </div>
           </div>
