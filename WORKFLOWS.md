@@ -731,12 +731,63 @@ Covered by `tests/unit/letter-template-refine.test.ts`.
 
 ---
 
+## `transcript-qa` — Ask about this transcript
+
+**Entry:** Transcript tab → **Ask**
+**Ends at:** an answer with a supporting quote, highlighted in the transcript
+**Code:** `app/(app)/transcript/page.tsx` → `/api/chat` `type:'transcript-qa'`
+**Coverage:** ⚠️ — the quote matcher is unit-tested; the DOM highlight is not
+
+The model answers from the transcript alone and returns a supporting quote.
+**Tap to find in transcript** locates that quote, wraps it in a `<mark>` and
+scrolls to it.
+
+### The quote is matched loosely, on purpose
+
+It used `text.indexOf(quote)`, then `indexOf` of the first five words, then
+returned **silently**. Both are case-sensitive and whitespace-exact, and the
+model is neither:
+
+```
+transcript  "…and how did that exam period go for you in the end?"
+quote       "How did that exam period go for you in the end?"
+```
+
+The model capitalises a fragment it lifts from mid-sentence, so nothing matched
+and nothing happened — no highlight, no message. It was reported as a
+desktop-only fault; it was not platform-specific at all. The quote that happened
+to be tried on a phone began at a sentence boundary, so its capital lined up.
+
+`findQuoteRange` (`lib/quoteMatch.ts`) matches on a normalised copy — lowercased,
+whitespace runs collapsed, curly quotes and dashes folded — and **maps the
+offsets back to the original string**, because the caller builds a DOM Range and
+a Range over normalised indices would highlight the wrong words. Newlines matter
+for the same reason: the transcript renders `whitespace-pre-wrap`, so its
+`textContent` keeps line breaks the model returned as spaces.
+
+**A miss is now shown**, not swallowed. "Not found in the transcript" under the
+quote — a lookup that fails silently is indistinguishable from a dead button,
+which is exactly how this was experienced.
+
+### Expected outputs — what must remain true
+
+- A quote is found regardless of its capitalisation or the whitespace between
+  its words
+- The highlight covers the doctor's actual words, including the last character
+- A quote that genuinely is not present says so
+- The fallback matches the quote's opening words, never a prefix of a short one
+
+Covered by `tests/unit/quote-match.test.ts`, which asserts against the real
+transcript and the real quote from the report.
+
+---
+
 ## Not yet recorded
 
 These exist and are unprotected. Each becomes a section here as it is specified:
 
 `note-scan` (OCR) ❌ ·
 `note-manual` ❌ · letters, four types ❌ · `hospital-form` ❌ ·
-`patient-add` ❌ · `patient-search` ❌ · `transcript-qa` ❌ · `history` ❌ ·
+`patient-add` ❌ · `patient-search` ❌ · `history` ❌ ·
 `mode-transitions` (note ↔ letter ↔ form) ❌ · `settings-panels` ⚠️ ·
 `billing-states` ⚠️
