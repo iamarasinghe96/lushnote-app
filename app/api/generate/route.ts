@@ -402,6 +402,72 @@ ${transcript}`
       }
     }
 
+    // Capture identity — who is this about?
+    //
+    // The capture hub shows a card BEFORE the doctor commits to anything, and
+    // the card has to name the patient. Three of the four existing modes already
+    // extract identity (scan, letter, hospital-form); the plain-note path was the
+    // only one that never did, which is why it alone still needed the Confirm
+    // transcript step.
+    //
+    // Deliberately a separate, cheap call rather than fields bolted onto note
+    // generation: this runs on EVERY capture, while generation runs only after
+    // the doctor taps. Folding them together would spend a note-sized call —
+    // and one of the doctor's 20 daily Gemini requests — on a capture they may
+    // discard. Groq-first for the same reason.
+    if (mode === 'capture-identity' && transcript) {
+      if (typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 300000) {
+        return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })
+      }
+      const identitySystem = `You are reading a clinical recording to identify WHO it is about. Extract only what is actually stated. Never guess.
+
+Return ONLY strict JSON, no markdown, no commentary:
+{
+  "patientName": "",
+  "dob": "",
+  "sex": "",
+  "regNumber": ""
+}
+
+Rules:
+- patientName: the PATIENT's full name. Not the doctor's, not a family member's, not a referring colleague's. "" if nobody is named.
+- dob: date of birth as DD/MM/YYYY, only if a date of birth is actually spoken. An age is NOT a date of birth — leave "" if only an age is given.
+- sex: "male" or "female", ONLY when the recording states it or the patient is consistently referred to with he/him or she/her. NEVER infer it from the patient's name — a name does not determine sex, and a wrong guess here mislabels a real person on their own record. Leave "" when it is not clear.
+- regNumber: a UR/MRN/registration number if one is spoken. "" otherwise.
+- Every field is optional. "" is always a valid and correct answer — an empty field costs one tap, a wrong one attaches this recording to the wrong patient.`
+
+      // The doctor's own redaction setting still applies. Identifying a patient
+      // is exactly the content transcript privacy exists to control, so this
+      // must not be the one path that quietly bypasses it.
+      // Read here rather than reusing an outer `profile`: this mode runs before
+      // the note path's profile lookup, and one Firestore read is negligible
+      // beside the AI call it precedes.
+      const identityProfile = uid ? await getProfile(uid).catch(() => null) : null
+      const identityPrivacy = identityProfile?.transcriptPrivacy ?? DEFAULT_TRANSCRIPT_PRIVACY
+      try {
+        const { content } = await runExtraction({
+          prompt: `RECORDING:\n${applyTranscriptRedactions(transcript, identityPrivacy)}`,
+          system: identitySystem, req, uid,
+        })
+        const jsonMatch = content.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          let identity: Record<string, unknown> | null = null
+          try {
+            identity = JSON.parse(repairJsonControlChars(jsonMatch[0])) as Record<string, unknown>
+          } catch {
+            logToSink({ level: 'warn', tag: 'generate', message: 'capture-identity reply was not valid JSON', route: '/api/generate', uid })
+          }
+          // A failed read is not an error the doctor needs to see: the card just
+          // asks for the name instead of pre-filling it. Failing closed here
+          // would block a capture over a field that is optional anyway.
+          if (identity) return NextResponse.json({ identity })
+        }
+        return NextResponse.json({ identity: {} })
+      } catch {
+        return NextResponse.json({ identity: {} })
+      }
+    }
+
     // Patient intake — Groq-only extraction (same plumbing as letters/forms):
     // a doctor dictates a "reading note" for a new tracked patient and we pull
     // the structured clinical fields. No uid/quota tracking; no note is stored
