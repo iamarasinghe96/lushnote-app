@@ -883,10 +883,107 @@ only where a doctor can start one.
 
 ---
 
+## `capture-review` — the card that runs the steps for you
+
+**Entry:** automatically, when a capture started from the FAB finishes
+**Code:** `components/capture/CaptureReviewCard.tsx`, `lib/captureFlow.ts`,
+the capture handlers in `app/(app)/generate/page.tsx`
+**Coverage:** ✅ for the decisions (`tests/unit/capture-flow.test.ts`);
+⚠️ for the card itself, which is UI the node-environment suite cannot mount
+
+A doctor mid-clinic does not have time to walk a wizard. So a capture started
+from the FAB does the walking: it classifies what arrived, reads who it is
+about, resolves which template a note would use, and presents ONE tap.
+
+**Only from the FAB.** The same modals reached from a mode card keep the naming
+step and the template picker — a doctor who walked in through them has already
+chosen to walk through them. `captureHubRef` is what separates the two, set by
+the `?capture=` deep link and consumed on first use, so a cancelled capture
+cannot leak the unattended behaviour into the next one.
+
+### The tap IS the confirmation, which is a burden on the card
+
+There is no "don't ask again". The card is shown **every time**, because what it
+is confirming — which patient, which document — is different on every capture,
+and a remembered answer would be a remembered answer to a different question.
+
+That only holds if the tap is informed, so everything it will do is on the card
+before it is pressed: the intent it read and why, an excerpt of the capture, the
+patient (editable), and the template a note would use with the reason it was
+picked. A choice the doctor cannot see is not a choice they confirmed.
+
+**The template is their own last choice**, not a rule about intent.
+`CLAUDE.md` already records why a mapping would be wrong for a recording:
+a recorded consultation could legitimately be any template and nothing about
+pressing Record says which. Their most recent use is the only evidence that is
+about THIS doctor; **Change** hands the picker back, so a wrong default costs
+one tap rather than being imposed.
+
+### What the card refuses
+
+`actionBlocker` disables **Add to patient record** until a patient is named, and
+`handleCaptureAction` re-checks it rather than trusting the button. A note for
+the wrong patient is discarded; a record write with no name either invents a
+profile or merges the capture into whichever profile matches an empty string —
+and a later entry SUPERSEDES tracked fields, so that is somebody else's record.
+
+A note, a letter and **Something else** all stay available unnamed: the edit
+page carries an unnamed note and its autosave no-ops until a patient is named.
+
+**It creates a profile only for a patient who does not have one**
+(`isTrackedPatient`). Found while wiring this: `savePatientProfile` with no `id`
+calls `addDoc`, so doing it for an existing patient does not update them — it
+adds a second card holding a name and a DOB and nothing else, splitting their
+record in two. The naming step gates the same write on `isNewPatient`; the card
+that replaced that step inherits the rule.
+
+**A capture that failed the clinical-content check is saved, not generated
+from.** Same verdict the naming step reaches: it lands on the edit page under
+the patient with the transcript intact and a Generate button, rather than
+spending one of the 20 daily calls on twenty words.
+
+### It inherits the naming step's other job
+
+The card writes the patient into the recovery draft (`saveDraftHandoff`) before
+navigating. Everything it holds is React state, which a page load discards —
+without this, a reload between the tap and the edit page resurfaces the
+recording as "Unnamed" with a name we already had and threw away. That is the
+failure that cost an eleven-minute recording, reached by a new road.
+
+It also puts the transcript in the store, because the naming step is what used
+to do that. Without it the edit page arrives holding a template, a patient and
+nothing to generate from.
+
+### One honest line, not a progress bar
+
+The reading stage shows a single indeterminate bar and "Working out who this is
+about". Transcription already finished in the recording modal, so there is one
+step left and no progress to report — three stages ticking over would be
+animating work we are not doing.
+
+The identity read is a separate cheap call for the reason recorded below: it
+runs on EVERY capture, generation runs only after a tap. A failed read costs one
+tap, so it never blocks the capture.
+
+### Expected outputs — what must remain true
+
+- The card appears only for a capture started from the FAB
+- It is shown every time; there is no way to suppress it
+- The patient, the template and the reason for it are all visible before the tap
+- **Add to patient record** cannot run without a name, and is marked wherever it
+  appears
+- An existing patient never gets a second profile
+- The name survives a reload between the tap and the edit page
+- A non-clinical capture is saved, never generated from
+- **Something else** returns to the naming step with what was read pre-filled
+
+Covered by `tests/unit/capture-flow.test.ts`.
+
+---
+
 ## `capture-intent` — working out what was captured
 
-**Entry:** reached from `capture-hub` above; the card that presents these
-actions is stage 4 and not built yet
+**Entry:** the classifier behind `capture-review` above
 **Code:** `lib/captureIntent.ts`, `lib/suggestedActions.ts`,
 `/api/generate` `mode:'capture-identity'`
 **Coverage:** ✅ — the classifier and the action ordering are unit-tested

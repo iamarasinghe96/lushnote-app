@@ -6,6 +6,10 @@ import { useAuth } from '@/hooks/useAuth'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import { openSettings, quotaDate, getGroqKey, getGeminiKey, parsePatientIntakeFields, appendPatientHistory, mergeExtras, formatOtherTopics, pushPatientEntry } from '@/lib/utils'
 import { classifyPastedText, resolvePastedKind, type PastedSource } from '@/lib/pastedText'
+import { classifyCaptureIntent, type CaptureSource, type IntentClassification } from '@/lib/captureIntent'
+import { suggestedActions, type ActionKey } from '@/lib/suggestedActions'
+import { pickCaptureTemplate, actionBlocker, isTrackedPatient, type TemplateReason } from '@/lib/captureFlow'
+import CaptureReviewCard from '@/components/capture/CaptureReviewCard'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import Textarea from '@/components/ui/Textarea'
@@ -189,6 +193,26 @@ export default function GeneratePage() {
     pendingSourceRef.current = source
     setPendingTranscript(text)
   }
+  // ── The capture hub's unattended path ──────────────────────────────────────
+  // A capture started from the FAB skips the naming step and the template
+  // picker and lands on the review card instead. A ref, not state: it is read in
+  // the same tick the transcript arrives, before a state update would land, and
+  // it is consumed on first use so a later capture started from the mode cards
+  // keeps its own modals.
+  const captureHubRef = useRef(false)
+  const [captureReview, setCaptureReview] = useState<
+    { stage: 'reading' | 'ready'; classification: IntentClassification; transcript: string } | null
+  >(null)
+  const [captureName, setCaptureName] = useState('')
+  // Identity the extractor read off the capture, kept apart from the name so an
+  // edit to the name does not silently discard the DOB and sex that came with it.
+  // `sex` is narrowed HERE, at the boundary, rather than where it is used. It
+  // arrives as free text from a model, and the server already refuses to infer
+  // it from a name; anything that is not one of the two values the record holds
+  // is dropped rather than carried inward as a string nobody validated.
+  const captureIdentityRef = useRef<{ dob: string; sex: '' | 'male' | 'female'; regNumber: string }>({ dob: '', sex: '', regNumber: '' })
+  const [captureTemplate, setCaptureTemplate] = useState<{ id: string; title: string; reason: TemplateReason } | null>(null)
+
   // Accumulates across the two steps that fill it — naming the patient, then
   // picking the template — so the second write does not erase the first.
   const handoffRef = useRef<DraftHandoff>(EMPTY_HANDOFF)
@@ -378,10 +402,26 @@ export default function GeneratePage() {
     })
     setPhase('idle')
     beginPendingTranscript(trimmed, 'scan')
+    // Started from the capture button: the review card takes over from here. The
+    // OCR already read the label, so the name is in hand and no identity call is
+    // needed — the card opens ready rather than pretending to work.
+    if (captureHubRef.current) {
+      captureHubRef.current = false
+      captureIdentityRef.current = {
+        dob: patient.dob,
+        sex: patient.gender === 'male' || patient.gender === 'female' ? patient.gender : '',
+        regNumber: patient.urNumber,
+      }
+      openCaptureReview(trimmed, 'photo', patient.name)
+      return
+    }
     setTranscriptConfirmOpen(true)
   }
 
   function handleCancel() {
+    // A cancelled capture must not leave the flag set, or the NEXT capture —
+    // possibly started from a mode card — would skip the steps that card implies.
+    captureHubRef.current = false
     setPhase('idle')
     setInputText('')
     setPendingTranscript('')
@@ -437,6 +477,12 @@ export default function GeneratePage() {
     // Go through the same entry points the mode cards use, so the deep link
     // cannot drift from them — each one clears the previous attempt's error,
     // input text and scan prefill before opening its modal.
+    //
+    // The flag is what separates the two ways in. A capture started HERE runs
+    // the steps unattended and ends on the review card; the same modal reached
+    // from a mode card keeps the naming step and the picker, because a doctor
+    // who walked in through them has already chosen to walk through them.
+    captureHubRef.current = true
     if (capture === 'record') startMode('conversation')
     else { handlePasteMode(); setPhase('scan-input') }
     // Drop the parameter so a refresh does not reopen the modal over a recording
@@ -480,7 +526,209 @@ export default function GeneratePage() {
     skipGenerationRef.current = !validateTranscript(text).valid
     noteBlockRef.current = null
     beginPendingTranscript(text, 'paste')
+    // Started from the capture button: run the steps and present the card.
+    if (captureHubRef.current) {
+      captureHubRef.current = false
+      void openCaptureReview(text, 'audio')
+      return
+    }
     setTranscriptConfirmOpen(true)
+  }
+
+  /**
+   * The unattended path: classify what was captured, find out who it is about,
+   * and open the review card.
+   *
+   * Classification is local and instant. The identity read is one cheap AI call
+   * — deliberately separate from note generation, which runs only after the
+   * doctor taps, so a discarded capture never costs a note-sized request or one
+   * of the 20 daily Gemini calls.
+   */
+  async function openCaptureReview(text: string, source: CaptureSource, knownName = '') {
+    const classification = classifyCaptureIntent(text, source)
+    captureIdentityRef.current = knownName
+      ? captureIdentityRef.current
+      : { dob: '', sex: '', regNumber: '' }
+    setCaptureName(knownName)
+    setCaptureTemplate(null)
+    setCaptureReview({ stage: knownName ? 'ready' : 'reading', classification, transcript: text })
+    setPhase('idle')
+
+    // Resolve the template the note action will use, so the card can show it
+    // before it is committed to. Failing to load it is not a blocker: the card
+    // simply shows no template and the note action falls back to the picker.
+    void resolveCaptureTemplate()
+
+    if (knownName || !user) {
+      setCaptureReview(r => (r ? { ...r, stage: 'ready' } : r))
+      return
+    }
+
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const gk = getGroqKey()
+      if (gk) headers['x-groq-key'] = gk
+      const gemk = getGeminiKey()
+      if (gemk) headers['x-gemini-key'] = gemk
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ mode: 'capture-identity', transcript: text, uid: user.uid }),
+      })
+      const data = await res.json() as { identity?: Record<string, string> }
+      const id = data.identity ?? {}
+      const sex = String(id.sex ?? '')
+      captureIdentityRef.current = {
+        dob: String(id.dob ?? ''),
+        sex: sex === 'male' || sex === 'female' ? sex : '',
+        regNumber: String(id.regNumber ?? ''),
+      }
+      setCaptureName(String(id.patientName ?? ''))
+    } catch {
+      // A failed read costs one tap — the card asks for the name. Blocking the
+      // capture over a field that is optional anyway would be worse.
+    }
+    setCaptureReview(r => (r ? { ...r, stage: 'ready' } : r))
+  }
+
+  async function resolveCaptureTemplate() {
+    let recent: (string | number)[] = []
+    try {
+      const stored = localStorage.getItem('lnTemplateUsage')
+      const parsed = stored ? JSON.parse(stored) as unknown : null
+      if (Array.isArray(parsed)) recent = parsed as (string | number)[]
+    } catch { /* no history — pickCaptureTemplate falls back to the default */ }
+
+    const choice = pickCaptureTemplate(recent)
+    const template = await findCaptureTemplate(choice.id)
+    if (template) setCaptureTemplate({ id: String(template.id), title: template.title, reason: choice.reason })
+  }
+
+  /** Built-ins live in the large JSON file, custom templates on the profile. */
+  async function findCaptureTemplate(id: string): Promise<AnyTemplate | null> {
+    const custom = (profile?.customTemplates ?? []).find(t => String(t.id) === id)
+    if (custom) return custom as AnyTemplate
+    try {
+      const mod = await import('@/data/clinical-templates.json')
+      return (mod.default as AnyTemplate[]).find(t => String(t.id) === id) ?? null
+    } catch {
+      return null
+    }
+  }
+
+  function closeCaptureReview() {
+    setCaptureReview(null)
+    setCaptureTemplate(null)
+    setCaptureName('')
+  }
+
+  /**
+   * A tap on the card. This IS the confirmation — every step it stands in for
+   * has already run — so it must never be able to do the thing the card was
+   * showing as blocked.
+   */
+  function handleCaptureAction(key: ActionKey) {
+    const review = captureReview
+    if (!review) return
+    const name = captureName.trim()
+    // The card disables a blocked action; re-checking here is not belt and
+    // braces. `patient-record` supersedes tracked fields, and the gap between
+    // rendering and tapping is exactly where the name can have been cleared.
+    if (actionBlocker(key, { transcript: review.transcript, patientName: name })) return
+
+    const identity = captureIdentityRef.current
+    setCaptureReview(null)
+    setCaptureTemplate(null)
+
+    // Everything below hands off to the pathway that already exists. The card
+    // decides WHICH one; it does not carry a second copy of any of them.
+    //
+    // The transcript goes into the store HERE, because the naming step the card
+    // replaced is what used to do it — and without it the edit page arrives with
+    // a template, a patient and nothing to generate from.
+    store.setLastTranscript(review.transcript)
+    store.setLastTranscriptMode(creationMode)
+    setPrefillPatient({ patient: name, reg_number: identity.regNumber, session_number: '', attendance: '' })
+
+    // A profile is created ONLY for a patient who does not have one. The naming
+    // step gates this on `isNewPatient` for a reason the card has to honour too:
+    // savePatientProfile with no id calls addDoc, so doing it for an existing
+    // patient does not update them — it adds a SECOND card holding a name, a DOB
+    // and nothing else, and splits their record across the two.
+    const alreadyTracked = isTrackedPatient(name, patientProfileList)
+    existingPatientRef.current = alreadyTracked
+    store.setPendingPatientProfile(
+      !alreadyTracked && (identity.dob || identity.sex) ? { dob: identity.dob, gender: identity.sex } : null
+    )
+
+    // The card replaced the naming step, so it inherits the naming step's job of
+    // putting the name somewhere a page load survives. Without this a reload
+    // between the tap and the edit page resurfaces the recording as "Unnamed"
+    // with the name we already had thrown away.
+    if (user && key !== 'other') {
+      handoffRef.current = {
+        ...handoffRef.current,
+        patient: name,
+        reg_number: identity.regNumber,
+        dob: identity.dob,
+        gender: identity.sex,
+      }
+      void saveDraftHandoff(user.uid, activeDraftIdRef.current, handoffRef.current)
+    }
+
+    if (key === 'other') {
+      // The escape hatch: back to the naming step the card replaced, with what
+      // was extracted pre-filled so nothing has to be typed twice.
+      setScanPrefill({ patient: name, regNumber: identity.regNumber, dob: identity.dob, gender: identity.sex })
+      setTranscriptConfirmOpen(true)
+      return
+    }
+
+    if (key === 'letter') {
+      startLetterFromTranscript(review.transcript, 'freetext', null, {
+        patient: name, mode: creationMode, existingPatient: alreadyTracked,
+      })
+      return
+    }
+
+    if (key === 'patient-record') {
+      void handleAddPatientFromTranscript({
+        patient: name, reg_number: identity.regNumber, dob: identity.dob, gender: identity.sex,
+      })
+      return
+    }
+
+    // A capture that did not pass the clinical-content check is never thrown
+    // away, but nor is a note generated from it — the same verdict the naming
+    // step reaches. It lands on the edit page saved under the patient with the
+    // transcript intact and a Generate button, rather than spending one of the
+    // 20 daily calls on twenty words.
+    if (skipGenerationRef.current) {
+      skipGenerationRef.current = false
+      store.setCurrentNote({ patient: name, reg_number: identity.regNumber })
+      store.setCurrentNoteId(null)
+      store.setPendingTranscriptOnly(true)
+      setPhase('idle')
+      router.push('/edit')
+      return
+    }
+
+    // A note. Generate on the template the card was showing; if it never
+    // resolved, fall back to the picker rather than guessing silently.
+    if (!captureTemplate) { setPhase('template-picking'); return }
+    const known = { patient: name, reg_number: identity.regNumber, session_number: '', attendance: '' }
+    void findCaptureTemplate(captureTemplate.id).then(t => {
+      if (t) handleTemplateSelect(t, store.overrideNoteLength ?? 'balanced', known)
+      else setPhase('template-picking')
+    })
+  }
+
+  /** "Change" on the card — hand the choice back without losing the capture. */
+  function changeCaptureTemplate() {
+    const name = captureName.trim()
+    setCaptureReview(null)
+    setPrefillPatient({ patient: name, reg_number: captureIdentityRef.current.regNumber, session_number: '', attendance: '' })
+    setPhase('template-picking')
   }
 
   // `known` carries the patient already confirmed in the naming step (the paste
@@ -718,9 +966,13 @@ export default function GeneratePage() {
 
   // Fill the confirmed patient's tracked record from the pasted content, merging
   // into their existing profile when they already have one.
-  async function handleAddPatientFromTranscript() {
+  // `known` is passed by the capture card, which decides the patient and calls
+  // this in the same tick — `prefillPatient` is state and would still hold the
+  // previous capture's value at that point.
+  async function handleAddPatientFromTranscript(known?: { patient: string; reg_number: string; dob: string; gender: string }) {
     if (!user || !pendingTranscript.trim()) return
-    const name = (prefillPatient?.patient ?? '').trim()
+    const name = (known?.patient ?? prefillPatient?.patient ?? '').trim()
+    const regNumber = known?.reg_number ?? prefillPatient?.reg_number ?? ''
     if (!name) { setError('Add the patient details first.'); return }
     setPhase('idle')
     setPatientSaving(true)
@@ -745,8 +997,9 @@ export default function GeneratePage() {
         p => p.displayName.trim().toLowerCase() === name.toLowerCase()
       )
       // The DOB/gender the doctor typed in the naming step are explicit, so they
-      // win over anything the AI inferred from the note.
-      const entered = store.pendingPatientProfile
+      // win over anything the AI inferred from the note. Same staleness reason
+      // as the name: the capture card supplies them directly.
+      const entered = known ?? store.pendingPatientProfile
       const now = Date.now()
       // A field this note covers replaces what was there; a field it is silent
       // about is left alone. Other topics merge per topic rather than as one
@@ -770,7 +1023,7 @@ export default function GeneratePage() {
         tracked: true,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
-        ...(prefillPatient?.reg_number ? { urNumber: prefillPatient.reg_number } : {}),
+        ...(regNumber ? { urNumber: regNumber } : {}),
       })
       store.setPendingPatientProfile(null)
       if (user && activeDraftIdRef.current) deleteTranscriptDraft(user.uid, activeDraftIdRef.current).catch(() => {})
@@ -785,7 +1038,15 @@ export default function GeneratePage() {
     }
   }
 
-  function handleTemplateSelect(template: AnyTemplate, noteLength: string) {
+  // `known` is the capture card's patient, for the same reason as
+  // handleAddPatientFromTranscript: it picks the template and calls this in one
+  // tick, when `prefillPatient` still holds the previous capture's value.
+  function handleTemplateSelect(
+    template: AnyTemplate,
+    noteLength: string,
+    known?: { patient: string; reg_number: string; session_number: string; attendance: string },
+  ) {
+    const chosen = known ?? prefillPatient
     // The 80-word / clinical-content minimum exists so a session note isn't
     // generated from nothing. Letters and the patient record don't need it, so
     // it's only enforced here, at the point a note template is actually chosen.
@@ -810,10 +1071,10 @@ export default function GeneratePage() {
       return
     }
     store.setCurrentNote({
-      patient: prefillPatient?.patient ?? '',
-      reg_number: prefillPatient?.reg_number ?? '',
-      session_number: prefillPatient?.session_number ?? '',
-      attendance: prefillPatient?.attendance ?? '',
+      patient: chosen?.patient ?? '',
+      reg_number: chosen?.reg_number ?? '',
+      session_number: chosen?.session_number ?? '',
+      attendance: chosen?.attendance ?? '',
     })
     store.setCurrentNoteId(null)
     store.setLastChosenTemplate(template)
@@ -828,10 +1089,10 @@ export default function GeneratePage() {
     if (user) {
       handoffRef.current = {
         ...handoffRef.current,
-        patient:        prefillPatient?.patient        ?? handoffRef.current.patient,
-        reg_number:     prefillPatient?.reg_number     ?? handoffRef.current.reg_number,
-        session_number: prefillPatient?.session_number ?? handoffRef.current.session_number,
-        attendance:     prefillPatient?.attendance     ?? handoffRef.current.attendance,
+        patient:        chosen?.patient        ?? handoffRef.current.patient,
+        reg_number:     chosen?.reg_number     ?? handoffRef.current.reg_number,
+        session_number: chosen?.session_number ?? handoffRef.current.session_number,
+        attendance:     chosen?.attendance     ?? handoffRef.current.attendance,
         templateId: String(template.id),
         templateTitle: template.title,
         pendingGeneration: true,
@@ -941,6 +1202,22 @@ export default function GeneratePage() {
         uid={user?.uid}
         onClose={handleCancel}
         onScanned={handleScannedNote}
+      />
+
+      {/* What a capture started from the FAB lands on, in place of the naming
+          step and the template picker it ran unattended. */}
+      <CaptureReviewCard
+        open={captureReview !== null}
+        stage={captureReview?.stage ?? 'reading'}
+        classification={captureReview?.classification ?? null}
+        transcript={captureReview?.transcript ?? ''}
+        actions={captureReview ? suggestedActions(captureReview.classification) : []}
+        patientName={captureName}
+        onPatientNameChange={setCaptureName}
+        template={captureTemplate ? { title: captureTemplate.title, reason: captureTemplate.reason } : null}
+        onChangeTemplate={changeCaptureTemplate}
+        onAction={handleCaptureAction}
+        onClose={closeCaptureReview}
       />
 
       {/* Paste transcript modal */}
