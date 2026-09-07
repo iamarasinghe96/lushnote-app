@@ -820,6 +820,99 @@ Settings.
   resurfaces
 - An ongoing thread rehydrates on reload without clobbering an in-session chat
 - Ending the chat closes the Slack thread, so the next visit gets a new ticket
+---
+
+## `capture-intent` — working out what was captured
+
+**Entry:** not yet reachable — the classifier stage 3/4 will use
+**Code:** `lib/captureIntent.ts`, `lib/suggestedActions.ts`,
+`/api/generate` `mode:'capture-identity'`
+**Coverage:** ✅ — the classifier and the action ordering are unit-tested
+
+The capture button records or photographs and then decides, unaided, what the
+doctor meant, because the point of it is that they no longer walk through modals
+telling us.
+
+| What arrives | Read as | Leads with |
+|---|---|---|
+| Two voices, a session | `consultation` | Generate note |
+| One voice about a patient | `dictated-note` | Generate note |
+| One voice, addressed to someone | `dictated-letter` | Write letter |
+| A record being copied | `ward-note` | Add to patient record |
+
+### It extends the paste classifier rather than second-guessing it
+
+`classifyPastedText` already answers the ward-note question from STRUCTURE —
+problem lists, record labels, headings. `classifyCaptureIntent` delegates that
+verdict and adds the axis structure cannot see: within something spoken rather
+than copied, is it a conversation or a monologue? That is a question about
+VOICE. The two cannot disagree about the same text because only one of them
+decides.
+
+**A photograph is always a record.** A doctor does not photograph a
+conversation, so the source short-circuits every voice signal — the same
+reasoning as `resolvePastedKind` for scans.
+
+**A letter is identified by its envelope, not its pronouns.** Found in testing:
+"thank you for seeing" and "your opinion" scored as someone being addressed *in
+the room*, so a referral letter classified as a consultation. Second-person
+pronouns cannot separate the two — a letter is full of them by definition. Two
+markers (a salutation AND a sign-off) settle it before voice scoring runs; one
+marker only leans, because a stray "many thanks" turns up inside plenty of
+spoken notes and must not send the doctor into the wrong editor.
+
+**A tie goes to `consultation`**, whose action generates a discardable note. The
+costly misreads point the other way: a wrong ward note offers to overwrite the
+record, a wrong letter offers a document addressed to a third party.
+
+### The card always offers a way out
+
+`suggestedActions` puts **Something else** last on every pathway. The classifier
+will be wrong sometimes and a doctor must never be stuck with a card offering
+only the wrong thing — that is the difference between a suggestion and a
+decision made on their behalf. Below `INTENT_CONFIDENT` **nothing leads**: the
+card presents choices rather than asserting a guess it cannot support.
+
+Actions that write over existing clinical data are marked `overwritesRecord`, so
+the card can show the difference between "make me a document" and "change the
+record" at the moment it is being decided.
+
+### Identity extraction, and the one thing it must not infer
+
+Three modes already extract patient identity (scan, letter, hospital-form); the
+plain-note path never did, which is why it alone still needed the Confirm
+transcript step. `mode:'capture-identity'` closes that gap.
+
+**Deliberately a separate cheap call**, not fields bolted onto note generation:
+it runs on EVERY capture, while generation runs only after the doctor taps.
+Folding them together would spend a note-sized request — and one of the 20 daily
+Gemini calls — on a capture that may be discarded. Groq-first, same reason.
+
+**Sex is never inferred from a name.** Only a stated sex or consistent he/she
+usage counts. A name does not determine sex, and a wrong guess mislabels a real
+person on their own record — the decision taken on 2026-08-28 when the
+name↔gender border check was rejected, applied to extraction.
+
+**Every field may be empty and that is correct.** An empty field costs one tap;
+a wrong one attaches the recording to the wrong patient. A failed read returns
+`{}` rather than an error, so the card asks for the name instead of blocking a
+capture over a field that is optional anyway.
+
+The doctor's transcript-redaction setting still applies — identifying a patient
+is exactly what that setting exists to control, so this must not be the one path
+that bypasses it.
+
+### Expected outputs — what must remain true
+
+- A photograph is never read as speech
+- A letter is never called a consultation because it says "you"
+- A single letter marker never routes to the letter editor
+- Every pathway offers **Something else**
+- Nothing leads when confidence is below the threshold
+- The patient-record action is always marked as overwriting
+- Identity extraction never guesses sex from a name
+
+Covered by `tests/unit/capture-intent.test.ts`.
 
 ---
 
