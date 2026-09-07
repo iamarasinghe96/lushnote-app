@@ -18,6 +18,10 @@ import type { CaptureIntent } from './captureIntent'
  *  "Start a psychiatrist note" means on the dictate pathway. */
 export const DEFAULT_TEMPLATE_ID = '1'
 
+/** "Discharge Summary - Letter to Referrer". It has been among the 116 all
+ *  along; what the discharge action adds is reaching it without hunting. */
+export const DISCHARGE_TEMPLATE_ID = '40'
+
 export type TemplateReason = 'recent' | 'default'
 
 export interface TemplateChoice {
@@ -72,12 +76,18 @@ export interface CaptureReview {
  * A note, a letter and the escape hatch all stay available unnamed: the edit
  * page already carries an unnamed note and its autosave no-ops until a patient
  * is named, so nothing is written anywhere until the doctor supplies one.
+ *
+ * Gated on the ACTION WRITING a record, not on its key, so an action added later
+ * cannot slip past by not being one of the two names listed here.
  */
 export function actionBlocker(key: ActionKey, r: CaptureReview): string | null {
   if (!r.transcript.trim()) return 'Nothing was captured'
-  if (key === 'patient-record' && !r.patientName.trim()) return 'Add the name first'
+  if (WRITES_RECORD.has(key) && !r.patientName.trim()) return 'Add the name first'
   return null
 }
+
+/** Every action whose first act is to write the patient's tracked record. */
+const WRITES_RECORD: ReadonlySet<ActionKey> = new Set<ActionKey>(['patient-record', 'patient-pdf'])
 
 /**
  * Does this patient already have a tracked profile?
@@ -104,6 +114,7 @@ export const INTENT_LABEL: Record<CaptureIntent, string> = {
   'consultation': 'a consultation',
   'dictated-note': 'a dictated note',
   'dictated-letter': 'a letter',
+  'discharge': 'a discharge summary',
   'ward-note': 'a ward note',
 }
 

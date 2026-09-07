@@ -921,8 +921,11 @@ one tap rather than being imposed.
 
 ### What the card refuses
 
-`actionBlocker` disables **Add to patient record** until a patient is named, and
-`handleCaptureAction` re-checks it rather than trusting the button. A note for
+`actionBlocker` disables every action that WRITES a record — *Add to patient
+record* and *Record + handover sheet* — until a patient is named, and
+`handleCaptureAction` re-checks it rather than trusting the button. It is gated
+on a set of writing actions rather than on key names, which is how the second
+one would otherwise have been added unguarded. A note for
 the wrong patient is discarded; a record write with no name either invents a
 profile or merges the capture into whichever profile matches an empty string —
 and a later entry SUPERSEDES tracked fields, so that is somebody else's record.
@@ -970,8 +973,10 @@ tap, so it never blocks the capture.
 - The card appears only for a capture started from the FAB
 - It is shown every time; there is no way to suppress it
 - The patient, the template and the reason for it are all visible before the tap
-- **Add to patient record** cannot run without a name, and is marked wherever it
-  appears
+- No record-writing action can run without a name, and each is marked wherever
+  it appears — the blocked set and the marked set never drift apart
+- The template row is shown only when a plain note LEADS; a discharge summary
+  has its own template and a record write has none
 - An existing patient never gets a second profile
 - The name survives a reload between the tap and the edit page
 - A non-clinical capture is saved, never generated from
@@ -997,6 +1002,7 @@ telling us.
 | Two voices, a session | `consultation` | Generate note |
 | One voice about a patient | `dictated-note` | Generate note |
 | One voice, addressed to someone | `dictated-letter` | Write letter |
+| An admission being closed off | `discharge` | Discharge summary |
 | A record being copied | `ward-note` | Add to patient record |
 
 ### It extends the paste classifier rather than second-guessing it
@@ -1019,6 +1025,24 @@ pronouns cannot separate the two — a letter is full of them by definition. Two
 markers (a salutation AND a sign-off) settle it before voice scoring runs; one
 marker only leans, because a stray "many thanks" turns up inside plenty of
 spoken notes and must not send the doctor into the wrong editor.
+
+**A discharge summary outranks the letter envelope**, because it is often both
+— template 40 is literally "Discharge Summary - Letter to Referrer" — and the
+more specific answer is the useful one. It takes two markers for the same reason
+the envelope does: a referral that mentions a past admission ("she was
+discharged home in March") is history, not the document being dictated. The
+template has been among the 116 all along; what this adds is reaching it without
+hunting through a picker.
+
+**The handover sheet is offered on a ward note and nowhere else.**
+Photographing a ward round into the record and printing a handover sheet from it
+are the two halves of one job; on a dictated consultation there is no round to
+hand over. It is one button because they are one job, marked as overwriting
+because its FIRST act is the record write — the PDF that follows changes
+nothing. It never leads: downloading a file is the bigger surprise of the two,
+so it is not the button a doctor presses without reading. `exportPatientsPDF`
+moved to `lib/patientPdf.ts` to be reachable from both here and the Patients
+toolbar; it takes an array, so one patient is simply a one-row sheet.
 
 **A tie goes to `consultation`**, whose action generates a discardable note. The
 costly misreads point the other way: a wrong ward note offers to overwrite the
@@ -1066,6 +1090,9 @@ that bypasses it.
 - A photograph is never read as speech
 - A letter is never called a consultation because it says "you"
 - A single letter marker never routes to the letter editor
+- A single discharge marker never routes to a discharge summary
+- A photograph is still a ward note even when it summarises an admission
+- The handover sheet appears only on a ward note, is always marked, never leads
 - Every pathway offers **Something else**
 - Nothing leads when confidence is below the threshold
 - The patient-record action is always marked as overwriting

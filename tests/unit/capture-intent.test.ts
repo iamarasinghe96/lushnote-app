@@ -154,6 +154,84 @@ describe('suggestedActions', () => {
   })
 })
 
+describe('the discharge summary', () => {
+  const DISCHARGE = `Mrs Patel was admitted on the third of March with a relapse of
+psychotic depression. During this admission she was commenced on olanzapine and
+titrated to ten milligrams nightly. She improved steadily over the fortnight.
+On discharge she is euthymic with no active psychotic symptoms. Discharge
+medications are olanzapine ten milligrams nocte and sertraline one hundred
+milligrams mane. She will follow up with the GP in one week.`
+
+  it('reads an admission being closed off as a discharge summary', () => {
+    const c = classifyCaptureIntent(DISCHARGE, 'audio')
+    expect(c.intent).toBe('discharge')
+    expect(isConfidentIntent(c)).toBe(true)
+  })
+
+  it('leads with the discharge summary and keeps a note available', () => {
+    // A doctor recapping a stay inside a progress note is not necessarily
+    // discharging anybody today.
+    const actions = suggestedActions(classifyCaptureIntent(DISCHARGE, 'audio'))
+    expect(actions[0].key).toBe('discharge-summary')
+    expect(actions[0].primary).toBe(true)
+    expect(actions.map(a => a.key)).toContain('note')
+  })
+
+  it('needs two markers — a mentioned past admission is not a discharge', () => {
+    // "she was discharged in March" inside a referral is history, not the
+    // document being dictated.
+    const referral = `Dear Dr Singh, thank you for seeing this patient. I am writing
+to refer Mrs Patel for review of her ongoing low mood. She was discharged home
+in March and has been stable since. Kind regards.`
+    expect(classifyCaptureIntent(referral, 'audio').intent).toBe('dictated-letter')
+  })
+
+  it('outranks the letter envelope when it is both', () => {
+    // Template 40 is literally "Discharge Summary - Letter to Referrer". When a
+    // capture is both, the more specific answer is the useful one.
+    const both = `Dear Dr Singh, this is a discharge summary for Mrs Patel who was
+admitted on the third of March. On discharge she is well. Kind regards.`
+    expect(classifyCaptureIntent(both, 'audio').intent).toBe('discharge')
+  })
+
+  it('does not outrank a photograph', () => {
+    // A photographed page is a record being copied, whatever it says.
+    expect(classifyCaptureIntent(DISCHARGE, 'photo').intent).toBe('ward-note')
+  })
+
+  it('says why it decided', () => {
+    expect(classifyCaptureIntent(DISCHARGE, 'audio').signals.join(' ')).toMatch(/summarises an admission/i)
+  })
+})
+
+describe('the handover sheet', () => {
+  it('is offered on a ward note and nowhere else', () => {
+    // Photographing a ward note and printing a handover sheet from it are the
+    // two halves of one ward round. On a dictated consultation there is no
+    // round to hand over.
+    const ward = suggestedActions(classifyCaptureIntent(WARD_NOTE, 'audio'))
+    expect(ward.map(a => a.key)).toContain('patient-pdf')
+
+    for (const text of [CONSULTATION, DICTATED_NOTE, DICTATED_LETTER]) {
+      const keys = suggestedActions(classifyCaptureIntent(text, 'audio')).map(a => a.key)
+      expect(keys).not.toContain('patient-pdf')
+    }
+  })
+
+  it('is marked as overwriting, because its first act is a record write', () => {
+    const action = suggestedActions(classifyCaptureIntent(WARD_NOTE, 'audio')).find(a => a.key === 'patient-pdf')
+    expect(isDestructive(action!)).toBe(true)
+  })
+
+  it('never leads — the plain record write does', () => {
+    // Downloading a file is the bigger surprise of the two, so it does not get
+    // to be the button a doctor presses without reading.
+    const actions = suggestedActions(classifyCaptureIntent(WARD_NOTE, 'audio'))
+    expect(actions[0].key).toBe('patient-record')
+    expect(actions.find(a => a.key === 'patient-pdf')!.primary).toBe(false)
+  })
+})
+
 describe('the letter envelope', () => {
   // Added after the first run: "thank you for seeing" and "your opinion" scored
   // as someone being addressed IN THE ROOM, so a referral letter classified as

@@ -47,6 +47,8 @@ const ACTION_DETAIL: Record<ActionKey, string> = {
   'note': 'Writes a clinical note you can edit before saving',
   'patient-record': 'Updates the fields this capture covers',
   'letter': 'Opens the letter editor with this dictation loaded',
+  'discharge-summary': 'Writes the discharge summary for this admission',
+  'patient-pdf': 'Updates the record, then downloads the handover sheet',
   'hospital-form': 'Opens your workplace form with this entry',
   'other': 'Choose a template, letter or form yourself',
 }

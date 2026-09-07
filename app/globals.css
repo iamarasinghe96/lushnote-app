@@ -366,12 +366,13 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
   .sm\:pt-header { padding-top: calc(env(safe-area-inset-top) + 76px); }
 }
 
-/* FAB sub-buttons popping up from the main chat bubble. Origin bottom-right so
-   they appear to spring out of the green button. Disabled under reduced motion
-   by the clamp below. */
-@keyframes fab-pop-in {
-  from { opacity: 0; transform: translateY(10px) scale(0.85); }
-  to   { opacity: 1; transform: translateY(0)    scale(1); }
+/* FAB sub-buttons sliding out of the main button. The tray runs to the RIGHT of
+   it, so they travel sideways rather than up — a vertical stack covered the mode
+   cards behind it, which is what the doctor is choosing between. Disabled under
+   reduced motion by the clamp below. */
+@keyframes fab-slide-in {
+  from { opacity: 0; transform: translateX(-10px) scale(0.85); }
+  to   { opacity: 1; transform: translateX(0)     scale(1); }
 }
 
 /* The capture card's indeterminate bar while it works out who the recording is

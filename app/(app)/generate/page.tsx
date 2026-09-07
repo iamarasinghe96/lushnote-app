@@ -8,7 +8,8 @@ import { openSettings, quotaDate, getGroqKey, getGeminiKey, parsePatientIntakeFi
 import { classifyPastedText, resolvePastedKind, type PastedSource } from '@/lib/pastedText'
 import { classifyCaptureIntent, type CaptureSource, type IntentClassification } from '@/lib/captureIntent'
 import { suggestedActions, type ActionKey } from '@/lib/suggestedActions'
-import { pickCaptureTemplate, actionBlocker, isTrackedPatient, type TemplateReason } from '@/lib/captureFlow'
+import { pickCaptureTemplate, actionBlocker, isTrackedPatient, DISCHARGE_TEMPLATE_ID, type TemplateReason } from '@/lib/captureFlow'
+import { exportPatientsPDF } from '@/lib/patientPdf'
 import CaptureReviewCard from '@/components/capture/CaptureReviewCard'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
@@ -691,9 +692,24 @@ export default function GeneratePage() {
       return
     }
 
-    if (key === 'patient-record') {
-      void handleAddPatientFromTranscript({
-        patient: name, reg_number: identity.regNumber, dob: identity.dob, gender: identity.sex,
+    // Both halves of the ward round: the record write, then the handover sheet
+    // printed from what it just wrote. One button because they are one job.
+    if (key === 'patient-record' || key === 'patient-pdf') {
+      void handleAddPatientFromTranscript(
+        { patient: name, reg_number: identity.regNumber, dob: identity.dob, gender: identity.sex },
+        { thenExportPdf: key === 'patient-pdf' },
+      )
+      return
+    }
+
+    // The discharge summary has its own template — the doctor is closing off an
+    // admission, which is a document, not a preference. It does NOT go through
+    // the card's template row, which describes what a plain note would use.
+    if (key === 'discharge-summary') {
+      const known = { patient: name, reg_number: identity.regNumber, session_number: '', attendance: '' }
+      void findCaptureTemplate(DISCHARGE_TEMPLATE_ID).then(t => {
+        if (t) handleTemplateSelect(t, store.overrideNoteLength ?? 'balanced', known)
+        else setPhase('template-picking')
       })
       return
     }
@@ -722,6 +738,10 @@ export default function GeneratePage() {
       else setPhase('template-picking')
     })
   }
+
+  // Derived once: the render reads it twice — for the buttons, and to decide
+  // whether the template row describes anything the doctor is about to press.
+  const captureActions = captureReview ? suggestedActions(captureReview.classification) : []
 
   /** "Change" on the card — hand the choice back without losing the capture. */
   function changeCaptureTemplate() {
@@ -969,7 +989,10 @@ export default function GeneratePage() {
   // `known` is passed by the capture card, which decides the patient and calls
   // this in the same tick — `prefillPatient` is state and would still hold the
   // previous capture's value at that point.
-  async function handleAddPatientFromTranscript(known?: { patient: string; reg_number: string; dob: string; gender: string }) {
+  async function handleAddPatientFromTranscript(
+    known?: { patient: string; reg_number: string; dob: string; gender: string },
+    opts?: { thenExportPdf?: boolean },
+  ) {
     if (!user || !pendingTranscript.trim()) return
     const name = (known?.patient ?? prefillPatient?.patient ?? '').trim()
     const regNumber = known?.reg_number ?? prefillPatient?.reg_number ?? ''
@@ -1010,7 +1033,7 @@ export default function GeneratePage() {
         ...(mergedExtras.length ? { extras: mergedExtras, otherTopics: formatOtherTopics(mergedExtras) } : {}),
       }
       const history = appendPatientHistory(existing, merged, now)
-      await savePatientProfile(user.uid, {
+      const saved: PatientProfile = {
         ...(existing ?? { displayName: name }),
         ...merged,
         ...(history ? { history } : {}),
@@ -1024,7 +1047,12 @@ export default function GeneratePage() {
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
         ...(regNumber ? { urNumber: regNumber } : {}),
-      })
+      }
+      await savePatientProfile(user.uid, saved)
+      // The handover sheet is drawn from what was just written, not re-read: a
+      // read-back would race the write, and this is the same object Firestore
+      // holds. jsPDF is code-split, so it only loads when a sheet is asked for.
+      if (opts?.thenExportPdf) await exportPatientsPDF([saved]).catch(() => {})
       store.setPendingPatientProfile(null)
       if (user && activeDraftIdRef.current) deleteTranscriptDraft(user.uid, activeDraftIdRef.current).catch(() => {})
       // Land on this patient's card with the details already open, so the
@@ -1211,10 +1239,15 @@ export default function GeneratePage() {
         stage={captureReview?.stage ?? 'reading'}
         classification={captureReview?.classification ?? null}
         transcript={captureReview?.transcript ?? ''}
-        actions={captureReview ? suggestedActions(captureReview.classification) : []}
+        actions={captureActions}
         patientName={captureName}
         onPatientNameChange={setCaptureName}
-        template={captureTemplate ? { title: captureTemplate.title, reason: captureTemplate.reason } : null}
+        // Shown only when a plain note LEADS. On a discharge or a ward note the
+        // row would describe a button the doctor is not about to press — the
+        // discharge summary has its own template, and the record write has none.
+        template={captureTemplate && captureActions[0]?.key === 'note'
+          ? { title: captureTemplate.title, reason: captureTemplate.reason }
+          : null}
         onChangeTemplate={changeCaptureTemplate}
         onAction={handleCaptureAction}
         onClose={closeCaptureReview}

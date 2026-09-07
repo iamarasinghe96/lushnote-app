@@ -11,6 +11,10 @@ import {
 import { classifyCaptureIntent } from '@/lib/captureIntent'
 import { suggestedActions } from '@/lib/suggestedActions'
 
+const CONSULTATION = 'Hi, how are you today? I have been feeling low. Do you sleep well? Not really, no.'
+const WARD_NOTE = '# Delirium - resolving\nUR: 4402219\nObs: afebrile\nPlan:\n1. Continue quetiapine\n2. TWOC in the morning'
+const DICTATED_LETTER = 'Dear Dr Singh, thank you for seeing her. Kind regards.'
+
 // The capture card runs the intermediate steps unattended and presents one tap.
 // These tests pin the two things that makes safe: the doctor can SEE what the
 // tap will do, and the tap that overwrites a record can be refused.
@@ -61,11 +65,32 @@ describe('actionBlocker', () => {
     expect(actionBlocker('patient-record', { ...captured, patientName: 'Mrs Patel' })).toBeNull()
   })
 
-  it('lets a note, a letter and the escape hatch run unnamed', () => {
+  it('refuses the handover sheet too — its first act is the same write', () => {
+    // Added with the action: gating on the two key names by hand is how the
+    // second record-writing action would have slipped through unguarded.
+    expect(actionBlocker('patient-pdf', captured)).toBeTruthy()
+    expect(actionBlocker('patient-pdf', { ...captured, patientName: 'Mrs Patel' })).toBeNull()
+  })
+
+  it('lets everything that only makes a document run unnamed', () => {
     // The edit page already carries an unnamed note and its autosave no-ops
     // until a patient is named, so nothing is written until they supply one.
-    for (const key of ['note', 'letter', 'other'] as const) {
+    for (const key of ['note', 'letter', 'discharge-summary', 'other'] as const) {
       expect(actionBlocker(key, captured)).toBeNull()
+    }
+  })
+
+  it('blocks exactly the actions marked as overwriting', () => {
+    // The two lists must not drift: an action the card marks "Replaces" but
+    // does not gate would write an unnamed record, and one it gates without
+    // marking would refuse for a reason the doctor cannot see.
+    const named = { transcript: 'x', patientName: 'Mrs Patel' }
+    for (const text of [CONSULTATION, WARD_NOTE, DICTATED_LETTER]) {
+      for (const a of suggestedActions(classifyCaptureIntent(text, 'audio'))) {
+        const blockedUnnamed = actionBlocker(a.key, { transcript: 'x', patientName: '' }) !== null
+        expect(blockedUnnamed).toBe(a.overwritesRecord === true)
+        expect(actionBlocker(a.key, named)).toBeNull()
+      }
     }
   })
 
