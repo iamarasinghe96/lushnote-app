@@ -325,7 +325,18 @@ export function FAB() {
   // from anywhere instead of navigating to Generate first.
   function startCapture(kind: 'record' | 'photo') {
     setExpanded(false)
-    router.push(`/generate?capture=${kind}`)
+    // The Generate page may ALREADY be mounted — tapping this from the Generate
+    // tab is the commonest case there is — and pushing the route it is already
+    // on does not remount it, so its `?capture=` mount effect never runs and the
+    // button appears dead. Same shape as handlePatientClick above: an event for
+    // the mounted page, a query parameter for a fresh one.
+    //
+    // The listener marks the event handled, so exactly one of the two fires.
+    // Keying on "did anyone answer" rather than on the pathname means this stays
+    // correct if the capture modals ever move to another route.
+    const detail: { kind: 'record' | 'photo'; handled: boolean } = { kind, handled: false }
+    window.dispatchEvent(new CustomEvent('ln-capture', { detail }))
+    if (!detail.handled) router.push(`/generate?capture=${kind}`)
   }
 
   // Open the AI assistant automatically when arriving from a "ask the AI agent"
