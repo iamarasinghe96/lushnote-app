@@ -1243,6 +1243,35 @@ function lnRecallSearch(query: string, allNotes: Note[]): Note[] {
   well as duration — a filled animation otherwise holds a button hidden for the
   length of the stagger even with the duration clamped
 
+### The capture card — the steps run, the doctor taps once
+
+A capture started from the FAB skips the naming step and the template picker:
+`classifyCaptureIntent` reads what arrived, `mode:'capture-identity'` reads who
+it is about, `pickCaptureTemplate` resolves which template a note would use, and
+`CaptureReviewCard` presents one tap. `captureHubRef` (set by `?capture=`,
+consumed on first use) is what separates this from the same modals reached via a
+mode card, which keep their steps.
+
+- **Shown every time, no suppression.** What it confirms — which patient, which
+  document — differs on every capture, so a remembered answer would answer a
+  different question. **The tap IS the confirmation**, so everything it will do
+  is on the card first: intent + why, an excerpt, the patient (editable), and the
+  template with the reason it was picked
+- **The template is the doctor's own last use** (`lnTemplateUsage`), not a rule
+  per intent — a recorded consultation could be any template. **Change** hands
+  the picker back
+- **`actionBlocker` refuses the record write with no name**, and
+  `handleCaptureAction` re-checks rather than trusting the button — a later entry
+  SUPERSEDES tracked fields, so an unnamed write is somebody else's record
+- **`isTrackedPatient` gates profile creation.** `savePatientProfile` with no
+  `id` calls `addDoc`, so doing it for an existing patient adds a SECOND card
+  and splits their record — the naming step's `isNewPatient` rule, inherited
+- **It writes the handoff and the transcript** before navigating. Both were the
+  naming step's job; without them a reload loses the name and the edit page
+  arrives with nothing to generate from
+- **One indeterminate bar, not staged progress.** Transcription already finished
+  in the recording modal, so there is a single step left and nothing to report
+
 ### Live Support lives in Settings, and its thread lives at the ROOT
 
 `Settings → Live Support` (`components/settings/SupportPanel.tsx`). The panel is
