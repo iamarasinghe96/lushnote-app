@@ -92,3 +92,45 @@ test('billing page renders this account state', async ({ signedIn: page }) => {
   // not be the paywall.
   await expect(page.getByText(/subscription|billing|trial|access/i).first()).toBeVisible({ timeout: 30_000 })
 })
+
+// The capture button, from BOTH places it can be pressed.
+//
+// It shipped dead on the Generate tab: `router.push('/generate?capture=…')`
+// while already on /generate changes the URL without remounting the page, so
+// the mount effect that opens the modal never ran. Nothing failed, nothing
+// logged — the button simply did nothing, and only on the tab a doctor is most
+// likely to be looking at.
+//
+// No unit test can see that. It is browser navigation behaviour, which is
+// exactly what this suite exists for. Both cases are asserted because they take
+// different code paths: the event for a page already mounted, the query
+// parameter for a fresh one.
+test('the capture button opens the recording modal from the Generate tab', async ({ signedIn: page }) => {
+  await page.goto('/generate')
+  await page.getByRole('button', { name: 'Open capture menu' }).click()
+  await page.getByRole('button', { name: 'Record a session' }).click()
+  // Opens on its In-person/Telehealth choice — no microphone is touched until
+  // Start, so this is safe to assert and cannot flake on a permission prompt.
+  await expect(page.getByRole('heading', { name: 'Record Session' })).toBeVisible()
+})
+
+test('the capture button opens the scan modal from the Generate tab', async ({ signedIn: page }) => {
+  await page.goto('/generate')
+  await page.getByRole('button', { name: 'Open capture menu' }).click()
+  await page.getByRole('button', { name: /^Capture a note/ }).click()
+  await expect(page.getByRole('heading', { name: 'Scan a ward note' })).toBeVisible()
+})
+
+test('the capture button opens the recording modal from another tab', async ({ signedIn: page }) => {
+  // The path that always worked — arriving from elsewhere mounts the page, so
+  // the `?capture=` parameter is what carries the intent. Pinned so a fix for
+  // the same-route case cannot quietly break this one.
+  await page.goto('/history')
+  await page.getByRole('button', { name: 'Open capture menu' }).click()
+  await page.getByRole('button', { name: 'Record a session' }).click()
+  await expect(page).toHaveURL(/\/generate/)
+  await expect(page.getByRole('heading', { name: 'Record Session' })).toBeVisible()
+  // The parameter is dropped, so a refresh cannot reopen the modal over a
+  // capture already finished.
+  await expect(page).toHaveURL(/\/generate$/)
+})

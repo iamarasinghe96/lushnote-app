@@ -466,26 +466,47 @@ export default function GeneratePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid])
 
-  // Arriving from the capture button (?capture=record | photo). The FAB lives in
-  // the app layout and these modals live here, so it deep-links rather than
-  // duplicating the wiring — the same shape as the ?recover=1 link from
-  // Patients. Nothing about the capture itself changes; the doctor simply starts
-  // one from anywhere instead of navigating to Generate first.
+  // Start a capture from the FAB. The modals and the state machine that turns
+  // their output into a document live here, so the button reaches them rather
+  // than carrying a second copy.
+  //
+  // Go through the same entry points the mode cards use, so the two cannot
+  // drift — each clears the previous attempt's error, input text and scan
+  // prefill before opening its modal. `captureHubRef` is what separates the two
+  // ways in: a capture started from the FAB runs the steps unattended and ends
+  // on the review card, while the same modal reached from a mode card keeps the
+  // naming step and the picker, because a doctor who walked in through them has
+  // already chosen to walk through them.
+  function beginHubCapture(kind: 'record' | 'photo') {
+    captureHubRef.current = true
+    if (kind === 'record') startMode('conversation')
+    else { handlePasteMode(); setPhase('scan-input') }
+  }
+
+  // Two ways the button reaches this page, because there are two situations.
+  //
+  // Arriving from ANOTHER tab mounts the page, and the `?capture=` parameter is
+  // what survives that navigation. Tapping the button while ALREADY on Generate
+  // — the commonest case of all — does not remount anything, so the mount
+  // effect below would never run and the button looked dead. The event covers
+  // that; the FAB pushes the parameter only when nobody answered it.
+  useEffect(() => {
+    function onCapture(e: Event) {
+      const detail = (e as CustomEvent<{ kind: 'record' | 'photo'; handled: boolean }>).detail
+      if (!detail) return
+      detail.handled = true
+      beginHubCapture(detail.kind)
+    }
+    window.addEventListener('ln-capture', onCapture)
+    return () => window.removeEventListener('ln-capture', onCapture)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     if (typeof window === 'undefined') return
     const capture = new URLSearchParams(window.location.search).get('capture')
     if (capture !== 'record' && capture !== 'photo') return
-    // Go through the same entry points the mode cards use, so the deep link
-    // cannot drift from them — each one clears the previous attempt's error,
-    // input text and scan prefill before opening its modal.
-    //
-    // The flag is what separates the two ways in. A capture started HERE runs
-    // the steps unattended and ends on the review card; the same modal reached
-    // from a mode card keeps the naming step and the picker, because a doctor
-    // who walked in through them has already chosen to walk through them.
-    captureHubRef.current = true
-    if (capture === 'record') startMode('conversation')
-    else { handlePasteMode(); setPhase('scan-input') }
+    beginHubCapture(capture)
     // Drop the parameter so a refresh does not reopen the modal over a recording
     // the doctor has already finished — or worse, over a recovery banner.
     router.replace('/generate', { scroll: false })
