@@ -1291,6 +1291,11 @@ mode card, which keep their steps.
   sheet
 - **`actionBlocker` gates on a SET of record-writing actions**, not on key names
   — that is how a second writing action would otherwise arrive unguarded
+- **`hospital-form` is the active workplace's own form** (AWH FAW0004 …), passed
+  in as `hospitalFormName` because the campus decides whether it exists, not the
+  capture. Labelled with the form's REAL name; offered on every note-producing
+  intent but never leading, and never on a letter. Routes through
+  `startHospitalForm`, the same path DictateModal uses
 
 ### Live Support lives in Settings, and its thread lives at the ROOT
 

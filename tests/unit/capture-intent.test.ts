@@ -250,3 +250,63 @@ On examination he is settled. Many thanks.`
     expect(classifyCaptureIntent(stray, 'audio').intent).not.toBe('dictated-letter')
   })
 })
+
+describe('the campus hospital form', () => {
+  // "Hospital form is equal to AWH progress note template" — the doctor's own
+  // paperwork, offered on the card when their active workplace has one.
+  const AWH = { hospitalFormName: 'AWH Progress Note FAW0004' }
+
+  it('is not offered at a workplace with no form, which is most of them', () => {
+    for (const text of [CONSULTATION, DICTATED_NOTE, WARD_NOTE]) {
+      const keys = suggestedActions(classifyCaptureIntent(text, 'audio')).map(a => a.key)
+      expect(keys).not.toContain('hospital-form')
+    }
+  })
+
+  it('is offered on every note-producing capture when the campus has one', () => {
+    for (const text of [CONSULTATION, DICTATED_NOTE, WARD_NOTE]) {
+      const keys = suggestedActions(classifyCaptureIntent(text, 'audio'), AWH).map(a => a.key)
+      expect(keys).toContain('hospital-form')
+    }
+  })
+
+  it('carries the form’s real name, not a generic label', () => {
+    // A doctor knows their form by what it is called. "Hospital form" would
+    // make one campus's paperwork look like a feature of the app.
+    const action = suggestedActions(classifyCaptureIntent(DICTATED_NOTE, 'audio'), AWH)
+      .find(a => a.key === 'hospital-form')
+    expect(action!.label).toBe('AWH Progress Note FAW0004')
+  })
+
+  it('never leads', () => {
+    // Whether an entry belongs on the hospital's paper form or in LushNote's
+    // record is a decision about where the note will live — not something the
+    // classifier can read out of the words.
+    for (const text of [CONSULTATION, DICTATED_NOTE, WARD_NOTE]) {
+      const actions = suggestedActions(classifyCaptureIntent(text, 'audio'), AWH)
+      expect(actions.find(a => a.key === 'hospital-form')!.primary).toBe(false)
+      expect(actions.filter(a => a.primary).length).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it('is not offered on a letter — a letter is not a progress note', () => {
+    const keys = suggestedActions(classifyCaptureIntent(DICTATED_LETTER, 'audio'), AWH).map(a => a.key)
+    expect(keys).not.toContain('hospital-form')
+  })
+
+  it('does not disturb what leads on any pathway', () => {
+    // Adding an option must not change the answer the card was already giving.
+    for (const text of [CONSULTATION, DICTATED_NOTE, DICTATED_LETTER, WARD_NOTE]) {
+      const without = suggestedActions(classifyCaptureIntent(text, 'audio'))
+      const with_ = suggestedActions(classifyCaptureIntent(text, 'audio'), AWH)
+      expect(with_[0].key).toBe(without[0].key)
+      expect(with_[with_.length - 1].key).toBe('other')
+    }
+  })
+
+  it('writes no record, so it is never marked or blocked', () => {
+    const action = suggestedActions(classifyCaptureIntent(WARD_NOTE, 'audio'), AWH)
+      .find(a => a.key === 'hospital-form')!
+    expect(isDestructive(action)).toBe(false)
+  })
+})

@@ -1044,6 +1044,19 @@ so it is not the button a doctor presses without reading. `exportPatientsPDF`
 moved to `lib/patientPdf.ts` to be reachable from both here and the Patients
 toolbar; it takes an array, so one patient is simply a one-row sheet.
 
+**The campus form is offered, never led with.** When the active workplace has a
+hospital form configured (AWH FAW0004 and whatever follows it), it appears on
+every note-producing capture, labelled with the form's real NAME — a doctor
+knows their form by what it is called, and "Hospital form" would make one
+campus's paperwork look like a feature of the app. It does not lead, because
+whether an entry belongs on the hospital's paper or in LushNote's record is a
+decision about where the note will live, not something a classifier can read out
+of the words. It is absent for the great majority of doctors, whose workplace
+has no form, and absent on a letter, which is not a progress note. Tapping it
+takes the same road `DictateModal` already uses — `startHospitalForm` with the
+capture as the entry, since a form carries the LATEST entry and that is exactly
+what a capture is.
+
 **A tie goes to `consultation`**, whose action generates a discardable note. The
 costly misreads point the other way: a wrong ward note offers to overwrite the
 record, a wrong letter offers a document addressed to a third party.
@@ -1093,6 +1106,9 @@ that bypasses it.
 - A single discharge marker never routes to a discharge summary
 - A photograph is still a ward note even when it summarises an admission
 - The handover sheet appears only on a ward note, is always marked, never leads
+- The campus form appears only where one is configured, never leads, and never
+  changes which action does
+- Adding the form to a pathway does not change what that pathway led with
 - Every pathway offers **Something else**
 - Nothing leads when confidence is below the threshold
 - The patient-record action is always marked as overwriting

@@ -685,6 +685,15 @@ export default function GeneratePage() {
       return
     }
 
+    // The campus's own progress-note form. It carries the LATEST entry, which is
+    // exactly what this capture is, so the transcript goes straight in and
+    // generation fills the ruled lines — the same path DictateModal already uses.
+    if (key === 'hospital-form') {
+      if (captureForm) startHospitalForm(captureForm, review.transcript)
+      else setPhase('template-picking')
+      return
+    }
+
     if (key === 'letter') {
       startLetterFromTranscript(review.transcript, 'freetext', null, {
         patient: name, mode: creationMode, existingPatient: alreadyTracked,
@@ -741,7 +750,13 @@ export default function GeneratePage() {
 
   // Derived once: the render reads it twice — for the buttons, and to decide
   // whether the template row describes anything the doctor is about to press.
-  const captureActions = captureReview ? suggestedActions(captureReview.classification) : []
+  // The campus form is offered only where one is configured for the active
+  // workplace. `hospitalForms` is already campus-gated, so an empty list is the
+  // ordinary case and the card simply does not mention forms.
+  const captureForm = hospitalForms[0] ?? null
+  const captureActions = captureReview
+    ? suggestedActions(captureReview.classification, { hospitalFormName: captureForm?.name ?? null })
+    : []
 
   /** "Change" on the card — hand the choice back without losing the capture. */
   function changeCaptureTemplate() {
