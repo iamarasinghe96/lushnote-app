@@ -1218,14 +1218,30 @@ function lnRecallSearch(query: string, allNotes: Note[]): Note[] {
 
 ---
 
-## FAB Chat
+## FAB — the capture hub
 
 - Green circle `#10b981`, `position: fixed`, `bottom: 80px`, `left: 16px`, `z-index: 60`
-- Click → sub-buttons slide up. **AI Assistant only** — Live Support moved to
-  Settings (see below)
+- Click → three sub-buttons fan out: **Record · Capture · AI Assistant**. Live
+  Support is NOT here — it moved to Settings (see below)
 - Bottom-LEFT. The root is `items-start` and the sub-buttons use
   `transformOrigin: 'bottom left'` — all of it goes together, or the buttons
   right-align under a left-hand FAB and pop away from it instead of out of it
+- **The two capture actions sit closest to the bubble**, because they are why a
+  doctor reaches for it mid-clinic; the assistant is the occasional one and sits
+  furthest. Sub-buttons render bottom-up, so the JSX reads top-down
+- **Camera and upload are ONE button.** `ScanNoteModal`'s
+  `<input type="file" accept="image/*" multiple>` already offers the camera and
+  the library in the same sheet on a phone; a second button would open the same
+  picker
+- **The buttons deep-link, they do not re-wire.** `/generate?capture=record|photo`
+  → a mount effect calls the same `startMode` / `handlePasteMode` the mode cards
+  call, then `router.replace` drops the parameter so a refresh cannot reopen the
+  modal over a finished capture. The modals and the state machine that turns
+  their output into a document live on the Generate page; a second copy in the
+  FAB is how the two would drift
+- The stagger uses `animation-delay`, so the reduced-motion block clears delay as
+  well as duration — a filled animation otherwise holds a button hidden for the
+  length of the stagger even with the duration clamped
 
 ### Live Support lives in Settings, and its thread lives at the ROOT
 
