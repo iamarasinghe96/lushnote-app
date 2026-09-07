@@ -425,6 +425,26 @@ export default function GeneratePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid])
 
+  // Arriving from the capture button (?capture=record | photo). The FAB lives in
+  // the app layout and these modals live here, so it deep-links rather than
+  // duplicating the wiring — the same shape as the ?recover=1 link from
+  // Patients. Nothing about the capture itself changes; the doctor simply starts
+  // one from anywhere instead of navigating to Generate first.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const capture = new URLSearchParams(window.location.search).get('capture')
+    if (capture !== 'record' && capture !== 'photo') return
+    // Go through the same entry points the mode cards use, so the deep link
+    // cannot drift from them — each one clears the previous attempt's error,
+    // input text and scan prefill before opening its modal.
+    if (capture === 'record') startMode('conversation')
+    else { handlePasteMode(); setPhase('scan-input') }
+    // Drop the parameter so a refresh does not reopen the modal over a recording
+    // the doctor has already finished — or worse, over a recovery banner.
+    router.replace('/generate', { scroll: false })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // The modals now record and transcribe live in segments and hand us the
   // finished transcript text. All we do here is route it into the note or
   // letter flow.

@@ -822,9 +822,71 @@ Settings.
 - Ending the chat closes the Slack thread, so the next visit gets a new ticket
 ---
 
+## `capture-hub` — starting a capture from anywhere
+
+**Entry:** the FAB, bottom-left, on every screen except `/transcript`
+**Code:** `components/FAB.tsx`, the `?capture=` effect in `app/(app)/generate/page.tsx`
+**Coverage:** ⚠️ — no automated cover. The buttons and the deep-link are UI, and
+the unit suite is `environment: 'node'`. The e2e suite is the place for this and
+does not reach it yet.
+
+Tapping the bubble fans out three buttons:
+
+| Button | Opens | Why it is here |
+|---|---|---|
+| **Record** | the recording modal (`conversation`) | The mid-clinic action |
+| **Capture** | `ScanNoteModal` — camera or photo library | The other mid-clinic action |
+| **AI Assistant** | the assistant panel | The occasional one |
+
+**Order is deliberate.** The two capture actions sit CLOSEST to the bubble
+because they are why a doctor reaches for it during a consultation; the
+assistant sits furthest away. Sub-buttons render bottom-up, so the JSX reads
+top-down — Assistant first in source, Record last, and that is not a mistake to
+tidy.
+
+**Camera and upload are ONE button, not two.** `ScanNoteModal` already uses
+`<input type="file" accept="image/*" multiple>`, which on a phone offers the
+camera and the library in the same sheet. A separate Upload button would have
+been a second control opening the same picker.
+
+### It deep-links instead of duplicating the modals
+
+The FAB is mounted in the app layout; the capture modals and the state machine
+that turns their output into a document live on the Generate page. So the
+buttons navigate to `/generate?capture=record|photo` and a mount effect opens
+the right modal — the same shape as the `?recover=1` link from Patients. A
+second copy of the wiring in the FAB is how the two would drift.
+
+The effect calls the SAME entry points the mode cards call (`startMode`,
+`handlePasteMode`) rather than setting the phase directly, so the deep link
+cannot skip the resets they do — the previous attempt's error, input text and
+scan prefill.
+
+**The parameter is dropped immediately** (`router.replace`). Without that, a
+refresh — the thing that already cost a doctor an eleven-minute recording —
+would reopen the modal over a capture they had just finished, or over the
+recovery banner offering it back.
+
+**Nothing about the capture itself changed.** Both routes land in the existing
+recording and scan flows, which keep their own recovery drafts. What is new is
+only where a doctor can start one.
+
+### Expected outputs — what must remain true
+
+- Record opens the recording modal; Capture opens the scan modal
+- The `?capture=` parameter is gone from the URL before the doctor interacts
+- A refresh mid-capture does not reopen the modal
+- The stagger is invisible under `prefers-reduced-motion` — the delay is
+  cleared, not just the duration, or a filled animation holds the button hidden
+  for the length of the stagger
+- The FAB is absent on `/transcript`, as before
+
+---
+
 ## `capture-intent` — working out what was captured
 
-**Entry:** not yet reachable — the classifier stage 3/4 will use
+**Entry:** reached from `capture-hub` above; the card that presents these
+actions is stage 4 and not built yet
 **Code:** `lib/captureIntent.ts`, `lib/suggestedActions.ts`,
 `/api/generate` `mode:'capture-identity'`
 **Coverage:** ✅ — the classifier and the action ordering are unit-tested

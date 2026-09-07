@@ -401,6 +401,11 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    /* A staggered animation with fill-mode:both holds its element at the FROM
+       keyframe until the delay elapses, so clamping the duration alone still
+       leaves it invisible for the length of the stagger. */
+    animation-delay: 0s !important;
+    transition-delay: 0s !important;
   }
   .quota-bar * { transition: none !important; }
 }

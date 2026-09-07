@@ -229,6 +229,44 @@ interface ChatMessage {
 }
 
 
+const SUB_BTN = `flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-[var(--text)]
+                 border border-[var(--border)] motion-safe:transition-transform motion-safe:active:scale-[0.97]`
+
+// Staggered so they fan out rather than appearing at once. Reduced motion is
+// honoured by the animation itself being the only movement — the buttons are
+// present and usable either way.
+function subStyle(delayMs: number): React.CSSProperties {
+  return {
+    background: 'rgba(255,255,255,0.85)',
+    backdropFilter: 'blur(12px)',
+    boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+    animation: 'fab-pop-in 0.18s cubic-bezier(0.22,1,0.36,1) both',
+    animationDelay: `${delayMs}ms`,
+    transformOrigin: 'bottom left',
+  }
+}
+
+const RecordIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    <line x1="12" y1="19" x2="12" y2="22"/>
+  </svg>
+)
+
+const CaptureIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+    <circle cx="12" cy="13" r="4"/>
+  </svg>
+)
+
+const AssistantIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+)
+
 export function FAB() {
   const pathname = usePathname()
   const router = useRouter()
@@ -266,6 +304,16 @@ export function FAB() {
   function openPanel(type: 'ai') {
     setPanel(type)
     setExpanded(false)
+  }
+
+  // The capture modals live on the generate page, together with the state
+  // machine that turns their output into a document. Deep-linking reuses all of
+  // it rather than wiring a second copy here — same shape as the ?recover=1
+  // link from Patients. What changes is only that a doctor can start a capture
+  // from anywhere instead of navigating to Generate first.
+  function startCapture(kind: 'record' | 'photo') {
+    setExpanded(false)
+    router.push(`/generate?capture=${kind}`)
   }
 
   // Open the AI assistant automatically when arriving from a "ask the AI agent"
@@ -358,19 +406,35 @@ export function FAB() {
       <div id="ln-fab-root" className="fixed left-4 z-[60] flex flex-col items-start gap-2" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}>
         {expanded && (
           <>
+            {/* Order matters: the two capture actions sit CLOSEST to the button,
+                because they are why a doctor reaches for it mid-clinic. The
+                assistant is the occasional one and sits furthest away.
+                Sub-buttons render bottom-up, so this list reads top-down. */}
             <button
               onClick={() => openPanel('ai')}
-              className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-[var(--text)]
-                         border border-[var(--border)] motion-safe:transition-transform motion-safe:active:scale-[0.97]"
-              style={{
-                background: 'rgba(255,255,255,0.85)',
-                backdropFilter: 'blur(12px)',
-                boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
-                animation: 'fab-pop-in 0.18s cubic-bezier(0.22,1,0.36,1) both',
-                transformOrigin: 'bottom left',
-              }}
+              className={SUB_BTN}
+              style={subStyle(140)}
             >
+              {AssistantIcon}
               AI Assistant
+            </button>
+            <button
+              onClick={() => startCapture('photo')}
+              className={SUB_BTN}
+              style={subStyle(70)}
+              aria-label="Capture a note — camera or photo library"
+            >
+              {CaptureIcon}
+              Capture
+            </button>
+            <button
+              onClick={() => startCapture('record')}
+              className={SUB_BTN}
+              style={subStyle(0)}
+              aria-label="Record a session"
+            >
+              {RecordIcon}
+              Record
             </button>
           </>
         )}
