@@ -1221,14 +1221,22 @@ function lnRecallSearch(query: string, allNotes: Note[]): Note[] {
 ## FAB — the capture hub
 
 - Green circle `#10b981`, `position: fixed`, `bottom: 80px`, `left: 16px`, `z-index: 60`
-- Click → three sub-buttons fan out: **Record · Capture · AI Assistant**. Live
-  Support is NOT here — it moved to Settings (see below)
-- Bottom-LEFT. The root is `items-start` and the sub-buttons use
-  `transformOrigin: 'bottom left'` — all of it goes together, or the buttons
-  right-align under a left-hand FAB and pop away from it instead of out of it
+- The glyph is **AI stars** (two filled concave sparkles, `AiStars`), not a chat
+  bubble — the button is a capture hub, and a speech bubble named only the one
+  thing it used to do
+- Click → three sub-buttons slide out **HORIZONTALLY**, along the empty strip
+  above the tab bar: **Record · Capture · Assistant**. Live Support is NOT here
+  — it moved to Settings (see below)
+- **The tray is a row, not a stack.** Stacking upwards put three opaque pills on
+  top of the mode cards — the very things the doctor is choosing between. The
+  root is `left-4 right-4` so a narrow phone cannot push the last button
+  off-screen, which makes it full-width, so it is `pointer-events-none` with each
+  button re-enabling its own or an invisible strip swallows taps meant for the
+  page. `transformOrigin: 'left center'`, `whitespace-nowrap` + `shrink-0`, and
+  an `overflow-x-auto` safety valve that no ordinary width reaches
 - **The two capture actions sit closest to the bubble**, because they are why a
   doctor reaches for it mid-clinic; the assistant is the occasional one and sits
-  furthest. Sub-buttons render bottom-up, so the JSX reads top-down
+  furthest. The row reads left-to-right, so the JSX does too
 - **Camera and upload are ONE button.** `ScanNoteModal`'s
   `<input type="file" accept="image/*" multiple>` already offers the camera and
   the library in the same sheet on a phone; a second button would open the same
@@ -1242,6 +1250,47 @@ function lnRecallSearch(query: string, allNotes: Note[]): Note[] {
 - The stagger uses `animation-delay`, so the reduced-motion block clears delay as
   well as duration — a filled animation otherwise holds a button hidden for the
   length of the stagger even with the duration clamped
+
+### The capture card — the steps run, the doctor taps once
+
+A capture started from the FAB skips the naming step and the template picker:
+`classifyCaptureIntent` reads what arrived, `mode:'capture-identity'` reads who
+it is about, `pickCaptureTemplate` resolves which template a note would use, and
+`CaptureReviewCard` presents one tap. `captureHubRef` (set by `?capture=`,
+consumed on first use) is what separates this from the same modals reached via a
+mode card, which keep their steps.
+
+- **Shown every time, no suppression.** What it confirms — which patient, which
+  document — differs on every capture, so a remembered answer would answer a
+  different question. **The tap IS the confirmation**, so everything it will do
+  is on the card first: intent + why, an excerpt, the patient (editable), and the
+  template with the reason it was picked
+- **The template is the doctor's own last use** (`lnTemplateUsage`), not a rule
+  per intent — a recorded consultation could be any template. **Change** hands
+  the picker back
+- **`actionBlocker` refuses the record write with no name**, and
+  `handleCaptureAction` re-checks rather than trusting the button — a later entry
+  SUPERSEDES tracked fields, so an unnamed write is somebody else's record
+- **`isTrackedPatient` gates profile creation.** `savePatientProfile` with no
+  `id` calls `addDoc`, so doing it for an existing patient adds a SECOND card
+  and splits their record — the naming step's `isNewPatient` rule, inherited
+- **It writes the handoff and the transcript** before navigating. Both were the
+  naming step's job; without them a reload loses the name and the edit page
+  arrives with nothing to generate from
+- **One indeterminate bar, not staged progress.** Transcription already finished
+  in the recording modal, so there is a single step left and nothing to report
+- **`discharge` is a fifth intent**, checked BEFORE the letter envelope because
+  template 40 is literally "Discharge Summary - Letter to Referrer" and the more
+  specific answer is the useful one. Two markers, for the same reason the
+  envelope needs two: a referral mentioning a past admission is history
+- **`patient-pdf` ("Record + handover sheet") is offered on a ward note only** —
+  photographing a round into the record and printing the sheet are one job. It is
+  marked as overwriting (its FIRST act is the record write) and never leads.
+  `exportPatientsPDF` lives in `lib/patientPdf.ts` so both the capture flow and
+  the Patients toolbar reach it; it takes an array, so one patient is a one-row
+  sheet
+- **`actionBlocker` gates on a SET of record-writing actions**, not on key names
+  — that is how a second writing action would otherwise arrive unguarded
 
 ### Live Support lives in Settings, and its thread lives at the ROOT
 

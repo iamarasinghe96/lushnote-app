@@ -25,6 +25,8 @@ export type CaptureIntent =
   | 'dictated-note'
   /** One voice narrating a letter addressed to somebody. */
   | 'dictated-letter'
+  /** An admission being summarised at its end — the discharge summary. */
+  | 'discharge'
   /** An existing record being copied in. */
   | 'ward-note'
 
@@ -65,6 +67,17 @@ const LETTER_MARKERS = [
   'i am writing regarding', 'i would be grateful', 'please accept this referral',
   'yours sincerely', 'yours faithfully', 'kind regards', 'many thanks',
   're:', 'to whom it may concern',
+]
+
+/** An admission being closed off. A discharge summary is dictated at the END of
+ *  a stay and reads backwards over it — the tense is what separates it from a
+ *  progress note, which reads forward from today. */
+const DISCHARGE_MARKERS = [
+  'discharge summary', 'discharged home', 'discharged to', 'on discharge',
+  'discharge medications', 'discharge plan', 'date of discharge', 'discharged today',
+  'was admitted', 'admitted on', 'date of admission', 'admission on',
+  'during this admission', 'this admission', 'inpatient stay', 'length of stay',
+  'follow up with the gp', 'follow-up with the gp', 'reason for admission',
 ]
 
 /** Spoken formatting a doctor uses when dictating structure aloud. */
@@ -114,6 +127,20 @@ export function classifyCaptureIntent(text: string, source: CaptureSource): Inte
 
   const lower = raw.toLowerCase()
   const words = raw.split(/\s+/).filter(Boolean).length || 1
+
+  // A discharge summary is checked BEFORE the letter envelope, because it is
+  // often both — template 40 is literally "Discharge Summary - Letter to
+  // Referrer" — and the more specific answer is the useful one. A referral that
+  // merely mentions a past admission ("she was discharged in March") carries one
+  // marker and stays a letter; closing off a stay takes at least two.
+  const dischargeMarkers = hits(lower, DISCHARGE_MARKERS)
+  if (dischargeMarkers.length >= 2) {
+    return {
+      intent: 'discharge',
+      confidence: Math.min(1, 0.45 + 0.15 * dischargeMarkers.length),
+      signals: [`summarises an admission: ${dischargeMarkers.slice(0, 3).join(', ')}`],
+    }
+  }
 
   // A salutation AND a sign-off settle it before any voice scoring runs.
   //

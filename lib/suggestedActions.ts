@@ -18,6 +18,10 @@ export type ActionKey =
   | 'patient-record'
   /** Open the letter editor with the dictation loaded. */
   | 'letter'
+  /** Generate the discharge summary from the admission just narrated. */
+  | 'discharge-summary'
+  /** Fill the record AND hand back the handover sheet. SUPERSEDES fields. */
+  | 'patient-pdf'
   /** Open the hospital form for the doctor's active workplace. */
   | 'hospital-form'
   /** Show every option — the escape hatch when the guess is wrong. */
@@ -35,6 +39,10 @@ export interface SuggestedAction {
 const NOTE: SuggestedAction = { key: 'note', label: 'Generate note', primary: false }
 const RECORD: SuggestedAction = { key: 'patient-record', label: 'Add to patient record', primary: false, overwritesRecord: true }
 const LETTER: SuggestedAction = { key: 'letter', label: 'Write letter', primary: false }
+const DISCHARGE: SuggestedAction = { key: 'discharge-summary', label: 'Discharge summary', primary: false }
+// One button for the ward round's two halves. Marked as overwriting because the
+// first half is a record write — the PDF that follows it changes nothing.
+const HANDOVER: SuggestedAction = { key: 'patient-pdf', label: 'Record + handover sheet', primary: false, overwritesRecord: true }
 const OTHER: SuggestedAction = { key: 'other', label: 'Something else', primary: false }
 
 function lead(a: SuggestedAction): SuggestedAction {
@@ -79,11 +87,21 @@ function orderFor(intent: CaptureIntent): SuggestedAction[] {
     case 'dictated-letter':
       return [LETTER, NOTE]
 
+    // Closing off an admission. The discharge summary leads; a note is still
+    // offered because a doctor recapping a stay inside a progress note is not
+    // necessarily discharging anybody today.
+    case 'discharge':
+      return [DISCHARGE, NOTE, RECORD]
+
     // A record being copied. The note is offered second and NOT first: writing
     // a note from a record produces a worse copy of a document that already
     // exists, which is the whole reason the paste classifier exists.
+    //
+    // The handover sheet sits here and nowhere else. Photographing a ward note
+    // and printing a handover sheet from it are the two halves of one ward
+    // round; on a dictated consultation there is no round to hand over.
     case 'ward-note':
-      return [RECORD, NOTE]
+      return [RECORD, NOTE, HANDOVER]
   }
 }
 

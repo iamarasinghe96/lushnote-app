@@ -229,20 +229,25 @@ interface ChatMessage {
 }
 
 
-const SUB_BTN = `flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-[var(--text)]
-                 border border-[var(--border)] motion-safe:transition-transform motion-safe:active:scale-[0.97]`
+// `whitespace-nowrap` and `shrink-0` are what keep the row a ROW: without them
+// flexbox squeezes the labels into two lines each and the tray grows taller than
+// the button it came out of.
+const SUB_BTN = `flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2
+                 text-xs font-medium text-[var(--text)] border border-[var(--border)]
+                 pointer-events-auto motion-safe:transition-transform motion-safe:active:scale-[0.97]`
 
 // Staggered so they fan out rather than appearing at once. Reduced motion is
-// honoured by the animation itself being the only movement — the buttons are
-// present and usable either way.
+// honoured by the global clamp, which zeroes delay as well as duration — the
+// buttons are present and usable either way.
 function subStyle(delayMs: number): React.CSSProperties {
   return {
     background: 'rgba(255,255,255,0.85)',
     backdropFilter: 'blur(12px)',
     boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
-    animation: 'fab-pop-in 0.18s cubic-bezier(0.22,1,0.36,1) both',
+    animation: 'fab-slide-in 0.18s cubic-bezier(0.22,1,0.36,1) both',
     animationDelay: `${delayMs}ms`,
-    transformOrigin: 'bottom left',
+    // The tray runs to the RIGHT of the button, so it grows from its left edge.
+    transformOrigin: 'left center',
   }
 }
 
@@ -261,11 +266,18 @@ const CaptureIcon = (
   </svg>
 )
 
-const AssistantIcon = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-  </svg>
-)
+// Two concave four-point sparkles — the shape that reads as "AI" rather than as
+// "chat". Filled, because a stroked sparkle at 16px collapses into a smudge.
+function AiStars({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M10 2c.35 3.4 1 5.65 2.15 6.85S15.6 10.65 19 11c-3.4.35-5.65 1-6.85 2.15S10.35 16.6 10 20c-.35-3.4-1-5.65-2.15-6.85S4.4 11.35 1 11c3.4-.35 5.65-1 6.85-2.15S9.65 5.4 10 2Z" />
+      <path d="M18 13.5c.18 1.7.5 2.83 1.08 3.42S20.8 17.82 22.5 18c-1.7.18-2.83.5-3.42 1.08S18.18 20.8 18 22.5c-.18-1.7-.5-2.83-1.08-3.42S15.2 18.18 13.5 18c1.7-.18 2.83-.5 3.42-1.08S17.82 15.2 18 13.5Z" />
+    </svg>
+  )
+}
+
+const AssistantIcon = <AiStars size={14} />
 
 export function FAB() {
   const pathname = usePathname()
@@ -403,20 +415,50 @@ export function FAB() {
       {/* Bottom-LEFT. items-start and the transform origins below go with it —
           left-aligned sub-buttons that still expand out of the button rather
           than away from it. */}
-      <div id="ln-fab-root" className="fixed left-4 z-[60] flex flex-col items-start gap-2" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}>
+      {/* Bottom-LEFT, and the tray runs RIGHT from the button along the empty
+          strip above the tab bar. It used to stack upwards, which put three
+          opaque pills on top of the mode cards — the very things the doctor is
+          choosing between.
+
+          `right-4` bounds the row to the viewport so a narrow phone cannot push
+          the last button off-screen; that makes the container full-width, so it
+          is `pointer-events-none` and each button re-enables its own, or an
+          invisible strip would swallow taps meant for the page. */}
+      <div
+        id="ln-fab-root"
+        className="fixed left-4 right-4 z-[60] flex items-center gap-2 pointer-events-none"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}
+      >
+        <button
+          onClick={() => setExpanded(o => !o)}
+          className="relative w-14 h-14 shrink-0 rounded-full text-white flex items-center justify-center
+                     pointer-events-auto motion-safe:transition-colors motion-safe:active:scale-[0.97]"
+          style={{
+            background: '#10b981',
+            boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
+          }}
+          aria-label={expanded ? 'Close capture menu' : 'Open capture menu'}
+          aria-expanded={expanded}
+        >
+          <AiStars size={26} />
+        </button>
         {expanded && (
-          <>
-            {/* Order matters: the two capture actions sit CLOSEST to the button,
-                because they are why a doctor reaches for it mid-clinic. The
-                assistant is the occasional one and sits furthest away.
-                Sub-buttons render bottom-up, so this list reads top-down. */}
+          // Order matters: the two capture actions sit CLOSEST to the button,
+          // because they are why a doctor reaches for it mid-clinic. The
+          // assistant is the occasional one and sits furthest away. The row
+          // reads left-to-right, so this list now does too.
+          //
+          // The overflow is a safety valve for a very narrow phone, not the
+          // layout: at any ordinary width all three fit with room to spare.
+          <div className="flex min-w-0 items-center gap-2 overflow-x-auto scrollbar-none">
             <button
-              onClick={() => openPanel('ai')}
+              onClick={() => startCapture('record')}
               className={SUB_BTN}
-              style={subStyle(140)}
+              style={subStyle(0)}
+              aria-label="Record a session"
             >
-              {AssistantIcon}
-              AI Assistant
+              {RecordIcon}
+              Record
             </button>
             <button
               onClick={() => startCapture('photo')}
@@ -428,30 +470,16 @@ export function FAB() {
               Capture
             </button>
             <button
-              onClick={() => startCapture('record')}
+              onClick={() => openPanel('ai')}
               className={SUB_BTN}
-              style={subStyle(0)}
-              aria-label="Record a session"
+              style={subStyle(140)}
+              aria-label="Open the AI assistant"
             >
-              {RecordIcon}
-              Record
+              {AssistantIcon}
+              Assistant
             </button>
-          </>
+          </div>
         )}
-        <button
-          onClick={() => setExpanded(o => !o)}
-          className="relative w-14 h-14 rounded-full text-white flex items-center justify-center
-                     motion-safe:transition-colors motion-safe:active:scale-[0.97]"
-          style={{
-            background: '#10b981',
-            boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
-          }}
-          aria-label="Open assistant"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-        </button>
       </div>
 
       {/* AI Assistant panel */}
