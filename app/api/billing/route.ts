@@ -4,7 +4,7 @@ import { logToSink } from '@/lib/firestore/systemLogs'
 import { withRequest, noteRequest } from '@/lib/requestContext'
 import {
   startTrial, stripeEnabled, getBillingConfig, priceString, PRICE_AUD, TRIAL_MONTHS,
-  createSetupIntent, createPortalSession, recordConsent, setPaused, stripeOffboard, TOS_VERSION,
+  createSetupIntent, confirmSetup, createPortalSession, recordConsent, setPaused, stripeOffboard, TOS_VERSION,
   endTrialNow,
 } from '@/lib/billing'
 import { adminDb } from '@/lib/firebase-admin'
@@ -18,8 +18,9 @@ import { resolveEntitlement, type Billing } from '@/lib/entitlement'
 async function handlePOST(req: NextRequest) {
   try {
     const body = await req.json() as {
-      action?: 'start-trial' | 'public-config' | 'state' | 'setup-intent' | 'record-consent' | 'portal' | 'pause' | 'resume' | 'offboard-self' | 'end-trial-now'
+      action?: 'start-trial' | 'public-config' | 'state' | 'setup-intent' | 'confirm-setup' | 'record-consent' | 'portal' | 'pause' | 'resume' | 'offboard-self' | 'end-trial-now'
       returnUrl?: string
+      setupIntentId?: string
     }
     noteRequest({ mode: body.action ?? 'billing' })
 
@@ -81,6 +82,16 @@ async function handlePOST(req: NextRequest) {
 
     if (body.action === 'setup-intent') {
       return NextResponse.json(await createSetupIntent(uid))
+    }
+
+    // Projects the just-saved method while the doctor is still on the page, so
+    // the card does not say "None yet" under a "saved" toast. The webhook does
+    // the same work whenever it arrives; this only removes the wait.
+    if (body.action === 'confirm-setup') {
+      if (typeof body.setupIntentId !== 'string' || !body.setupIntentId) {
+        return NextResponse.json({ error: 'setupIntentId required' }, { status: 400 })
+      }
+      return NextResponse.json(await confirmSetup(uid, body.setupIntentId))
     }
 
     if (body.action === 'record-consent') {

@@ -53,6 +53,13 @@ async function call<T>(body: Record<string, unknown>): Promise<T> {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
     body: JSON.stringify(body),
   })
+  // fetch only rejects on a network failure, so without this a 400 or a 500
+  // resolved to its error body and every caller read it as success. "No
+  // subscription to change" was reported to the doctor as "Subscription paused."
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null) as { error?: string } | null
+    throw new Error(detail?.error ?? `Billing request failed (${res.status})`)
+  }
   return res.json() as Promise<T>
 }
 
@@ -99,12 +106,17 @@ function BillingInner() {
     finally { setBusy(false) }
   }
 
+  // Every action below releases `busy` in a finally. Without it one failed
+  // request left every button on the page disabled with no way back but a
+  // reload, which on the billing page means a doctor cannot pay.
   async function openPortal() {
     setBusy(true)
-    const r = await call<{ url?: string | null }>({ action: 'portal', returnUrl: `${window.location.origin}/billing` })
-    setBusy(false)
-    if (r.url) window.location.href = r.url
-    else setToast('Could not open the billing portal.')
+    try {
+      const r = await call<{ url?: string | null }>({ action: 'portal', returnUrl: `${window.location.origin}/billing` })
+      if (r.url) window.location.href = r.url
+      else setToast('Could not open the billing portal.')
+    } catch { setToast('Could not open the billing portal.') }
+    finally { setBusy(false) }
   }
 
   // Convert early. Stripe ends the trial and raises the first invoice at once;
@@ -124,12 +136,18 @@ function BillingInner() {
     finally { setBusy(false) }
   }
 
+  // The toast used to fire unconditionally, so a refusal ("No subscription to
+  // change", a 400) still told the doctor their subscription was paused. It now
+  // reports only what actually happened.
   async function togglePause(paused: boolean) {
     setBusy(true)
-    await call({ action: paused ? 'pause' : 'resume' })
-    await refresh()
-    setBusy(false)
-    setToast(paused ? 'Subscription paused.' : 'Subscription resumed.')
+    try {
+      await call({ action: paused ? 'pause' : 'resume' })
+      await refresh()
+      setToast(paused ? 'Subscription paused.' : 'Subscription resumed.')
+    } catch {
+      setToast(paused ? 'Could not pause the subscription. Please try again.' : 'Could not resume the subscription. Please try again.')
+    } finally { setBusy(false) }
   }
 
   if (loading || !state) {
@@ -231,7 +249,19 @@ function BillingInner() {
               {busy ? 'Starting…' : 'Start my free trial'}
             </button>
           ) : adding || !hasMethod ? (
-            <PaymentSetup price={state.price} onDone={() => { setAdding(false); setToast('Payment details saved.'); void refresh() }} />
+            <>
+              <PaymentSetup price={state.price} onDone={() => { setAdding(false); setToast('Payment details saved.'); void refresh() }} />
+              {/* Only when there is an existing method to go back to. Without
+                  this, tapping Replace payment method by mistake left the form
+                  up with no way out but leaving the page. When no method is on
+                  file there is nothing to cancel back to, so it is not shown. */}
+              {adding && hasMethod && (
+                <button onClick={() => setAdding(false)} disabled={busy}
+                  className="text-xs text-[var(--text2)] underline disabled:opacity-50">
+                  Keep my current payment method
+                </button>
+              )}
+            </>
           ) : (
             <button onClick={() => setAdding(true)} disabled={busy}
               className="px-4 py-2 rounded-[var(--r)] border border-[var(--border)] text-sm text-[var(--text2)] disabled:opacity-50">

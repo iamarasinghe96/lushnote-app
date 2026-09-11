@@ -63,7 +63,7 @@ function SetupForm({ onDone, price }: Props) {
       })
     } catch { /* the confirmation below is the thing that must not be blocked */ }
 
-    const { error: err } = await stripe.confirmSetup({
+    const { error: err, setupIntent } = await stripe.confirmSetup({
       elements,
       confirmParams: { return_url: `${window.location.origin}/billing?setup=complete` },
       // Only leaves the page when the bank demands it (3DS). Everything else
@@ -71,11 +71,26 @@ function SetupForm({ onDone, price }: Props) {
       redirect: 'if_required',
     })
 
-    setBusy(false)
     if (err) {
+      setBusy(false)
       setError(err.message ?? 'That did not go through. Please check the details and try again.')
       return
     }
+
+    // Project it now rather than waiting on the webhook, or the page re-reads a
+    // record that still says no payment method and puts the form straight back
+    // up. Best-effort: the webhook is the guarantee, this is only the wait.
+    if (setupIntent?.id) {
+      try {
+        await fetch('/api/billing', {
+          method: 'POST',
+          headers: await authHeaders(),
+          body: JSON.stringify({ action: 'confirm-setup', setupIntentId: setupIntent.id }),
+        })
+      } catch { /* the webhook still lands; onDone re-reads either way */ }
+    }
+
+    setBusy(false)
     onDone()
   }
 
@@ -188,9 +203,57 @@ export default function PaymentSetup({ onDone, price }: Props) {
       stripe={stripePromise}
       options={{
         clientSecret,
+        // Matched to components/ui/Input: 12px radius, --border, solid white,
+        // --text on --text3 placeholders, and the same blue focus ring.
+        //
+        // What this CANNOT reach is the Country list once it is open. Stripe's
+        // country field is a native <select>, so the closed control is drawn in
+        // their iframe and the open list is drawn by the OPERATING SYSTEM - the
+        // same split CLAUDE.md documents as the reason components/ui/Select
+        // exists. Our Select cannot be substituted here either: the field lives
+        // in a cross-origin iframe, which is precisely what keeps the card
+        // number out of this page. So the closed control matches and the open
+        // list stays the OS's.
         appearance: {
           theme: 'stripe',
-          variables: { colorPrimary: '#2563eb', borderRadius: '12px', fontFamily: 'Inter, system-ui, sans-serif' },
+          variables: {
+            colorPrimary: '#2563eb',
+            colorText: '#0f172a',
+            colorTextSecondary: '#475569',
+            colorTextPlaceholder: '#94a3b8',
+            colorDanger: '#dc2626',
+            borderRadius: '12px',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            fontSizeBase: '14px',
+            spacingUnit: '4px',
+          },
+          rules: {
+            '.Input': {
+              border: '1px solid #e2e8f0',
+              boxShadow: 'none',
+              padding: '10px 12px',
+            },
+            '.Input:focus': {
+              border: '1px solid #2563eb',
+              boxShadow: '0 0 0 2px rgba(59,130,246,0.10)',
+            },
+            '.Input--invalid': {
+              border: '1px solid #dc2626',
+              boxShadow: 'none',
+            },
+            '.Tab': {
+              border: '1px solid #e2e8f0',
+              boxShadow: 'none',
+            },
+            '.Tab--selected': {
+              border: '1px solid #2563eb',
+              boxShadow: '0 0 0 2px rgba(59,130,246,0.10)',
+            },
+            '.Label': {
+              color: '#475569',
+              fontWeight: '500',
+            },
+          },
         },
       }}
     >

@@ -352,12 +352,31 @@ async function customerIdFor(uid: string): Promise<string | null> {
 }
 
 /**
- * A SetupIntent, not a PaymentIntent: nothing is charged now. `automatic_payment_methods`
- * lets Stripe decide what to offer from the customer's own location — a card
- * everywhere, and BECS Direct Debit for Australians. The Direct Debit Request
- * is presented and accepted inside Stripe's element, because a mandate has to
- * be given by the account holder and cannot be entered on their behalf.
+ * A SetupIntent, not a PaymentIntent: nothing is charged now. The Direct Debit
+ * Request is presented and accepted inside Stripe's element, because a mandate
+ * has to be given by the account holder and cannot be entered on their behalf.
  */
+
+/**
+ * The two methods this subscription actually bills on, named explicitly.
+ *
+ * `automatic_payment_methods` was tried first and is what MONETIZATION_PLAN.md
+ * flagged to VERIFY. It resolved negatively in production: it never offered
+ * BECS, while the page above it promised "direct debit from an Australian bank
+ * account", and it DID offer Pix, Klarna and Satispay because they were ticked
+ * in the Stripe dashboard. That list comes from the dashboard, not from the
+ * customer's location, so the plan's assumption that Stripe would narrow it
+ * sensibly was wrong.
+ *
+ * Naming them here rather than unticking them in the dashboard keeps the
+ * decision in version control, where a test can pin it and a later dashboard
+ * change cannot silently undo it.
+ *
+ * Stripe only offers au_becs_debit to customers it places in Australia, so a
+ * doctor overseas still sees the card tab alone. No branch is needed here.
+ */
+export const PAYMENT_METHOD_TYPES = ['card', 'au_becs_debit'] as const
+
 export async function createSetupIntent(uid: string): Promise<{ clientSecret: string | null; mode: StripeMode }> {
   const customer = await customerIdFor(uid)
   // The mode rides along so the browser can compare it against its OWN
@@ -367,10 +386,44 @@ export async function createSetupIntent(uid: string): Promise<{ clientSecret: st
   const intent = await stripe().setupIntents.create({
     customer,
     usage: 'off_session',
-    automatic_payment_methods: { enabled: true },
+    payment_method_types: [...PAYMENT_METHOD_TYPES],
     metadata: { uid },
   })
   return { clientSecret: intent.client_secret, mode: stripeMode() }
+}
+
+/**
+ * Do the webhook's `setup_intent.succeeded` work NOW, for the doctor who is
+ * still looking at the page.
+ *
+ * The browser knows the setup succeeded the instant confirmSetup resolves, but
+ * the stored projection is written by a webhook that arrives whenever Stripe
+ * sends it. Refreshing in between showed "Payment method: None yet" directly
+ * under "Payment details saved.", which reads as a failure, and left the form
+ * on screen as though nothing had happened.
+ *
+ * Idempotent and identical to the webhook's handler, so whichever lands second
+ * writes the same thing. This does not replace the webhook: a doctor who closes
+ * the tab mid-confirm is still projected correctly by it, which is why the
+ * webhook remains the thing entitlement trusts.
+ */
+export async function confirmSetup(uid: string, setupIntentId: string): Promise<{ projected: boolean }> {
+  const customer = await customerIdFor(uid)
+  if (!customer) return { projected: false }
+
+  const si = await stripe().setupIntents.retrieve(setupIntentId)
+  // The id arrives from the browser, so it is checked against this doctor's own
+  // customer rather than trusted. A mismatch means someone else's SetupIntent.
+  const siCustomer = typeof si.customer === 'string' ? si.customer : si.customer?.id
+  if (siCustomer !== customer) return { projected: false }
+  if (si.status !== 'succeeded') return { projected: false }
+
+  const pmId = typeof si.payment_method === 'string' ? si.payment_method : si.payment_method?.id
+  if (pmId) {
+    await stripe().customers.update(customer, { invoice_settings: { default_payment_method: pmId } })
+  }
+  await projectCustomer(customer)
+  return { projected: true }
 }
 
 /** Stripe's own portal for changing a card, cancelling, and reading invoices —
