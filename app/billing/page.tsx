@@ -107,6 +107,23 @@ function BillingInner() {
     else setToast('Could not open the billing portal.')
   }
 
+  // Convert early. Stripe ends the trial and raises the first invoice at once;
+  // the webhook projects `active` back, and endTrialNow also projects inline so
+  // this page is right immediately rather than on the next poll.
+  async function upgradeNow() {
+    setBusy(true)
+    try {
+      const r = await call<{ upgraded: boolean; reason?: string }>({ action: 'end-trial-now' })
+      await refresh()
+      if (r.upgraded) setToast('You are on the paid plan. Your first invoice is on its way.')
+      // The server refuses without a method on file rather than invoicing into
+      // the void, so say what is missing instead of "something went wrong".
+      else if (r.reason === 'no-payment-method') { setAdding(true); setToast('Add a payment method first.') }
+      else setToast('Could not upgrade right now. Please try again.')
+    } catch { setToast('Could not upgrade right now. Please try again.') }
+    finally { setBusy(false) }
+  }
+
   async function togglePause(paused: boolean) {
     setBusy(true)
     await call({ action: paused ? 'pause' : 'resume' })
@@ -216,6 +233,25 @@ function BillingInner() {
               className="px-4 py-2 rounded-[var(--r)] border border-[var(--border)] text-sm text-[var(--text2)] disabled:opacity-50">
               Replace payment method
             </button>
+          )}
+
+          {/* Only while the trial is still running and there is something to
+              charge. Ending a trial with no method on file moves a doctor
+              CLOSER to being paywalled, so the server refuses it and this
+              button is not offered in the first place. */}
+          {isTrial && hasMethod && !adding && (
+            <div className="rounded-[var(--r)] border border-[#10b981]/40 p-3 space-y-2">
+              <p className="text-sm font-semibold text-[var(--text)]">Upgrade to Pro now</p>
+              <p className="text-xs leading-relaxed text-[var(--text2)]">
+                Ends your free trial today and starts the paid plan at {state.price}, with higher AI
+                limits straight away. You keep every note. Cancel or pause any time.
+              </p>
+              <button onClick={upgradeNow} disabled={busy}
+                className="px-4 py-2 rounded-[var(--r)] bg-[#10b981] text-white text-sm font-medium disabled:opacity-50
+                           hover:bg-[#059669] motion-safe:transition-colors motion-safe:active:scale-[0.97]">
+                {busy ? 'Upgrading…' : 'Upgrade to Pro'}
+              </button>
+            </div>
           )}
         </div>
 

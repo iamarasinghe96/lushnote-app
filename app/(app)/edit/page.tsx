@@ -10,6 +10,9 @@ import { savePatientProfile, getPatientProfiles } from '@/lib/firestore/patients
 import { deleteTranscriptDraft, listTranscriptDrafts } from '@/lib/firestore/transcriptDrafts'
 import { parseDraftHandoff, handoffIsRestorable, findTemplateById, type DraftHandoff } from '@/lib/draftHandoff'
 import { buildDictationTemplate } from '@/lib/dictationTemplate'
+import { UpgradeNotice } from '@/components/ui/UpgradeNotice'
+import { shouldShowUpgradeNotice, dismissedToday, quotaDay, QUOTA_NOTICE_KEY } from '@/lib/quotaNotice'
+import { resolveEntitlement } from '@/lib/entitlement'
 import { classifyGenerationFailure, failureDialogCopy, type GenerationFailure } from '@/lib/generationFailure'
 import FormaliseButton from '@/components/ui/FormaliseButton'
 import { LETTER_TYPE_LABEL } from '@/lib/utils'
@@ -474,6 +477,9 @@ function EditContent() {
   const freetextFields = store.freetextFields
   const [isGeneratingLetter, setIsGeneratingLetter] = useState(false)
   const [letterToast, setLetterToast] = useState<string | null>(null)
+  // Set from the server's own verdict on the response, never from the local
+  // X/20 counter, which mirrors Google's count imperfectly.
+  const [geminiLimitHit, setGeminiLimitHit] = useState(false)
 
   // Recipient address lookup (OpenStreetMap geocoder)
   const [addrSuggestions, setAddrSuggestions] = useState<{ label: string; value: string }[]>([])
@@ -1616,12 +1622,14 @@ function EditContent() {
         throw Object.assign(new Error(failure.message), { failure })
       }
 
-      const data = await parseJsonSafe<{ content?: string; provider?: string; groqTokensUsed?: number }>(res)
+      const data = await parseJsonSafe<{ content?: string; provider?: string; groqTokensUsed?: number; geminiDailyLimit?: boolean }>(res)
       if (!data?.content?.trim()) throw new Error('The note took too long to generate or returned nothing. Please try again.')
 
-      if (data.provider === 'groq') {
-        setLetterToast('Note generated using Groq - Gemini daily limit reached')
-      }
+      // The server says whether the daily limit was actually hit. Inferring it
+      // from `provider === 'groq'` was wrong: Groq runs FIRST on the extraction
+      // modes for quota reasons, so a perfectly healthy note reported a limit
+      // the doctor had not reached.
+      if (data.geminiDailyLimit) setGeminiLimitHit(true)
 
       const parsed = parseGeneratedContent(data.content, template)
       animateFields(parsed, templateSectionKeys(template))
@@ -2486,8 +2494,28 @@ function EditContent() {
     return <HospitalFormView />
   }
 
+  // Read at render: localStorage is not reactive, but this only changes when the
+  // doctor dismisses it, which re-renders anyway.
+  let dismissed = false
+  try { dismissed = dismissedToday(localStorage.getItem(QUOTA_NOTICE_KEY), quotaDay()) } catch { /* private mode */ }
+  const showUpgradeNotice = shouldShowUpgradeNotice({
+    limitHit: geminiLimitHit,
+    state: resolveEntitlement(profile?.billing, Date.now()).state,
+    dismissed,
+  })
+
   return (
     <div className="h-full overflow-hidden relative">
+
+      {/* Free Gemini day spent. The note still arrived — LushNote's own key
+          carried it — so this explains the change rather than reporting a
+          failure, and it is dismissible for the rest of the day. */}
+      {showUpgradeNotice && (
+        <UpgradeNotice onDismiss={() => {
+          try { localStorage.setItem(QUOTA_NOTICE_KEY, quotaDay()) } catch { /* private mode — it simply shows again */ }
+          setGeminiLimitHit(false)
+        }} />
+      )}
 
       {/* Letter toast */}
       {letterToast && (

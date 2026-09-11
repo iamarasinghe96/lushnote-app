@@ -989,6 +989,34 @@ otherwise it is our own request.
 11808"), so `refitMaxTokens` reads the numbers back and resends once with an
 output budget that fits, rather than retrying an identical request that cannot.
 
+**Running out of Gemini is ordinary use, not an edge case.** The free tier is 20
+requests a day against the doctor's OWN key, and one long consultation spends
+ten or more transcribing before a note is generated — so a doctor hits it on
+their second or third session. Two things follow:
+
+- **`LUSHNOTE_GROQ_KEY` is the safety net** (`resolveGroqKey`, lib/serverAiKeys).
+  `/api/transcribe` and `/api/generate` use the doctor's own Groq key first and
+  fall back to LushNote's. Before this, a doctor who had never pasted a Groq key
+  lost transcription mid-recording and got no note for the rest of the day. The
+  audio always survived — the recorder uploads each segment to Storage BEFORE
+  transcribing — but the session was unusable. Shared-key requests are logged
+  `tag: 'shared-groq'` at info, because the bill lands on us.
+- **`geminiDailyLimit` rides back on the response**, including successful ones:
+  the note arrived, so nothing else would tell the doctor their day is spent.
+  `shouldShowUpgradeNotice` (lib/quotaNotice) decides whether to offer Pro —
+  never to someone already paying, never before the SERVER says the limit was
+  hit, and dismissible until the quota resets (UTC), not forever. Inferring the
+  limit from `provider === 'groq'` was wrong and is gone: Groq runs FIRST on the
+  extraction modes to save quota, so healthy notes reported a limit nobody hit.
+- **Never mid-recording.** Transcription falls back silently; the notice waits
+  until a note is in the doctor's hands. The worst moment to sell somebody
+  something is while they are sitting with a patient.
+
+**Upgrading early:** `end-trial-now` (`endTrialNow`, lib/billing) sets Stripe's
+`trial_end: 'now'`. It REFUSES without a payment method on file — invoicing into
+the void moves a doctor to `past_due`, i.e. closer to being paywalled, which is
+the opposite of what the button says — so the page adds a method first.
+
 **Quota:** `GEMINI_RPD = 20` requests/day per model, tracked in `users/{uid}.geminiUsage`
 Structure: `{ [modelKey]: { count: number, date: 'YYYY-MM-DD' } }`
 Also cached in `localStorage('ln_gemini_usage')` as backup.

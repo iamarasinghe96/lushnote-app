@@ -7,6 +7,7 @@ import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import { logToSink } from '@/lib/firestore/systemLogs'
+import { resolveGroqKey } from '@/lib/serverAiKeys'
 import { resolveEntitlement } from '@/lib/entitlement'
 
 // Generating a note from a long transcript can exceed Vercel's 10s default —
@@ -912,7 +913,9 @@ ${transcript}`
         try {
           const { text: content, usage } = await generateNote(prompt, effectiveSystemPrompt)
           await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
-          return NextResponse.json({ content, provider: 'gemini' })
+          // Their OWN key was daily-exhausted and ours carried this note. The
+          // doctor has hit their limit even though nothing visibly failed.
+          return NextResponse.json({ content, provider: 'gemini', geminiDailyLimit: geminiDaily })
         } catch (err) {
           if (err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR) {
             geminiDaily = true
@@ -933,30 +936,43 @@ ${transcript}`
     // survives a fresh attempt (retry === true) do we give the actionable message.
     if (!groqViable) {
       if (geminiTransient || !retry) {
-        return NextResponse.json({ error: 'rate_limit', waitSeconds: 60 }, { status: 429 })
+        return NextResponse.json({ error: 'rate_limit', waitSeconds: 60, geminiDailyLimit: geminiDaily }, { status: 429 })
       }
       return NextResponse.json({
         error: 'This session is too long for the free Groq fallback (~12,000-token limit) and your Gemini limit is used up for now. Add your own Gemini API key in Settings → API Keys, wait for your Gemini daily limit to reset, or use "Generate manually".',
+        geminiDailyLimit: geminiDaily,
       }, { status: 413 })
     }
 
-    const groqKey = req.headers.get('x-groq-key')
+    // The doctor's own Groq key, else LushNote's. The shared key is what keeps a
+    // clinic running once Gemini's 20 a day are spent — without it a doctor who
+    // never pasted a Groq key of their own got no note at all for the rest of
+    // the day, however many patients were still waiting.
+    const groq = resolveGroqKey(req.headers.get('x-groq-key'))
+    const groqKey = groq.key
     if (!groqKey) {
       // Short enough for Groq but no Groq key. If Gemini stumbled transiently, a
       // retry recovers it; otherwise there's simply no usable key.
       if (geminiTransient) {
-        return NextResponse.json({ error: 'rate_limit', waitSeconds: 60 }, { status: 429 })
+        return NextResponse.json({ error: 'rate_limit', waitSeconds: 60, geminiDailyLimit: geminiDaily }, { status: 429 })
       }
       return NextResponse.json({ error: 'No API key available for generation' }, { status: 401 })
     }
 
     try {
       const { content, totalTokens } = await generateNoteGroq(prompt, effectiveSystemPrompt, groqKey)
-      return NextResponse.json({ content, provider: 'groq', groqTokensUsed: totalTokens })
+      // Only the shared path is logged: a doctor on their own key is
+      // unremarkable, while every request on ours is a cost worth counting
+      // without reading server logs.
+      if (groq.shared) logToSink({ level: 'info', tag: 'shared-groq', route: '/api/generate', uid, message: 'note generated on the shared key' })
+      // `geminiDailyLimit` rides back WITH the note. The note arrived, so
+      // nothing else in a successful response would tell the doctor their
+      // Gemini day is spent — and that is the moment the upgrade is relevant.
+      return NextResponse.json({ content, provider: 'groq', groqTokensUsed: totalTokens, geminiDailyLimit: geminiDaily })
     } catch (err) {
       if (err instanceof Error && err.message.startsWith('429:')) {
         const waitSeconds = parseGroqWaitSeconds(err.message)
-        return NextResponse.json({ error: 'rate_limit', waitSeconds }, { status: 429 })
+        return NextResponse.json({ error: 'rate_limit', waitSeconds, geminiDailyLimit: geminiDaily }, { status: 429 })
       }
       // A Gemini failure with a Groq 413 as backup → prefer a silent retry first,
       // same reasoning as the !groqViable branch above.
@@ -966,6 +982,7 @@ ${transcript}`
         }
         return NextResponse.json({
           error: 'This session is too long for the free Groq fallback (~12,000-token limit) and your Gemini limit is used up for now. Add your own Gemini API key in Settings → API Keys, wait for your Gemini daily limit to reset, or use "Generate manually".',
+          geminiDailyLimit: geminiDaily,
         }, { status: 413 })
       }
       const msg = err instanceof Error ? err.message : 'Generation failed'
