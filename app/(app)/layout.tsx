@@ -69,6 +69,22 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { setMenuOpen(false) }, [pathname])
 
+  // The menu has to outlive `menuOpen` by the length of its closing animation,
+  // or it would vanish the instant it is dismissed and only the opening would
+  // look considered.
+  //
+  // A timer rather than `onAnimationEnd`: an interrupted or never-fired
+  // animation would leave the panel mounted and invisible over the page, and an
+  // invisible panel that swallows taps is a far worse bug than a 140ms delay
+  // nobody can see. `pointer-events-none` covers that window anyway.
+  const [menuMounted, setMenuMounted] = useState(false)
+  useEffect(() => {
+    if (menuOpen) { setMenuMounted(true); return }
+    if (!menuMounted) return
+    const t = setTimeout(() => setMenuMounted(false), 140)
+    return () => clearTimeout(t)
+  }, [menuOpen, menuMounted])
+
   useEffect(() => {
     if (!toast) return
     const t = setTimeout(() => setToast(null), 4000)
@@ -195,11 +211,13 @@ function AppContent({ children }: { children: React.ReactNode }) {
           <div ref={menuRef} className="relative">
             <button
               style={{ backgroundColor: avatarBg }}
-              className="w-9 h-9 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0
-                         border-2 border-white/50
-                         motion-safe:transition-transform motion-safe:active:scale-95"
+              className={`w-9 h-9 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0
+                         border-2 motion-safe:transition-all motion-safe:active:scale-95
+                         ${menuOpen ? 'border-white ring-2 ring-white/30' : 'border-white/50'}`}
               onClick={() => setMenuOpen(o => !o)}
               aria-label="User menu"
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
             >
               {initials}
             </button>
@@ -213,13 +231,32 @@ function AppContent({ children }: { children: React.ReactNode }) {
               />
             )}
 
-            {menuOpen && (
+            {menuMounted && (
               <div
-                className="absolute right-0 top-10 w-52 rounded-xl bg-white
-                           border border-[var(--border)] py-1 z-40"
-                style={{ boxShadow: 'var(--shadow-lg)' }}
+                role="menu"
+                className={`absolute right-0 top-11 w-52 rounded-xl bg-white
+                           border border-[var(--border)] py-1 z-40
+                           ${menuOpen ? '' : 'pointer-events-none'}`}
+                style={{
+                  boxShadow: 'var(--shadow-lg)',
+                  // Under the avatar, so the scale reads as the menu unfolding
+                  // out of the button rather than growing from its own middle.
+                  transformOrigin: 'top right',
+                  animation: `${menuOpen ? 'menu-in' : 'menu-out'} 0.14s cubic-bezier(0.22,1,0.36,1) both`,
+                }}
               >
-                <div className="px-3 py-2 text-xs text-[var(--text3)] border-b border-[var(--border)] truncate select-none">
+                {/* The caret is what makes it one object with the avatar rather
+                    than a card that happens to be nearby. A rotated square
+                    showing only its top and left edges, centred on the avatar:
+                    the panel is right-aligned and the avatar is 36px wide, so
+                    its centre sits 18px in, and a 12px caret at right-3 lands
+                    exactly under it. */}
+                <span
+                  aria-hidden
+                  className="absolute -top-[7px] right-3 h-3 w-3 rotate-45 rounded-tl-[3px]
+                             bg-white border-l border-t border-[var(--border)]"
+                />
+                <div className="relative px-3 py-2 text-xs text-[var(--text3)] border-b border-[var(--border)] truncate select-none">
                   {user.email}
                 </div>
 
