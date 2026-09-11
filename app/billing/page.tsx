@@ -116,7 +116,7 @@ function BillingInner() {
   }
 
   if (loading || !state) {
-    return <div className="min-h-screen flex items-center justify-center text-sm text-[var(--text3)]">Loading…</div>
+    return <div className="h-dvh flex items-center justify-center text-sm text-[var(--text3)]">Loading…</div>
   }
 
   const b = state.billing
@@ -125,7 +125,11 @@ function BillingInner() {
   const hasMethod = b?.paymentMethodStatus === 'active' || b?.paymentMethodStatus === 'pending'
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] px-4 py-8">
+    // h-dvh + its own scroller, like /onboarding and /terms. `html, body` are
+    // overflow:hidden globally, so min-h-screen grew the page past the viewport
+    // with no way to reach the bottom of it — Manage subscription was
+    // unreachable unless the browser was zoomed out.
+    <div className="h-dvh overflow-y-auto bg-[var(--bg)] px-4 py-8">
       <div className="max-w-lg mx-auto space-y-4">
 
         <div className="flex items-center justify-between">
