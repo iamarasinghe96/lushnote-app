@@ -8,8 +8,13 @@ import { keyModeMismatch } from '@/lib/stripeKeyMode'
 
 // Loaded once per page, not per render — loadStripe fetches Stripe.js and doing
 // it inside the component would refetch on every state change.
+//
+// The catch matters: loadStripe REJECTS when the script cannot be fetched, and
+// the only thing awaiting this promise is <Elements>, so an uncaught rejection
+// would land in the console and nowhere a doctor can see it. Resolving to null
+// leaves useStripe() null, which the stall timer below already reports.
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY).catch(() => null)
   : null
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -97,10 +102,18 @@ function SetupForm({ onDone, price }: Props) {
 
       {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
 
+      {/* This said an ad-blocker WAS the cause, and the first time it appeared it
+          was wrong: the app's own Content-Security-Policy was refusing
+          js.stripe.com, which looks identical from here. Nothing in the browser
+          can tell a blocked script from a refused one, so the copy now reports
+          what happened and offers the action, rather than naming a culprit it
+          cannot actually identify. */}
       {stripeStalled && !error && (
         <p className="rounded-[var(--r)] bg-amber-50 border border-amber-200 px-3 py-2 text-xs leading-relaxed text-amber-800">
-          The payment form could not load. An ad-blocker or privacy shield blocking
-          <span className="font-medium"> js.stripe.com</span> is the usual cause. Allow it for this site and reload.
+          The payment form did not load. Reload the page to try again. If it still
+          does not appear, something in the browser is blocking
+          <span className="font-medium"> js.stripe.com</span>, usually an extension
+          or a privacy setting.
         </p>
       )}
 
