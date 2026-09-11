@@ -55,6 +55,12 @@ interface User {
   // it could grant itself a subscription. Kept as one map so the pin is one
   // equality check rather than a clause per field.
   //
+  /** When the "free Gemini quota used" notice was shown, oldest first. Capped at
+   *  two for the life of the account — see lib/quotaNotice. On the profile
+   *  rather than localStorage because the promise is "twice to this doctor",
+   *  not "twice on this device". */
+  upgradeNoticesShownAt?: number[]
+
   // Never holds a card or bank number. Stripe holds the instrument; we hold the
   // identifiers needed to ask Stripe about it, plus the country we bill from.
   billing?: {
