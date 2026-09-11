@@ -11,20 +11,14 @@ import { getLetterhead, submitLetterheadRequest, type LetterheadDoc } from '@/li
 import { uploadLetterheadRequestImage } from '@/lib/storage'
 import { useAuth } from '@/hooks/useAuth'
 import type { User, Workplace, WorkplaceType } from '@/types'
+import Select from '@/components/ui/Select'
+import { WORKPLACE_TYPES } from '@/lib/workplaceType'
 
 interface WorkplacesPanelProps {
   profile: User
   onSave: (workplaces: Workplace[], activeId: string) => Promise<void>
   onToast: (msg: string) => void
 }
-
-const WORKPLACE_TYPES: WorkplaceType[] = [
-  'Private Practice',
-  'Hospital',
-  'Community Mental Health',
-  'Telehealth',
-  'Other',
-]
 
 const REG_SYSTEMS = [
   { value: 'none', label: 'None' },
@@ -79,30 +73,22 @@ function InlineWorkplaceForm({ form, setForm, saving, onSave, onCancel }: Inline
 
       <div>
         <label className="block text-sm font-medium text-[var(--text)] mb-1">Type</label>
-        <select
+        <Select
           value={form.type}
-          onChange={e => setForm(f => ({ ...f, type: e.target.value as WorkplaceType }))}
-          className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white
-                     px-3 py-2.5 text-sm text-[var(--text)]
-                     outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
-                     transition-colors"
-        >
-          {WORKPLACE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
+          onChange={v => setForm(f => ({ ...f, type: v as WorkplaceType }))}
+          options={WORKPLACE_TYPES}
+          aria-label="Workplace type"
+        />
       </div>
 
       <div>
         <label className="block text-sm font-medium text-[var(--text)] mb-1">Registration system</label>
-        <select
+        <Select
           value={form.regSystem}
-          onChange={e => setForm(f => ({ ...f, regSystem: e.target.value as 'none' | 'existing', regFormat: '' }))}
-          className="w-full rounded-[var(--r)] border border-[var(--border)] bg-white
-                     px-3 py-2.5 text-sm text-[var(--text)]
-                     outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10
-                     transition-colors"
-        >
-          {REG_SYSTEMS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-        </select>
+          onChange={v => setForm(f => ({ ...f, regSystem: v as 'none' | 'existing', regFormat: '' }))}
+          options={REG_SYSTEMS}
+          aria-label="Registration system"
+        />
       </div>
 
       {form.regSystem === 'existing' && (

@@ -383,6 +383,13 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
   100% { transform: translateX(300%); }
 }
 
+/* Themed dropdown list opening. Cleared by the reduced-motion block below, the
+   same as every other animation here. */
+@keyframes select-open {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
 /* What's New popup enter (scale + fade). Disabled under reduced motion below. */
 @keyframes whatsnew-in {
   from { opacity: 0; transform: scale(0.97) translateY(6px); }

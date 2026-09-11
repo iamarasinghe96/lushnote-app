@@ -645,6 +645,39 @@ export async function pipelineHealth(now = Date.now()): Promise<PipelineHealth> 
   }
 }
 
+/**
+ * End the free trial NOW and start billing.
+ *
+ * The doctor asked to convert early — three months free is generous, and some
+ * would rather have the higher limits today than the remaining free weeks. The
+ * trial is a Stripe property, so ending it is `trial_end: 'now'`; Stripe raises
+ * the first invoice immediately and the webhook projects `active` back onto the
+ * profile the same way it does for every other transition.
+ *
+ * **Refuses without a payment method on file.** Ending a trial with nothing to
+ * charge does not upgrade anybody — Stripe invoices, the invoice fails, and the
+ * subscription lands in `past_due`. The doctor would have pressed "Upgrade" and
+ * been moved CLOSER to being paywalled, which is the opposite of what the
+ * button says. The caller adds a method first.
+ */
+export async function endTrialNow(uid: string): Promise<{ upgraded: boolean; reason?: string }> {
+  const snap = await adminDb().collection('users').doc(uid).get()
+  const billing = snap.data()?.billing as Billing | undefined
+
+  const subId = billing?.subscriptionId
+  if (!subId) return { upgraded: false, reason: 'no-subscription' }
+  if (billing?.subscriptionStatus !== 'trialing') return { upgraded: false, reason: 'not-trialing' }
+  if (!billing?.paymentMethodId) return { upgraded: false, reason: 'no-payment-method' }
+
+  await stripe().subscriptions.update(subId, { trial_end: 'now' })
+  // Project immediately rather than waiting for the webhook: the doctor is
+  // watching this page, and `customer.subscription.updated` may be seconds away.
+  // The webhook still fires and still writes current truth — this only makes the
+  // page correct now instead of on the next poll.
+  await projectSubscription(subId)
+  return { upgraded: true }
+}
+
 export interface Reconciliation {
   found: boolean
   uid?: string
