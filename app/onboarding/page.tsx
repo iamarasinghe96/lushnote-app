@@ -12,15 +12,9 @@ import { detectIdPattern, sanitizeApiKey } from '@/lib/utils'
 import { parseOnboardingDraft, draftHasContent, resumeStep, type OnboardingDraft } from '@/lib/onboardingDraft'
 import SignatureUploader from '@/components/ui/SignatureUploader'
 import HospitalAutocomplete from '@/components/ui/HospitalAutocomplete'
+import Select from '@/components/ui/Select'
+import { inferWorkplaceType, WORKPLACE_TYPES } from '@/lib/workplaceType'
 import type { WorkplaceType, Workplace } from '@/types'
-
-const WORKPLACE_TYPES: WorkplaceType[] = [
-  'Private Practice',
-  'Hospital',
-  'Community Mental Health',
-  'Telehealth',
-  'Other',
-]
 
 const EMAIL_PRESETS: readonly string[] = [
   'I reviewed this patient today and wanted to share the following progress note.',
@@ -48,6 +42,25 @@ export default function OnboardingPage() {
   const [workPhone, setWorkPhone] = useState('')
   const [workplaceName, setWorkplaceName] = useState('')
   const [workplaceType, setWorkplaceType] = useState<WorkplaceType>('Private Practice')
+  // Once the doctor picks a setting themselves, the name never overrules them
+  // again — not on the next keystroke, and not when they come back to edit the
+  // name later. A guess that keeps reasserting itself is worse than no guess.
+  const workplaceTypeChosenRef = useRef(false)
+
+  // The name usually says what the setting is: somebody who typed "… Health -
+  // Albury Campus" has already answered this. `inferWorkplaceType` returns null
+  // far more often than it guesses, and null leaves the field exactly as it is.
+  function handleWorkplaceName(name: string) {
+    setWorkplaceName(name)
+    if (workplaceTypeChosenRef.current) return
+    const guess = inferWorkplaceType(name)
+    if (guess) setWorkplaceType(guess)
+  }
+
+  function handleWorkplaceType(v: WorkplaceType, manual?: boolean) {
+    if (manual) workplaceTypeChosenRef.current = true
+    setWorkplaceType(v)
+  }
   const [regSystem, setRegSystem] = useState<'none' | 'existing'>('none')
   const [regFormat, setRegFormat] = useState('')
   const [patternPreview, setPatternPreview] = useState<PatternPreview | null>(null)
@@ -85,6 +98,9 @@ export default function OnboardingPage() {
     setWorkPhone(draft.workPhone)
     setWorkplaceName(draft.workplaceName)
     setWorkplaceType(draft.workplaceType)
+    // A resumed draft holds an answer the doctor already gave (or accepted), so
+    // typing in the name field must not start overwriting it.
+    workplaceTypeChosenRef.current = true
     setRegSystem(draft.regSystem)
     setRegFormat(draft.regFormat)
     // Derived from regFormat rather than stored, so the saved pattern can never
@@ -347,8 +363,8 @@ export default function OnboardingPage() {
               regSystem={regSystem}
               regFormat={regFormat}
               patternPreview={patternPreview}
-              onWorkplaceName={setWorkplaceName}
-              onWorkplaceType={setWorkplaceType}
+              onWorkplaceName={handleWorkplaceName}
+              onWorkplaceType={handleWorkplaceType}
               onRegSystem={setRegSystem}
               onRegFormat={handleRegFormatChange}
             />
@@ -545,7 +561,9 @@ function Step2({
   regFormat: string
   patternPreview: PatternPreview | null
   onWorkplaceName: (v: string) => void
-  onWorkplaceType: (v: WorkplaceType) => void
+  /** `manual` is true when the DOCTOR picked it, which stops the name from
+   *  ever overwriting their choice again. */
+  onWorkplaceType: (v: WorkplaceType, manual?: boolean) => void
   onRegSystem: (v: 'none' | 'existing') => void
   onRegFormat: (v: string) => void
 }) {
@@ -564,16 +582,13 @@ function Step2({
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-[#0f172a] mb-1">Setting</label>
-        <select
+        <label htmlFor="workplace-setting" className="block text-sm font-medium text-[#0f172a] mb-1">Setting</label>
+        <Select
+          id="workplace-setting"
           value={workplaceType}
-          onChange={(e) => onWorkplaceType(e.target.value as WorkplaceType)}
-          className="w-full rounded-xl border border-[#e2e8f0] px-3 py-2.5 text-sm text-[#0f172a] outline-none focus:border-[#10b981] bg-white"
-        >
-          {WORKPLACE_TYPES.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
+          onChange={(v) => onWorkplaceType(v as WorkplaceType, true)}
+          options={WORKPLACE_TYPES}
+        />
       </div>
       <div>
         <label className="block text-sm font-medium text-[#0f172a] mb-1">Patient registration</label>
