@@ -390,6 +390,19 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
   to   { opacity: 1; transform: translateY(0)    scale(1); }
 }
 
+/* The header user menu, growing out of the avatar rather than appearing beside
+   it. transform-origin is set on the element (top right, under the avatar), so
+   the scale reads as the menu unfolding from the button that opened it.
+   Both directions are cleared by the reduced-motion block below. */
+@keyframes menu-in {
+  from { opacity: 0; transform: scale(0.94) translateY(-6px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+@keyframes menu-out {
+  from { opacity: 1; transform: scale(1)    translateY(0); }
+  to   { opacity: 0; transform: scale(0.96) translateY(-4px); }
+}
+
 /* What's New popup enter (scale + fade). Disabled under reduced motion below. */
 @keyframes whatsnew-in {
   from { opacity: 0; transform: scale(0.97) translateY(6px); }
