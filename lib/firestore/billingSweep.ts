@@ -83,7 +83,7 @@ export async function runBillingSweep(now = Date.now()): Promise<SweepResult> {
           billing: { paywalledAt: now, updatedAt: now },
         }, { merge: true })
         result.paywalled++
-        logToSink({ level: 'info', tag: 'billing', route: '/api/lifecycle', uid: row.uid, message: 'grace expired — paywalled' })
+        logToSink({ level: 'info', tag: 'billing', route: '/api/lifecycle', uid: row.uid, message: 'grace expired, paywalled' })
       } catch {
         result.errors++
       }

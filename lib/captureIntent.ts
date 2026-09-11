@@ -111,7 +111,7 @@ export function classifyCaptureIntent(text: string, source: CaptureSource): Inte
   // outweigh the doctor having pointed a camera at a page, so this short-
   // circuits rather than competing with the voice signals below.
   if (source === 'photo') {
-    return { intent: 'ward-note', confidence: 1, signals: ['photographed — a record, not speech'] }
+    return { intent: 'ward-note', confidence: 1, signals: ['photographed - a record, not speech'] }
   }
 
   // Structure first, delegated. If the spoken text is really a record being read

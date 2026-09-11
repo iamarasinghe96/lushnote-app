@@ -723,7 +723,7 @@ export async function reconcileUser(lookup: string): Promise<Reconciliation> {
   const base = { found: true, uid: doc.id, email: data.email ?? '' }
 
   if (!stored?.stripeCustomerId) {
-    return { ...base, stored, live: null, drift: [], note: 'No subscription yet — nothing to compare' }
+    return { ...base, stored, live: null, drift: [], note: 'No subscription yet - nothing to compare' }
   }
   if (!stripeEnabled()) {
     return { ...base, stored, live: null, drift: [], note: 'Stripe is not configured in this environment' }
@@ -778,7 +778,7 @@ export async function reconcileUser(lookup: string): Promise<Reconciliation> {
     ...base, stored, live, drift,
     note: drift.length
       ? 'Firestore and Stripe disagree. Re-project to bring them into line.'
-      : 'Firestore matches Stripe — the webhook chain is current.',
+      : 'Firestore matches Stripe - the webhook chain is current.',
   }
 }
 

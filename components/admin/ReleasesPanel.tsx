@@ -18,8 +18,8 @@ interface Overview {
   pulls: PullSummary[]
 }
 
-const short = (sha: string | null) => (sha ? sha.slice(0, 7) : '—')
-const when = (iso: string | null) => { try { return iso ? new Date(iso).toLocaleString() : '—' } catch { return '—' } }
+const short = (sha: string | null) => (sha ? sha.slice(0, 7) : '-')
+const when = (iso: string | null) => { try { return iso ? new Date(iso).toLocaleString() : '-' } catch { return '-' } }
 
 const CHECK_LABEL: Record<string, string> = {
   quality: 'Types + unit tests',
@@ -184,11 +184,11 @@ export default function ReleasesPanel() {
                       // hostname never changes — so the sign-in from last time
                       // is still there. Worth preferring over the per-deployment
                       // URL, which is a new origin and a new sign-in every push.
-                      <a href={data.stagingUrl} target="_blank" rel="noreferrer" title="Permanent staging URL — you stay signed in here" className="text-xs px-3 py-1.5 rounded-lg bg-[var(--blue)] text-white font-medium">
+                      <a href={data.stagingUrl} target="_blank" rel="noreferrer" title="Permanent staging URL - you stay signed in here" className="text-xs px-3 py-1.5 rounded-lg bg-[var(--blue)] text-white font-medium">
                         Open staging
                       </a>
                     ) : pull.previewUrl ? (
-                      <a href={pull.previewUrl} target="_blank" rel="noreferrer" title="This build's own URL — a different hostname, so it will ask you to sign in again" className="text-xs px-3 py-1.5 rounded-lg bg-[var(--blue)] text-white font-medium">
+                      <a href={pull.previewUrl} target="_blank" rel="noreferrer" title="This build's own URL - a different hostname, so it will ask you to sign in again" className="text-xs px-3 py-1.5 rounded-lg bg-[var(--blue)] text-white font-medium">
                         Open preview
                       </a>
                     ) : (
@@ -226,7 +226,7 @@ export default function ReleasesPanel() {
 
                 {ready ? (
                   <button
-                    onClick={() => void act({ action: 'promote', number: pull.number, headSha: pull.headSha }, `#${pull.number} promoted — production is deploying`)}
+                    onClick={() => void act({ action: 'promote', number: pull.number, headSha: pull.headSha }, `#${pull.number} promoted - production is deploying`)}
                     disabled={busy}
                     className="w-full py-2.5 rounded-xl bg-[#10b981] text-white text-sm font-semibold disabled:opacity-50 motion-safe:active:scale-[0.99]"
                   >
@@ -235,7 +235,7 @@ export default function ReleasesPanel() {
                 ) : (
                   <div className="space-y-2">
                     <button disabled className="w-full py-2.5 rounded-xl bg-slate-100 text-slate-400 text-sm font-semibold cursor-not-allowed">
-                      Promote to live — {pull.blockedReason}
+                      Promote to live - {pull.blockedReason}
                     </button>
                     {overrideFor === pull.number ? (
                       <div className="space-y-2">
@@ -259,7 +259,7 @@ export default function ReleasesPanel() {
                       </div>
                     ) : (
                       <button onClick={() => setOverrideFor(pull.number)} className="text-xs text-slate-500 underline">
-                        Override — ship without a green check
+                        Override - ship without a green check
                       </button>
                     )}
                   </div>
@@ -275,7 +275,7 @@ export default function ReleasesPanel() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Setup</p>
           <p className="mt-1 text-sm text-slate-700">
-            The browser suite signs in as a dedicated non-admin account. Provisioning issues a new password —
+            The browser suite signs in as a dedicated non-admin account. Provisioning issues a new password -
             copy it into the repository secrets, because it is shown once and cannot be read back.
           </p>
         </div>

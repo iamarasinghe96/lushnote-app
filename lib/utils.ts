@@ -630,7 +630,7 @@ export function autoSessionTime(endMs: number, durationSec: number): string {
   const s = toSlot(start)
   const e = toSlot(end)
   if (!s || !e || s === e) return ''
-  return `${s} – ${e}`
+  return `${s} - ${e}`
 }
 
 export function buildLetterPreviewHTML(params: {

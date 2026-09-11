@@ -118,7 +118,7 @@ export default function SubscriptionPanel({ profile }: SubscriptionPanelProps) {
           your own quota.
         </p>
         <p className="text-sm text-[var(--text2)] mb-4">
-          If you&apos;re rural or going through a tough financial period, just reach out — we&apos;ll make sure cost
+          If you&apos;re rural or going through a tough financial period, just reach out - we&apos;ll make sure cost
           is never the reason you can&apos;t use it.
         </p>
 

@@ -110,7 +110,7 @@ export function failureDialogCopy(f: GenerationFailure): { title: string; body: 
     title: 'Couldn’t write the note',
     // The recording being safe is the one thing worth saying unprompted: it is
     // what the doctor is actually worried about.
-    body: [f.message, f.action ?? 'Your recording is saved — try again from Patients.']
+    body: [f.message, f.action ?? 'Your recording is saved - try again from Patients.']
       .join(' '),
   }
 }

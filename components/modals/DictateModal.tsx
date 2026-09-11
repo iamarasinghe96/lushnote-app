@@ -78,7 +78,7 @@ const LETTER_GUIDE: Record<'referral' | 'records' | 'freetext', string[]> = {
   ],
   records: [
     'Previous provider or location holding the records',
-    'What you need — correspondence, investigations, discharge summaries',
+    'What you need - correspondence, investigations, discharge summaries',
     'Any additional context or urgency',
   ],
   freetext: [
@@ -93,12 +93,12 @@ const LETTER_GUIDE: Record<'referral' | 'records' | 'freetext', string[]> = {
 // mentioning each aloud gives the AI enough to populate the note fully.
 const NOTE_GUIDE: string[] = [
   'Presenting complaint and reason for this review',
-  'Relevant history — psychiatric, medical, social, family, or developmental as relevant',
+  'Relevant history - psychiatric, medical, social, family, or developmental as relevant',
   'Current medications, adherence, and any side effects',
-  'Mental state examination — appearance, mood, affect, thought, perception, cognition',
+  'Mental state examination - appearance, mood, affect, thought, perception, cognition',
   'What was discussed or covered in the session',
   'Any rating scale scores completed today',
-  'Risk — self-harm, suicidal ideation or intent, harm to others, safeguarding concerns',
+  'Risk - self-harm, suicidal ideation or intent, harm to others, safeguarding concerns',
   'Referrals made or correspondence to send',
   'Management plan and next steps',
 ]
@@ -245,7 +245,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
     'Patient surname and given name(s)',
     'UR / medical record number',
     'Date of birth and sex',
-    'The clinical entry — assessment, findings, plan (use SOAP if you like)',
+    'The clinical entry - assessment, findings, plan (use SOAP if you like)',
   ]
 
   // Dictation guide points for the current target: hospital form, custom letter
@@ -490,7 +490,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
               </span>
             </div>
             <p className="text-sm text-[var(--text3)]">
-              {micLost ? 'Paused — waiting for the microphone…' : (letterType || hospitalForm) ? `Dictating your ${selectedLabel?.toLowerCase()}…` : 'Dictating…'}
+              {micLost ? 'Paused - waiting for the microphone…' : (letterType || hospitalForm) ? `Dictating your ${selectedLabel?.toLowerCase()}…` : 'Dictating…'}
             </p>
             {/* Multitask: a page driving an active picture-in-picture video isn't
                 treated as backgrounded, so the microphone survives. Opened only
@@ -500,7 +500,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
               pip.active ? (
                 <div className="rounded-lg bg-[#10b981]/10 border border-[#10b981]/40 px-3 py-2.5 text-left space-y-2">
                   <p className="text-xs text-[#059669] font-medium">
-                    Floating window on — you can switch apps now. Keep the small window on screen.
+                    Floating window on - you can switch apps now. Keep the small window on screen.
                   </p>
                   <button
                     onClick={() => { void pip.exit() }}
@@ -531,7 +531,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
             {pip.error && <p className="text-[11px] text-[var(--danger)]">{pip.error}</p>}
             {micLost && (
               <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 text-left">
-                The microphone was interrupted (e.g. a phone call, the screen was locked, or you switched apps). Everything captured so far is saved. Tip: use split-screen next time so LushNote stays visible. Dictation resumes automatically when the mic is free — or tap Stop to finish now.
+                The microphone was interrupted (e.g. a phone call, the screen was locked, or you switched apps). Everything captured so far is saved. Tip: use split-screen next time so LushNote stays visible. Dictation resumes automatically when the mic is free - or tap Stop to finish now.
               </div>
             )}
             {audioSavedMin > 0 && (
@@ -541,7 +541,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
               <p className="text-xs text-[var(--text3)]">~{transcribedMin} min transcribed</p>
             )}
             {failures > 0 && (
-              <p className="text-xs text-[var(--danger)] font-medium">⚠ {failures} segment(s) couldn&apos;t transcribe{lastError ? ` — ${lastError}` : ''}. Audio is saved — you can retry later.</p>
+              <p className="text-xs text-[var(--danger)] font-medium">⚠ {failures} segment(s) couldn&apos;t transcribe{lastError ? ` - ${lastError}` : ''}. Audio is saved - you can retry later.</p>
             )}
             {audioError && (
               <p className="text-xs text-[var(--danger)] font-medium">⚠ {audioError}</p>

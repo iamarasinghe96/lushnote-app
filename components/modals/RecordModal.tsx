@@ -228,7 +228,7 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
                 {formatDuration(duration)}
               </span>
             </div>
-            <p className="text-sm text-[var(--text3)]">{micLost ? 'Paused — waiting for the microphone…' : 'Recording in progress…'}</p>
+            <p className="text-sm text-[var(--text3)]">{micLost ? 'Paused - waiting for the microphone…' : 'Recording in progress…'}</p>
             {/* Multitask: a page driving an active picture-in-picture video isn't
                 treated as backgrounded, so the microphone survives. Opened only
                 on this press — the browser requires a gesture, and an unasked-for
@@ -237,7 +237,7 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
               pip.active ? (
                 <div className="rounded-lg bg-[#10b981]/10 border border-[#10b981]/40 px-3 py-2.5 text-left space-y-2">
                   <p className="text-xs text-[#059669] font-medium">
-                    Floating window on — you can switch apps now. Keep the small window on screen.
+                    Floating window on - you can switch apps now. Keep the small window on screen.
                   </p>
                   <button
                     onClick={() => { void pip.exit() }}
@@ -268,7 +268,7 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
             {pip.error && <p className="text-[11px] text-[var(--danger)]">{pip.error}</p>}
             {micLost && (
               <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 text-left">
-                The microphone was interrupted (e.g. a phone call, or the screen was locked). Everything recorded so far is saved as a recoverable draft. Recording resumes automatically when the mic is free — or tap Stop to finish now.
+                The microphone was interrupted (e.g. a phone call, or the screen was locked). Everything recorded so far is saved as a recoverable draft. Recording resumes automatically when the mic is free - or tap Stop to finish now.
               </div>
             )}
             {audioSavedMin > 0 && (
@@ -278,7 +278,7 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
               <p className="text-xs text-[var(--text3)]">~{transcribedMin} min transcribed</p>
             )}
             {failures > 0 && (
-              <p className="text-xs text-[var(--danger)] font-medium">⚠ {failures} segment(s) couldn&apos;t transcribe{lastError ? ` — ${lastError}` : ''}. Audio is saved — you can retry later.</p>
+              <p className="text-xs text-[var(--danger)] font-medium">⚠ {failures} segment(s) couldn&apos;t transcribe{lastError ? ` - ${lastError}` : ''}. Audio is saved - you can retry later.</p>
             )}
             {audioError && (
               <p className="text-xs text-[var(--danger)] font-medium">⚠ {audioError}</p>

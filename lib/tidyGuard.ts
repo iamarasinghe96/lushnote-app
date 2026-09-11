@@ -60,13 +60,13 @@ export function tidyPreservesStructure(before: string, after: string): TidyCheck
   if (got < had) {
     return {
       ok: false,
-      reason: `Tidy skipped — it would drop ${had - got} plan item${had - got === 1 ? '' : 's'}`,
+      reason: `Tidy skipped - it would drop ${had - got} plan item${had - got === 1 ? '' : 's'}`,
     }
   }
   if (got > had) {
     return {
       ok: false,
-      reason: `Tidy skipped — it would add ${got - had} plan item${got - had === 1 ? '' : 's'}`,
+      reason: `Tidy skipped - it would add ${got - had} plan item${got - had === 1 ? '' : 's'}`,
     }
   }
   return { ok: true }

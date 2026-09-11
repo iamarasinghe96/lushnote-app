@@ -30,7 +30,7 @@ export const LIFECYCLE_WHEN: Record<LifecycleEmailType, string> = {
   apiSetup: '3 days after finishing signup, if no Gemini or Groq key has been saved.',
   paymentSetup7d: '7 days before the free trial ends, if no payment method has been added.',
   paymentSetupDue: 'On the day the free trial ends, if no payment method has been added. A 7-day grace window follows.',
-  paywalled: 'When the grace window runs out and note creation is paused. Stripe sends its own emails about failed payments — this one is only about access changing.',
+  paywalled: 'When the grace window runs out and note creation is paused. Stripe sends its own emails about failed payments - this one is only about access changing.',
 }
 
 export interface EmailTemplate {
@@ -52,7 +52,7 @@ export const DEFAULT_TEMPLATES: Record<LifecycleEmailType, EmailTemplate> = {
 
 You started setting up LushNote a few days ago and didn't finish, so your account isn't ready to use yet.
 
-Whatever you already filled in is still there — [pick up where you left off]({{site}}/onboarding) and you'll land on the step you stopped at. There isn't much after it: your name, where you work, and an API key. About two minutes.
+Whatever you already filled in is still there - [pick up where you left off]({{site}}/onboarding) and you'll land on the step you stopped at. There isn't much after it: your name, where you work, and an API key. About two minutes.
 
 If something in the setup didn't make sense, or you've changed your mind, just reply to this email and tell us which. Either one is useful for us to know.
 
@@ -82,7 +82,7 @@ ${SIGN_OFF}`,
 
 You registered for LushNote a few days ago, but it looks like you never finished setting up your API key, so you haven't been able to use it yet.
 
-Here's a link to a video on how to set up the API — [watch it here]({{site}}/setup). It's really easy and takes only 2 minutes. If you get stuck, just reply to this email or reach out to our team and we'll walk you through it.
+Here's a link to a video on how to set up the API - [watch it here]({{site}}/setup). It's really easy and takes only 2 minutes. If you get stuck, just reply to this email or reach out to our team and we'll walk you through it.
 
 We just don't want you to have signed up for something and never gotten the point of it.
 
@@ -93,13 +93,13 @@ ${SIGN_OFF}`,
     subject: 'Your LushNote free trial ends in a week',
     body: `{{greeting}}
 
-Your free trial of LushNote ends on {{trialEnd}} — a week from now. We would rather tell you early than have it stop on you in the middle of a ward round.
+Your free trial of LushNote ends on {{trialEnd}} - a week from now. We would rather tell you early than have it stop on you in the middle of a ward round.
 
 To keep going, add your payment details here: [set up billing]({{site}}/billing). It is {{price}}, billed monthly, and you can cancel anytime.
 
 Card payments work anywhere in the world. If you are in Australia, you can use direct debit from your bank account instead.
 
-If LushNote has not earned its place, do nothing. Nothing will be charged, and your notes remain yours either way — you can export them from the History tab at any time.
+If LushNote has not earned its place, do nothing. Nothing will be charged, and your notes remain yours either way - you can export them from the History tab at any time.
 
 If the price does not work for you, just reply to this email. We would rather hear from you than lose you quietly.
 
@@ -110,11 +110,11 @@ ${SIGN_OFF}`,
     subject: 'Your LushNote free trial ends today',
     body: `{{greeting}}
 
-Your free trial of LushNote ends today. Nothing stops right now — you have a further seven days to add your payment details before note creation pauses.
+Your free trial of LushNote ends today. Nothing stops right now - you have a further seven days to add your payment details before note creation pauses.
 
 Add them here: [set up billing]({{site}}/billing). It is {{price}}, billed monthly, cancel anytime.
 
-If you would rather stop, do nothing. Nothing will be charged, and everything you have written stays yours — History and export keep working whatever you decide.
+If you would rather stop, do nothing. Nothing will be charged, and everything you have written stays yours - History and export keep working whatever you decide.
 
 ${SIGN_OFF}`,
   },
@@ -125,7 +125,7 @@ ${SIGN_OFF}`,
 
 Your trial and the grace period after it have both ended, so creating and editing notes is paused for now.
 
-Everything you have written is safe. History, your patient list and export all still work — your clinical records are never locked away.
+Everything you have written is safe. History, your patient list and export all still work - your clinical records are never locked away.
 
 To start again, add your payment details here: [set up billing]({{site}}/billing). It is {{price}}, and access comes back immediately.
 
@@ -187,7 +187,7 @@ function plain(body: string): string {
 
 export function renderLifecycleEmail(template: EmailTemplate, ctx: RenderContext): OutboundEmail {
   const body = fill(template.body, ctx)
-  const footer = `\n\n—\nLushNote · admin@lushnote.com.au · lushnote.com.au\nThese are account emails about the LushNote account you opened.\nUnsubscribe: ${ctx.unsubscribeUrl}`
+  const footer = `\n\n-\nLushNote · admin@lushnote.com.au · lushnote.com.au\nThese are account emails about the LushNote account you opened.\nUnsubscribe: ${ctx.unsubscribeUrl}`
   return {
     to: '',
     subject: fill(template.subject, ctx),

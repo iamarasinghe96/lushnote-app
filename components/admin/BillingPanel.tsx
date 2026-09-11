@@ -66,7 +66,7 @@ function Json({ title, value }: { title: string; value: Record<string, unknown> 
     <div>
       <p className="text-[11px] uppercase tracking-wide text-[#94a3b8] mb-1">{title}</p>
       <pre className="text-[11px] bg-[#f8fafc] border border-[var(--border)] rounded-lg p-2 overflow-x-auto max-h-56">
-        {value ? JSON.stringify(value, null, 2) : '—'}
+        {value ? JSON.stringify(value, null, 2) : '-'}
       </pre>
     </div>
   )
@@ -115,7 +115,7 @@ export default function BillingPanel() {
     try {
       const r = await call<{ sweep: { trialsStarted: number; paywalled: number; errors: number } }>({ action: 'runSweep' })
       await load()
-      setToast(`Sweep done — ${r.sweep.trialsStarted} trials started, ${r.sweep.paywalled} paywalled, ${r.sweep.errors} errors.`)
+      setToast(`Sweep done - ${r.sweep.trialsStarted} trials started, ${r.sweep.paywalled} paywalled, ${r.sweep.errors} errors.`)
     } catch (e) { setToast(e instanceof Error ? e.message : 'Sweep failed') }
     finally { setBusy(false) }
   }
@@ -147,7 +147,7 @@ export default function BillingPanel() {
 
   async function toggleGst(registered: boolean) {
     if (registered && !window.confirm(
-      'Register for GST in Stripe?\n\nAustralian customers keep paying the same $30 — the GST is carved out of it, not added on top — and their invoices become compliant tax invoices. Overseas customers are unaffected.'
+      'Register for GST in Stripe?\n\nAustralian customers keep paying the same $30 - the GST is carved out of it, not added on top - and their invoices become compliant tax invoices. Overseas customers are unaffected.'
     )) return
     setBusy(true)
     try {
@@ -205,7 +205,7 @@ export default function BillingPanel() {
           </div>
           <p className="text-xs text-[#94a3b8]">
             Stripe fires an event, the webhook verifies and re-reads the subscription, and the result lands on the
-            doctor&apos;s record. Everything below is that chain, reported from the app itself — there is nothing to
+            doctor&apos;s record. Everything below is that chain, reported from the app itself - there is nothing to
             check in a database console.
           </p>
 
@@ -223,7 +223,7 @@ export default function BillingPanel() {
           {health.priceValid === false && (
             <div className="rounded-xl border border-[#dc2626]/30 bg-red-50 px-3 py-2 text-xs text-[#dc2626]">
               <strong>STRIPE_PRICE_ID does not resolve in {health.mode} mode.</strong> No trial can be created for
-              anyone until this is fixed — onboarding, the nightly backfill and the Start trial button all fail.
+              anyone until this is fixed - onboarding, the nightly backfill and the Start trial button all fail.
               {health.priceError ? ` Stripe said: ${health.priceError}` : ''}
               {' '}A price id belongs to one mode only, so a live id will not work with test keys.
             </div>
@@ -248,7 +248,7 @@ export default function BillingPanel() {
 
           <p className="text-[11px] text-[#94a3b8]">
             {health.lastSweep
-              ? `Nightly sweep last ran ${new Date(health.lastSweep.at).toLocaleString('en-AU')} — ${health.lastSweep.scanned} scanned, ${health.lastSweep.trialsStarted} trials started, ${health.lastSweep.paywalled} paywalled, ${health.lastSweep.errors} errors.`
+              ? `Nightly sweep last ran ${new Date(health.lastSweep.at).toLocaleString('en-AU')} - ${health.lastSweep.scanned} scanned, ${health.lastSweep.trialsStarted} trials started, ${health.lastSweep.paywalled} paywalled, ${health.lastSweep.errors} errors.`
               : 'The nightly sweep has not run since this was deployed.'}
           </p>
         </div>
@@ -308,7 +308,7 @@ export default function BillingPanel() {
         </div>
         <p className="text-xs text-[#94a3b8]">
           Rolling 12 months, Australian customers only. Sales of services to overseas customers are GST-free exports
-          and are deliberately excluded — counting them would put you over the threshold years early.
+          and are deliberately excluded - counting them would put you over the threshold years early.
         </p>
         <div className="flex items-end gap-2">
           <span className={`text-3xl font-bold ${tone}`}>{money(data.turnover.auTaxable12mAud)}</span>
@@ -328,13 +328,13 @@ export default function BillingPanel() {
         )}
         {pct >= 100 && (
           <p className="text-xs text-[#dc2626]">
-            Over the threshold. Registration is compulsory — the ATO expects it within 21 days of crossing.
+            Over the threshold. Registration is compulsory - the ATO expects it within 21 days of crossing.
           </p>
         )}
         <p className="text-[11px] text-[#94a3b8]">
           {data.turnover.computedAt
             ? `Last recalculated ${new Date(data.turnover.computedAt).toLocaleString('en-AU')} · refreshes nightly`
-            : 'Not yet calculated — runs with the nightly sweep.'}
+            : 'Not yet calculated - runs with the nightly sweep.'}
         </p>
       </div>
 
@@ -342,13 +342,13 @@ export default function BillingPanel() {
       <div className="rounded-2xl p-5 space-y-3" style={CARD}>
         <h2 className="text-base font-semibold text-[#0f172a]">GST registration</h2>
         <p className="text-xs text-[#94a3b8]">
-          The price is tax-inclusive and fixed at ${data.priceAud}. Registering does not change what anyone pays — it
+          The price is tax-inclusive and fixed at ${data.priceAud}. Registering does not change what anyone pays - it
           changes what the invoice says, and only for Australians. Overseas customers keep seeing the same price with
           no GST, because exports of services are GST-free.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <span className={`text-sm font-medium ${data.config.gstRegistered ? 'text-[#059669]' : 'text-[#475569]'}`}>
-            {data.config.gstRegistered ? 'Registered — collecting GST from Australian customers' : 'Not registered — no GST collected'}
+            {data.config.gstRegistered ? 'Registered - collecting GST from Australian customers' : 'Not registered - no GST collected'}
           </span>
         </div>
         <label className="block">
@@ -379,7 +379,7 @@ export default function BillingPanel() {
       <div className="rounded-2xl p-5 space-y-2" style={CARD}>
         <h2 className="text-base font-semibold text-[#0f172a]">Obligations in other countries</h2>
         <p className="text-xs text-[#94a3b8]">
-          Selling to doctors abroad can create a registration obligation in their country — the EU and UK can require
+          Selling to doctors abroad can create a registration obligation in their country - the EU and UK can require
           one from the first sale. Stripe monitors those thresholds and is the authoritative view; there is no API for
           it, so this links out rather than mirroring numbers that could go stale.
         </p>
@@ -393,7 +393,7 @@ export default function BillingPanel() {
         <h2 className="text-base font-semibold text-[#0f172a]">Records</h2>
         <p className="text-xs text-[#94a3b8]">
           Invoices and transactions live in Stripe, which is the system of record. This export is the consent and
-          identity trail, including accounts that have since been deleted — kept five years as the ATO requires, and
+          identity trail, including accounts that have since been deleted - kept five years as the ATO requires, and
           deliberately impossible to delete from here.
         </p>
         <div className="flex flex-wrap gap-2">

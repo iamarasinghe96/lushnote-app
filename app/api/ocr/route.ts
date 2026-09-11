@@ -26,8 +26,8 @@ function keyFailureMessage(err: unknown): string {
   const m = err instanceof Error ? err.message : ''
   if (m === GEMINI_KEY_INVALID_ERROR) return 'Google rejected your Gemini API key. Open Settings → API Keys and paste it again, or create a new key at aistudio.google.com.'
   if (m === GEMINI_DAILY_LIMIT_ERROR) return 'Your Gemini API key has reached its daily limit with Google. It resets at midnight US Pacific time.'
-  if (m === GEMINI_RATE_LIMIT_ERROR) return 'Google is throttling your Gemini key — its free tier allows only a few requests per minute, and reading a page takes several. Wait about a minute and scan again.'
-  if (m === GEMINI_OVERLOADED_ERROR) return 'Google reported that Gemini is busy right now — nothing is wrong with your key or your quota. Wait a minute and scan again.'
+  if (m === GEMINI_RATE_LIMIT_ERROR) return 'Google is throttling your Gemini key - its free tier allows only a few requests per minute, and reading a page takes several. Wait about a minute and scan again.'
+  if (m === GEMINI_OVERLOADED_ERROR) return 'Google reported that Gemini is busy right now - nothing is wrong with your key or your quota. Wait a minute and scan again.'
   return `Gemini could not be reached with your key (${m || 'unknown error'}). Try again in a moment.`
 }
 
@@ -110,14 +110,14 @@ async function handlePOST(req: NextRequest) {
     const entitlement = resolveEntitlement(profile?.billing, Date.now())
     if (!entitlement.entitled) {
       logToSink({ level: 'info', tag: 'billing', route: '/api/ocr', uid: uid, status: 402, message: `blocked: ${entitlement.reason}` })
-      return NextResponse.json({ error: 'Your LushNote subscription needs attention — note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: entitlement.state }, { status: 402 })
+      return NextResponse.json({ error: 'Your LushNote subscription needs attention - note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: entitlement.state }, { status: 402 })
     }
 
     const images: { data: string; mimeType: string }[] = []
     for (const f of files) {
       if (!f.type.startsWith('image/')) return NextResponse.json({ error: 'Only image files can be scanned.' }, { status: 400 })
       const buf = Buffer.from(await f.arrayBuffer())
-      if (buf.length > MAX_IMAGE_BYTES) return NextResponse.json({ error: 'Photo too large — try a smaller image.' }, { status: 413 })
+      if (buf.length > MAX_IMAGE_BYTES) return NextResponse.json({ error: 'Photo too large - try a smaller image.' }, { status: 413 })
       images.push({ data: buf.toString('base64'), mimeType: f.type })
     }
 

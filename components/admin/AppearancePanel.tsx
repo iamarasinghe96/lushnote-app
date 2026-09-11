@@ -20,16 +20,16 @@ function nextDates(year: number, campaign?: CampaignConfig) {
   const naidoc = naidocStart(year)
   const naidocEnd = new Date(naidoc.getFullYear(), naidoc.getMonth(), naidoc.getDate() + 7)
   return [
-    { key: 'christmas' as HolidayKey, when: `20–26 December ${year}` },
+    { key: 'christmas' as HolidayKey, when: `20-26 December ${year}` },
     { key: 'australiaDay' as HolidayKey, when: `26 January ${year}` },
     { key: 'anzacDay' as HolidayKey, when: `25 April ${year}` },
-    { key: 'easter' as HolidayKey, when: `Good Friday to Easter Monday — Easter Sunday is ${au(easter)}` },
-    { key: 'naidoc' as HolidayKey, when: `First Sunday in July for a week — ${au(naidoc)} to ${au(naidocEnd)}` },
+    { key: 'easter' as HolidayKey, when: `Good Friday to Easter Monday - Easter Sunday is ${au(easter)}` },
+    { key: 'naidoc' as HolidayKey, when: `First Sunday in July for a week - ${au(naidoc)} to ${au(naidocEnd)}` },
     {
       key: 'campaign' as HolidayKey,
       when: campaign?.start && campaign?.end
-        ? `${campaign.start} to ${campaign.end} — outranks every theme above`
-        : 'Not set — no dates of its own; set a window below',
+        ? `${campaign.start} to ${campaign.end} - outranks every theme above`
+        : 'Not set - no dates of its own; set a window below',
     },
   ]
 }
@@ -97,7 +97,7 @@ export default function AppearancePanel() {
       const r = await call({ action: 'upload', key: editing, dataUrl: draft }) as { url: string }
       setTiles(prev => ({ ...prev, [editing]: r.url }))
       setEditing(null); setFile(null); setDraft(null)
-      setToast('Saved — the header uses it from now on')
+      setToast('Saved - the header uses it from now on')
     } catch (e) {
       setToast(e instanceof Error ? e.message : 'Save failed')
     } finally { setBusy(false) }
@@ -114,8 +114,8 @@ export default function AppearancePanel() {
     try {
       await call({ action: 'campaign', campaign })
       setToast(campaignActive(campaign, new Date())
-        ? 'Live now — every doctor sees it'
-        : 'Saved — it goes up on the start date')
+        ? 'Live now - every doctor sees it'
+        : 'Saved - it goes up on the start date')
     } catch (e) {
       setToast(e instanceof Error ? e.message : 'Save failed')
     } finally { setBusy(false) }
@@ -137,7 +137,7 @@ export default function AppearancePanel() {
     try {
       await call({ action: 'reset', key })
       setTiles(prev => { const next = { ...prev }; delete next[key]; return next })
-      setToast('Removed — back to the built-in artwork')
+      setToast('Removed - back to the built-in artwork')
     } catch (e) {
       setToast(e instanceof Error ? e.message : 'Could not remove')
     } finally { setBusy(false) }
@@ -149,10 +149,10 @@ export default function AppearancePanel() {
         <h2 className="text-base font-semibold text-[#0f172a]">Header themes</h2>
         <p className="text-xs text-[#94a3b8]">
           On these days the header&apos;s blue background is replaced with a tiled illustration. Nothing else about the
-          header changes. Dates are computed from the calendar — Easter included — so there is no yearly list to update.
+          header changes. Dates are computed from the calendar - Easter included - so there is no yearly list to update.
         </p>
         <p className="text-xs text-[#475569]">
-          Today: <strong>{today ? today.label : 'no theme — ordinary blue header'}</strong>
+          Today: <strong>{today ? today.label : 'no theme - ordinary blue header'}</strong>
         </p>
       </div>
 
@@ -216,7 +216,7 @@ export default function AppearancePanel() {
                 {k === 'campaign' && (
                   <div className="mt-2 rounded-xl border border-[var(--border)] p-3 space-y-3">
                     <p className="text-[11px] text-[#94a3b8]">
-                      A one-off awareness window — a bushfire appeal, a public-health alert. While it runs it replaces
+                      A one-off awareness window - a bushfire appeal, a public-health alert. While it runs it replaces
                       every other theme, because it is put up for a reason that matters more on the day. Leave it
                       empty and nothing changes.
                     </p>
@@ -242,7 +242,7 @@ export default function AppearancePanel() {
                           className="w-full mt-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-white text-sm" />
                       </label>
                       <label className="block">
-                        <span className="text-xs text-[#475569]">Ends — inclusive</span>
+                        <span className="text-xs text-[#475569]">Ends - inclusive</span>
                         <input type="date" value={campaign.end}
                           onChange={e => setCampaign(c => ({ ...c, end: e.target.value }))}
                           className="w-full mt-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-white text-sm" />
@@ -293,7 +293,7 @@ export default function AppearancePanel() {
                     {file && (
                       <>
                         <label className="block">
-                          <span className="text-xs text-[#475569]">Zoom — {zoom.toFixed(1)}×</span>
+                          <span className="text-xs text-[#475569]">Zoom - {zoom.toFixed(1)}×</span>
                           <input type="range" min={1} max={5} step={0.1} value={zoom}
                             onChange={e => setZoom(Number(e.target.value))} className="w-full" />
                           <span className="text-[11px] text-[#94a3b8]">
@@ -325,7 +325,7 @@ export default function AppearancePanel() {
 
         {override && (
           <p className="text-xs text-amber-700">
-            Previewing <strong>{themeFor(override).label}</strong> — the app header shows it until you stop.
+            Previewing <strong>{themeFor(override).label}</strong> - the app header shows it until you stop.
           </p>
         )}
       </div>
@@ -350,7 +350,7 @@ export default function AppearancePanel() {
           ))}
         </ul>
         <p className="text-xs text-[#94a3b8]">
-          Upload artwork above — any size, any format. It is cropped, mirrored so the repeat has no seam, sized to
+          Upload artwork above - any size, any format. It is cropped, mirrored so the repeat has no seam, sized to
           480×240 and compressed under 30 KB in your browser before it is saved, with its own colours untouched. Nothing
           dims the artwork: the white text sits on a soft blurred wash that dissolves into the illustration instead of
           ending at an edge, and the slider sets how strong that is. Until artwork exists a theme falls back to a plain coloured

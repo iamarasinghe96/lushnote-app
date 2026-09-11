@@ -134,7 +134,7 @@ export function useRecordingPiP() {
     // Status
     ctx.fillStyle = micLost ? '#fbbf24' : '#10b981'
     ctx.font = '600 18px system-ui, -apple-system, Inter, sans-serif'
-    ctx.fillText(micLost ? 'Paused — microphone interrupted' : `${label}…`, W / 2, H / 2 + 44)
+    ctx.fillText(micLost ? 'Paused - microphone interrupted' : `${label}…`, W / 2, H / 2 + 44)
 
     // Reminder — closing this window ends the protection, so say so.
     ctx.fillStyle = '#94a3b8'

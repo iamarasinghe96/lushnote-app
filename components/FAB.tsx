@@ -475,7 +475,7 @@ export function FAB() {
               onClick={() => startCapture('photo')}
               className={SUB_BTN}
               style={subStyle(70)}
-              aria-label="Capture a note — camera or photo library"
+              aria-label="Capture a note - camera or photo library"
             >
               {CaptureIcon}
               Capture
@@ -516,7 +516,7 @@ export function FAB() {
             {aiMessages.length === 0 && (
               <div className="mt-2 space-y-4">
                 <p className="text-sm text-[var(--text3)] text-center">
-                  Ask about LushNote — how it works, privacy, or your patients. Tap a question to try it.
+                  Ask about LushNote - how it works, privacy, or your patients. Tap a question to try it.
                 </p>
                 {SAMPLE_QUESTIONS.map(({ group, items }) => (
                   <div key={group} className="space-y-1.5">

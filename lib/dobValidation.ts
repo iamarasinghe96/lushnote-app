@@ -53,7 +53,7 @@ export function validateDob(raw: string, now: Date = new Date()): DobCheck {
   const month = Number(m[2])
   const year = Number(m[3])
 
-  if (month < 1 || month > 12) return { valid: false, error: 'Month must be 01–12' }
+  if (month < 1 || month > 12) return { valid: false, error: 'Month must be 01-12' }
   if (day < 1) return { valid: false, error: 'Day must be 01 or later' }
 
   const max = daysInMonth(month, year)
@@ -73,7 +73,7 @@ export function validateDob(raw: string, now: Date = new Date()): DobCheck {
   if (dob.getTime() > today.getTime()) return { valid: false, error: 'Date of birth is in the future' }
 
   const oldest = new Date(today.getFullYear() - MAX_AGE_YEARS, today.getMonth(), today.getDate())
-  if (dob.getTime() < oldest.getTime()) return { valid: false, error: `More than ${MAX_AGE_YEARS} years ago — check the year` }
+  if (dob.getTime() < oldest.getTime()) return { valid: false, error: `More than ${MAX_AGE_YEARS} years ago - check the year` }
 
   return OK
 }

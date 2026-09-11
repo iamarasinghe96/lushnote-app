@@ -231,7 +231,7 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
       setStage('chat')
       threadActiveRef.current = true
       setTwoWay(data.twoWay)
-      push('support', `Thanks — I've passed this to our team.${t ? ` Your ticket is ${t}.` : ''} We'll reply right here, and you can follow up any time at admin@lushnote.com.au${t ? ` quoting ${t}` : ''}. Add anything else below.`)
+      push('support', `Thanks, I've passed this to our team.${t ? ` Your ticket is ${t}.` : ''} We'll reply right here, and you can follow up any time at admin@lushnote.com.au${t ? ` quoting ${t}` : ''}. Add anything else below.`)
       if (data.twoWay) poll()
     } catch {
       // The Slack post can succeed even when the response is lost (e.g. a
@@ -243,9 +243,9 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
         await poll()
       } catch { /* ignore */ }
       if (threadActiveRef.current) {
-        push('support', "Thanks — I've passed this to our team. We'll reply right here, and you can follow up any time at admin@lushnote.com.au. Add anything else below.")
+        push('support', "Thanks, I've passed this to our team. We'll reply right here, and you can follow up any time at admin@lushnote.com.au. Add anything else below.")
       } else {
-        push('support', "Sorry — I couldn't reach our team just now. Please email admin@lushnote.com.au and we'll help.")
+        push('support', "Sorry, I couldn't reach our team just now. Please email admin@lushnote.com.au and we'll help.")
       }
     } finally {
       setSending(false)
@@ -348,7 +348,7 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
     bumpActivity()
     if (solved) {
       push('user', 'Yes, that solved it')
-      push('support', 'Great — glad that sorted it! Pick a topic below any time you need us again.')
+      push('support', 'Great, glad that sorted it! Pick a topic below any time you need us again.')
       setStage('menu')
     } else {
       push('user', "No, it didn't help")

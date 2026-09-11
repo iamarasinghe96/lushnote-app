@@ -1607,6 +1607,14 @@ export async function incrementGeminiUsage(uid: string, modelKey: string) {
 - Do NOT add functions that reference DOM element IDs that don't exist yet
 - Do NOT combine multiple fix concerns in one prompt
 - Do NOT add emoji to UI unless explicitly specified in this file
+- **Do NOT use em or en dashes in any text a doctor reads.** They read as
+  machine-written. Use a hyphen, or rewrite the sentence so it needs no dash at
+  all (a comma is usually better after a salutation or a short aside). This
+  covers JSX text, button labels, placeholders, hints, toasts, error copy
+  returned from API routes, and lifecycle emails. It does NOT cover code
+  comments, AI prompt text (rewording a prompt can change model output), log
+  messages, or regex character classes - `TimePicker`'s `[–-]` must keep
+  accepting both so times saved before this still parse
 - Do NOT add comments unless the WHY is non-obvious
 - Do NOT create new files outside the repo structure above without explicit instruction
 - Do NOT write to Firestore directly from client components — always go through API routes or `lib/firestore/` functions

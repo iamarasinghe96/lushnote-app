@@ -1129,7 +1129,7 @@ function EditContent() {
         const safe: NoteInput = { ...noteData }
         delete (safe as { templateId?: string }).templateId
         delete (safe as { templateName?: string }).templateName
-        fetch('/api/log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level: 'warn', tag: 'template', route: '/edit', uid: user?.uid, message: 'note saved without templateId — publish the templateId/templateName Firestore rule (hasOnly)' }) }).catch(() => {})
+        fetch('/api/log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level: 'warn', tag: 'template', route: '/edit', uid: user?.uid, message: 'note saved without templateId - publish the templateId/templateName Firestore rule (hasOnly)' }) }).catch(() => {})
         if (currentId) { await updateNote(currentId, safe); return currentId }
         return await saveNote(safe)
       }
@@ -1744,7 +1744,7 @@ function EditContent() {
           }))
           return
         }
-        throw new Error(data?.error ?? (res.status === 502 || res.status === 504 || res.status === 413 ? 'The note took too long to generate — a very long session can exceed the time limit. Please try again, or generate from a shorter section of the transcript.' : 'Generation failed'))
+        throw new Error(data?.error ?? (res.status === 502 || res.status === 504 || res.status === 413 ? 'The note took too long to generate - a very long session can exceed the time limit. Please try again, or generate from a shorter section of the transcript.' : 'Generation failed'))
       }
       const data = await parseJsonSafe<{ content?: string }>(res)
       if (!data?.content) throw new Error('The note took too long to generate or returned nothing. Please try again.')
@@ -1799,7 +1799,7 @@ function EditContent() {
       const text = await withTimeout(navigator.clipboard.readText())
       if (text.trim()) store.setLetterCommonFields({ recipientAddress: text.trim() })
     } catch {
-      setLetterToast('Unable to read clipboard — paste manually')
+      setLetterToast('Unable to read clipboard - paste manually')
     }
   }
 
@@ -2741,7 +2741,7 @@ function EditContent() {
              style={{ top: errorTop }}>
           <div className="min-w-0">
             <p className="text-sm font-medium text-amber-800 truncate">
-              Recovered — {recoveredDraft.patient}
+              Recovered - {recoveredDraft.patient}
             </p>
             <p className="text-xs text-amber-700 mt-0.5">Your transcript is back.</p>
           </div>
@@ -2769,7 +2769,7 @@ function EditContent() {
             {store.incompleteTranscript && !isLetterMode && (
               <div className="rounded-lg bg-amber-50 border border-amber-300 px-3 py-2.5 text-xs text-amber-900 flex items-start justify-between gap-2">
                 <span>
-                  <strong>Incomplete information.</strong> This note was generated from a transcript without the patient details step — patient name, age and gender were not entered. Review the note and complete the patient fields before finalising. The note won&apos;t be saved until a patient name is added.
+                  <strong>Incomplete information.</strong> This note was generated from a transcript without the patient details step - patient name, age and gender were not entered. Review the note and complete the patient fields before finalising. The note won&apos;t be saved until a patient name is added.
                 </span>
                 <button onClick={() => store.setIncompleteTranscript(false)} className="text-xs underline shrink-0">Dismiss</button>
               </div>
@@ -2897,7 +2897,7 @@ function EditContent() {
                           </ul>
                         ) : (
                           <div className="px-3 py-3 text-xs text-[var(--text3)]">
-                            No matches found. Many private clinics aren&apos;t listed — open Google Maps below to find the exact address.
+                            No matches found. Many private clinics aren&apos;t listed - open Google Maps below to find the exact address.
                           </div>
                         )}
                         {/* Persistent Google Maps fallback — OSM often returns only a

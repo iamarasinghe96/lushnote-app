@@ -438,7 +438,7 @@ export default HospitalFormEditor
 const HF_CSS = `
 .hf-root { display: flex; flex-direction: column; align-items: center; width: 100%; }
 .hf-pages { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
-/* Wrapper is sized to the SCALED page so layout matches what's shown — the inner
+/* Wrapper is sized to the SCALED page so layout matches what's shown - the inner
    page keeps its true A4 size and is scaled from the top-left, so there's no
    horizontal overflow and the preview scrolls naturally like the letter one. */
 .hf-page-wrap { position: relative; flex: none; }

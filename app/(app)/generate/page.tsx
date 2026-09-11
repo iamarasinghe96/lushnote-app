@@ -1255,7 +1255,7 @@ export default function GeneratePage() {
           <ModeCard
             icon={CameraIcon}
             title="Scan a ward note"
-            description="Photograph a paper progress note — read on the spot, never stored"
+            description="Photograph a paper progress note - read on the spot, never stored"
             onClick={() => setPhase('scan-input')}
           />
         </div>
