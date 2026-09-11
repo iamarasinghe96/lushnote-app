@@ -100,7 +100,7 @@ function SetupForm({ onDone, price }: Props) {
       {stripeStalled && !error && (
         <p className="rounded-[var(--r)] bg-amber-50 border border-amber-200 px-3 py-2 text-xs leading-relaxed text-amber-800">
           The payment form could not load. An ad-blocker or privacy shield blocking
-          <span className="font-medium"> js.stripe.com</span> is the usual cause — allow it for this site and reload.
+          <span className="font-medium"> js.stripe.com</span> is the usual cause. Allow it for this site and reload.
         </p>
       )}
 
@@ -155,7 +155,7 @@ export default function PaymentSetup({ onDone, price }: Props) {
     return (
       <p className="text-xs text-[var(--text3)]">
         Payments are not switched on in this environment. If this is production,
-        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is missing from the build — it must be a Config
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is missing from the build. It must be a Config
         variable, not a Secret, or it never reaches the browser.
       </p>
     )

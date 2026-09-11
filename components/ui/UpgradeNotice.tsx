@@ -46,7 +46,7 @@ export function UpgradeNotice({ onDismiss }: Props) {
             You&rsquo;ve used today&rsquo;s free Gemini quota
           </p>
           <p className="mt-1 text-xs leading-relaxed text-[var(--text2)]">
-            That&rsquo;s fine — your notes keep generating, nothing stops. They&rsquo;re now written by
+            That&rsquo;s fine, your notes keep generating and nothing stops. They&rsquo;re now written by
             the backup model, so the wording may not be quite as polished as your last one.
             If you&rsquo;d like to keep that quality, Pro removes the daily limit. No rush.
           </p>
