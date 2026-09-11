@@ -927,6 +927,14 @@ The existing LushNote visual design is the baseline — keep it. Apply these enh
 - No parallax
 - No entrance animations on static content
 - Never apply glass effect to form inputs — they stay solid white with standard border
+- **A native `<select>` cannot be themed.** Its control renders in the page and
+  its list in the OPERATING SYSTEM, so `rounded-xl` styles the closed box and
+  nothing once it opens — a square grey OS panel on a rounded form. Use
+  `components/ui/Select.tsx`, which owns its list. It re-implements what the
+  browser gave for free (roles, arrow keys, Home/End, Escape, type-ahead, focus
+  return, `aria-activedescendant`), so extend it rather than hand-rolling a
+  second one. Options are bare strings, or `{value,label}` where the stored value
+  is not what a doctor should read
 
 ---
 
@@ -1047,6 +1055,19 @@ pathway and its expected outputs are recorded in `WORKFLOWS.md`.
 ## Workplace System
 
 - Multiple workplaces per user, one active at a time
+- **The Setting field guesses from the name** (`inferWorkplaceType`, lib/workplaceType).
+  Somebody who typed "Albury Wodonga Health - Albury Campus" has already said it
+  is a hospital; asking again is asking twice. It returns null far more often
+  than it guesses, and null leaves the field alone — a wrong pre-filled answer is
+  worse than an empty one, because the doctor must NOTICE it before fixing it.
+  Rule order is load-bearing: "Community Mental Health" contains "health", and an
+  Australian hospital is usually "<Place> Health", so community is tested first.
+- **A manual choice is never overruled.** `workplaceTypeChosenRef` latches once
+  the doctor picks, and a RESTORED DRAFT latches it too — a resumed draft already
+  holds an answer they gave. A guess that keeps reasserting itself is worse than
+  no guess.
+- `WORKPLACE_TYPES` lives in `lib/workplaceType.ts`. Onboarding and
+  WorkplacesPanel both render it; two copies is how they could have drifted
 - Each workplace: `name, type, regSystem, regFormat, regPattern, regTemplate, themeIndex`
 - `regPattern` — generated regex string e.g. `"^\d{8}[A-Za-z]{2}$"`
 - `regTemplate` — display template e.g. `"########AA"`
