@@ -358,16 +358,19 @@ async function customerIdFor(uid: string): Promise<string | null> {
  * is presented and accepted inside Stripe's element, because a mandate has to
  * be given by the account holder and cannot be entered on their behalf.
  */
-export async function createSetupIntent(uid: string): Promise<{ clientSecret: string | null }> {
+export async function createSetupIntent(uid: string): Promise<{ clientSecret: string | null; mode: StripeMode }> {
   const customer = await customerIdFor(uid)
-  if (!customer) return { clientSecret: null }
+  // The mode rides along so the browser can compare it against its OWN
+  // publishable key. Mixing the two fails silently — Elements mounts and the
+  // Payment Element renders an empty box — so the page has to be able to say so.
+  if (!customer) return { clientSecret: null, mode: stripeMode() }
   const intent = await stripe().setupIntents.create({
     customer,
     usage: 'off_session',
     automatic_payment_methods: { enabled: true },
     metadata: { uid },
   })
-  return { clientSecret: intent.client_secret }
+  return { clientSecret: intent.client_secret, mode: stripeMode() }
 }
 
 /** Stripe's own portal for changing a card, cancelling, and reading invoices —
