@@ -5,6 +5,7 @@ import Modal from '@/components/ui/Modal'
 import { useAuth } from '@/hooks/useAuth'
 import { updateProfile } from '@/lib/firestore/profiles'
 import type { AnyTemplate, NoteLength, Template, LetterType, CustomLetterTemplate } from '@/types'
+import BackButton from '@/components/ui/BackButton'
 
 interface TemplatePickerProps {
   open: boolean
@@ -589,12 +590,7 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
 
         {/* Footer buttons */}
         <div className="flex gap-2 px-5 pb-4 pt-2">
-          <button
-            onClick={onCancel}
-            className="flex-shrink-0 px-4 py-2 text-sm text-[var(--text2)] border border-[var(--border)] rounded-[var(--r)] hover:bg-[var(--bg)] motion-safe:transition-colors"
-          >
-            ← Back
-          </button>
+          <BackButton onClick={onCancel} label="Back" variant="outlined" className="flex-shrink-0" />
           {!isLettersTab && !isPatientTab && (
             <button
               onClick={handleSkip}

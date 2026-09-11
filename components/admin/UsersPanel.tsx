@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import BackButton from '@/components/ui/BackButton'
 
 const CARD = { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' } as const
 
@@ -136,7 +137,7 @@ export default function UsersPanel() {
       {/* Detail view */}
       {selected ? (
         <div className="rounded-2xl p-5 space-y-4" style={CARD}>
-          <button onClick={() => setSelected(null)} className="text-sm text-[#2563eb]">← Back to all users</button>
+          <BackButton onClick={() => setSelected(null)} label="Back to all users" />
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-base font-semibold text-[#0f172a]">{selected.displayName || '(no name)'}</h2>
             <StatusBadge status={selected.status} />

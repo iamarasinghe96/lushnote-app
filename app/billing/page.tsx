@@ -6,7 +6,7 @@
 // It is also where the Stripe Customer Portal returns them.
 
 import { Suspense, useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
+import BackButton from '@/components/ui/BackButton'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { auth } from '@/lib/firebase'
 import { useAuth } from '@/hooks/useAuth'
@@ -151,7 +151,7 @@ function BillingInner() {
 
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-[var(--text)]">Billing</h1>
-          <Link href="/generate" className="text-sm text-[var(--blue)]">← Back to LushNote</Link>
+          <BackButton href="/generate" label="Back to LushNote" className="-mr-2.5" />
         </div>
 
         {toast && (
