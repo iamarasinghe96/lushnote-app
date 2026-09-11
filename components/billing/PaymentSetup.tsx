@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { auth } from '@/lib/firebase'
+import { keyModeMismatch } from '@/lib/stripeKeyMode'
 
 // Loaded once per page, not per render — loadStripe fetches Stripe.js and doing
 // it inside the component would refetch on every state change.
@@ -28,6 +29,17 @@ function SetupForm({ onDone, price }: Props) {
   const [agreed, setAgreed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // `stripe` stays null while Stripe.js is still arriving, and FOREVER if it
+  // never does — a blocked script, a key Stripe rejects. The two look identical
+  // for the first second, so only the second one is worth reporting: without
+  // this the doctor sees a tick-box and a button that can never be pressed, and
+  // nothing on the page says why.
+  const [stripeStalled, setStripeStalled] = useState(false)
+  useEffect(() => {
+    if (stripe) { setStripeStalled(false); return }
+    const t = setTimeout(() => setStripeStalled(true), 8000)
+    return () => clearTimeout(t)
+  }, [stripe])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -85,6 +97,13 @@ function SetupForm({ onDone, price }: Props) {
 
       {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
 
+      {stripeStalled && !error && (
+        <p className="rounded-[var(--r)] bg-amber-50 border border-amber-200 px-3 py-2 text-xs leading-relaxed text-amber-800">
+          The payment form could not load. An ad-blocker or privacy shield blocking
+          <span className="font-medium"> js.stripe.com</span> is the usual cause — allow it for this site and reload.
+        </p>
+      )}
+
       <button
         type="submit"
         disabled={!stripe || !agreed || busy}
@@ -105,6 +124,7 @@ function SetupForm({ onDone, price }: Props) {
 export default function PaymentSetup({ onDone, price }: Props) {
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
+  const [mismatch, setMismatch] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -115,8 +135,12 @@ export default function PaymentSetup({ onDone, price }: Props) {
           headers: await authHeaders(),
           body: JSON.stringify({ action: 'setup-intent' }),
         })
-        const data = await res.json() as { clientSecret?: string | null }
+        const data = await res.json() as { clientSecret?: string | null; mode?: string }
         if (!cancelled) {
+          // Checked BEFORE the secret is used: a mixed pair renders an empty
+          // Payment Element and puts the only real complaint in the console,
+          // where a doctor will never see it.
+          setMismatch(keyModeMismatch(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, data.mode))
           if (data.clientSecret) setClientSecret(data.clientSecret)
           else setFailed(true)
         }
@@ -128,7 +152,16 @@ export default function PaymentSetup({ onDone, price }: Props) {
   }, [])
 
   if (!stripePromise) {
-    return <p className="text-xs text-[var(--text3)]">Payments are not switched on in this environment.</p>
+    return (
+      <p className="text-xs text-[var(--text3)]">
+        Payments are not switched on in this environment. If this is production,
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is missing from the build — it must be a Config
+        variable, not a Secret, or it never reaches the browser.
+      </p>
+    )
+  }
+  if (mismatch) {
+    return <p className="rounded-[var(--r)] bg-amber-50 border border-amber-200 px-3 py-2 text-xs leading-relaxed text-amber-800">{mismatch}</p>
   }
   if (failed) {
     return <p className="text-xs text-[var(--danger)]">Could not start the payment form. Please reload and try again.</p>

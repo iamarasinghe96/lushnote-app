@@ -107,6 +107,23 @@ function BillingInner() {
     else setToast('Could not open the billing portal.')
   }
 
+  // Convert early. Stripe ends the trial and raises the first invoice at once;
+  // the webhook projects `active` back, and endTrialNow also projects inline so
+  // this page is right immediately rather than on the next poll.
+  async function upgradeNow() {
+    setBusy(true)
+    try {
+      const r = await call<{ upgraded: boolean; reason?: string }>({ action: 'end-trial-now' })
+      await refresh()
+      if (r.upgraded) setToast('You are on the paid plan. Your first invoice is on its way.')
+      // The server refuses without a method on file rather than invoicing into
+      // the void, so say what is missing instead of "something went wrong".
+      else if (r.reason === 'no-payment-method') { setAdding(true); setToast('Add a payment method first.') }
+      else setToast('Could not upgrade right now. Please try again.')
+    } catch { setToast('Could not upgrade right now. Please try again.') }
+    finally { setBusy(false) }
+  }
+
   async function togglePause(paused: boolean) {
     setBusy(true)
     await call({ action: paused ? 'pause' : 'resume' })
@@ -116,7 +133,7 @@ function BillingInner() {
   }
 
   if (loading || !state) {
-    return <div className="min-h-screen flex items-center justify-center text-sm text-[var(--text3)]">Loading…</div>
+    return <div className="h-dvh flex items-center justify-center text-sm text-[var(--text3)]">Loading…</div>
   }
 
   const b = state.billing
@@ -125,7 +142,11 @@ function BillingInner() {
   const hasMethod = b?.paymentMethodStatus === 'active' || b?.paymentMethodStatus === 'pending'
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] px-4 py-8">
+    // h-dvh + its own scroller, like /onboarding and /terms. `html, body` are
+    // overflow:hidden globally, so min-h-screen grew the page past the viewport
+    // with no way to reach the bottom of it — Manage subscription was
+    // unreachable unless the browser was zoomed out.
+    <div className="h-dvh overflow-y-auto bg-[var(--bg)] px-4 py-8">
       <div className="max-w-lg mx-auto space-y-4">
 
         <div className="flex items-center justify-between">
@@ -216,6 +237,25 @@ function BillingInner() {
               className="px-4 py-2 rounded-[var(--r)] border border-[var(--border)] text-sm text-[var(--text2)] disabled:opacity-50">
               Replace payment method
             </button>
+          )}
+
+          {/* Only while the trial is still running and there is something to
+              charge. Ending a trial with no method on file moves a doctor
+              CLOSER to being paywalled, so the server refuses it and this
+              button is not offered in the first place. */}
+          {isTrial && hasMethod && !adding && (
+            <div className="rounded-[var(--r)] border border-[#10b981]/40 p-3 space-y-2">
+              <p className="text-sm font-semibold text-[var(--text)]">Upgrade to Pro now</p>
+              <p className="text-xs leading-relaxed text-[var(--text2)]">
+                Ends your free trial today and starts the paid plan at {state.price}, with higher AI
+                limits straight away. You keep every note. Cancel or pause any time.
+              </p>
+              <button onClick={upgradeNow} disabled={busy}
+                className="px-4 py-2 rounded-[var(--r)] bg-[#10b981] text-white text-sm font-medium disabled:opacity-50
+                           hover:bg-[#059669] motion-safe:transition-colors motion-safe:active:scale-[0.97]">
+                {busy ? 'Upgrading…' : 'Upgrade to Pro'}
+              </button>
+            </div>
           )}
         </div>
 

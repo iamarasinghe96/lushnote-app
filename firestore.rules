@@ -100,7 +100,8 @@ service cloud.firestore {
           && (!('workplaces'         in d) || (d.workplaces         is list   && d.workplaces.size()         <= 30))
           && (!('favoriteTemplateIds'in d) || (d.favoriteTemplateIds is list  && d.favoriteTemplateIds.size() <= 200))
           && (!('customTemplates'    in d) || (d.customTemplates    is list   && d.customTemplates.size()    <= 50))
-          && (!('customLetterTemplates' in d) || (d.customLetterTemplates is list && d.customLetterTemplates.size() <= 15));
+          && (!('customLetterTemplates' in d) || (d.customLetterTemplates is list && d.customLetterTemplates.size() <= 15))
+          && (!('upgradeNoticesShownAt' in d) || (d.upgradeNoticesShownAt is list && d.upgradeNoticesShownAt.size() <= 5));
     }
 
     match /progress_notes/{noteId} {

@@ -5,6 +5,7 @@ import { transcribeAudio } from '@/lib/gemini'
 import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
+import { resolveGroqKey } from '@/lib/serverAiKeys'
 import { getProfile } from '@/lib/firestore/profiles-admin'
 import { getAccessState } from '@/lib/billing'
 
@@ -84,8 +85,15 @@ async function handlePOST(req: NextRequest) {
       }
     }
 
-    // 2. Groq fallback.
-    const groqKey = req.headers.get('x-groq-key')
+    // 2. Groq fallback — the doctor's own key, else LushNote's.
+    //
+    // The shared key is what makes an exhausted Gemini day a change of provider
+    // rather than a stop in work. A doctor mid-consultation whose 20 requests
+    // are spent used to lose transcription for every remaining segment; the
+    // audio survived (it is uploaded before this runs) but the session was
+    // unusable until the quota reset the next day.
+    const groq = resolveGroqKey(req.headers.get('x-groq-key'))
+    const groqKey = groq.key
     if (!groqKey) {
       return NextResponse.json({ error: 'No transcription key. Add your Gemini API key (or a Groq key) in Settings → API Keys.' }, { status: 401 })
     }
@@ -94,7 +102,11 @@ async function handlePOST(req: NextRequest) {
     formData.append('file', new Blob([new Uint8Array(buffer)], { type: mimeType }), `audio.${ext}`)
     try {
       const text = await transcribeAudioGroq(formData, groqKey)
-      console.log(`[transcribe] ok provider=groq seg=${seg} uid=${uid} sizeMB=${sizeMB} chars=${text.length} elapsedMs=${Date.now() - startedAt}`)
+      console.log(`[transcribe] ok provider=groq shared=${groq.shared} seg=${seg} uid=${uid} sizeMB=${sizeMB} chars=${text.length} elapsedMs=${Date.now() - startedAt}`)
+      // Only the shared path is logged to the sink: a doctor using their own key
+      // is unremarkable, while every request on ours is a cost we should be able
+      // to count without reading server logs.
+      if (groq.shared) logToSink({ level: 'info', tag: 'shared-groq', route: '/api/transcribe', uid, message: 'transcribed on the shared key' })
       return NextResponse.json({ text, provider: 'groq' })
     } catch (err) {
       console.error(`[transcribe] groq failed seg=${seg} uid=${uid} sizeMB=${sizeMB}: ${err instanceof Error ? err.message : String(err)}`)

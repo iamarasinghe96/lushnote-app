@@ -5,6 +5,7 @@ import { withRequest, noteRequest } from '@/lib/requestContext'
 import {
   startTrial, stripeEnabled, getBillingConfig, priceString, PRICE_AUD, TRIAL_MONTHS,
   createSetupIntent, createPortalSession, recordConsent, setPaused, stripeOffboard, TOS_VERSION,
+  endTrialNow,
 } from '@/lib/billing'
 import { adminDb } from '@/lib/firebase-admin'
 import { resolveEntitlement, type Billing } from '@/lib/entitlement'
@@ -17,7 +18,7 @@ import { resolveEntitlement, type Billing } from '@/lib/entitlement'
 async function handlePOST(req: NextRequest) {
   try {
     const body = await req.json() as {
-      action?: 'start-trial' | 'public-config' | 'state' | 'setup-intent' | 'record-consent' | 'portal' | 'pause' | 'resume' | 'offboard-self'
+      action?: 'start-trial' | 'public-config' | 'state' | 'setup-intent' | 'record-consent' | 'portal' | 'pause' | 'resume' | 'offboard-self' | 'end-trial-now'
       returnUrl?: string
     }
     noteRequest({ mode: body.action ?? 'billing' })
@@ -51,6 +52,18 @@ async function handlePOST(req: NextRequest) {
       if (result.created) {
         logToSink({ level: 'info', tag: 'billing', route: '/api/billing', uid, message: `trial started (${result.subscriptionId})` })
       }
+      return NextResponse.json(result)
+    }
+
+    // Convert early: end the free trial and start paying today. Audited at info
+    // level because it moves money, and a doctor asking "why was I charged in
+    // September" is answered by this line.
+    if (body.action === 'end-trial-now') {
+      const result = await endTrialNow(uid)
+      logToSink({
+        level: 'info', tag: 'billing', route: '/api/billing', uid,
+        message: result.upgraded ? 'trial ended early by the doctor' : `early upgrade refused: ${result.reason}`,
+      })
       return NextResponse.json(result)
     }
 
