@@ -1003,11 +1003,23 @@ their second or third session. Two things follow:
   `tag: 'shared-groq'` at info, because the bill lands on us.
 - **`geminiDailyLimit` rides back on the response**, including successful ones:
   the note arrived, so nothing else would tell the doctor their day is spent.
-  `shouldShowUpgradeNotice` (lib/quotaNotice) decides whether to offer Pro —
-  never to someone already paying, never before the SERVER says the limit was
-  hit, and dismissible until the quota resets (UTC), not forever. Inferring the
-  limit from `provider === 'groq'` was wrong and is gone: Groq runs FIRST on the
-  extraction modes to save quota, so healthy notes reported a limit nobody hit.
+  Inferring it from `provider === 'groq'` was wrong and is gone — Groq runs FIRST
+  on the extraction modes to save quota, so healthy notes reported a limit nobody
+  had hit.
+- **The notice is shown TWICE in a trial, a fortnight apart, then never again**
+  (`shouldShowUpgradeNotice`, `MAX_UPGRADE_NOTICES`). A doctor hits this limit
+  dozens of times in three months; saying it each time is nagging somebody
+  between patients about something that is not stopping them. Never to someone
+  already paying, never to a paywalled account (already being asked), and never
+  before the SERVER reports the limit.
+- **Counted when SHOWN, not when dismissed**, on `users/{uid}.upgradeNoticesShownAt`
+  — the promise is "twice to this doctor", not "twice on this device", so
+  localStorage would reset it on every new browser. A doctor who sees it and
+  navigates away has still been told.
+- **Its tone is a requirement.** Nothing is blocked and the note arrived, so the
+  copy says what happened, that it is fine, what the trade-off is (the backup
+  model writes less polished prose), and leaves. Anything reading as urgency
+  manufactures pressure over a problem already handled.
 - **Never mid-recording.** Transcription falls back silently; the notice waits
   until a note is in the doctor's hands. The worst moment to sell somebody
   something is while they are sitting with a patient.

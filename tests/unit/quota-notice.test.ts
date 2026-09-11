@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest'
 import {
   shouldShowUpgradeNotice,
   canUpgrade,
-  dismissedToday,
-  quotaDay,
+  readShownAt,
+  recordNoticeShown,
+  MAX_UPGRADE_NOTICES,
+  UPGRADE_NOTICE_GAP_DAYS,
 } from '@/lib/quotaNotice'
 import { resolveGroqKey } from '@/lib/serverAiKeys'
 import type { EntitlementState } from '@/lib/entitlement'
@@ -17,39 +19,69 @@ const ALL_STATES: EntitlementState[] = [
   'trialing', 'active', 'paused', 'grace', 'dunning', 'paywalled', 'exempt', 'legacy',
 ]
 
-describe('shouldShowUpgradeNotice', () => {
-  const base = { limitHit: true, state: 'trialing' as EntitlementState, dismissed: false }
+const DAY = 24 * 60 * 60 * 1000
+const NOW = Date.parse('2026-09-11T00:00:00Z')
 
-  it('shows when a trialing doctor hits the daily limit', () => {
+describe('shouldShowUpgradeNotice — twice, ever, a fortnight apart', () => {
+  const base = { limitHit: true, state: 'trialing' as EntitlementState, shownAt: [] as number[], now: NOW }
+
+  it('shows the first time a trialing doctor hits the limit', () => {
     expect(shouldShowUpgradeNotice(base)).toBe(true)
   })
 
+  it('stays quiet for the fortnight after the first', () => {
+    // A doctor hits this limit dozens of times in a trial. Saying it again the
+    // next day is nagging somebody between patients about something that is
+    // not stopping them.
+    expect(shouldShowUpgradeNotice({ ...base, shownAt: [NOW - 1 * DAY] })).toBe(false)
+    expect(shouldShowUpgradeNotice({ ...base, shownAt: [NOW - 13 * DAY] })).toBe(false)
+  })
+
+  it('shows a second time once the fortnight has passed', () => {
+    expect(shouldShowUpgradeNotice({ ...base, shownAt: [NOW - 14 * DAY] })).toBe(true)
+    expect(shouldShowUpgradeNotice({ ...base, shownAt: [NOW - 40 * DAY] })).toBe(true)
+  })
+
+  it('never shows a third time, however long has passed', () => {
+    // The offer has been made. Twice is the whole budget for the trial.
+    expect(shouldShowUpgradeNotice({ ...base, shownAt: [NOW - 200 * DAY, NOW - 100 * DAY] })).toBe(false)
+  })
+
+  it('spends exactly two notices across a whole three-month trial', () => {
+    // Walks a real trial day by day and counts. This is the promise the doctor
+    // was made, so it is asserted end to end rather than rule by rule.
+    let shownAt: number[] = []
+    let count = 0
+    for (let day = 0; day < 90; day++) {
+      const now = NOW + day * DAY
+      // The limit is hit most days — that is the point of the feature.
+      if (shouldShowUpgradeNotice({ limitHit: true, state: 'trialing', shownAt, now })) {
+        count++
+        shownAt = recordNoticeShown(shownAt, now)
+      }
+    }
+    expect(count).toBe(MAX_UPGRADE_NOTICES)
+    expect(shownAt).toHaveLength(2)
+    expect(shownAt[1] - shownAt[0]).toBeGreaterThanOrEqual(UPGRADE_NOTICE_GAP_DAYS * DAY)
+  })
+
   it('never shows to somebody who already pays', () => {
-    // Offering "Upgrade to Pro" to an active subscriber is selling them what
-    // they already bought, and reads as the app not knowing who they are.
     for (const state of ['active', 'dunning', 'grace', 'paused'] as EntitlementState[]) {
       expect(shouldShowUpgradeNotice({ ...base, state })).toBe(false)
     }
   })
 
-  it('never shows to an exempt account', () => {
-    // The e2e fixture and any comped account. Nothing to sell.
+  it('never shows to an exempt or paywalled account', () => {
+    // Exempt has nothing to sell; paywalled is already being asked for payment.
     expect(shouldShowUpgradeNotice({ ...base, state: 'exempt' })).toBe(false)
+    expect(shouldShowUpgradeNotice({ ...base, state: 'paywalled' })).toBe(false)
   })
 
   it('does not show before the limit is actually hit', () => {
-    // Driven by the server's verdict, never by the local X/20 counter, which
-    // mirrors Google's count imperfectly and drifts from it.
     expect(shouldShowUpgradeNotice({ ...base, limitHit: false })).toBe(false)
   })
 
-  it('stays quiet once dismissed', () => {
-    expect(shouldShowUpgradeNotice({ ...base, dismissed: true })).toBe(false)
-  })
-
   it('has a defined answer for every entitlement state', () => {
-    // A state added later must not fall through to an accidental `undefined`,
-    // which would render as "no notice" and hide the upsell silently.
     for (const state of ALL_STATES) {
       expect(typeof shouldShowUpgradeNotice({ ...base, state })).toBe('boolean')
     }
@@ -61,42 +93,35 @@ describe('canUpgrade', () => {
     expect(canUpgrade('trialing')).toBe(true)
     expect(canUpgrade('legacy')).toBe(true)
     expect(canUpgrade('active')).toBe(false)
-  })
-
-  it('is false for a paywalled doctor', () => {
-    // They are already being asked for payment by the paywall itself; a second
-    // upsell on top of it is noise at the worst moment.
     expect(canUpgrade('paywalled')).toBe(false)
   })
 })
 
-describe('dismissedToday', () => {
-  it('silences the notice for the rest of the day it was dismissed', () => {
-    expect(dismissedToday('2026-09-10', '2026-09-10')).toBe(true)
+describe('readShownAt', () => {
+  it('survives whatever Firestore hands back', () => {
+    // A junk entry that got through would either block the notice forever or
+    // let it through every time, and both failures are silent.
+    expect(readShownAt(null)).toEqual([])
+    expect(readShownAt('nonsense')).toEqual([])
+    expect(readShownAt([NOW, 'x', null, NaN, -1, 0])).toEqual([NOW])
   })
 
-  it('lets it return once the quota has reset', () => {
-    // Dismissal lasts until the quota does. Forever would silence the one
-    // message explaining why the app changed behaviour.
-    expect(dismissedToday('2026-09-09', '2026-09-10')).toBe(false)
-  })
-
-  it('treats a missing or junk value as not dismissed', () => {
-    expect(dismissedToday(null, '2026-09-10')).toBe(false)
-    expect(dismissedToday('', '2026-09-10')).toBe(false)
-  })
-
-  it('ignores surrounding whitespace', () => {
-    expect(dismissedToday(' 2026-09-10 ', '2026-09-10')).toBe(true)
+  it('sorts oldest first, so the gap is measured from the real last one', () => {
+    expect(readShownAt([NOW, NOW - 5 * DAY])).toEqual([NOW - 5 * DAY, NOW])
   })
 })
 
-describe('quotaDay', () => {
-  it('is UTC, matching the boundary Google resets on', () => {
-    // A local-midnight day would unsilence the notice hours early or late
-    // depending on the doctor's timezone.
-    expect(quotaDay(new Date('2026-09-10T23:30:00Z'))).toBe('2026-09-10')
-    expect(quotaDay(new Date('2026-09-11T00:30:00Z'))).toBe('2026-09-11')
+describe('recordNoticeShown', () => {
+  it('counts a notice when it is SHOWN, not when it is dismissed', () => {
+    // A doctor who sees it and navigates away has still been told. Treating
+    // that as "not yet shown" would bring it back tomorrow.
+    expect(recordNoticeShown([], NOW)).toEqual([NOW])
+  })
+
+  it('never grows past the budget', () => {
+    const out = recordNoticeShown([NOW - 40 * DAY, NOW - 20 * DAY], NOW)
+    expect(out).toHaveLength(MAX_UPGRADE_NOTICES)
+    expect(out[out.length - 1]).toBe(NOW)
   })
 })
 

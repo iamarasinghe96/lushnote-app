@@ -11,7 +11,7 @@ import { deleteTranscriptDraft, listTranscriptDrafts } from '@/lib/firestore/tra
 import { parseDraftHandoff, handoffIsRestorable, findTemplateById, type DraftHandoff } from '@/lib/draftHandoff'
 import { buildDictationTemplate } from '@/lib/dictationTemplate'
 import { UpgradeNotice } from '@/components/ui/UpgradeNotice'
-import { shouldShowUpgradeNotice, dismissedToday, quotaDay, QUOTA_NOTICE_KEY } from '@/lib/quotaNotice'
+import { shouldShowUpgradeNotice, recordNoticeShown } from '@/lib/quotaNotice'
 import { resolveEntitlement } from '@/lib/entitlement'
 import { classifyGenerationFailure, failureDialogCopy, type GenerationFailure } from '@/lib/generationFailure'
 import FormaliseButton from '@/components/ui/FormaliseButton'
@@ -480,6 +480,13 @@ function EditContent() {
   // Set from the server's own verdict on the response, never from the local
   // X/20 counter, which mirrors Google's count imperfectly.
   const [geminiLimitHit, setGeminiLimitHit] = useState(false)
+  const showUpgradeNotice = shouldShowUpgradeNotice({
+    limitHit: geminiLimitHit,
+    state: resolveEntitlement(profile?.billing, Date.now()).state,
+    shownAt: profile?.upgradeNoticesShownAt ?? [],
+    now: Date.now(),
+  })
+
 
   // Recipient address lookup (OpenStreetMap geocoder)
   const [addrSuggestions, setAddrSuggestions] = useState<{ label: string; value: string }[]>([])
@@ -888,6 +895,20 @@ function EditContent() {
       store.setLastTranscriptMode((note.transcriptMode as Parameters<typeof store.setLastTranscriptMode>[0]) ?? 'paste')
     }
   }
+
+  // Spend one of the two notices the moment it is SHOWN, not when it is
+  // dismissed: a doctor who sees it and navigates away has still been told, and
+  // counting only dismissals would bring it back tomorrow.
+  const noticeRecordedRef = useRef(false)
+  useEffect(() => {
+    if (!showUpgradeNotice || noticeRecordedRef.current || !user) return
+    noticeRecordedRef.current = true
+    const next = recordNoticeShown(profile?.upgradeNoticesShownAt ?? [], Date.now())
+    void updateProfile(user.uid, { upgradeNoticesShownAt: next })
+      .then(() => refreshProfile())
+      .catch(() => { /* the notice simply appears once more; never block the note */ })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showUpgradeNotice])
 
   useEffect(() => {
     if (!letterToast) return
@@ -2494,16 +2515,6 @@ function EditContent() {
     return <HospitalFormView />
   }
 
-  // Read at render: localStorage is not reactive, but this only changes when the
-  // doctor dismisses it, which re-renders anyway.
-  let dismissed = false
-  try { dismissed = dismissedToday(localStorage.getItem(QUOTA_NOTICE_KEY), quotaDay()) } catch { /* private mode */ }
-  const showUpgradeNotice = shouldShowUpgradeNotice({
-    limitHit: geminiLimitHit,
-    state: resolveEntitlement(profile?.billing, Date.now()).state,
-    dismissed,
-  })
-
   return (
     <div className="h-full overflow-hidden relative">
 
@@ -2511,10 +2522,7 @@ function EditContent() {
           carried it — so this explains the change rather than reporting a
           failure, and it is dismissible for the rest of the day. */}
       {showUpgradeNotice && (
-        <UpgradeNotice onDismiss={() => {
-          try { localStorage.setItem(QUOTA_NOTICE_KEY, quotaDay()) } catch { /* private mode — it simply shows again */ }
-          setGeminiLimitHit(false)
-        }} />
+        <UpgradeNotice onDismiss={() => setGeminiLimitHit(false)} />
       )}
 
       {/* Letter toast */}
