@@ -59,7 +59,7 @@ export default function TermsPage() {
           <p>
             By creating a LushNote account, you agree to these Terms of Service and Privacy
             Policy. If these terms aren&rsquo;t the right fit for you, that&rsquo;s completely
-            understandable — simply choose not to create an account. And if you already have one
+            understandable - simply choose not to create an account. And if you already have one
             and change your mind, you can{' '}
             <a href="/settings?tab=profile" className="text-[#2563eb] underline">delete your account</a>{' '}
             at any time, and all of your data is permanently removed.
@@ -100,7 +100,7 @@ export default function TermsPage() {
           <p>
             If you record a session or dictate a note, the audio is streamed straight to the
             transcription service, converted to text, and then immediately discarded. Only the
-            resulting text — the transcript — is kept, and it is saved as part of the note in your
+            resulting text - the transcript - is kept, and it is saved as part of the note in your
             account, where you can review, edit, or delete it like any other note content. The
             audio file itself is never saved, never uploaded to storage, and never archived, so
             there is no recording that could be replayed or retrieved after transcription.
@@ -114,7 +114,7 @@ export default function TermsPage() {
             export it. Like your notes, saved letters can only be accessed by you, and no
             LushNote team member or administrator can view them. You can delete any saved
             letter at any time. The underlying audio, if you dictated the letter, is still
-            never stored — it is transcribed and immediately discarded.
+            never stored - it is transcribed and immediately discarded.
           </p>
 
           <SubHeading>API keys</SubHeading>
@@ -259,7 +259,7 @@ export default function TermsPage() {
           <p>
             LushNote is free for three months. After that it is AUD $30 per month, billed monthly
             until you cancel. Nothing is charged during the trial and we do not ask for payment
-            details to start — we email you a week before the trial ends, and again on the day.
+            details to start - we email you a week before the trial ends, and again on the day.
           </p>
           <p>
             Prices are in Australian dollars for everyone, wherever you are. If your card is issued
@@ -285,7 +285,7 @@ export default function TermsPage() {
           </p>
           <p>
             <strong>If a payment fails.</strong> Our payment processor retries over about two weeks
-            and emails you about it. If it never succeeds, creating and editing notes is paused —
+            and emails you about it. If it never succeeds, creating and editing notes is paused -
             but reading, exporting and your patient list keep working, because your clinical records
             are never held behind a payment.
           </p>
@@ -298,7 +298,7 @@ export default function TermsPage() {
             <strong>Records.</strong> Billing is handled by Gaia Symbiosis (sole trader, ABN shown on
             your invoices). Tax invoices and receipts are emailed automatically. We are required to
             keep invoice, transaction and GST records for five years, so those records are retained
-            even after you delete your account — see &ldquo;How Long We Keep Your Data&rdquo; above.
+            even after you delete your account - see &ldquo;How Long We Keep Your Data&rdquo; above.
             Your card and bank details are held by our payment processor, never by LushNote.
           </p>
         </Section>
@@ -366,8 +366,8 @@ export default function TermsPage() {
             </FAQ>
 
             <FAQ q="What happens to the audio after a session recording?">
-              The audio is transcribed to text immediately and then discarded. Only that text —
-              the transcript — is kept, as part of your note in your account. The audio file is
+              The audio is transcribed to text immediately and then discarded. Only that text -
+              the transcript - is kept, as part of your note in your account. The audio file is
               never saved, never uploaded to storage, and cannot be retrieved or replayed after
               transcription is complete.
             </FAQ>

@@ -46,7 +46,7 @@ function alertOps(entry: LogEntry, requestId: string): void {
   if (now - last < ALERT_WINDOW_MS) return
   alerted.set(key, now)
   const lines = [
-    `*LushNote — a doctor was blocked*`,
+    `*LushNote: a doctor was blocked*`,
     `\`${entry.tag}\` on \`${entry.route}\`${entry.mode ? ` (${entry.mode})` : ''}`,
     entry.message,
     [requestId ? `request \`${requestId}\`` : '', entry.uid ? `uid \`${entry.uid}\`` : '', RELEASE ? `build \`${RELEASE}\`` : '']

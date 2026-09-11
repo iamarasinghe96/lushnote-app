@@ -8,7 +8,7 @@ const CARD = { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)
 interface Feedback { id: string; email: string; reasons: string[]; message: string; deletedAt: number | null }
 interface Ticket { id: string; uid: string; name: string; email: string; ticket: string | null; topic: string | null; status: string; createdAt: number | null; updatedAt: number | null }
 
-const dt = (ms: number | null) => (ms ? new Date(ms).toLocaleString() : '—')
+const dt = (ms: number | null) => (ms ? new Date(ms).toLocaleString() : '-')
 
 const TICKET_STATUS_STYLE: Record<string, string> = {
   open: 'bg-amber-50 text-amber-700 border-amber-200',

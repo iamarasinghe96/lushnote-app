@@ -256,7 +256,7 @@ export default function Page() {
             Three months free. Then {landingPrice}.
           </h2>
           <p className="text-[var(--text2)]">
-            Every feature included. No payment details to start — we&apos;ll remind you a week before the trial ends.
+            Every feature included. No payment details to start - we&apos;ll remind you a week before the trial ends.
             Cancel anytime and keep access to the end of the period you&apos;ve paid for; your notes are always yours
             to export.
           </p>

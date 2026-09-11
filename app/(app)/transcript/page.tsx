@@ -153,7 +153,7 @@ export default function TranscriptPage() {
     const stamp = new Date()
     const pad = (n: number) => String(n).padStart(2, '0')
     const header =
-      'LushNote — Session Transcript (verbatim, read-only export)\n' +
+      'LushNote - Session Transcript (verbatim, read-only export)\n' +
       `Exported: ${stamp.toLocaleString()}\n` +
       `Word count: ${wordCount}\n\n` +
       '----------------------------------------\n\n'

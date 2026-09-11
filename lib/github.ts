@@ -205,13 +205,13 @@ async function checksFor(sha: string): Promise<CheckSummary[]> {
 
 function blockedReasonFor(pull: RawPull, checks: CheckSummary[]): string {
   if (pull.draft) return 'Still a draft'
-  if (pull.mergeable === false) return 'Conflicts with main — needs a rebase'
+  if (pull.mergeable === false) return 'Conflicts with main, needs a rebase'
   // Checked BEFORE the check states, because a branch that is behind shows
   // every badge green and still cannot merge: the ruleset requires the checks
   // to have run against the current base. Promoting anything else puts every
   // remaining pull request in this state, so it is the most common blocker
   // here, not an edge case.
-  if (pull.mergeable_state === 'behind') return 'Behind main — merge main in and let the checks re-run'
+  if (pull.mergeable_state === 'behind') return 'Behind main, merge main in and let the checks re-run'
   const missing = checks.filter(c => c.status === 'missing')
   if (missing.length) {
     return missing.some(c => c.name === 'e2e')

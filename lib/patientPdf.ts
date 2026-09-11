@@ -58,7 +58,7 @@ export async function exportPatientsPDF(rows: PatientProfile[]) {
   type Line = { text: string; bullet: boolean; indent: number }
   function cellLines(text: string, w: number): Line[] {
     const items = text.split('\n').map(t => t.replace(/^[-•*]\s*/, '').trim()).filter(Boolean)
-    if (!items.length) return [{ text: '—', bullet: false, indent: 0 }]
+    if (!items.length) return [{ text: '-', bullet: false, indent: 0 }]
     const many = items.length > 1
     const indent = many ? 2.2 : 0
     const out: Line[] = []
@@ -95,7 +95,7 @@ export async function exportPatientsPDF(rows: PatientProfile[]) {
 
   function drawTitle(): number {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(29, 78, 216)
-    doc.text(`PATIENT LIST — ${dateStr}  (TOTAL: ${rows.length} PATIENT${rows.length !== 1 ? 'S' : ''})`,
+    doc.text(`PATIENT LIST - ${dateStr}  (TOTAL: ${rows.length} PATIENT${rows.length !== 1 ? 'S' : ''})`,
       PAGE_W / 2, MARGIN + 4, { align: 'center' })
     return MARGIN + 8
   }

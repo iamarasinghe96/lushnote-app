@@ -291,7 +291,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
                   {urNumeric ? 'ABC' : '123'}
                 </button>
               </div>
-              <p className="mt-1 text-xs text-[var(--text3)]">Optional, but recommended — it links this record in the Table view.</p>
+              <p className="mt-1 text-xs text-[var(--text3)]">Optional, but recommended - it links this record in the Table view.</p>
             </div>
             <div className="w-full" ref={genderRef}>
               <label className="block text-sm font-medium text-[var(--text)] mb-1">Gender</label>
@@ -374,7 +374,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-[var(--text)]">Dictate the reading note</p>
-                  <p className="text-xs text-[var(--text3)] mt-0.5">Speak the details — the AI fills each field</p>
+                  <p className="text-xs text-[var(--text3)] mt-0.5">Speak the details - the AI fills each field</p>
                 </div>
               </button>
 
@@ -399,7 +399,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-[var(--text)]">Retrieve details from Bossnet</p>
-                  <p className="text-xs text-[var(--text3)] mt-0.5">Paste the ward note — the AI fills each field</p>
+                  <p className="text-xs text-[var(--text3)] mt-0.5">Paste the ward note - the AI fills each field</p>
                 </div>
               </button>
 
@@ -471,7 +471,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
               {TRACKED_CLINICAL_FIELDS.map(f => (
                 <li key={f.key as string} className="flex gap-2 text-sm text-[var(--text2)]">
                   <span className="text-[#10b981] shrink-0">•</span>
-                  <span><span className="font-medium text-[var(--text)]">{f.label}</span> — {f.hint}</span>
+                  <span><span className="font-medium text-[var(--text)]">{f.label}</span> - {f.hint}</span>
                 </li>
               ))}
             </ul>
@@ -493,10 +493,10 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
               <span className="text-2xl font-mono font-semibold text-[var(--text)]">{formatDuration(duration)}</span>
             </div>
             <p className="text-sm text-[var(--text3)]">
-              {micLost ? 'Paused — waiting for the microphone…' : `Dictating ${name.trim()}'s details…`}
+              {micLost ? 'Paused - waiting for the microphone…' : `Dictating ${name.trim()}'s details…`}
             </p>
             {!micLost && (
-              <p className="text-[11px] text-[var(--text3)]">Keep your screen on — iOS pauses recording if the phone is locked.</p>
+              <p className="text-[11px] text-[var(--text3)]">Keep your screen on - iOS pauses recording if the phone is locked.</p>
             )}
             {audioSavedMin > 0 && (
               <p className="text-xs text-[#10b981] font-medium">~{audioSavedMin} min of audio safely captured</p>
@@ -505,13 +505,13 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
               <p className="text-xs text-[var(--text3)]">~{transcribedMin} min transcribed</p>
             )}
             {failures > 0 && (
-              <p className="text-xs text-[var(--danger)] font-medium">⚠ {failures} segment(s) couldn&apos;t transcribe{lastError ? ` — ${lastError}` : ''}.</p>
+              <p className="text-xs text-[var(--danger)] font-medium">⚠ {failures} segment(s) couldn&apos;t transcribe{lastError ? ` - ${lastError}` : ''}.</p>
             )}
             <ul className="text-left rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--bg)] px-4 py-3 space-y-1.5">
               {TRACKED_CLINICAL_FIELDS.map(f => (
                 <li key={f.key as string} className="flex gap-2 text-xs text-[var(--text2)]">
                   <span className="text-[#10b981] shrink-0">•</span>
-                  <span><span className="font-medium text-[var(--text)]">{f.label}</span> — {f.hint}</span>
+                  <span><span className="font-medium text-[var(--text)]">{f.label}</span> - {f.hint}</span>
                 </li>
               ))}
             </ul>

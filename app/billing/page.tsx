@@ -25,7 +25,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 function formatDate(ms: number | null | undefined): string {
-  if (!ms) return '—'
+  if (!ms) return '-'
   return new Date(ms).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
@@ -37,7 +37,7 @@ const STATE_LABEL: Record<EntitlementState, string> = {
   grace: 'Payment needed',
   dunning: 'Payment processing',
   paused: 'Paused',
-  paywalled: 'Paused — payment needed',
+  paywalled: 'Paused - payment needed',
 }
 
 interface State {
@@ -188,7 +188,7 @@ function BillingInner() {
               label="Payment method"
               value={
                 b?.paymentMethodType === 'au_becs_debit'
-                  ? (b.paymentMethodStatus === 'active' ? 'Bank account (direct debit)' : 'Bank account — awaiting bank confirmation')
+                  ? (b.paymentMethodStatus === 'active' ? 'Bank account (direct debit)' : 'Bank account - awaiting bank confirmation')
                   : b?.paymentMethodType === 'card' ? 'Card'
                   : 'None yet'
               }
@@ -198,7 +198,7 @@ function BillingInner() {
 
           {!b && (
             <p className="text-xs text-[var(--text2)]">
-              Your subscription hasn&apos;t been set up yet — your account predates billing, so nothing has been
+              Your subscription hasn&apos;t been set up yet - your account predates billing, so nothing has been
               scheduled and nothing is owed. Start your free trial below whenever you like; it also starts on its own
               overnight.
             </p>
@@ -221,7 +221,7 @@ function BillingInner() {
           </h2>
           <p className="text-xs text-[var(--text2)]">
             Card payments worldwide, or direct debit from an Australian bank account. Prices are in Australian
-            dollars — if your card is issued outside Australia, your bank converts the charge and may add a small
+            dollars - if your card is issued outside Australia, your bank converts the charge and may add a small
             foreign-transaction fee.
           </p>
 
@@ -282,7 +282,7 @@ function BillingInner() {
             <p className="text-xs text-[var(--text3)]">
               Pausing stops future charges and keeps your details and your notes. Access continues until the end of
               the period you&apos;ve already paid for, and resumes the moment you un-pause. Cancelling works the same
-              way — you keep access to the end of the paid period.
+              way - you keep access to the end of the paid period.
             </p>
           </div>
         )}

@@ -174,7 +174,7 @@ export function useSegmentedRecorder() {
           setAudioSavedMin((m) => m + SEGMENT_MINUTES)
           setAudioError(null)
         } catch {
-          setAudioError('Could not save audio to the cloud. Check your connection — your recording may not be protected.')
+          setAudioError('Could not save audio to the cloud. Check your connection - your recording may not be protected.')
         }
 
         // 2. Transcribe (best effort).

@@ -42,12 +42,12 @@ export default function DashboardPanel() {
       <div className="grid grid-cols-2 gap-3">
         {cells.map(c => (
           <div key={c.label} className="rounded-2xl p-5" style={CARD}>
-            <div className="text-3xl font-bold text-[#0f172a]">{fetching || c.value === undefined ? '…' : (c.value < 0 ? '—' : c.value.toLocaleString())}</div>
+            <div className="text-3xl font-bold text-[#0f172a]">{fetching || c.value === undefined ? '…' : (c.value < 0 ? '-' : c.value.toLocaleString())}</div>
             <div className="text-xs text-[#475569] mt-1">{c.label}</div>
           </div>
         ))}
       </div>
-      <p className="text-[11px] text-[#94a3b8]">Counts are aggregates — no clinical content is read to produce them.</p>
+      <p className="text-[11px] text-[#94a3b8]">Counts are aggregates - no clinical content is read to produce them.</p>
     </div>
   )
 }

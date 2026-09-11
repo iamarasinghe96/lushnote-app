@@ -478,7 +478,7 @@ Return ONLY strict JSON, no markdown, no commentary:
     const entitlement = resolveEntitlement(profile?.billing, Date.now())
     if (!entitlement.entitled) {
       logToSink({ level: 'info', tag: 'billing', route: '/api/chat', uid: uid, status: 402, message: `blocked: ${entitlement.reason}` })
-      return NextResponse.json({ error: 'Your LushNote subscription needs attention — note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: entitlement.state }, { status: 402 })
+      return NextResponse.json({ error: 'Your LushNote subscription needs attention - note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: entitlement.state }, { status: 402 })
     }
 
     if (process.env.GEMINI_API_KEY) {

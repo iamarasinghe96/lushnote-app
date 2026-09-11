@@ -7,7 +7,7 @@ const CARD = { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)
 
 interface Announcement { id: string; title: string; summary: string; details: string; version: string; published: boolean; createdAt: number | null; publishedAt: number | null }
 
-const day = (ms: number | null) => (ms ? new Date(ms).toLocaleDateString() : '—')
+const day = (ms: number | null) => (ms ? new Date(ms).toLocaleDateString() : '-')
 
 export default function AnnouncementsPanel() {
   const { user } = useAuth()
@@ -72,11 +72,11 @@ export default function AnnouncementsPanel() {
           <div><label className="text-xs font-medium text-[#475569]">Title</label><input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Faster note generation" className="mt-1 w-full text-sm border border-[var(--border)] rounded-lg px-3 py-2 bg-white outline-none focus:border-[#2563eb]" /></div>
           <div><label className="text-xs font-medium text-[#475569]">Version (optional)</label><input value={version} onChange={e => setVersion(e.target.value)} placeholder="v1.4" className="mt-1 w-full text-sm border border-[var(--border)] rounded-lg px-3 py-2 bg-white outline-none focus:border-[#2563eb]" /></div>
         </div>
-        <div><label className="text-xs font-medium text-[#475569]">Summary (shown in the popup — keep it short)</label><textarea value={summary} onChange={e => setSummary(e.target.value)} rows={2} className="mt-1 w-full text-sm border border-[var(--border)] rounded-lg px-3 py-2 bg-white outline-none focus:border-[#2563eb]" /></div>
-        <div><label className="text-xs font-medium text-[#475569]">Details (What&apos;s New tab — one point per line, start a line with &quot;- &quot; for a bullet)</label><textarea value={details} onChange={e => setDetails(e.target.value)} rows={7} className="mt-1 w-full text-sm border border-[var(--border)] rounded-lg px-3 py-2 bg-white outline-none focus:border-[#2563eb]" /></div>
+        <div><label className="text-xs font-medium text-[#475569]">Summary (shown in the popup - keep it short)</label><textarea value={summary} onChange={e => setSummary(e.target.value)} rows={2} className="mt-1 w-full text-sm border border-[var(--border)] rounded-lg px-3 py-2 bg-white outline-none focus:border-[#2563eb]" /></div>
+        <div><label className="text-xs font-medium text-[#475569]">Details (What&apos;s New tab - one point per line, start a line with &quot;- &quot; for a bullet)</label><textarea value={details} onChange={e => setDetails(e.target.value)} rows={7} className="mt-1 w-full text-sm border border-[var(--border)] rounded-lg px-3 py-2 bg-white outline-none focus:border-[#2563eb]" /></div>
         <label className="flex items-center gap-2 text-sm text-[#475569]">
           <input type="checkbox" checked={published} onChange={e => setPublished(e.target.checked)} className="h-4 w-4 rounded accent-[#2563eb]" />
-          Published (visible to doctors — the newest published one triggers the one-time popup)
+          Published (visible to doctors - the newest published one triggers the one-time popup)
         </label>
         <div className="flex gap-2">
           <button onClick={save} disabled={saving} className="flex-1 py-2.5 rounded-xl bg-[#2563eb] text-white text-sm font-semibold disabled:opacity-50 motion-safe:active:scale-95 motion-safe:transition-transform">{saving ? 'Saving…' : (editingId ? 'Update' : 'Create')}</button>

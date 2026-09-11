@@ -254,7 +254,7 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
           saving={sigSaving}
         />
         <p className="text-xs text-[var(--text3)] mt-2">
-          Adjust the signature size on a letter in the Edit tab — the change previews live and saves to your profile.
+          Adjust the signature size on a letter in the Edit tab - the change previews live and saves to your profile.
         </p>
       </div>
 

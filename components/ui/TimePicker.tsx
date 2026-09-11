@@ -32,12 +32,12 @@ export default function TimePicker({ value, onChange, label }: TimePickerProps) 
 
   function handleStart(v: string) {
     const newEnd = end || v
-    onChange(v && newEnd ? `${v} – ${newEnd}` : '')
+    onChange(v && newEnd ? `${v} - ${newEnd}` : '')
   }
 
   function handleEnd(v: string) {
     const newStart = start || v
-    onChange(newStart && v ? `${newStart} – ${v}` : '')
+    onChange(newStart && v ? `${newStart} - ${v}` : '')
   }
 
   return (
@@ -50,7 +50,7 @@ export default function TimePicker({ value, onChange, label }: TimePickerProps) 
           <option value="">Start</option>
           {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        <span className="text-[var(--text3)] text-sm shrink-0">–</span>
+        <span className="text-[var(--text3)] text-sm shrink-0">-</span>
         <select value={end} onChange={e => handleEnd(e.target.value)} className={selectClass}>
           <option value="">End</option>
           {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}

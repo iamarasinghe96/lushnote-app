@@ -43,8 +43,8 @@ export function RateLimitBanner({ waitSeconds, onDismiss, onRetry }: RateLimitBa
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-amber-900">
             {ready
-              ? `${label} — ready to retry`
-              : <>{label} — please try again in <span className="font-mono font-bold">{timeStr}</span></>
+              ? `${label} - ready to retry`
+              : <>{label} - please try again in <span className="font-mono font-bold">{timeStr}</span></>
             }
           </p>
           {!ready && (

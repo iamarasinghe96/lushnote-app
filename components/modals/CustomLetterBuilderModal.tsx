@@ -154,7 +154,7 @@ export default function CustomLetterBuilderModal({ open, initial, onSave, onClos
     <Modal open={open} onClose={onClose} title={initial ? 'Edit letter template' : 'Create letter template'} maxWidth="md">
       <div className="px-5 pb-5 space-y-4">
         <p className="text-sm text-[var(--text2)]">
-          Give your letter type a name and the topics it should cover. Saving cleans up the wording of any new or changed topics with AI and builds it into a reusable template — only you can see and use it.
+          Give your letter type a name and the topics it should cover. Saving cleans up the wording of any new or changed topics with AI and builds it into a reusable template - only you can see and use it.
         </p>
 
         <Input label="Title" value={title} maxLength={100} placeholder="e.g. Insurance Support Letter"

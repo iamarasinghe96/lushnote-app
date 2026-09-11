@@ -602,7 +602,7 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
                          border border-transparent rounded-[var(--r)]
                          hover:bg-[#059669] motion-safe:transition-colors"
             >
-              {skipFillsRecord ? 'Skip — add to patient record' : 'Skip, use default note'}
+              {skipFillsRecord ? 'Skip - add to patient record' : 'Skip, use default note'}
             </button>
           )}
         </div>

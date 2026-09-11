@@ -27,7 +27,7 @@ export default function BillingBanner({ profile, uid }: { profile: User; uid: st
 
   const message =
     prompt === 'paywalled'
-      ? 'Note creation is paused. Add your payment details to restore access — your notes stay available either way.'
+      ? 'Note creation is paused. Add your payment details to restore access - your notes stay available either way.'
       : prompt === 'trialReminderDue'
         ? 'Your free trial has ended. Add your payment details this week to keep creating notes.'
         : `Your free trial ends${trialEnd ? ` on ${trialEnd}` : ' in a week'}. Add your payment details to keep going.`

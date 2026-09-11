@@ -158,7 +158,7 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
           )}
           {ownKey ? (
             <p className="text-xs text-[var(--text3)]">
-              Counted from Google&apos;s own response on every call, so these are exact. Your key runs on Google&apos;s quota — check your remaining allowance in <ExternalLink href="https://aistudio.google.com/app/apikey">AI Studio</ExternalLink>.
+              Counted from Google&apos;s own response on every call, so these are exact. Your key runs on Google&apos;s quota - check your remaining allowance in <ExternalLink href="https://aistudio.google.com/app/apikey">AI Studio</ExternalLink>.
             </p>
           ) : usedToday >= GEMINI_RPD ? (
             <p className="text-xs text-orange-500">Limit reached - add a Groq key to continue.</p>

@@ -173,7 +173,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
             aria-label="Home"
             className="shrink-0 rounded-full motion-safe:transition-transform motion-safe:active:scale-95"
           >
-            <img src="/LushNote_Logo.svg" alt="LushNote — Home" className="w-10 h-10 rounded-full" />
+            <img src="/LushNote_Logo.svg" alt="LushNote - Home" className="w-10 h-10 rounded-full" />
           </button>
           {profile && (
             <div className={`flex flex-col min-w-0${holiday ? ' ln-holiday-text' : ''}`}>

@@ -138,7 +138,7 @@ function appendUnfiled(source: string, fields: Record<string, unknown>): Record<
 
 // Shown when every provider is exhausted. Plain language, and it tells the
 // doctor what they can actually do about it.
-const AI_LIMIT_MESSAGE = 'Dear doctor — our free AI usage limit has been reached for now. Please try again later today, or tomorrow. To keep working straight away, add your own Gemini or Groq API key in Settings → API Keys.'
+const AI_LIMIT_MESSAGE = 'Dear doctor, our free AI usage limit has been reached for now. Please try again later today, or tomorrow. To keep working straight away, add your own Gemini or Groq API key in Settings → API Keys.'
 const AI_UNAVAILABLE = 'ai-unavailable'
 
 // Why nothing could answer. A doctor using her OWN Gemini key was being told a
@@ -159,13 +159,13 @@ function aiFailureMessage(err: unknown): string {
     return 'No API key reached the server. Open Settings → API Keys, paste your Gemini key and press Save key, then try again.'
   }
   if (reason === 'gemini-busy') {
-    return 'Google reported that Gemini is busy right now — nothing is wrong with your key or your quota. Wait a minute and try again.'
+    return 'Google reported that Gemini is busy right now - nothing is wrong with your key or your quota. Wait a minute and try again.'
   }
   if (reason === 'all-providers') {
-    return 'Both Groq and Gemini refused this note — your keys and quotas are fine, but neither provider would answer. Wait a minute and try again; if it keeps happening, the Logs page in the admin console has what each one said.'
+    return 'Both Groq and Gemini refused this note - your keys and quotas are fine, but neither provider would answer. Wait a minute and try again; if it keeps happening, the Logs page in the admin console has what each one said.'
   }
   if (reason === 'user-key-throttled') {
-    return 'Google is throttling your Gemini key — its free tier allows only a few requests per minute, and a note takes several. Wait about a minute and try again.'
+    return 'Google is throttling your Gemini key - its free tier allows only a few requests per minute, and a note takes several. Wait about a minute and try again.'
   }
   if (reason === 'user-key-quota') {
     return 'Your own Gemini API key has hit its daily limit with Google. It resets at midnight US Pacific time. Adding a Groq key in Settings → API Keys keeps you working until then.'
@@ -393,7 +393,7 @@ ${transcript}`
           }
           if (formFields) return NextResponse.json({ formFields })
         }
-        return NextResponse.json({ error: 'The AI reply came back garbled. Please try again — it usually works on a second attempt.' }, { status: 502 })
+        return NextResponse.json({ error: 'The AI reply came back garbled. Please try again - it usually works on a second attempt.' }, { status: 502 })
       } catch (err) {
         if (err instanceof Error && err.message === AI_UNAVAILABLE) {
           return NextResponse.json({ error: aiFailureMessage(err) }, { status: 429 })
@@ -628,7 +628,7 @@ ${transcript}`
 
         if (patientFields) return NextResponse.json({ patientFields: appendUnfiled(transcript, patientFields) })
         logToSink({ level: 'error', tag: 'blocked', route: '/api/generate', uid, status: 502, message: 'reply could not be parsed after every attempt' })
-        return NextResponse.json({ error: 'The AI reply came back garbled. Please try again — it usually works on a second attempt.' }, { status: 502 })
+        return NextResponse.json({ error: 'The AI reply came back garbled. Please try again - it usually works on a second attempt.' }, { status: 502 })
       } catch (err) {
         if (err instanceof Error && err.message === AI_UNAVAILABLE) {
           logToSink({ level: 'error', tag: 'blocked', route: '/api/generate', uid, status: 429, message: `no provider completed the note (${err instanceof AiUnavailable ? err.reason : 'exhausted'})` })
@@ -808,7 +808,7 @@ ${transcript}`
           }
           if (letterFields) return NextResponse.json({ letterFields })
         }
-        return NextResponse.json({ error: 'The AI reply came back garbled. Please try again — it usually works on a second attempt.' }, { status: 502 })
+        return NextResponse.json({ error: 'The AI reply came back garbled. Please try again - it usually works on a second attempt.' }, { status: 502 })
       } catch (err) {
         if (err instanceof Error && err.message === AI_UNAVAILABLE) {
           return NextResponse.json({ error: aiFailureMessage(err) }, { status: 429 })
@@ -854,7 +854,7 @@ ${transcript}`
     const entitlement = resolveEntitlement(profile?.billing, Date.now())
     if (!entitlement.entitled) {
       logToSink({ level: 'info', tag: 'billing', route: '/api/generate', uid: uid, status: 402, message: `blocked: ${entitlement.reason}` })
-      return NextResponse.json({ error: 'Your LushNote subscription needs attention — note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: entitlement.state }, { status: 402 })
+      return NextResponse.json({ error: 'Your LushNote subscription needs attention - note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: entitlement.state }, { status: 402 })
     }
 
     // Redact identifiable information before the transcript reaches any AI model.
