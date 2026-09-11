@@ -117,7 +117,7 @@ export default function ScanNoteModal({ open, uid, onClose, onScanned }: ScanNot
     <Modal open={open} onClose={busy ? () => {} : onClose} title="Scan a ward note" maxWidth="lg">
       <div className="px-5 pb-5 space-y-4">
         <p className="text-xs text-[var(--text2)]">
-          Photograph the whole page, straight on and well lit. The photo is read and discarded — it is never stored.
+          Photograph the whole page, straight on and well lit. The photo is read and discarded - it is never stored.
         </p>
 
         <input

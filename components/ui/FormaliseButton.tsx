@@ -108,7 +108,7 @@ export default function FormaliseButton({
             // 2026-09-04, not a precaution. The one-line-per-line rule is ALSO
             // enforced in code (applyTidy) because asking was not enough.
             'Do not strengthen uncertainty: "maybe", "?", "query" and "possible" must stay as hedges, and an approximate figure must not become a precise or averaged one.',
-            'Do not substitute a near-synonym for a clinical word — "settles" is not "resolves", "declined" is not "refused".',
+            'Do not substitute a near-synonym for a clinical word - "settles" is not "resolves", "declined" is not "refused".',
             'Expand an abbreviation only to its literal meaning, adding no detail the doctor did not write.',
             'Do not add, infer or remove any clinical detail.',
           ].join(' '),
@@ -120,7 +120,7 @@ export default function FormaliseButton({
       // An empty or errored reply must leave the doctor's text alone. Replacing
       // it with nothing would destroy the draft to report a failure.
       if (!result || result.startsWith('Error:')) {
-        setError('Couldn’t tidy — text unchanged')
+        setError('Couldn’t tidy - text unchanged')
         return
       }
       // One reply per line sent, or nothing at all. A mismatch means there is no
@@ -128,7 +128,7 @@ export default function FormaliseButton({
       // misrouted reply would move one paragraph's prose into another.
       const applied = applyTidy(effective, plan, result)
       if (!applied) {
-        setError('Tidy skipped — text unchanged')
+        setError('Tidy skipped - text unchanged')
         return
       }
       // Structure is checked per field BEFORE anything is written, so a merged
@@ -153,7 +153,7 @@ export default function FormaliseButton({
       setPrevious(before)
       setTidied(prev => ({ ...prev, ...applied.updates }))
     } catch {
-      setError('Couldn’t tidy — text unchanged')
+      setError('Couldn’t tidy - text unchanged')
     } finally {
       setWorking(false)
     }

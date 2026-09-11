@@ -96,7 +96,7 @@ function SetupForm({ onDone, price }: Props) {
       </button>
 
       <p className="text-[11px] text-[var(--text3)]">
-        Nothing is charged today. LushNote never sees or stores your card or bank numbers — they go straight to Stripe.
+        Nothing is charged today. LushNote never sees or stores your card or bank numbers - they go straight to Stripe.
       </p>
     </form>
   )

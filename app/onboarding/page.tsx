@@ -322,7 +322,7 @@ export default function OnboardingPage() {
         <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#e2e8f0]">
           {resumed && (
             <div className="mb-4 rounded-xl border border-[#10b981]/40 bg-[#f0fdf4] px-4 py-3 text-sm text-[#065f46]">
-              Welcome back — we kept what you had already filled in. Check it still looks right as you go.
+              Welcome back - we kept what you had already filled in. Check it still looks right as you go.
             </div>
           )}
 
@@ -952,7 +952,7 @@ function Step5({
           className="mt-0.5 h-4 w-4 rounded accent-[#10b981] shrink-0 cursor-pointer"
         />
         <span className="text-sm text-[#475569] leading-relaxed">
-          Keep me updated with occasional product news and tips by email. Optional — you can opt out any time.
+          Keep me updated with occasional product news and tips by email. Optional - you can opt out any time.
         </span>
       </label>
 
@@ -988,7 +988,7 @@ function StepSignature({
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-[#0f172a]">Your signature</h2>
       <p className="text-sm text-[#475569]">
-        Optional — upload a photo of your handwritten signature and we&apos;ll add it to your letters.
+        Optional - upload a photo of your handwritten signature and we&apos;ll add it to your letters.
         You can also do this later in Settings.
       </p>
       <SignatureUploader

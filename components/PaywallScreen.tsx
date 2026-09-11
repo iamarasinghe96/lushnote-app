@@ -30,7 +30,7 @@ export default function PaywallScreen({ state }: { state: EntitlementState }) {
 
       <p className="text-sm text-[var(--text2)] max-w-sm">
         Creating and editing notes is paused until billing is set up. Your existing notes, patients and
-        exports remain fully available — clinical records are never locked away.
+        exports remain fully available - clinical records are never locked away.
       </p>
 
       <div className="flex flex-wrap gap-2 justify-center pt-1">
@@ -51,7 +51,7 @@ export default function PaywallScreen({ state }: { state: EntitlementState }) {
       </div>
 
       <p className="text-xs text-[var(--text3)] max-w-sm pt-1">
-        If you&apos;re rural or going through a tough financial period, reach out — cost will never be the
+        If you&apos;re rural or going through a tough financial period, reach out - cost will never be the
         reason you can&apos;t use LushNote.
       </p>
     </div>

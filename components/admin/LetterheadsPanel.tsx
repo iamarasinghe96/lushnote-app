@@ -87,7 +87,7 @@ export default function LetterheadsPanel() {
     if (footerInputRef.current) footerInputRef.current.value = ''
     setTab('letterheads')
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
-    setToast('Organisation prefilled — upload new images to replace.')
+    setToast('Organisation prefilled - upload new images to replace.')
   }
   function readFileAsDataUrl(file: File): Promise<string> {
     return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result as string); reader.onerror = reject; reader.readAsDataURL(file) })

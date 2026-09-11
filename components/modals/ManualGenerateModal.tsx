@@ -76,7 +76,7 @@ export default function ManualGenerateModal({ open, buildPrompt, onApply, onClos
             <span className="text-sm font-medium text-[var(--text)]">Copy the prompt</span>
           </div>
           <Button variant="secondary" size="md" onClick={handleCopy} className="w-full">
-            {copied ? 'Copied — paste into Gemini or ChatGPT' : 'Copy prompt'}
+            {copied ? 'Copied - paste into Gemini or ChatGPT' : 'Copy prompt'}
           </Button>
         </div>
 

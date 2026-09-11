@@ -60,7 +60,7 @@ async function handlePOST(req: NextRequest) {
     }
     if (!access.entitlement.entitled) {
       logToSink({ level: 'info', tag: 'billing', route: '/api/transcribe', uid: uidField, status: 402, message: `blocked: ${access.entitlement.reason}` })
-      return NextResponse.json({ error: 'Your LushNote subscription needs attention — note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: access.entitlement.state }, { status: 402 })
+      return NextResponse.json({ error: 'Your LushNote subscription needs attention - note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: access.entitlement.state }, { status: 402 })
     }
 
     const buffer = Buffer.from(await audio.arrayBuffer())

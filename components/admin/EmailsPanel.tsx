@@ -22,7 +22,7 @@ const TYPES = LIFECYCLE_TYPES
 interface Template { subject: string; body: string; customised: boolean }
 interface LogRow { id: string; uid: string; email: string; type: EmailType; subject: string; ok: boolean; error?: string | null; at: number }
 
-const when = (ms: number) => { try { return new Date(ms).toLocaleString() } catch { return '—' } }
+const when = (ms: number) => { try { return new Date(ms).toLocaleString() } catch { return '-' } }
 
 export default function EmailsPanel() {
   const { user } = useAuth()
@@ -108,7 +108,7 @@ export default function EmailsPanel() {
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
       {!configured && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Email isn&apos;t configured on the server yet. Set <code>ZOHO_SMTP_USER</code> and <code>ZOHO_SMTP_PASS</code> in Vercel — nothing will send until then.
+          Email isn&apos;t configured on the server yet. Set <code>ZOHO_SMTP_USER</code> and <code>ZOHO_SMTP_PASS</code> in Vercel - nothing will send until then.
         </div>
       )}
 
@@ -119,7 +119,7 @@ export default function EmailsPanel() {
             className="ml-auto px-3 py-2 rounded-lg border border-[var(--border)] text-sm text-[#475569] disabled:opacity-50">Refresh</button>
         </div>
         <p className="text-xs text-[#94a3b8]">
-          These send automatically — the welcome the moment a doctor finishes signing up, the rest on the daily 9am job. Nothing here needs to be triggered by hand.
+          These send automatically - the welcome the moment a doctor finishes signing up, the rest on the daily 9am job. Nothing here needs to be triggered by hand.
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {TYPES.map(t => {
@@ -162,7 +162,7 @@ export default function EmailsPanel() {
 
         <p className="text-xs text-[#94a3b8]">
           Placeholders: {PLACEHOLDERS.map(p => <code key={p} className="mr-2">{p}</code>)}
-          — blank lines separate paragraphs, and <code>[label](https://…)</code> becomes a link. The unsubscribe footer is added automatically.
+          - blank lines separate paragraphs, and <code>[label](https://…)</code> becomes a link. The unsubscribe footer is added automatically.
         </p>
 
         <div className="flex flex-wrap gap-2 items-center">

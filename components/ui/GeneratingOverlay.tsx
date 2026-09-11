@@ -29,7 +29,7 @@ export function GeneratingOverlay({ noun = 'note' }: { noun?: string }) {
       </svg>
       <div>
         <div className="text-sm font-semibold text-[var(--text)] motion-safe:transition-opacity">{steps[i]}…</div>
-        <div className="text-xs text-[var(--text3)] mt-1">This takes a few seconds — please stay on this screen.</div>
+        <div className="text-xs text-[var(--text3)] mt-1">This takes a few seconds - please stay on this screen.</div>
       </div>
     </div>
   )

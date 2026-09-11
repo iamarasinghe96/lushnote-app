@@ -21,8 +21,8 @@ interface UserRow {
 }
 interface UserDetail extends UserRow { noteCount: number; patientCount: number; authDisabled: boolean | null; lastSignIn: number | null }
 
-const day = (ms: number | null) => (ms ? new Date(ms).toLocaleDateString() : '—')
-const dt = (ms: number | null) => (ms ? new Date(ms).toLocaleString() : '—')
+const day = (ms: number | null) => (ms ? new Date(ms).toLocaleDateString() : '-')
+const dt = (ms: number | null) => (ms ? new Date(ms).toLocaleString() : '-')
 
 function StatusBadge({ status }: { status: string }) {
   const s = status === 'disabled'
@@ -122,7 +122,7 @@ export default function UsersPanel() {
   const gemini = (() => {
     const g = selected?.geminiUsage as Record<string, { count?: number; tokens?: number; promptTokens?: number; outputTokens?: number; thoughtsTokens?: number; date?: string }> | null
     const f = g?.['gemini-2.5-flash']
-    if (!f) return '—'
+    if (!f) return '-'
     // Google's own counts, straight off each response — never estimated.
     const parts = [`${f.count ?? 0} req`]
     if (f.tokens) parts.push(`${f.tokens.toLocaleString()} tok`)
@@ -144,11 +144,11 @@ export default function UsersPanel() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <Field label="Email" value={selected.email} />
-            <Field label="Credentials" value={selected.credentials || '—'} />
-            <Field label="Workplace" value={selected.workplaces[0]?.name || '—'} />
-            <Field label="Position" value={selected.position || '—'} />
-            <Field label="Notes" value={selected.noteCount < 0 ? '—' : String(selected.noteCount)} />
-            <Field label="Patients" value={selected.patientCount < 0 ? '—' : String(selected.patientCount)} />
+            <Field label="Credentials" value={selected.credentials || '-'} />
+            <Field label="Workplace" value={selected.workplaces[0]?.name || '-'} />
+            <Field label="Position" value={selected.position || '-'} />
+            <Field label="Notes" value={selected.noteCount < 0 ? '-' : String(selected.noteCount)} />
+            <Field label="Patients" value={selected.patientCount < 0 ? '-' : String(selected.patientCount)} />
             <Field label="Gemini usage" value={gemini} />
             <div>
               <p className="text-[11px] uppercase tracking-wide text-[#94a3b8]">AI errors</p>
@@ -169,11 +169,11 @@ export default function UsersPanel() {
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-[11px] uppercase tracking-wide text-[#94a3b8]">Subscription</p>
                 {selected.billingSummary.billingExempt && (
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Exempt — permanently free</span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Exempt - permanently free</span>
                 )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                <Field label="Status" value={selected.billingSummary.paused ? 'paused' : (selected.billingSummary.subscriptionStatus ?? '—')} />
+                <Field label="Status" value={selected.billingSummary.paused ? 'paused' : (selected.billingSummary.subscriptionStatus ?? '-')} />
                 <Field label="Trial ends" value={day(selected.billingSummary.trialEndsAt)} />
                 <Field label={selected.billingSummary.cancelAtPeriodEnd ? 'Access ends' : 'Renews'} value={day(selected.billingSummary.currentPeriodEnd)} />
                 <Field label="Payment method" value={
@@ -181,7 +181,7 @@ export default function UsersPanel() {
                     ? `${selected.billingSummary.paymentMethodType === 'au_becs_debit' ? 'Bank account' : 'Card'} (${selected.billingSummary.paymentMethodStatus})`
                     : 'None'
                 } />
-                <Field label="Country" value={selected.billingSummary.country ?? '—'} />
+                <Field label="Country" value={selected.billingSummary.country ?? '-'} />
                 <Field label="Paywalled" value={selected.billingSummary.paywalledAt ? day(selected.billingSummary.paywalledAt) : 'No'} />
               </div>
               <div className="flex flex-wrap gap-3 items-center pt-1">
@@ -203,7 +203,7 @@ export default function UsersPanel() {
             </div>
           )}
 
-          <p className="text-[11px] text-[#94a3b8]">Clinical content is never shown here — counts only, to preserve patient confidentiality.</p>
+          <p className="text-[11px] text-[#94a3b8]">Clinical content is never shown here - counts only, to preserve patient confidentiality.</p>
           <div className="flex flex-wrap gap-2 pt-1">
             {selected.status === 'disabled'
               ? <button disabled={busy} onClick={() => doAction('reactivate', selected.uid)} className="px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm disabled:opacity-50">Reactivate</button>

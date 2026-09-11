@@ -15,8 +15,8 @@ const LEVEL_STYLE: Record<string, string> = {
 }
 
 function when(ms: number | null): string {
-  if (!ms) return '—'
-  try { return new Date(ms).toLocaleString() } catch { return '—' }
+  if (!ms) return '-'
+  try { return new Date(ms).toLocaleString() } catch { return '-' }
 }
 
 // `initialSearch` lets another panel hand over a uid, so a doctor's failures are

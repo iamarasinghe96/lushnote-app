@@ -1344,7 +1344,7 @@ export default function PatientsPage() {
                           ? 'bg-[var(--blue)] text-white border-[var(--blue)]'
                           : 'border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)]'}`}
                     >
-                      {s === 'recent' ? 'Recent' : s === 'az' ? 'A–Z' : 'Most Visits'}
+                      {s === 'recent' ? 'Recent' : s === 'az' ? 'A-Z' : 'Most Visits'}
                     </button>
                   ))}
                   <button

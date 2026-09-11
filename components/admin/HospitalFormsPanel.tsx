@@ -54,7 +54,7 @@ export default function HospitalFormsPanel() {
     setName(f.name); setCampuses(f.organizationKeys); setGeometryText(JSON.stringify(f.geometry, null, 2))
     setPages(f.pageBackgrounds.map(() => null)); setDateColLabel(f.labels.dateCol); setNotesColLabel(f.labels.notesCol)
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
-    setToast('Loaded — re-upload page images only if you want to replace them.')
+    setToast('Loaded - re-upload page images only if you want to replace them.')
   }
   async function handleUpload() {
     if (!name.trim()) { setToast('Form name required'); return }
@@ -114,7 +114,7 @@ export default function HospitalFormsPanel() {
         </div>
 
         <div>
-          <label className="text-xs font-medium text-[#475569]">Geometry (mm) — tune to match the uploaded background</label>
+          <label className="text-xs font-medium text-[#475569]">Geometry (mm) - tune to match the uploaded background</label>
           <textarea value={geometryText} onChange={e => setGeometryText(e.target.value)} rows={12} className="mt-1 w-full text-xs font-mono border border-[var(--border)] rounded-lg px-3 py-2 bg-white outline-none focus:border-[#2563eb]" />
         </div>
 

@@ -109,7 +109,7 @@ export default function CaptureReviewCard({
               onChange={e => onPatientNameChange(e.target.value)}
               placeholder="Who is this about?"
               autoComplete="off"
-              hint={patientName ? undefined : 'Not named in the capture — type it, or add it later'}
+              hint={patientName ? undefined : 'Not named in the capture - type it, or add it later'}
             />
 
             {template && (

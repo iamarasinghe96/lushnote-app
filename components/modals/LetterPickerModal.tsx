@@ -145,7 +145,7 @@ export default function LetterPickerModal({ open, onSelect, onSelectClinicalNote
               <span className="shrink-0 text-lg leading-none">+</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold">Create your own template</p>
-                <p className="text-xs text-[var(--text3)] mt-0.5">Define a reusable letter type — only you can see it</p>
+                <p className="text-xs text-[var(--text3)] mt-0.5">Define a reusable letter type - only you can see it</p>
               </div>
             </button>
           )}

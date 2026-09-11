@@ -220,7 +220,7 @@ export default function SignatureUploader({ existingUrl, onSave, saving }: Props
             {processing ? 'Processing image…' : 'Upload signature photo'}
           </p>
           <p className="text-xs text-[var(--text3)] mt-1">
-            Works on any background — white, grey, or textured paper
+            Works on any background - white, grey, or textured paper
           </p>
         </div>
       )}
