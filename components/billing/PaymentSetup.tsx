@@ -151,7 +151,7 @@ function SetupForm({ onDone, price }: Props) {
 
 export default function PaymentSetup({ onDone, price }: Props) {
   const [clientSecret, setClientSecret] = useState<string | null>(null)
-  const [failed, setFailed] = useState(false)
+  const [failed, setFailed] = useState<string | null>(null)
   const [mismatch, setMismatch] = useState<string | null>(null)
 
   useEffect(() => {
@@ -163,17 +163,22 @@ export default function PaymentSetup({ onDone, price }: Props) {
           headers: await authHeaders(),
           body: JSON.stringify({ action: 'setup-intent' }),
         })
-        const data = await res.json() as { clientSecret?: string | null; mode?: string }
+        const data = await res.json() as { clientSecret?: string | null; mode?: string; error?: string }
         if (!cancelled) {
           // Checked BEFORE the secret is used: a mixed pair renders an empty
           // Payment Element and puts the only real complaint in the console,
           // where a doctor will never see it.
           setMismatch(keyModeMismatch(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, data.mode))
           if (data.clientSecret) setClientSecret(data.clientSecret)
-          else setFailed(true)
+          // The server already knows exactly why and says so in `error`. Throwing
+          // that away and printing "please reload" cost real time twice: a CSP
+          // that blocked Stripe, and a payment method the account had not
+          // activated. Reloading fixes neither, and the page was the only place
+          // anybody was looking.
+          else setFailed(data.error ?? 'unknown')
         }
-      } catch {
-        if (!cancelled) setFailed(true)
+      } catch (e) {
+        if (!cancelled) setFailed(e instanceof Error ? e.message : 'unknown')
       }
     })()
     return () => { cancelled = true }
@@ -192,7 +197,17 @@ export default function PaymentSetup({ onDone, price }: Props) {
     return <p className="rounded-[var(--r)] bg-amber-50 border border-amber-200 px-3 py-2 text-xs leading-relaxed text-amber-800">{mismatch}</p>
   }
   if (failed) {
-    return <p className="text-xs text-[var(--danger)]">Could not start the payment form. Please reload and try again.</p>
+    return (
+      <div className="rounded-[var(--r)] bg-amber-50 border border-amber-200 px-3 py-2 space-y-1">
+        <p className="text-xs font-medium text-amber-900">The payment form could not be started.</p>
+        <p className="text-xs leading-relaxed text-amber-800">
+          Reload to try again. If it keeps happening, send this line to
+          {' '}<a href="mailto:admin@lushnote.com.au" className="underline">admin@lushnote.com.au</a> and
+          it will be fixed at our end, not yours.
+        </p>
+        <p className="text-[11px] font-mono text-amber-900/80 break-words">{failed}</p>
+      </div>
+    )
   }
   if (!clientSecret) {
     return <p className="text-xs text-[var(--text3)]">Loading payment form…</p>

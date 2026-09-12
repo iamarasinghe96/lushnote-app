@@ -375,7 +375,52 @@ async function customerIdFor(uid: string): Promise<string | null> {
  * Stripe only offers au_becs_debit to customers it places in Australia, so a
  * doctor overseas still sees the card tab alone. No branch is needed here.
  */
-export const PAYMENT_METHOD_TYPES = ['card', 'au_becs_debit'] as const
+/** Always offered. A card works for every doctor, anywhere. */
+export const BASE_PAYMENT_METHOD_TYPES = ['card'] as const
+
+/**
+ * What this Stripe account can actually take, asked rather than assumed.
+ *
+ * Naming `au_becs_debit` in `payment_method_types` when the account has not
+ * ACTIVATED it does not quietly omit it: Stripe rejects the whole SetupIntent,
+ * and the billing page then has no form at all. That is what shipped, and for a
+ * while no doctor could add any payment method, not even a card.
+ *
+ * The earlier reasoning was wrong in a way worth recording. `automatic_payment_methods`
+ * showed Card, Pix, Klarna and Satispay and no BECS, and that was read as
+ * "automatic does not surface BECS". The simpler explanation fits both
+ * observations: BECS was never switched on for the account. Automatic offers
+ * what is activated, which is why the three unwanted ones appeared and the
+ * wanted one did not.
+ *
+ * So the dashboard stays the source of truth for ACTIVATION, and the code asks
+ * it. Cached per warm instance: activation changes about once in the life of an
+ * account, and this sits in front of a doctor waiting for a form.
+ */
+let becsCapability: { active: boolean; at: number } | null = null
+const CAPABILITY_TTL_MS = 10 * 60 * 1000
+
+export async function becsAvailable(now = Date.now()): Promise<boolean> {
+  if (becsCapability && now - becsCapability.at < CAPABILITY_TTL_MS) return becsCapability.active
+  try {
+    // retrieveCurrent is the account behind the key; accounts.retrieve(id) is
+    // for Connect, which this is not.
+    const account = await stripe().accounts.retrieveCurrent()
+    const active = account.capabilities?.au_becs_debit_payments === 'active'
+    becsCapability = { active, at: now }
+    return active
+  } catch {
+    // Never let a capability lookup be the reason a doctor cannot pay. A card
+    // alone is a working form; claiming BECS we cannot take is not.
+    return false
+  }
+}
+
+export async function paymentMethodTypesFor(now = Date.now()): Promise<string[]> {
+  return (await becsAvailable(now))
+    ? [...BASE_PAYMENT_METHOD_TYPES, 'au_becs_debit']
+    : [...BASE_PAYMENT_METHOD_TYPES]
+}
 
 export async function createSetupIntent(uid: string): Promise<{ clientSecret: string | null; mode: StripeMode }> {
   const customer = await customerIdFor(uid)
@@ -386,7 +431,7 @@ export async function createSetupIntent(uid: string): Promise<{ clientSecret: st
   const intent = await stripe().setupIntents.create({
     customer,
     usage: 'off_session',
-    payment_method_types: [...PAYMENT_METHOD_TYPES],
+    payment_method_types: await paymentMethodTypesFor(),
     metadata: { uid },
   })
   return { clientSecret: intent.client_secret, mode: stripeMode() }
@@ -623,6 +668,11 @@ export interface PipelineHealth {
    *  The commonest cause is a live price id paired with test keys. */
   priceValid: boolean | null
   priceError: string | null
+  /** Whether the Stripe account has BECS Direct Debit ACTIVATED. Null when it
+   *  could not be read. Shown because the billing page promises "direct debit
+   *  from an Australian bank account" in writing, and nothing else in the app
+   *  reveals that the account cannot actually take one. */
+  becsActive: boolean | null
   /** Webhook deliveries this app actually processed, from the idempotency ledger. */
   events: { last24h: number; last7d: number; latestAt: number | null; latestType: string | null }
   /** How many doctors sit in each entitlement state right now. */
@@ -673,6 +723,11 @@ export async function pipelineHealth(now = Date.now()): Promise<PipelineHealth> 
   // Ask Stripe whether the price exists rather than trusting that the variable
   // is populated. A wrong id fails silently at trial creation, one doctor at a
   // time, which is exactly how it goes unnoticed.
+  let becsActive: boolean | null = null
+  if (stripeEnabled()) {
+    try { becsActive = await becsAvailable(now) } catch { becsActive = null }
+  }
+
   let priceValid: boolean | null = null
   let priceError: string | null = null
   if (stripeEnabled() && process.env.STRIPE_PRICE_ID) {
@@ -692,6 +747,7 @@ export async function pipelineHealth(now = Date.now()): Promise<PipelineHealth> 
     priceConfigured: !!process.env.STRIPE_PRICE_ID,
     priceValid,
     priceError,
+    becsActive,
     events: { last24h, last7d, latestAt, latestType },
     cohorts,
     lastSweep,

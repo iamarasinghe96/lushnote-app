@@ -11,6 +11,7 @@ interface Health {
   priceConfigured: boolean
   priceValid: boolean | null
   priceError: string | null
+  becsActive: boolean | null
   events: { last24h: number; last7d: number; latestAt: number | null; latestType: string | null }
   cohorts: Record<string, number>
   lastSweep: { at: number; scanned: number; trialsStarted: number; paywalled: number; errors: number } | null
@@ -216,9 +217,23 @@ export default function BillingPanel() {
               bad={!health.priceConfigured || health.priceValid === false}
             />
             <Stat label="Webhook secret" value={health.webhookConfigured ? 'Set' : 'Missing'} bad={!health.webhookConfigured} />
+            <Stat
+              label="Direct debit"
+              value={health.becsActive === null ? 'Unknown' : health.becsActive ? 'Active' : 'Not activated'}
+              bad={health.becsActive === false}
+            />
             <Stat label="Events (24h)" value={String(health.events.last24h)} />
-            <Stat label="Events (7d)" value={String(health.events.last7d)} />
           </div>
+
+          {health.becsActive === false && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <strong>BECS Direct Debit is not activated on this Stripe account.</strong> The billing page promises
+              &quot;direct debit from an Australian bank account&quot; in writing, and only a card is actually on offer.
+              Turn it on in the Stripe dashboard under Settings, Payment methods, and it appears by itself - no deploy.
+              Naming it in code while it is off is what broke the payment form entirely, so it is asked for rather
+              than assumed.
+            </div>
+          )}
 
           {health.priceValid === false && (
             <div className="rounded-xl border border-[#dc2626]/30 bg-red-50 px-3 py-2 text-xs text-[#dc2626]">
