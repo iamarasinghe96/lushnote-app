@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withRequest, noteRequest } from '@/lib/requestContext'
 import { mockForCaller, mockOcrResponse } from '@/lib/e2eMock'
 import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
-import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
+import { getProfile, meterGemini, meterGroq } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { resolveEntitlement } from '@/lib/entitlement'
@@ -130,7 +130,7 @@ async function handlePOST(req: NextRequest) {
     const readPage = async (): Promise<OcrReply | null> => {
       const call = async (key?: string) => {
         const { text, usage } = await ocrClinicalImages(images, key)
-        await updateGeminiUsage(uidField, 'gemini-2.5-flash', usage).catch(() => {})
+        await meterGemini(uidField, 'gemini-2.5-flash', usage)
         return text
       }
       let raw: string | null = null

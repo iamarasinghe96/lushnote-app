@@ -39,6 +39,8 @@ interface User {
   recordingDefaults?: RecordingDefaults
   personalisation?: Personalisation
   geminiUsage?: GeminiUsage
+  /** Estimated AI spend by month. Server-written only. */
+  aiCost?: Record<string, AiCostMonth>
   termsAccepted?: boolean
   termsAcceptedAt?: string
   marketingConsent?: boolean   // opt-in for newsletters/product emails (default off)
@@ -479,6 +481,26 @@ interface GeminiUsage {
   }
 }
 
+/**
+ * Estimated AI spend, keyed by month (YYYY-MM, Pacific-aligned to match
+ * quotaDate). Server-written only, via recordAiSpend.
+ *
+ * ESTIMATED: our arithmetic over provider-reported token counts, never an
+ * invoice. Pruned to the most recent 13 months so the profile cannot grow
+ * without bound.
+ */
+interface AiCostMonth {
+  /** Total estimated micro-USD (one millionth of a dollar). */
+  micros: number
+  calls: number
+  /** Calls whose model had no entry in lib/aiCost PRICING. Counted separately
+   *  so a renamed model reads as a gap rather than as free. */
+  unpriced: number
+  gemini: number
+  groq: number
+  updatedAt: number
+}
+
 interface OnboardingState {
   step: 1 | 2 | 3 | 4 | 5
   displayName: string
@@ -531,6 +553,7 @@ type FirestoreTimestamp = {
 }
 
 export type {
+  AiCostMonth,
   User,
   Workplace,
   WorkplaceType,

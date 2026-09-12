@@ -38,6 +38,9 @@ export interface AdminUserRow {
   termsAccepted: boolean
   marketingConsent: boolean
   geminiUsage: unknown
+  /** Estimated AI spend by month. Our arithmetic over token counts, never an
+   *  invoice - the panel must say so wherever it renders this. */
+  aiCost: unknown
   createdAt: number | null
   updatedAt: number | null
   billingSummary?: AdminBillingSummary | null
@@ -95,6 +98,7 @@ export function redactUser(uid: string, d: Record<string, unknown>): AdminUserRo
     termsAccepted: d.termsAccepted === true,
     marketingConsent: d.marketingConsent === true,
     geminiUsage: d.geminiUsage ?? null,
+    aiCost: d.aiCost ?? null,
     // A summary, not the map: no consent IP, no mandate id. The Stripe ids are
     // here because the panel links to the dashboard with them, and they are
     // identifiers rather than secrets.
@@ -137,7 +141,7 @@ export async function detailAdminUser(uid: string): Promise<AdminUserDetail | nu
   const row: AdminUserRow = base ?? {
     uid, email: authRec?.email ?? '', displayName: authRec?.displayName ?? '', credentials: '',
     status: 'pending', tier: 'free', workplaces: [], onboardingComplete: false,
-    termsAccepted: false, marketingConsent: false, geminiUsage: null,
+    termsAccepted: false, marketingConsent: false, geminiUsage: null, aiCost: null,
     createdAt: authRec?.metadata?.creationTime ? Date.parse(authRec.metadata.creationTime) : null, updatedAt: null,
   }
   return {

@@ -8,7 +8,8 @@
 import Stripe from 'stripe'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase-admin'
-import { resolveEntitlement, GRACE_MS, type Billing, type Entitlement } from '@/lib/entitlement'
+import { resolveEntitlement, GRACE_MS, type Billing, type Entitlement, type EntitlementState } from '@/lib/entitlement'
+import { monthKey } from '@/lib/utils'
 
 // The secret key IS the feature flag. Without it every billing path no-ops and
 // the app behaves exactly as it did before monetization — which is what keeps
@@ -900,4 +901,60 @@ export async function reprojectUser(uid: string): Promise<boolean> {
     ? await projectSubscription(billing.subscriptionId)
     : await projectCustomer(billing.stripeCustomerId)
   return !!result
+}
+
+// ── AI cost roll-up ────────────────────────────────────────────────────────
+
+export interface AiCostReport {
+  month: string
+  totalMicros: number
+  totalCalls: number
+  unpricedCalls: number
+  doctorsWithSpend: number
+  /** Most expensive first, capped. Named so the admin can go and talk to them,
+   *  which is the intended remedy long before any ceiling is. */
+  top: { uid: string; email: string; micros: number; calls: number; state: EntitlementState }[]
+}
+
+/**
+ * What every doctor cost this month, from the profiles the app already writes.
+ *
+ * Reads users/{uid}.aiCost rather than any provider's billing API: this is the
+ * same estimate the routes recorded, so the total and the per-doctor figures can
+ * never disagree with each other. It will not match Google's invoice, and every
+ * surface that renders it has to say so.
+ */
+export async function aiCostReport(month = monthKey(), limit = 10): Promise<AiCostReport> {
+  const out: AiCostReport = {
+    month, totalMicros: 0, totalCalls: 0, unpricedCalls: 0, doctorsWithSpend: 0, top: [],
+  }
+  try {
+    const snap = await adminDb().collection('users').limit(2000).get()
+    const rows: AiCostReport['top'] = []
+    for (const d of snap.docs) {
+      const data = d.data() as {
+        email?: string
+        billing?: Billing
+        aiCost?: Record<string, { micros?: number; calls?: number; unpriced?: number }>
+      }
+      const m = data.aiCost?.[month]
+      if (!m) continue
+      const micros = m.micros ?? 0
+      const calls = m.calls ?? 0
+      out.totalMicros += micros
+      out.totalCalls += calls
+      out.unpricedCalls += m.unpriced ?? 0
+      out.doctorsWithSpend += 1
+      rows.push({
+        uid: d.id,
+        email: typeof data.email === 'string' ? data.email : '',
+        micros,
+        calls,
+        state: resolveEntitlement(data.billing, Date.now()).state,
+      })
+    }
+    rows.sort((a, b) => b.micros - a.micros)
+    out.top = rows.slice(0, limit)
+  } catch { /* an empty report is honest; a guessed one is not */ }
+  return out
 }

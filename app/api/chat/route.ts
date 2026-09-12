@@ -3,7 +3,7 @@ import { withRequest, noteRequest } from '@/lib/requestContext'
 import { mockForCaller, mockChatResponse } from '@/lib/e2eMock'
 import { chatResponse, checkQuota, GEMINI_RATE_LIMIT_ERROR, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
 import { generateNoteGroq } from '@/lib/groq'
-import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
+import { getProfile, meterGemini, meterGroq } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { resolveEntitlement } from '@/lib/entitlement'
@@ -109,7 +109,7 @@ Keep responses concise and practical.`
           ]
           const { text: answer, usage } = await chatResponse(messages, systemPrompt)
           if (uid && typeof uid === 'string') {
-            await updateGeminiUsage(uid, 'chat', usage).catch(() => {})
+            await meterGemini(uid, 'chat', usage)
           }
           return NextResponse.json({ answer, provider: 'gemini' })
         } catch (err) {
@@ -217,7 +217,7 @@ Respond ONLY as strict JSON with no other text:
         try {
           const { text: answer, usage } = await chatResponse(messages, systemPrompt)
           if (answer.trim()) {
-            if (uid && typeof uid === 'string') await updateGeminiUsage(uid, 'chat', usage).catch(() => {})
+            if (uid && typeof uid === 'string') await meterGemini(uid, 'chat', usage)
             return NextResponse.json({ answer, provider: 'gemini' })
           }
         } catch (err) {
@@ -290,7 +290,7 @@ Return ONLY the system prompt text, nothing else - no explanation, no preamble.`
         try {
           const { text: systemPrompt, usage } = await chatResponse(msgs, engineerSystemPrompt)
           if (uid && typeof uid === 'string') {
-            await updateGeminiUsage(uid, 'chat', usage).catch(() => {})
+            await meterGemini(uid, 'chat', usage)
           }
           return NextResponse.json({ systemPrompt, provider: 'gemini' })
         } catch (err) {
@@ -426,8 +426,9 @@ Return ONLY strict JSON, no markdown, no commentary:
       if (process.env.GEMINI_API_KEY) {
         try {
           const msgs: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }> = [{ role: 'user', parts: [{ text: rawInput }] }]
-          const { text: result } = await chatResponse(msgs, systemPrompt)
-          if (uid && typeof uid === 'string') await updateGeminiUsage(uid, 'chat', 0).catch(() => {})
+          const { text: result, usage } = await chatResponse(msgs, systemPrompt)
+          // Was `0`, so every standardise call was counted as free.
+          if (uid && typeof uid === 'string') await meterGemini(uid, 'chat', usage)
           return NextResponse.json({ result, provider: 'gemini' })
         } catch { /* fall through to Groq */ }
       }
@@ -486,7 +487,7 @@ Return ONLY strict JSON, no markdown, no commentary:
       if (checkQuota(quota, 'chat')) {
         try {
           const { text: reply, usage } = await chatResponse(messages, systemPrompt)
-          await updateGeminiUsage(uid, 'chat', usage).catch(() => {})
+          await meterGemini(uid, 'chat', usage)
           return NextResponse.json({ reply, provider: 'gemini' })
         } catch (err) {
           // A momentary stumble is not the doctor's quota: it used to peg their

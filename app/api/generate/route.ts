@@ -3,7 +3,7 @@ import { withRequest, noteRequest } from '@/lib/requestContext'
 import { mockForCaller, mockGenerateResponse } from '@/lib/e2eMock'
 import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
 import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
-import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
+import { getProfile, meterGemini, meterGroq } from '@/lib/firestore/profiles-admin'
 import { rateLimit } from '@/lib/rateLimit'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import { logToSink } from '@/lib/firestore/systemLogs'
@@ -221,7 +221,8 @@ async function runExtraction(opts: {
 
   if (groqKey && !preferGemini) {
     try {
-      const { content } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
+      const { content, totalTokens } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
+      if (uid) void meterGroq(uid, totalTokens)
       return { content, provider: 'groq' }
     } catch (err) {
       groqFailed = true
@@ -238,14 +239,14 @@ async function runExtraction(opts: {
   if (userGeminiKey) {
     try {
       let { text, usage, finishReason } = await generateNote(prompt, system, userGeminiKey, { temperature: EXTRACTION_TEMPERATURE, json: true })
-      if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
+      if (uid) await meterGemini(uid, 'gemini-2.5-flash', usage)
       // A reply that stopped at the ceiling is a half-written object, and no
       // amount of repairing makes one parse. Google says so explicitly, so the
       // one retry is spent on a real signal rather than on a hunch.
       if (finishReason === 'MAX_TOKENS') {
         logToSink({ level: 'warn', tag: 'gemini-key', route: '/api/generate', uid, message: `truncated at ceiling (thoughts=${usage.thoughts}, output=${usage.output}) — retrying uncapped` })
         const retry = await generateNote(prompt, system, userGeminiKey, { temperature: EXTRACTION_TEMPERATURE, json: true, uncapped: true })
-        if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', retry.usage).catch(() => {})
+        if (uid) await meterGemini(uid, 'gemini-2.5-flash', retry.usage)
         text = retry.text; finishReason = retry.finishReason
       }
       return { content: text, provider: 'gemini', finishReason }
@@ -271,7 +272,7 @@ async function runExtraction(opts: {
     if (!uid || checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')) {
       try {
         const { text, usage, finishReason } = await generateNote(prompt, system, undefined, { temperature: EXTRACTION_TEMPERATURE, json: true })
-        if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
+        if (uid) await meterGemini(uid, 'gemini-2.5-flash', usage)
         return { content: text, provider: 'gemini', finishReason }
       } catch (err) {
         logToSink({ level: 'warn', tag: 'gemini-shared', route: '/api/generate', uid, message: describeGeminiError(err) })
@@ -282,7 +283,8 @@ async function runExtraction(opts: {
   // Gemini-first jobs still fall back to Groq rather than failing outright.
   if (groqKey && preferGemini) {
     try {
-      const { content } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
+      const { content, totalTokens } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
+      if (uid) void meterGroq(uid, totalTokens)
       return { content, provider: 'groq' }
     } catch (err) {
       logToSink({ level: 'warn', tag: 'groq', route: '/api/generate', uid, message: err instanceof Error ? err.message.slice(0, 300) : 'unknown' })
@@ -889,7 +891,7 @@ ${transcript}`
     if (userGeminiKey) {
       try {
         const { text: content, usage } = await generateNote(prompt, effectiveSystemPrompt, userGeminiKey)
-        await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
+        await meterGemini(uid, 'gemini-2.5-flash', usage)
         return NextResponse.json({ content, provider: 'gemini' })
       } catch (err) {
         const m = err instanceof Error ? err.message : ''
@@ -912,7 +914,7 @@ ${transcript}`
       if (checkQuota(quota, 'gemini-2.5-flash')) {
         try {
           const { text: content, usage } = await generateNote(prompt, effectiveSystemPrompt)
-          await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
+          await meterGemini(uid, 'gemini-2.5-flash', usage)
           // Their OWN key was daily-exhausted and ours carried this note. The
           // doctor has hit their limit even though nothing visibly failed.
           return NextResponse.json({ content, provider: 'gemini', geminiDailyLimit: geminiDaily })
@@ -961,6 +963,7 @@ ${transcript}`
 
     try {
       const { content, totalTokens } = await generateNoteGroq(prompt, effectiveSystemPrompt, groqKey)
+      void meterGroq(uid, totalTokens)
       // Only the shared path is logged: a doctor on their own key is
       // unremarkable, while every request on ours is a cost worth counting
       // without reading server logs.
