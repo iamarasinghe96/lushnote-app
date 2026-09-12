@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import type { ReactNode } from 'react'
@@ -38,7 +38,27 @@ const PANELS: Record<SectionKey, (q: string) => ReactNode> = {
   logs: q => <LogsPanel initialSearch={q} />,
 }
 
+function Spinner() {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-white">
+      <svg width="32" height="32" viewBox="0 0 24 24" className="animate-spin text-[#10b981]" aria-hidden><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25" /><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" /></svg>
+    </div>
+  )
+}
+
+// useSearchParams (via useUrlTab) opts this page out of static rendering, and
+// Next requires the boundary to be explicit: without it the BUILD fails with
+// "useSearchParams() should be wrapped in a suspense boundary at page /admin".
+// /settings and /billing already do exactly this, for the same reason.
 export default function AdminPage() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <AdminConsole />
+    </Suspense>
+  )
+}
+
+function AdminConsole() {
   const { user, loading } = useAuth()
   const router = useRouter()
   // Reads ?section= on arrival AND writes it on every switch, so the address
@@ -102,13 +122,7 @@ export default function AdminPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user])
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-white">
-        <svg width="32" height="32" viewBox="0 0 24 24" className="animate-spin text-[#10b981]" aria-hidden><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25" /><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" /></svg>
-      </div>
-    )
-  }
+  if (loading) return <Spinner />
   if (!user || user.uid !== ADMIN_UID) return null
 
   return (
