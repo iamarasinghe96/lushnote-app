@@ -10,6 +10,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase-admin'
 import { resolveEntitlement, GRACE_MS, type Billing, type Entitlement, type EntitlementState } from '@/lib/entitlement'
 import { monthKey } from '@/lib/utils'
+import { proGeminiKey } from '@/lib/serverAiKeys'
 
 // The secret key IS the feature flag. Without it every billing path no-ops and
 // the app behaves exactly as it did before monetization — which is what keeps
@@ -311,18 +312,38 @@ export async function startTrial(uid: string): Promise<StartTrialResult> {
  * loaded already. Everywhere the profile is in hand, call `resolveEntitlement`
  * on it directly instead — a second read of the same document buys nothing.
  */
-export async function getAccessState(uid: string, now = Date.now()): Promise<{ suspended: boolean; entitlement: Entitlement }> {
-  if (!uid) return { suspended: false, entitlement: { entitled: true, state: 'legacy', reason: 'no uid' } }
+export interface AccessState {
+  suspended: boolean
+  entitlement: Entitlement
+  /** This month's estimated AI spend, from the same document. Carried here so
+   *  the Pro key decision costs no extra read. */
+  monthSpendMicros: number
+}
+
+export async function getAccessState(uid: string, now = Date.now()): Promise<AccessState> {
+  const open: AccessState = {
+    suspended: false,
+    entitlement: { entitled: true, state: 'legacy', reason: 'no uid' },
+    monthSpendMicros: 0,
+  }
+  if (!uid) return open
   try {
     const snap = await adminDb().collection('users').doc(uid).get()
-    const data = snap.data() as { status?: string; billing?: Billing } | undefined
+    const data = snap.data() as {
+      status?: string
+      billing?: Billing
+      aiCost?: Record<string, { micros?: number }>
+    } | undefined
     return {
       suspended: data?.status === 'disabled',
       entitlement: resolveEntitlement(data?.billing, now),
+      monthSpendMicros: data?.aiCost?.[monthKey()]?.micros ?? 0,
     }
   } catch {
-    // Never lock a clinician out because a read blipped.
-    return { suspended: false, entitlement: { entitled: true, state: 'legacy', reason: 'billing read failed' } }
+    // Never lock a clinician out because a read blipped. A spend of 0 also fails
+    // OPEN: it keeps a paying doctor on the paid key rather than degrading them
+    // over a Firestore blip.
+    return { ...open, entitlement: { entitled: true, state: 'legacy', reason: 'billing read failed' } }
   }
 }
 
@@ -674,6 +695,10 @@ export interface PipelineHealth {
    *  from an Australian bank account" in writing, and nothing else in the app
    *  reveals that the account cannot actually take one. */
   becsActive: boolean | null
+  /** Whether LUSHNOTE_GEMINI_PRO_KEY is set. Without it every Pro doctor
+   *  silently falls back to their own key and Pro quietly is not happening -
+   *  which is invisible from anywhere else in the app. */
+  proKeyConfigured: boolean
   /** Webhook deliveries this app actually processed, from the idempotency ledger. */
   events: { last24h: number; last7d: number; latestAt: number | null; latestType: string | null }
   /** How many doctors sit in each entitlement state right now. */
@@ -749,6 +774,7 @@ export async function pipelineHealth(now = Date.now()): Promise<PipelineHealth> 
     priceValid,
     priceError,
     becsActive,
+    proKeyConfigured: !!proGeminiKey(),
     events: { last24h, last7d, latestAt, latestType },
     cohorts,
     lastSweep,

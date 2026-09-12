@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button'
 import { updateProfile } from '@/lib/firestore/profiles'
 import { quotaDate, sanitizeApiKey } from '@/lib/utils'
 import type { User } from '@/types'
+import { resolveEntitlement, isProState } from '@/lib/entitlement'
 
 interface ApiKeysPanelProps {
   profile: User
@@ -26,6 +27,10 @@ const GEMINI_RPD = 20
 
 export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProps) {
   const router = useRouter()
+
+  // The same verdict the server reaches - resolveEntitlement is pure precisely
+  // so the two cannot disagree about who is Pro.
+  const isPro = isProState(resolveEntitlement(profile?.billing, Date.now()).state)
 
   const geminiUsage = profile?.geminiUsage?.['gemini-2.5-flash']
   const today = quotaDate()
@@ -94,6 +99,19 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
 
   return (
     <div className="max-w-lg space-y-6">
+      {/* A Pro doctor does not need a key at all. Their own is KEPT rather than
+          cleared, because it is what serves them if we ever have to hand a very
+          heavy month back to them - so the copy says kept, not unused. */}
+      {isPro && (
+        <div className="rounded-[var(--r-lg)] border border-[#10b981]/40 bg-[#10b981]/5 p-4 space-y-1">
+          <p className="text-sm font-semibold text-[var(--text)]">Your subscription covers the AI</p>
+          <p className="text-xs leading-relaxed text-[var(--text2)]">
+            You do not need a key of your own, and there is no daily limit to watch. Any key you have
+            saved below is kept as a backup and is not being used.
+          </p>
+        </div>
+      )}
+
       {/* Gemini */}
       <section className="rounded-[var(--r-lg)] border border-[var(--border)] bg-white p-4 space-y-3"
                style={{ boxShadow: 'var(--shadow-sm)' }}>
@@ -137,11 +155,14 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
             <span className="text-xs font-medium text-[var(--text2)]">
               {ownKey ? 'Requests today' : 'Daily requests'}
             </span>
-            <span className={`text-xs font-bold ${!ownKey && usedToday >= GEMINI_RPD ? 'text-orange-500' : 'text-[var(--text)]'}`}>
-              {ownKey ? usedToday : `${usedToday} / ${GEMINI_RPD}`}
+            {/* The 20-a-day pool does not apply on Pro, so showing a doctor
+                filling it up would be telling them about a limit they no
+                longer have. */}
+            <span className={`text-xs font-bold ${!ownKey && !isPro && usedToday >= GEMINI_RPD ? 'text-orange-500' : 'text-[var(--text)]'}`}>
+              {ownKey || isPro ? usedToday : `${usedToday} / ${GEMINI_RPD}`}
             </span>
           </div>
-          {!ownKey && (
+          {!ownKey && !isPro && (
             <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full ${usedToday >= GEMINI_RPD ? 'bg-orange-400' : 'bg-[var(--blue)]'}`}

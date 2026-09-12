@@ -4,6 +4,8 @@ import { mockForCaller, mockOcrResponse } from '@/lib/e2eMock'
 import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
 import { getProfile, meterGemini, meterGroq } from '@/lib/firestore/profiles-admin'
 import { requireUser, unauthorized } from '@/lib/adminGuard'
+import { resolveAiKeys, proGeminiKey } from '@/lib/serverAiKeys'
+import { monthKey } from '@/lib/utils'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { resolveEntitlement } from '@/lib/entitlement'
@@ -127,7 +129,17 @@ async function handlePOST(req: NextRequest) {
     // Gemini only: reading handwriting is a vision job, and the Groq fallback
     // models are text-only. The doctor's own key first — it is their quota, so it
     // is never gated — then the shared key while the daily pool lasts.
-    const userGeminiKey = req.headers.get('x-gemini-key')
+    // A paying doctor reads ward notes on LushNote's key; a trial doctor on
+    // their own. OCR is Gemini-only - the Groq models are text-only - so there
+    // is no Groq half to this decision.
+    const userGeminiKey = resolveAiKeys({
+      state: entitlement.state,
+      monthSpendMicros: profile?.aiCost?.[monthKey()]?.micros ?? 0,
+      userGeminiKey: req.headers.get('x-gemini-key'),
+      userGroqKey: null,
+      proGeminiKey: proGeminiKey(),
+      sharedGroqKey: null,
+    }).geminiKey
     let userKeyFailure: string | null = null
 
     const readPage = async (): Promise<OcrReply | null> => {

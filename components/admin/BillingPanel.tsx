@@ -13,6 +13,7 @@ interface Health {
   priceValid: boolean | null
   priceError: string | null
   becsActive: boolean | null
+  proKeyConfigured: boolean
   events: { last24h: number; last7d: number; latestAt: number | null; latestType: string | null }
   cohorts: Record<string, number>
   lastSweep: { at: number; scanned: number; trialsStarted: number; paywalled: number; errors: number } | null
@@ -231,12 +232,26 @@ export default function BillingPanel() {
             />
             <Stat label="Webhook secret" value={health.webhookConfigured ? 'Set' : 'Missing'} bad={!health.webhookConfigured} />
             <Stat
+              label="Pro AI key"
+              value={health.proKeyConfigured ? 'Set' : 'Missing'}
+              bad={!health.proKeyConfigured}
+            />
+            <Stat
               label="Direct debit"
               value={health.becsActive === null ? 'Unknown' : health.becsActive ? 'Active' : 'Not activated'}
               bad={health.becsActive === false}
             />
             <Stat label="Events (24h)" value={String(health.events.last24h)} />
           </div>
+
+          {!health.proKeyConfigured && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <strong>LUSHNOTE_GEMINI_PRO_KEY is not set.</strong> Every paying doctor is silently falling
+              back to their own key, so Pro is not actually happening and nothing else in the app would say
+              so. Add it as a server variable in Vercel - never with a NEXT_PUBLIC_ prefix, which would
+              publish it to every visitor.
+            </div>
+          )}
 
           {health.becsActive === false && (
             <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">

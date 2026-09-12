@@ -1118,6 +1118,42 @@ Covered by `tests/unit/capture-intent.test.ts`.
 
 ---
 
+## `pro-keys` — whose AI key serves a request
+
+The one pathway where getting it wrong costs money in both directions: serve a
+trial doctor on LushNote's paid key and we fund three months of their API before
+they decide anything; refuse a paying doctor and they are back to 20 notes a day
+having paid $30.
+
+| # | Step | What the doctor does | What the code does | Required to continue |
+|---|---|---|---|---|
+| 0 | Any AI call | Records, dictates, pastes, scans | `requireUser(req)` verifies a Firebase ID token. **All four AI routes**, before any provider key is read. The uid used to arrive in the request body and was checked only for length | a valid, unrevoked ID token |
+| 1 | Decide who pays | — | `resolveAiKeys` (`lib/serverAiKeys.ts`), once per request. `active`, `dunning`, `paused` and `exempt` are served by LushNote's keys; `trialing`, `legacy`, `grace` and `paywalled` by the doctor's own | nothing - it always returns a usable key if any exists |
+| 2 | Over the ceiling | Nothing; they are not told mid-note | `PRO_MONTHLY_CEILING_MICROS` (**ships at 0 = disabled**). Once set, a Pro doctor past it is handed back to their own key, then the shared Groq key. **Never blocked** | nothing |
+| 3 | Meter it | — | `meterGemini` / `meterGroq` write the quota counter and the estimated cost to `users/{uid}.aiCost`, keyed by month | nothing - fire-and-forget, never blocks a note |
+
+**Expected outputs**
+
+- A trial doctor's Gemini requests still count towards their own 20 a day.
+- A paying doctor sees no daily limit and no key requirement in Settings.
+- `/admin?section=billing` shows **Pro AI key: Set** and this month's estimated cost.
+- A doctor with no key of their own and no subscription still reaches the shared
+  Groq key, exactly as before Pro existed.
+
+**What protects it**
+
+`tests/unit/pro-routing.test.ts` pins every entitlement state to its key owner,
+that nobody is ever left without a key, and the degrade path through an injected
+ceiling - so switching the real one on is not the first time that branch runs.
+`tests/unit/ai-cost.test.ts` pins the arithmetic, notably that audio is priced at
+the audio rate and not billed twice.
+
+**Not protected**: that the PRICING rates match the providers' real prices. They
+are an input to be checked against a pricing page, and a test asserting them
+would only restate whatever was typed.
+
+---
+
 ## Not yet recorded
 
 These exist and are unprotected. Each becomes a section here as it is specified:
@@ -1126,4 +1162,4 @@ These exist and are unprotected. Each becomes a section here as it is specified:
 `note-manual` ❌ · letters, four types ❌ · `hospital-form` ❌ ·
 `patient-add` ❌ · `patient-search` ❌ · `history` ❌ ·
 `mode-transitions` (note ↔ letter ↔ form) ❌ · `settings-panels` ⚠️ ·
-`billing-states` ⚠️
+`billing-states` ⚠️ · `note-scan` OCR key routing ⚠️

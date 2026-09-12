@@ -5,7 +5,7 @@ import { transcribeAudio } from '@/lib/gemini'
 import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
-import { resolveGroqKey } from '@/lib/serverAiKeys'
+import { resolveAiKeys, proGeminiKey, sharedGroqKey } from '@/lib/serverAiKeys'
 import { recordAiSpend } from '@/lib/firestore/profiles-admin'
 import { requireUser, unauthorized } from '@/lib/adminGuard'
 import { geminiCostMicros, whisperCostMicros, audioSecondsFromBytes } from '@/lib/aiCost'
@@ -69,6 +69,17 @@ async function handlePOST(req: NextRequest) {
       return NextResponse.json({ error: 'Your LushNote subscription needs attention - note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: access.entitlement.state }, { status: 402 })
     }
 
+    // Who pays for this call. A paying doctor is served by LushNote's keys; a
+    // trial doctor by their own, which is what the upgrade actually buys.
+    const keys = resolveAiKeys({
+      state: access.entitlement.state,
+      monthSpendMicros: access.monthSpendMicros,
+      userGeminiKey: req.headers.get('x-gemini-key'),
+      userGroqKey: req.headers.get('x-groq-key'),
+      proGeminiKey: proGeminiKey(),
+      sharedGroqKey: sharedGroqKey(),
+    })
+
     const buffer = Buffer.from(await audio.arrayBuffer())
     if (buffer.length > MAX_SEGMENT_BYTES) {
       return NextResponse.json({ error: 'Audio segment too large' }, { status: 413 })
@@ -79,7 +90,7 @@ async function handlePOST(req: NextRequest) {
     // 1. The user's OWN Gemini key — their generous per-account limits. No shared
     //    server key / 20-per-day pool is used, so a long session never exhausts a
     //    quota mid-recording.
-    const userGeminiKey = req.headers.get('x-gemini-key')
+    const userGeminiKey = keys.geminiKey
     if (userGeminiKey) {
       try {
         const { text, usage } = await transcribeAudio(base64, mimeType, userGeminiKey)
@@ -104,8 +115,8 @@ async function handlePOST(req: NextRequest) {
     // are spent used to lose transcription for every remaining segment; the
     // audio survived (it is uploaded before this runs) but the session was
     // unusable until the quota reset the next day.
-    const groq = resolveGroqKey(req.headers.get('x-groq-key'))
-    const groqKey = groq.key
+    const groqKey = keys.groqKey
+    const groq = { shared: keys.sharedGroq }
     if (!groqKey) {
       return NextResponse.json({ error: 'No transcription key. Add your Gemini API key (or a Groq key) in Settings → API Keys.' }, { status: 401 })
     }
