@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import { updateProfile } from '@/lib/firestore/profiles'
@@ -16,8 +16,15 @@ import SubscriptionPanel from '@/components/settings/SubscriptionPanel'
 import SupportPanel from '@/components/settings/SupportPanel'
 import WhatsNewPanel from '@/components/settings/WhatsNewPanel'
 import type { User, Workplace } from '@/types'
+import { useUrlTab } from '@/hooks/useUrlTab'
 
 type TabKey = 'profile' | 'workplaces' | 'templates' | 'transcripts' | 'api-keys' | 'personalisation' | 'subscription' | 'support' | 'whats-new'
+
+// Module level, so its identity is stable across renders and useUrlTab's read
+// effect fires on a real URL change rather than on every render.
+function isTabKey(v: string): v is TabKey {
+  return TABS.some(t => t.key === v)
+}
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   {
@@ -135,18 +142,13 @@ export default function SettingsPage() {
 
 function SettingsContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { user, profile, loading, refreshProfile } = useAuth()
   const { toast, show: showToast } = useToast()
 
-  const [activeTab, setActiveTab] = useState<TabKey>('profile')
-
-  useEffect(() => {
-    const param = searchParams.get('tab') as TabKey | null
-    if (param && TABS.some(t => t.key === param)) {
-      setActiveTab(param)
-    }
-  }, [searchParams])
+  // Reads ?tab= on arrival AND writes it on every switch, so the address bar
+  // always names the panel on screen. It used to only read, so the URL froze at
+  // whatever was first opened.
+  const [activeTab, setActiveTab] = useUrlTab('tab', isTabKey, 'profile')
 
   useEffect(() => {
     if (!loading && !user) router.replace('/')
