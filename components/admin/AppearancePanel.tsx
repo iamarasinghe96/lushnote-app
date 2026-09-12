@@ -334,9 +334,25 @@ export default function AppearancePanel() {
         <div className="flex items-center gap-3">
           <h3 className="text-sm font-semibold text-[#0f172a]">When they appear</h3>
           <div className="ml-auto flex items-center gap-2">
-            <button onClick={() => setYear(y => y - 1)} className="px-2 py-1 rounded border border-[var(--border)] text-sm">←</button>
-            <span className="text-sm font-medium text-[#475569]">{year}</span>
-            <button onClick={() => setYear(y => y + 1)} className="px-2 py-1 rounded border border-[var(--border)] text-sm">→</button>
+            {/* Icon buttons, so they need their own accessible name: the glyph
+                used to BE the name, and a chevron path has no text to read. */}
+            <button onClick={() => setYear(y => y - 1)} aria-label="Previous year"
+              className="w-7 h-7 grid place-items-center rounded-[var(--r-sm)] border border-[var(--border)]
+                         text-[var(--text2)] hover:bg-[var(--bg)] hover:text-[var(--text)]
+                         motion-safe:transition-colors motion-safe:active:scale-[0.95]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            <span className="text-sm font-medium text-[#475569] tabular-nums">{year}</span>
+            <button onClick={() => setYear(y => y + 1)} aria-label="Next year"
+              className="w-7 h-7 grid place-items-center rounded-[var(--r-sm)] border border-[var(--border)]
+                         text-[var(--text2)] hover:bg-[var(--bg)] hover:text-[var(--text)]
+                         motion-safe:transition-colors motion-safe:active:scale-[0.95]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
           </div>
         </div>
         <ul className="divide-y divide-[var(--border)]">

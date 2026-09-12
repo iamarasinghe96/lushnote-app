@@ -7,6 +7,7 @@ import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useRecordingPiP } from '@/hooks/useRecordingPiP'
 import { useAuth } from '@/hooks/useAuth'
 import type { RecordingDefaults, LetterType, CustomLetterTemplate, HospitalFormDoc } from '@/types'
+import BackButton from '@/components/ui/BackButton'
 
 interface DictateModalProps {
   open: boolean
@@ -427,9 +428,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
                 </button>
               ))}
             </div>
-            <button onClick={() => setPhase('choice')} className="text-xs text-[var(--text3)] hover:text-[var(--text)] transition-colors">
-              ← Back
-            </button>
+            <BackButton onClick={() => setPhase('choice')} label="Back" />
           </>
         )}
 
@@ -472,12 +471,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
             <Button onClick={handleStart} variant="primary" className="w-full">
               Start dictating
             </Button>
-            <button
-              onClick={() => setPhase(letterType || hospitalForm ? 'letter-type' : 'choice')}
-              className="text-xs text-[var(--text3)] hover:text-[var(--text)] transition-colors"
-            >
-              ← Back
-            </button>
+            <BackButton onClick={() => setPhase(letterType || hospitalForm ? 'letter-type' : 'choice')} label="Back" />
           </>
         )}
 
