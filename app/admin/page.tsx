@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import type { ReactNode } from 'react'
@@ -16,6 +16,7 @@ import AppearancePanel from '@/components/admin/AppearancePanel'
 import ReleasesPanel from '@/components/admin/ReleasesPanel'
 import LogsPanel from '@/components/admin/LogsPanel'
 import BackButton from '@/components/ui/BackButton'
+import { useUrlTab, withParam } from '@/hooks/useUrlTab'
 import { SECTIONS, PINNED, OVERFLOW, isSectionKey, type SectionKey } from '@/lib/adminSections'
 
 const ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
@@ -40,8 +41,24 @@ const PANELS: Record<SectionKey, (q: string) => ReactNode> = {
 export default function AdminPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
-  const [section, setSection] = useState<SectionKey>('dashboard')
+  // Reads ?section= on arrival AND writes it on every switch, so the address
+  // bar always names the panel on screen. It used to only read, so the URL
+  // froze at whatever was first opened and a copied link sent you elsewhere.
+  const [section, selectSection] = useUrlTab('section', isSectionKey, 'dashboard')
   const [deepLinkQuery, setDeepLinkQuery] = useState('')
+
+  /**
+   * A manual switch drops ?q=.
+   *
+   * That parameter is a filter aimed at ONE panel (Users hands a uid to Logs).
+   * Carrying it across to Billing would leave a stale filter in the URL that a
+   * refresh then re-applies to a section it was never meant for.
+   */
+  const goToSection = useCallback((key: SectionKey) => {
+    selectSection(key)
+    setDeepLinkQuery('')
+    window.history.replaceState(null, '', withParam(window.location.href, 'section', key, ['q']))
+  }, [selectSection])
 
   // The More menu, opened and closed the same way as the header user menu in
   // app/(app)/layout.tsx: a mounted flag that outlives `open` for the length of
@@ -75,14 +92,12 @@ export default function AdminPage() {
     }
   }, [moreOpen])
 
+  // useUrlTab owns ?section= now; this only guards the route and picks up ?q=.
   useEffect(() => {
     if (loading) return
     if (!user || user.uid !== ADMIN_UID) router.replace('/')
     else if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      const s = params.get('section')
-      if (s && isSectionKey(s)) setSection(s)
-      setDeepLinkQuery(params.get('q') ?? '')
+      setDeepLinkQuery(new URLSearchParams(window.location.search).get('q') ?? '')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user])
@@ -109,7 +124,7 @@ export default function AdminPage() {
             {PINNED.map(s => (
               <button
                 key={s.key}
-                onClick={() => setSection(s.key)}
+                onClick={() => goToSection(s.key)}
                 className={`shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-lg text-sm font-medium motion-safe:transition-colors ${
                   section === s.key ? 'bg-white text-[#1d4ed8]' : 'text-white/85 hover:bg-white/10'
                 }`}
@@ -152,7 +167,7 @@ export default function AdminPage() {
                     <button
                       key={s.key}
                       role="menuitem"
-                      onClick={() => { setSection(s.key); setMoreOpen(false) }}
+                      onClick={() => { goToSection(s.key); setMoreOpen(false) }}
                       className={`w-full text-left px-3 py-2 text-sm motion-safe:transition-colors ${
                         section === s.key
                           ? 'text-[var(--blue)] font-medium bg-[var(--blue-lt)]'
@@ -173,7 +188,7 @@ export default function AdminPage() {
           {SECTIONS.map(s => (
             <button
               key={s.key}
-              onClick={() => setSection(s.key)}
+              onClick={() => goToSection(s.key)}
               className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium motion-safe:transition-colors ${
                 section === s.key ? 'bg-white text-[#1d4ed8]' : 'text-white/85 hover:bg-white/10'
               }`}
