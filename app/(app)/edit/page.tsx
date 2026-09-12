@@ -36,6 +36,7 @@ import ReassignModal from '@/components/modals/ReassignModal'
 import ManualGenerateModal from '@/components/modals/ManualGenerateModal'
 import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderModal'
 import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate, ExtraSection, CustomLetterTemplate, LetterData, ReferralFields, RecordsFields, FreetextFields, PatientProfile } from '@/types'
+import { aiHeaders } from '@/lib/aiHeaders'
 
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60)
@@ -1611,11 +1612,7 @@ function EditContent() {
       const noteLength = (s.overrideNoteLength ?? profile?.personalisation?.noteLength ?? 'balanced') as import('@/types').NoteLength
       s.setOverrideNoteLength(null)
       const systemPrompt = profile ? getPersonalisationPrefix(profile, noteLength) : ''
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const groqKey = getGroqKey()
-      if (groqKey) headers['x-groq-key'] = groqKey
-      const geminiKey = getGeminiKey()
-      if (geminiKey) headers['x-gemini-key'] = geminiKey
+      const headers = await aiHeaders()
 
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -1723,11 +1720,7 @@ function EditContent() {
       const noteLength = (storeRef.current.overrideNoteLength ?? profile?.personalisation?.noteLength ?? 'balanced') as import('@/types').NoteLength
       storeRef.current.setOverrideNoteLength(null)
       const systemPrompt = profile ? getPersonalisationPrefix(profile, noteLength) : ''
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const groqKey = getGroqKey()
-      if (groqKey) headers['x-groq-key'] = groqKey
-      const geminiKey = getGeminiKey()
-      if (geminiKey) headers['x-gemini-key'] = geminiKey
+      const headers = await aiHeaders()
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
@@ -1808,11 +1801,7 @@ function EditContent() {
     if (!store.lastTranscript || !letterType) return
     setIsGeneratingLetter(true)
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const groqKey = getGroqKey()
-      if (groqKey) headers['x-groq-key'] = groqKey
-      const geminiKey = getGeminiKey()
-      if (geminiKey) headers['x-gemini-key'] = geminiKey
+      const headers = await aiHeaders()
       const customLetter = letterType === 'custom' && store.customLetterTemplate
         ? {
             title: store.customLetterTemplate.title,
@@ -1961,9 +1950,7 @@ function EditContent() {
     if (!customDescription.trim() || !customLabel.trim()) return
     setCustomEngineering(true)
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const groqKey = getGroqKey()
-      if (groqKey) headers['x-groq-key'] = groqKey
+      const headers = await aiHeaders()
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers,
@@ -2031,9 +2018,7 @@ function EditContent() {
     setCustomProcessing(true)
     setCustomProcessed('')
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const groqKey = getGroqKey()
-      if (groqKey) headers['x-groq-key'] = groqKey
+      const headers = await aiHeaders()
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers,

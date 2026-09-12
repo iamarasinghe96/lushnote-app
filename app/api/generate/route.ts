@@ -4,6 +4,7 @@ import { mockForCaller, mockGenerateResponse } from '@/lib/e2eMock'
 import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
 import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { getProfile, meterGemini, meterGroq } from '@/lib/firestore/profiles-admin'
+import { requireUser, unauthorized } from '@/lib/adminGuard'
 import { rateLimit } from '@/lib/rateLimit'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import { logToSink } from '@/lib/firestore/systemLogs'
@@ -318,7 +319,18 @@ async function handlePOST(req: NextRequest) {
       source?: string
     }
 
-    const { uid, transcript, templatePrompt, systemPrompt, mode, letterType, retry, customLetter, formName, source } = body
+    // Identity is PROVEN here, not asserted. Before this the uid arrived in the
+    // request body and was checked only for length, so any caller who knew a
+    // doctor's uid could spend that doctor's quota - and once a paying doctor
+    // is served by LushNote's own paid key, could spend our money. The body uid
+    // is kept only to detect a mismatch, which is what probing looks like.
+    let uid: string
+    try { uid = await requireUser(req) } catch { return unauthorized() }
+
+    const { uid: claimedUid, transcript, templatePrompt, systemPrompt, mode, letterType, retry, customLetter, formName, source } = body
+    if (claimedUid && claimedUid !== uid) {
+      logToSink({ level: 'warn', tag: 'generate', route: '/api/generate', uid, message: 'body uid did not match the verified token' })
+    }
     noteRequest({ uid, mode: mode ?? 'note' })
 
     // Preview deployments only, and never production — see lib/e2eMock. Placed
@@ -821,9 +833,6 @@ ${transcript}`
     }
 
     // Standard note generation
-    if (!uid || typeof uid !== 'string' || uid.length === 0 || uid.length > 128) {
-      return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
-    }
 
     if (!transcript || typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 300000) {
       return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })

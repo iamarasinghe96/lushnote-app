@@ -7,6 +7,7 @@ import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { resolveGroqKey } from '@/lib/serverAiKeys'
 import { recordAiSpend } from '@/lib/firestore/profiles-admin'
+import { requireUser, unauthorized } from '@/lib/adminGuard'
 import { geminiCostMicros, whisperCostMicros, audioSecondsFromBytes } from '@/lib/aiCost'
 import { getProfile } from '@/lib/firestore/profiles-admin'
 import { getAccessState } from '@/lib/billing'
@@ -23,17 +24,19 @@ async function handlePOST(req: NextRequest) {
   let uid = 'unknown'
   let seg = '?'
   try {
+    // Identity is PROVEN here, not asserted - see the note in /api/generate.
+    // The form's own uid field is ignored entirely; `uidField` is kept as the
+    // name the rest of this handler already uses.
+    let uidField: string
+    try { uidField = await requireUser(req) } catch { return unauthorized() }
+    uid = uidField
+    noteRequest({ uid })
+
     const form = await req.formData()
     const audio = form.get('audio')
     const mimeType = form.get('mimeType')
-    const uidField = form.get('uid')
     const segField = form.get('segIndex')
-    uid = typeof uidField === 'string' ? uidField : 'unknown'
     seg = typeof segField === 'string' ? segField : '?'
-
-    if (!uidField || typeof uidField !== 'string' || uidField.length === 0 || uidField.length > 128) {
-      return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
-    }
     if (!(audio instanceof File)) {
       return NextResponse.json({ error: 'Invalid audio field' }, { status: 400 })
     }

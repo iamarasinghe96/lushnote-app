@@ -4,6 +4,7 @@ import { mockForCaller, mockChatResponse } from '@/lib/e2eMock'
 import { chatResponse, checkQuota, GEMINI_RATE_LIMIT_ERROR, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
 import { generateNoteGroq } from '@/lib/groq'
 import { getProfile, meterGemini, meterGroq } from '@/lib/firestore/profiles-admin'
+import { requireUser, unauthorized } from '@/lib/adminGuard'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { resolveEntitlement } from '@/lib/entitlement'
@@ -31,8 +32,13 @@ async function handlePOST(req: NextRequest) {
     const body = await req.json() as Record<string, unknown>
     const { type } = body
 
+    // Identity is PROVEN here, not asserted - see the note in /api/generate.
+    let authedUid: string
+    try { authedUid = await requireUser(req) } catch { return unauthorized() }
+    noteRequest({ uid: authedUid, mode: typeof type === 'string' ? type : 'chat' })
+
     // Preview deployments only, and never production — see lib/e2eMock.
-    const callerUid = typeof body.uid === 'string' ? body.uid : ''
+    const callerUid = authedUid
     if (callerUid && mockForCaller(await getProfile(callerUid).catch(() => null))) {
       logToSink({ level: 'info', tag: 'chat', route: '/api/chat', message: `mocked reply for type=${String(type)}` })
       return NextResponse.json(mockChatResponse(type))
@@ -108,8 +114,8 @@ Keep responses concise and practical.`
             { role: 'user', parts: [{ text: prompt }] },
           ]
           const { text: answer, usage } = await chatResponse(messages, systemPrompt)
-          if (uid && typeof uid === 'string') {
-            await meterGemini(uid, 'chat', usage)
+          {
+            await meterGemini(authedUid, 'chat', usage)
           }
           return NextResponse.json({ answer, provider: 'gemini' })
         } catch (err) {
@@ -217,7 +223,7 @@ Respond ONLY as strict JSON with no other text:
         try {
           const { text: answer, usage } = await chatResponse(messages, systemPrompt)
           if (answer.trim()) {
-            if (uid && typeof uid === 'string') await meterGemini(uid, 'chat', usage)
+            await meterGemini(authedUid, 'chat', usage)
             return NextResponse.json({ answer, provider: 'gemini' })
           }
         } catch (err) {
@@ -289,8 +295,8 @@ Return ONLY the system prompt text, nothing else - no explanation, no preamble.`
       if (process.env.GEMINI_API_KEY) {
         try {
           const { text: systemPrompt, usage } = await chatResponse(msgs, engineerSystemPrompt)
-          if (uid && typeof uid === 'string') {
-            await meterGemini(uid, 'chat', usage)
+          {
+            await meterGemini(authedUid, 'chat', usage)
           }
           return NextResponse.json({ systemPrompt, provider: 'gemini' })
         } catch (err) {
@@ -428,7 +434,7 @@ Return ONLY strict JSON, no markdown, no commentary:
           const msgs: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }> = [{ role: 'user', parts: [{ text: rawInput }] }]
           const { text: result, usage } = await chatResponse(msgs, systemPrompt)
           // Was `0`, so every standardise call was counted as free.
-          if (uid && typeof uid === 'string') await meterGemini(uid, 'chat', usage)
+          await meterGemini(authedUid, 'chat', usage)
           return NextResponse.json({ result, provider: 'gemini' })
         } catch { /* fall through to Groq */ }
       }
@@ -440,15 +446,12 @@ Return ONLY strict JSON, no markdown, no commentary:
     }
 
     // ── Standard chat ───────────────────────────────────────────────────────────
-    const { messages, systemPrompt, uid } = body as {
+    const { messages, systemPrompt } = body as {
       messages: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }>
       systemPrompt: string
-      uid: string
     }
-
-    if (!uid || typeof uid !== 'string' || uid.length === 0 || uid.length > 128) {
-      return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
-    }
+    // Verified at the top of the handler; the body's own uid is ignored.
+    const uid = authedUid
 
     if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
       return NextResponse.json({ error: 'Invalid messages array' }, { status: 400 })
