@@ -1,5 +1,7 @@
 'use client'
 
+import BackButton from '@/components/ui/BackButton'
+
 import { useEffect, useState } from 'react'
 
 // Plain confirmation page for the link in the lifecycle emails. Deliberately
@@ -32,9 +34,9 @@ export default function UnsubscribePage() {
           {state === 'done' && 'You will no longer receive account emails from LushNote. Your account and your notes are untouched, and you can still use the app exactly as before.'}
           {state === 'failed' && message}
         </p>
-        <a href="https://lushnote.com.au" className="inline-block mt-5 text-sm font-medium text-[var(--blue)]">
-          Back to LushNote
-        </a>
+        <div className="mt-5 flex justify-center">
+          <BackButton href="https://lushnote.com.au" label="Back to LushNote" />
+        </div>
       </div>
     </main>
   )

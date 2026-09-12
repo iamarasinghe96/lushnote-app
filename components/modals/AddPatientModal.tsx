@@ -10,6 +10,7 @@ import { savePatientProfile } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { getGroqKey, getGeminiKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName, parsePatientIntakeFields, appendPatientHistory, pushPatientEntry } from '@/lib/utils'
 import type { PatientProfile } from '@/types'
+import BackButton from '@/components/ui/BackButton'
 
 interface AddPatientModalProps {
   open: boolean
@@ -422,12 +423,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
                 </div>
               </button>
             </div>
-            <button
-              onClick={() => setPhase('details')}
-              className="text-xs text-[var(--text3)] hover:text-[var(--text)] transition-colors"
-            >
-              ← Back
-            </button>
+            <BackButton onClick={() => setPhase('details')} label="Back" />
           </>
         )}
 
@@ -476,12 +472,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
               ))}
             </ul>
             <Button onClick={handleStartDictation} variant="primary" className="w-full">Start dictating</Button>
-            <button
-              onClick={() => setPhase('method')}
-              className="text-xs text-[var(--text3)] hover:text-[var(--text)] transition-colors"
-            >
-              ← Back
-            </button>
+            <BackButton onClick={() => setPhase('method')} label="Back" />
           </>
         )}
 
