@@ -1388,7 +1388,12 @@ screen that leads to Settings.
 `LUSHNOTE_KB`, `SUPPORT_TOPICS` and `playSupportChime` live in
 `lib/supportKb.ts`, shared by the AI assistant (still on the FAB) and support
 triage (now in Settings) so the two cannot drift.
-- Slack webhook: `'https://hooks.slack.com' + '/services/T0B5HRCD3QT/B0B5X3GJYBW/wmD9BaIPKisWj0rQ67vWdmnQ'`
+- Slack webhook: `SLACK_WEBHOOK` (server env). The live URL used to be written out
+  here, split across a `+` so GitHub's secret scanning would not catch it - which
+  is a way of hiding a credential from the tool built to find it, not a way of
+  protecting it. A webhook URL IS the credential: anyone holding it can post into
+  the channel. **It must still be rotated in Slack**, because it was in this file
+  and in this file's history.
   (split string prevents GitHub secret scanning)
 - Slack failure → fallback `mailto:iamarasinghe96@gmail.com`
 

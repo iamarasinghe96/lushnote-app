@@ -1,5 +1,5 @@
 import { adminDb } from '@/lib/firebase-admin'
-import { FieldValue } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { currentRequest, elapsedMs } from '@/lib/requestContext'
 
 // In-app log/error sink + admin audit trail. Read only through the admin API;
@@ -59,6 +59,17 @@ function alertOps(entry: LogEntry, requestId: string): void {
   }).catch(() => {})
 }
 
+/**
+ * How long a log line is kept. Long enough to investigate a complaint a doctor
+ * raises weeks later, short enough that the collection does not grow forever.
+ *
+ * The policy itself is created once in the Cloud Console against `expiresAt`;
+ * this only writes the field. Until the policy exists nothing is deleted, which
+ * is the safe order to do it in.
+ */
+export const LOG_RETENTION_DAYS = 90
+export const LOG_RETENTION_MS = LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000
+
 // Fire-and-forget append to `system_logs`. PHI-safe BY CONTRACT: only short scalar
 // fields are stored — callers must pass an err.message string, never the request
 // body, a serialized error object, or any note/patient content. Never throws.
@@ -81,6 +92,15 @@ export function logToSink(entry: LogEntry): void {
       ms: typeof ms === 'number' ? ms : null,
       release: RELEASE || null,
       createdAt: FieldValue.serverTimestamp(),
+      // What a Firestore TTL policy deletes on. It MUST be a future instant:
+      // a TTL policy removes a document once its field is in the PAST, so
+      // pointing one at `createdAt` would delete every log within a day. This is
+      // the same shape stripe_events already uses, for the same reason.
+      //
+      // A Timestamp, not a number of milliseconds - the policy ignores a numeric
+      // field entirely and silently deletes nothing, which looks identical to a
+      // policy that is working.
+      expiresAt: Timestamp.fromMillis(Date.now() + LOG_RETENTION_MS),
     }).catch(() => {})
     if (entry.level === 'error') alertOps({ ...entry, mode, uid }, requestId)
   } catch { /* logging must never break the request path */ }
