@@ -1,3 +1,12 @@
+> **HISTORICAL - audited the wrong file.**
+>
+> This audit read the copy of the rules that used to be pasted into `CLAUDE.md`,
+> not `firestore.rules`. That copy had drifted, so some findings describe a file
+> that was never deployed. The copy has since been deleted; `firestore.rules` is
+> now the only one.
+>
+> Re-run against `firestore.rules` before relying on anything here.
+
 # Security Notes — Firestore Rules Audit
 
 Audit date: 2026-05-27

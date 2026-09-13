@@ -60,7 +60,7 @@ function normalise(input: string): Normalised {
     let c = ch.toLowerCase()
     if (c === '‘' || c === '’' || c === 'ʼ') c = "'"
     else if (c === '“' || c === '”') c = '"'
-    else if (c === '–' || c === '—') c = '-'
+    else if (c === '–' || c === '—') c = '-'   // dash-ok: compares the characters, does not display them
     out.push(c)
     map.push(i)
   }

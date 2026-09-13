@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       if (!threadTs) {
         const parent = await slackApi('chat.postMessage', {
           channel: CHANNEL,
-          text: `💬 Support chat with ${body.name || 'Doctor'} (${body.email || uid}) — reply in this thread and it appears in their app`,
+          text: `💬 Support chat with ${body.name || 'Doctor'} (${body.email || uid}) — reply in this thread and it appears in their app`,   // dash-ok: Slack message, not doctor-facing
         })
         threadTs = parent.ts as string
         await ref.set({
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
           await fetch(SLACK_WEBHOOK, {
             method: 'POST',
             body: JSON.stringify({
-              text: `🎫 *New support ticket ${ticket}* — ${topic || 'Support'}\n*From:* ${name} (${email})\n\n${transcript}`,
+              text: `🎫 *New support ticket ${ticket}* — ${topic || 'Support'}\n*From:* ${name} (${email})\n\n${transcript}`,   // dash-ok: Slack message, not doctor-facing
             }),
           })
         }
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
       // SINGLE Slack call — one round-trip keeps escalate fast and well under the
       // serverless timeout (multiple sequential posts occasionally timed out,
       // surfacing a false "couldn't reach our team" to the doctor).
-      const banner = `🎫 *Ticket ${ticket}* — ${topic || 'Support'}\n*From:* ${name}\n*Email:* ${email}\n*Escalated to the team* — reply in this thread and it appears in the doctor's app.`
+      const banner = `🎫 *Ticket ${ticket}* — ${topic || 'Support'}\n*From:* ${name}\n*Email:* ${email}\n*Escalated to the team* — reply in this thread and it appears in the doctor's app.`   // dash-ok: Slack message, not doctor-facing
       const full = transcript ? `${banner}\n\n*Conversation so far:*\n${transcript}` : banner
 
       if (!threadTs) {

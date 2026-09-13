@@ -50,12 +50,12 @@ export function privacyDirective(privacy: TranscriptPrivacy): string {
   if (!privacy.redactNames && !privacy.redactDOB && !privacy.redactOther) return ''
 
   const lines: string[] = [
-    'Privacy: identifying details in the transcript have been redacted to bracketed tokens (e.g. [NAME], [DOB], [ADDRESS], [EMAIL], [PHONE]). Never reproduce any of these placeholder tokens in the note — write the surrounding clinical content without them.',
+    'Privacy: identifying details in the transcript have been redacted to bracketed tokens (e.g. [NAME], [DOB], [ADDRESS], [EMAIL], [PHONE]). Never reproduce any of these placeholder tokens in the note — write the surrounding clinical content without them.',   // dash-ok: AI prompt directive
   ]
 
   if (privacy.redactNames) {
     lines.push(
-      'Do not include any personal name in the note — not the patient\'s and not any third party\'s — even when a name appears in the transcript. Refer to the patient as "the client" (or "the patient"). Refer to every other person by their role or relationship ALONE (e.g. "a coworker", "the client\'s sister", "the treating GP"). Critically, never attach a name to a role descriptor: write "their coworker" or "a coworker", NEVER "their coworker, Danny" or "a coworker named Danny". The same applies to dates, places, and contact details — describe them generically and omit the specific identifier.'
+      'Do not include any personal name in the note — not the patient\'s and not any third party\'s — even when a name appears in the transcript. Refer to the patient as "the client" (or "the patient"). Refer to every other person by their role or relationship ALONE (e.g. "a coworker", "the client\'s sister", "the treating GP"). Critically, never attach a name to a role descriptor: write "their coworker" or "a coworker", NEVER "their coworker, Danny" or "a coworker named Danny". The same applies to dates, places, and contact details — describe them generically and omit the specific identifier.'   // dash-ok: AI prompt directive
     )
   }
 

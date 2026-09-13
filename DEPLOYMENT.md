@@ -1,3 +1,15 @@
+> **HISTORICAL - do not follow. Last accurate before the release pipeline.**
+>
+> This describes the world where pushing to `main` deployed. It no longer does:
+> every change goes through a pull request, two checks, and a deliberate promote
+> from `/admin?section=releases`. See `AGENTS.md`.
+>
+> It also states that the only server-side config needed is Firebase. That is now
+> false - `STRIPE_SECRET_KEY`, `GITHUB_TOKEN` and `LUSHNOTE_GEMINI_PRO_KEY` are
+> all server-side. The current list is in `docs/ARCHITECTURE.md`.
+>
+> Kept because the DNS and Firebase authorized-domain steps are still correct.
+
 # LushNote Deployment Guide
 
 ## Prerequisites

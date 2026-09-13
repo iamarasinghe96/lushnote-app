@@ -85,8 +85,8 @@ export function openMailto(subject: string, body: string): void {
 }
 
 export const SHARE_TOAST = {
-  shared: 'PDF attached · body copied — paste it if the app leaves it blank',
-  sharedNoCopy: 'PDF attached — pick your email app',
-  mailto: 'PDF downloaded — attach it to the email',
+  shared: 'PDF attached · body copied. Paste it if the app leaves it blank',
+  sharedNoCopy: 'PDF attached. Pick your email app',
+  mailto: 'PDF downloaded. Attach it to the email',
   failed: 'Could not share the PDF.',
 }
