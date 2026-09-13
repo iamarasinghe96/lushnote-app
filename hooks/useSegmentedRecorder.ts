@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { getGroqKey, getGeminiKey } from '@/lib/utils'
 import { saveTranscriptDraft, type SegmentLogEntry } from '@/lib/firestore/transcriptDrafts'
 import { uploadRecordingSegment } from '@/lib/storage'
+import { aiHeaders } from '@/lib/aiHeaders'
 
 // Each recorder cycle produces an independently-valid audio file (~4 min). Two
 // things happen to every segment the moment it is captured:
@@ -134,11 +135,9 @@ export function useSegmentedRecorder() {
         fd.append('mimeType', mimeRef.current)
         fd.append('uid', opts.uid)
         fd.append('segIndex', String(segIndex))
-        const headers: Record<string, string> = {}
-        const gk = getGroqKey()
-        if (gk) headers['x-groq-key'] = gk
-        const gemk = getGeminiKey()
-        if (gemk) headers['x-gemini-key'] = gemk
+        // json:false - this body is FormData and fetch must set its own multipart
+        // boundary. A hand-set Content-Type here corrupts every audio upload.
+        const headers = await aiHeaders({ json: false })
         const res = await fetch('/api/transcribe', { method: 'POST', headers, body: fd })
         if (!res.ok) {
           const data = await res.json().catch(() => ({})) as { error?: string }

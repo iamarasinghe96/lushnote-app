@@ -11,6 +11,7 @@ import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
 import { getGroqKey, getGeminiKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName, parsePatientIntakeFields, appendPatientHistory, pushPatientEntry } from '@/lib/utils'
 import type { PatientProfile } from '@/types'
 import BackButton from '@/components/ui/BackButton'
+import { aiHeaders } from '@/lib/aiHeaders'
 
 interface AddPatientModalProps {
   open: boolean
@@ -137,11 +138,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
   ): Promise<{ fields: Partial<PatientProfile>; error: string | null }> {
     if (!text.trim()) return { fields: {}, error: null }
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const gk = getGroqKey()
-      if (gk) headers['x-groq-key'] = gk
-      const gemk = getGeminiKey()
-      if (gemk) headers['x-gemini-key'] = gemk
+      const headers = await aiHeaders()
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,

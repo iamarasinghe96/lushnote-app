@@ -102,6 +102,12 @@ GITHUB_TOKEN              — fine-grained PAT, this repo only: Contents RW, Pul
                             offer it, so run status is read from the Actions API. Server-side
                             only; used by the Releases panel.
 GITHUB_REPO               — iamarasinghe96/lushnote-app
+LUSHNOTE_GEMINI_PRO_KEY   — a PAID Google project, server-side only. Serves doctors whose
+                            subscription is active/dunning/paused/exempt. Deliberately NOT
+                            GEMINI_API_KEY, which is a free-tier shared key gated by the
+                            20-a-day checkQuota; Pro must not be quota-gated.
+                            NEVER prefix with NEXT_PUBLIC_ - that inlines it into the
+                            browser bundle and publishes it to every visitor.
 ```
 
 Preview environment ONLY — never tick Production on these two:

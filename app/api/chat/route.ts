@@ -3,7 +3,10 @@ import { withRequest, noteRequest } from '@/lib/requestContext'
 import { mockForCaller, mockChatResponse } from '@/lib/e2eMock'
 import { chatResponse, checkQuota, GEMINI_RATE_LIMIT_ERROR, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
 import { generateNoteGroq } from '@/lib/groq'
-import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
+import { getProfile, meterGemini, meterGroq } from '@/lib/firestore/profiles-admin'
+import { requireUser, unauthorized } from '@/lib/adminGuard'
+import { resolveAiKeys, proGeminiKey, sharedGroqKey } from '@/lib/serverAiKeys'
+import { monthKey } from '@/lib/utils'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { resolveEntitlement } from '@/lib/entitlement'
@@ -31,9 +34,28 @@ async function handlePOST(req: NextRequest) {
     const body = await req.json() as Record<string, unknown>
     const { type } = body
 
-    // Preview deployments only, and never production — see lib/e2eMock.
-    const callerUid = typeof body.uid === 'string' ? body.uid : ''
-    if (callerUid && mockForCaller(await getProfile(callerUid).catch(() => null))) {
+    // Identity is PROVEN here, not asserted - see the note in /api/generate.
+    let authedUid: string
+    try { authedUid = await requireUser(req) } catch { return unauthorized() }
+    noteRequest({ uid: authedUid, mode: typeof type === 'string' ? type : 'chat' })
+
+    // Loaded once: the mock gate, the key choice and the standard-chat
+    // entitlement check all need it.
+    const callerUid = authedUid
+    const callerProfile = await getProfile(callerUid).catch(() => null)
+
+    // Who pays. Decided once so a doctor cannot be Pro for one branch of this
+    // route and not another.
+    const keys = resolveAiKeys({
+      state: resolveEntitlement(callerProfile?.billing, Date.now()).state,
+      monthSpendMicros: callerProfile?.aiCost?.[monthKey()]?.micros ?? 0,
+      userGeminiKey: req.headers.get('x-gemini-key'),
+      userGroqKey: req.headers.get('x-groq-key'),
+      proGeminiKey: proGeminiKey(),
+      sharedGroqKey: sharedGroqKey(),
+    })
+
+    if (mockForCaller(callerProfile)) {
       logToSink({ level: 'info', tag: 'chat', route: '/api/chat', message: `mocked reply for type=${String(type)}` })
       return NextResponse.json(mockChatResponse(type))
     }
@@ -92,7 +114,7 @@ Keep responses concise and practical.`
 
       // Groq first - assistant queries are lightweight and must not burn the
       // shared Gemini quota that note generation depends on.
-      const groqKey = req.headers.get('x-groq-key')
+      const groqKey = keys.groqKey
       if (groqKey) {
         try {
           const { content: answer } = await generateNoteGroq(prompt, systemPrompt, groqKey, 1024)
@@ -108,8 +130,8 @@ Keep responses concise and practical.`
             { role: 'user', parts: [{ text: prompt }] },
           ]
           const { text: answer, usage } = await chatResponse(messages, systemPrompt)
-          if (uid && typeof uid === 'string') {
-            await updateGeminiUsage(uid, 'chat', usage).catch(() => {})
+          {
+            await meterGemini(authedUid, 'chat', usage)
           }
           return NextResponse.json({ answer, provider: 'gemini' })
         } catch (err) {
@@ -199,7 +221,7 @@ Respond ONLY as strict JSON with no other text:
       // Groq's free tier can't accept a long transcript in one request (~12k
       // token cap), so only use it when the transcript is small enough.
       const groqViable = Math.ceil((systemPrompt.length + question.length) / 4) <= 10000
-      const userGeminiKey = req.headers.get('x-gemini-key')
+      const userGeminiKey = keys.geminiKey
       let geminiTransient = false
 
       // 1. User's own Gemini key — no per-day cap, handles long transcripts.
@@ -217,7 +239,7 @@ Respond ONLY as strict JSON with no other text:
         try {
           const { text: answer, usage } = await chatResponse(messages, systemPrompt)
           if (answer.trim()) {
-            if (uid && typeof uid === 'string') await updateGeminiUsage(uid, 'chat', usage).catch(() => {})
+            await meterGemini(authedUid, 'chat', usage)
             return NextResponse.json({ answer, provider: 'gemini' })
           }
         } catch (err) {
@@ -229,7 +251,7 @@ Respond ONLY as strict JSON with no other text:
       }
 
       // 3. Groq — only if the transcript is short enough for its free-tier limit.
-      const groqKey = req.headers.get('x-groq-key')
+      const groqKey = keys.groqKey
       if (groqViable && groqKey) {
         try {
           const { content: answer } = await generateNoteGroq(question, systemPrompt, groqKey)
@@ -289,8 +311,8 @@ Return ONLY the system prompt text, nothing else - no explanation, no preamble.`
       if (process.env.GEMINI_API_KEY) {
         try {
           const { text: systemPrompt, usage } = await chatResponse(msgs, engineerSystemPrompt)
-          if (uid && typeof uid === 'string') {
-            await updateGeminiUsage(uid, 'chat', usage).catch(() => {})
+          {
+            await meterGemini(authedUid, 'chat', usage)
           }
           return NextResponse.json({ systemPrompt, provider: 'gemini' })
         } catch (err) {
@@ -299,7 +321,7 @@ Return ONLY the system prompt text, nothing else - no explanation, no preamble.`
         }
       }
 
-      const groqKey = req.headers.get('x-groq-key')
+      const groqKey = keys.groqKey
       if (!groqKey) {
         return NextResponse.json({ error: 'No API key available' }, { status: 401 })
       }
@@ -383,7 +405,7 @@ Return ONLY strict JSON, no markdown, no commentary:
 
       // Groq first — template building is a one-off that must not burn the shared
       // Gemini note-generation quota. Fall back to Gemini if no Groq key.
-      const groqKey = req.headers.get('x-groq-key')
+      const groqKey = keys.groqKey
       if (groqKey) {
         try {
           const { content } = await generateNoteGroq(userMsg, refineSystem, groqKey, 1500)
@@ -426,28 +448,26 @@ Return ONLY strict JSON, no markdown, no commentary:
       if (process.env.GEMINI_API_KEY) {
         try {
           const msgs: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }> = [{ role: 'user', parts: [{ text: rawInput }] }]
-          const { text: result } = await chatResponse(msgs, systemPrompt)
-          if (uid && typeof uid === 'string') await updateGeminiUsage(uid, 'chat', 0).catch(() => {})
+          const { text: result, usage } = await chatResponse(msgs, systemPrompt)
+          // Was `0`, so every standardise call was counted as free.
+          await meterGemini(authedUid, 'chat', usage)
           return NextResponse.json({ result, provider: 'gemini' })
         } catch { /* fall through to Groq */ }
       }
 
-      const groqKey = req.headers.get('x-groq-key')
+      const groqKey = keys.groqKey
       if (!groqKey) return NextResponse.json({ error: 'No API key available' }, { status: 401 })
       const { content: result } = await generateNoteGroq(rawInput, systemPrompt, groqKey)
       return NextResponse.json({ result, provider: 'groq' })
     }
 
     // ── Standard chat ───────────────────────────────────────────────────────────
-    const { messages, systemPrompt, uid } = body as {
+    const { messages, systemPrompt } = body as {
       messages: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }>
       systemPrompt: string
-      uid: string
     }
-
-    if (!uid || typeof uid !== 'string' || uid.length === 0 || uid.length > 128) {
-      return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
-    }
+    // Verified at the top of the handler; the body's own uid is ignored.
+    const uid = authedUid
 
     if (!Array.isArray(messages) || messages.length === 0 || messages.length > 50) {
       return NextResponse.json({ error: 'Invalid messages array' }, { status: 400 })
@@ -465,7 +485,9 @@ Return ONLY strict JSON, no markdown, no commentary:
       return NextResponse.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 })
     }
 
-    const profile = await getProfile(uid)
+    // Already loaded at the top of the handler; this used to be a second read
+    // of the same document.
+    const profile = callerProfile
     if (profile?.status === 'disabled') {
       return NextResponse.json({ error: 'Account suspended' }, { status: 403 })
     }
@@ -486,7 +508,7 @@ Return ONLY strict JSON, no markdown, no commentary:
       if (checkQuota(quota, 'chat')) {
         try {
           const { text: reply, usage } = await chatResponse(messages, systemPrompt)
-          await updateGeminiUsage(uid, 'chat', usage).catch(() => {})
+          await meterGemini(uid, 'chat', usage)
           return NextResponse.json({ reply, provider: 'gemini' })
         } catch (err) {
           // A momentary stumble is not the doctor's quota: it used to peg their
@@ -496,7 +518,7 @@ Return ONLY strict JSON, no markdown, no commentary:
       }
     }
 
-    const groqKey = req.headers.get('x-groq-key')
+    const groqKey = keys.groqKey
     if (!groqKey) {
       return NextResponse.json({ error: 'No API key available for chat' }, { status: 401 })
     }

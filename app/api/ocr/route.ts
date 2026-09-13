@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withRequest, noteRequest } from '@/lib/requestContext'
 import { mockForCaller, mockOcrResponse } from '@/lib/e2eMock'
 import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
-import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
+import { getProfile, meterGemini, meterGroq } from '@/lib/firestore/profiles-admin'
+import { requireUser, unauthorized } from '@/lib/adminGuard'
+import { resolveAiKeys, proGeminiKey } from '@/lib/serverAiKeys'
+import { monthKey } from '@/lib/utils'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { resolveEntitlement } from '@/lib/entitlement'
@@ -73,13 +76,15 @@ function assembleText(parsed: OcrReply): string {
 async function handlePOST(req: NextRequest) {
   let uid = 'unknown'
   try {
-    const form = await req.formData()
-    const uidField = form.get('uid')
-    uid = typeof uidField === 'string' ? uidField : 'unknown'
+    // Identity is PROVEN here, not asserted - see the note in /api/generate.
+    // The form's own uid field is ignored entirely; `uidField` is kept as the
+    // name the rest of this handler already uses.
+    let uidField: string
+    try { uidField = await requireUser(req) } catch { return unauthorized() }
+    uid = uidField
+    noteRequest({ uid })
 
-    if (!uidField || typeof uidField !== 'string' || uidField.length === 0 || uidField.length > 128) {
-      return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
-    }
+    const form = await req.formData()
 
     const files = form.getAll('images').filter((f): f is File => f instanceof File)
     if (files.length === 0) return NextResponse.json({ error: 'No image supplied' }, { status: 400 })
@@ -124,13 +129,23 @@ async function handlePOST(req: NextRequest) {
     // Gemini only: reading handwriting is a vision job, and the Groq fallback
     // models are text-only. The doctor's own key first — it is their quota, so it
     // is never gated — then the shared key while the daily pool lasts.
-    const userGeminiKey = req.headers.get('x-gemini-key')
+    // A paying doctor reads ward notes on LushNote's key; a trial doctor on
+    // their own. OCR is Gemini-only - the Groq models are text-only - so there
+    // is no Groq half to this decision.
+    const userGeminiKey = resolveAiKeys({
+      state: entitlement.state,
+      monthSpendMicros: profile?.aiCost?.[monthKey()]?.micros ?? 0,
+      userGeminiKey: req.headers.get('x-gemini-key'),
+      userGroqKey: null,
+      proGeminiKey: proGeminiKey(),
+      sharedGroqKey: null,
+    }).geminiKey
     let userKeyFailure: string | null = null
 
     const readPage = async (): Promise<OcrReply | null> => {
       const call = async (key?: string) => {
         const { text, usage } = await ocrClinicalImages(images, key)
-        await updateGeminiUsage(uidField, 'gemini-2.5-flash', usage).catch(() => {})
+        await meterGemini(uidField, 'gemini-2.5-flash', usage)
         return text
       }
       let raw: string | null = null

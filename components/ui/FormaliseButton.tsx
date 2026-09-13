@@ -5,6 +5,7 @@ import { getGroqKey } from '@/lib/utils'
 import { tidyPreservesStructure } from '@/lib/tidyGuard'
 import { TIDY_FORMAT_RULES } from '@/lib/tidyDiff'
 import { planTidy, applyTidy, type TidyTarget } from '@/lib/tidyTargets'
+import { aiHeaders } from '@/lib/aiHeaders'
 
 // Tidy up the wording of something the doctor typed themselves.
 //
@@ -88,9 +89,7 @@ export default function FormaliseButton({
     setWorking(true)
     setError(null)
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const groqKey = getGroqKey()
-      if (groqKey) headers['x-groq-key'] = groqKey
+      const headers = await aiHeaders()
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers,

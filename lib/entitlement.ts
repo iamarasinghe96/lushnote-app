@@ -103,3 +103,31 @@ export function duePrompt(
   if (now >= end - 7 * 24 * 60 * 60 * 1000) return 'trialReminder7d'
   return null
 }
+
+// ── Pro tier ───────────────────────────────────────────────────────────────
+
+/**
+ * The states served by LushNote's paid keys.
+ *
+ * `entitled: true` is NOT the test. Half the entitled states have never sent us
+ * a penny: trialing, legacy and grace are all entitled without money moving,
+ * and a trial doctor on our paid key would mean paying their API bill for three
+ * months before they decide anything.
+ *
+ *   active   paying.
+ *   dunning  past_due WITH a method on file - a card retry or a BECS debit
+ *            clearing. Cutting off a doctor whose money is already in flight is
+ *            the same mistake the entitlement resolver exists to avoid.
+ *   paused   collection paused, but a period they already paid for is running.
+ *   exempt   complimentary, granted deliberately by an admin. A comp account
+ *            means the full product, and there are a handful. If that stops
+ *            being true, remove this one entry.
+ *
+ * Trial doctors keep their own keys. That is what makes the upgrade concrete -
+ * "no more 20 notes a day, no key to manage" - and holds trial API cost at zero.
+ */
+export const PRO_STATES: readonly EntitlementState[] = ['active', 'dunning', 'paused', 'exempt']
+
+export function isProState(state: EntitlementState): boolean {
+  return PRO_STATES.includes(state)
+}

@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { getGroqKey } from '@/lib/utils'
 import type { CustomLetterTemplate, CustomLetterSection } from '@/types'
+import { aiHeaders } from '@/lib/aiHeaders'
 
 interface Props {
   open: boolean
@@ -123,9 +124,7 @@ export default function CustomLetterBuilderModal({ open, initial, onSave, onClos
 
     setWorking(true); setError(null)
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const gk = getGroqKey()
-      if (gk) headers['x-groq-key'] = gk
+      const headers = await aiHeaders()
       const res = await fetch('/api/chat', {
         method: 'POST', headers,
         body: JSON.stringify({

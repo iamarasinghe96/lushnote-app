@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import BackButton from '@/components/ui/BackButton'
+import { formatMicros } from '@/lib/aiCost'
 
 const CARD = { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' } as const
 
@@ -11,7 +12,7 @@ interface UserRow {
   uid: string; email: string; displayName: string; credentials: string; status: string; tier: string
   position?: string; workPhone?: string; workplaces: Workplace[]
   onboardingComplete: boolean; termsAccepted: boolean; marketingConsent: boolean
-  geminiUsage: unknown; createdAt: number | null; updatedAt: number | null
+  geminiUsage: unknown; aiCost: unknown; createdAt: number | null; updatedAt: number | null
   billingSummary?: {
     subscriptionStatus: string | null; trialEndsAt: number | null; currentPeriodEnd: number | null
     cancelAtPeriodEnd: boolean; paused: boolean
@@ -132,6 +133,22 @@ export default function UsersPanel() {
     return `${parts.join(' · ')}${f.date ? ` (${f.date})` : ''}`
   })()
 
+  // Estimated, and labelled as such wherever it is shown. It is our arithmetic
+  // over provider-reported token counts, not a bill.
+  const aiSpend = (() => {
+    const c = selected?.aiCost as Record<string, { micros?: number; calls?: number; unpriced?: number }> | null
+    if (!c) return '-'
+    const months = Object.keys(c).sort()
+    const latest = months[months.length - 1]
+    const m = latest ? c[latest] : null
+    if (!m) return '-'
+    const parts = [`~${formatMicros(m.micros ?? 0)} (${latest})`]
+    if (m.calls) parts.push(`${m.calls} calls`)
+    // A model with no price entry would otherwise read as free.
+    if (m.unpriced) parts.push(`${m.unpriced} unpriced`)
+    return parts.join(' · ')
+  })()
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
       {/* Detail view */}
@@ -151,6 +168,7 @@ export default function UsersPanel() {
             <Field label="Notes" value={selected.noteCount < 0 ? '-' : String(selected.noteCount)} />
             <Field label="Patients" value={selected.patientCount < 0 ? '-' : String(selected.patientCount)} />
             <Field label="Gemini usage" value={gemini} />
+            <Field label="AI cost (estimated)" value={aiSpend} />
             <div>
               <p className="text-[11px] uppercase tracking-wide text-[#94a3b8]">AI errors</p>
               {/* A plain link, not a router push: the console reads ?q= on mount,

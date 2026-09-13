@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { formatMicros, microsToAud } from '@/lib/aiCost'
 
 const CARD = { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' } as const
 
@@ -12,6 +13,7 @@ interface Health {
   priceValid: boolean | null
   priceError: string | null
   becsActive: boolean | null
+  proKeyConfigured: boolean
   events: { last24h: number; last7d: number; latestAt: number | null; latestType: string | null }
   cohorts: Record<string, number>
   lastSweep: { at: number; scanned: number; trialsStarted: number; paywalled: number; errors: number } | null
@@ -36,6 +38,15 @@ const COHORT_LABEL: Record<string, string> = {
   dunning: 'Payment in progress',
   paused: 'Paused',
   paywalled: 'Paywalled',
+}
+
+interface AiCost {
+  month: string
+  totalMicros: number
+  totalCalls: number
+  unpricedCalls: number
+  doctorsWithSpend: number
+  top: { uid: string; email: string; micros: number; calls: number; state: string }[]
 }
 
 interface Overview {
@@ -79,6 +90,7 @@ export default function BillingPanel() {
   const { user } = useAuth()
   const [data, setData] = useState<Overview | null>(null)
   const [health, setHealth] = useState<Health | null>(null)
+  const [ai, setAi] = useState<AiCost | null>(null)
   const [lookup, setLookup] = useState('')
   const [recon, setRecon] = useState<Reconciliation | null>(null)
   const [busy, setBusy] = useState(false)
@@ -98,12 +110,14 @@ export default function BillingPanel() {
 
   const load = useCallback(async () => {
     try {
-      const [d, h] = await Promise.all([
+      const [d, h, a] = await Promise.all([
         call<Overview>({ action: 'overview' }),
         call<Health>({ action: 'health' }),
+        call<AiCost>({ action: 'aiCost' }),
       ])
       setData(d)
       setHealth(h)
+      setAi(a)
       setEffectiveDate(d.config.gstEffectiveDate ?? '')
     } catch (e) { setToast(e instanceof Error ? e.message : 'Failed to load') }
   }, [call])
@@ -218,12 +232,26 @@ export default function BillingPanel() {
             />
             <Stat label="Webhook secret" value={health.webhookConfigured ? 'Set' : 'Missing'} bad={!health.webhookConfigured} />
             <Stat
+              label="Pro AI key"
+              value={health.proKeyConfigured ? 'Set' : 'Missing'}
+              bad={!health.proKeyConfigured}
+            />
+            <Stat
               label="Direct debit"
               value={health.becsActive === null ? 'Unknown' : health.becsActive ? 'Active' : 'Not activated'}
               bad={health.becsActive === false}
             />
             <Stat label="Events (24h)" value={String(health.events.last24h)} />
           </div>
+
+          {!health.proKeyConfigured && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <strong>LUSHNOTE_GEMINI_PRO_KEY is not set.</strong> Every paying doctor is silently falling
+              back to their own key, so Pro is not actually happening and nothing else in the app would say
+              so. Add it as a server variable in Vercel - never with a NEXT_PUBLIC_ prefix, which would
+              publish it to every visitor.
+            </div>
+          )}
 
           {health.becsActive === false && (
             <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -249,6 +277,50 @@ export default function BillingPanel() {
               ? `Last event ${health.events.latestType ?? ''} at ${new Date(health.events.latestAt).toLocaleString('en-AU')}`
               : 'No webhook has been received yet. If Stripe is configured, send a test event from the Stripe dashboard.'}
           </p>
+
+          {/* What the flat $30 is actually costing. ESTIMATED throughout: this is
+              our arithmetic over provider-reported token counts, not an invoice,
+              and it will not match Google's bill to the cent. */}
+          {ai && (
+            <div className="rounded-xl border border-[var(--border)] p-3 space-y-2">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <h3 className="text-sm font-semibold text-[#0f172a]">AI cost this month</h3>
+                <span className="text-[11px] text-[#94a3b8]">estimated, {ai.month}</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <Stat label="Total" value={formatMicros(ai.totalMicros)} />
+                <Stat label="In AUD" value={`~$${microsToAud(ai.totalMicros).toFixed(2)}`} />
+                <Stat label="Doctors" value={String(ai.doctorsWithSpend)} />
+                <Stat label="Calls" value={ai.totalCalls.toLocaleString()} />
+              </div>
+
+              {ai.unpricedCalls > 0 && (
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                  {ai.unpricedCalls.toLocaleString()} calls had no price entry, so they count as zero here.
+                  A model was probably renamed - check PRICING in lib/aiCost.
+                </p>
+              )}
+
+              {ai.top.length > 0 ? (
+                <ul className="divide-y divide-[var(--border)] text-xs">
+                  {ai.top.map(t => (
+                    <li key={t.uid} className="py-1.5 flex items-center gap-2">
+                      <span className="flex-1 truncate text-[#0f172a]">{t.email || t.uid}</span>
+                      <span className="text-[#94a3b8] shrink-0">{t.state}</span>
+                      <span className="text-[#94a3b8] shrink-0">{t.calls} calls</span>
+                      <span className="w-20 text-right shrink-0 text-[#475569]">{formatMicros(t.micros)}</span>
+                      {/* The point of comparison: what they pay is AUD 30. */}
+                      <span className="w-16 text-right shrink-0 text-[#94a3b8]">
+                        ~${microsToAud(t.micros).toFixed(2)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-[#94a3b8]">Nothing recorded yet this month.</p>
+              )}
+            </div>
+          )}
 
           {/* Cohorts: the same resolver the app gates on, counted. */}
           <div className="flex flex-wrap gap-2 pt-1">

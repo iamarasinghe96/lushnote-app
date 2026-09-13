@@ -3,11 +3,13 @@ import { withRequest, noteRequest } from '@/lib/requestContext'
 import { mockForCaller, mockGenerateResponse } from '@/lib/e2eMock'
 import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
 import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
-import { getProfile, updateGeminiUsage } from '@/lib/firestore/profiles-admin'
+import { getProfile, meterGemini, meterGroq } from '@/lib/firestore/profiles-admin'
+import { requireUser, unauthorized } from '@/lib/adminGuard'
 import { rateLimit } from '@/lib/rateLimit'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import { logToSink } from '@/lib/firestore/systemLogs'
-import { resolveGroqKey } from '@/lib/serverAiKeys'
+import { resolveAiKeys, proGeminiKey, sharedGroqKey, type AiKeyChoice } from '@/lib/serverAiKeys'
+import { monthKey } from '@/lib/utils'
 import { resolveEntitlement } from '@/lib/entitlement'
 
 // Generating a note from a long transcript can exceed Vercel's 10s default —
@@ -200,6 +202,9 @@ async function runExtraction(opts: {
   system: string
   req: NextRequest
   uid?: string
+  /** Decided ONCE per request by resolveAiKeys, so a paying doctor and a trial
+   *  doctor cannot end up on different providers' keys within one note. */
+  keys: AiKeyChoice
   // Fidelity beats saving quota wherever a clinical record is being COPIED
   // rather than composed: Groq paraphrased the same note into half its content
   // on one run and kept it on the next, purely by which provider had capacity.
@@ -212,8 +217,8 @@ async function runExtraction(opts: {
   geminiOnly?: boolean
 }): Promise<{ content: string; provider: 'groq' | 'gemini'; finishReason?: string }> {
   const { prompt, system, req, uid, preferGemini, geminiOnly } = opts
-  const groqKey = geminiOnly ? null : req.headers.get('x-groq-key')
-  const userGeminiKey = req.headers.get('x-gemini-key')
+  const groqKey = geminiOnly ? null : opts.keys.groqKey
+  const userGeminiKey = opts.keys.geminiKey
   // Groq's failure was logged and then dropped. On this path Groq goes FIRST,
   // so the doctor was told "Gemini is busy" about the SECOND thing that failed
   // while the provider that actually led the attempt went unmentioned.
@@ -221,7 +226,8 @@ async function runExtraction(opts: {
 
   if (groqKey && !preferGemini) {
     try {
-      const { content } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
+      const { content, totalTokens } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
+      if (uid) void meterGroq(uid, totalTokens)
       return { content, provider: 'groq' }
     } catch (err) {
       groqFailed = true
@@ -238,14 +244,14 @@ async function runExtraction(opts: {
   if (userGeminiKey) {
     try {
       let { text, usage, finishReason } = await generateNote(prompt, system, userGeminiKey, { temperature: EXTRACTION_TEMPERATURE, json: true })
-      if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
+      if (uid) await meterGemini(uid, 'gemini-2.5-flash', usage)
       // A reply that stopped at the ceiling is a half-written object, and no
       // amount of repairing makes one parse. Google says so explicitly, so the
       // one retry is spent on a real signal rather than on a hunch.
       if (finishReason === 'MAX_TOKENS') {
         logToSink({ level: 'warn', tag: 'gemini-key', route: '/api/generate', uid, message: `truncated at ceiling (thoughts=${usage.thoughts}, output=${usage.output}) — retrying uncapped` })
         const retry = await generateNote(prompt, system, userGeminiKey, { temperature: EXTRACTION_TEMPERATURE, json: true, uncapped: true })
-        if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', retry.usage).catch(() => {})
+        if (uid) await meterGemini(uid, 'gemini-2.5-flash', retry.usage)
         text = retry.text; finishReason = retry.finishReason
       }
       return { content: text, provider: 'gemini', finishReason }
@@ -271,7 +277,7 @@ async function runExtraction(opts: {
     if (!uid || checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')) {
       try {
         const { text, usage, finishReason } = await generateNote(prompt, system, undefined, { temperature: EXTRACTION_TEMPERATURE, json: true })
-        if (uid) await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
+        if (uid) await meterGemini(uid, 'gemini-2.5-flash', usage)
         return { content: text, provider: 'gemini', finishReason }
       } catch (err) {
         logToSink({ level: 'warn', tag: 'gemini-shared', route: '/api/generate', uid, message: describeGeminiError(err) })
@@ -282,7 +288,8 @@ async function runExtraction(opts: {
   // Gemini-first jobs still fall back to Groq rather than failing outright.
   if (groqKey && preferGemini) {
     try {
-      const { content } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
+      const { content, totalTokens } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
+      if (uid) void meterGroq(uid, totalTokens)
       return { content, provider: 'groq' }
     } catch (err) {
       logToSink({ level: 'warn', tag: 'groq', route: '/api/generate', uid, message: err instanceof Error ? err.message.slice(0, 300) : 'unknown' })
@@ -316,12 +323,40 @@ async function handlePOST(req: NextRequest) {
       source?: string
     }
 
-    const { uid, transcript, templatePrompt, systemPrompt, mode, letterType, retry, customLetter, formName, source } = body
+    // Identity is PROVEN here, not asserted. Before this the uid arrived in the
+    // request body and was checked only for length, so any caller who knew a
+    // doctor's uid could spend that doctor's quota - and once a paying doctor
+    // is served by LushNote's own paid key, could spend our money. The body uid
+    // is kept only to detect a mismatch, which is what probing looks like.
+    let uid: string
+    try { uid = await requireUser(req) } catch { return unauthorized() }
+
+    const { uid: claimedUid, transcript, templatePrompt, systemPrompt, mode, letterType, retry, customLetter, formName, source } = body
+    if (claimedUid && claimedUid !== uid) {
+      logToSink({ level: 'warn', tag: 'generate', route: '/api/generate', uid, message: 'body uid did not match the verified token' })
+    }
     noteRequest({ uid, mode: mode ?? 'note' })
+
+    // Loaded ONCE. The e2e mock, the key choice, the suspension check and the
+    // personalisation prefix all need it, and it used to be read three times.
+    const profile = await getProfile(uid).catch(() => null)
+    const entitlement = resolveEntitlement(profile?.billing, Date.now())
+
+    // Who pays for every provider call below. A paying doctor is served by
+    // LushNote's keys; a trial doctor by their own, which is what the upgrade
+    // actually buys them.
+    const keys = resolveAiKeys({
+      state: entitlement.state,
+      monthSpendMicros: profile?.aiCost?.[monthKey()]?.micros ?? 0,
+      userGeminiKey: req.headers.get('x-gemini-key'),
+      userGroqKey: req.headers.get('x-groq-key'),
+      proGeminiKey: proGeminiKey(),
+      sharedGroqKey: sharedGroqKey(),
+    })
 
     // Preview deployments only, and never production — see lib/e2eMock. Placed
     // inside withRequest so the request is still logged like any other.
-    if (mockForCaller(uid ? await getProfile(uid).catch(() => null) : null)) {
+    if (mockForCaller(profile)) {
       const mocked = mockGenerateResponse(mode, letterType)
       if (mocked) {
         logToSink({ level: 'info', tag: 'generate', route: '/api/generate', uid, message: `mocked reply for mode=${mode ?? 'note'}` })
@@ -380,7 +415,7 @@ DICTATION:
 ${transcript}`
 
       try {
-        const { content } = await runExtraction({ prompt: formPrompt, system: systemInstruction, req, uid, preferGemini: true })
+        const { content } = await runExtraction({ keys, prompt: formPrompt, system: systemInstruction, req, uid, preferGemini: true })
         const jsonMatch = content.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
           // Parse in isolation: a malformed reply is the AI's problem, not
@@ -446,7 +481,7 @@ Rules:
       const identityProfile = uid ? await getProfile(uid).catch(() => null) : null
       const identityPrivacy = identityProfile?.transcriptPrivacy ?? DEFAULT_TRANSCRIPT_PRIVACY
       try {
-        const { content } = await runExtraction({
+        const { content } = await runExtraction({ keys,
           prompt: `RECORDING:\n${applyTranscriptRedactions(transcript, identityPrivacy)}`,
           system: identitySystem, req, uid,
         })
@@ -587,7 +622,7 @@ DICTATION:
 ${transcript}`
 
       try {
-        const first = await runExtraction({ prompt: intakePrompt, system: systemInstruction, req, uid, preferGemini: true })
+        const first = await runExtraction({ keys, prompt: intakePrompt, system: systemInstruction, req, uid, preferGemini: true })
         // Parse in isolation: a malformed reply is the AI's problem, not
         // something to show the doctor as a raw syntax error.
         // "was not valid JSON" said nothing about WHY: a reply cut off at the
@@ -619,7 +654,7 @@ ${transcript}`
           if (before < COVERAGE_FLOOR) {
             logToSink({ level: 'warn', tag: 'generate', message: `${mode} groq coverage ${Math.round(before * 100)}% — retrying on gemini`, route: '/api/generate', uid })
             try {
-              const second = await runExtraction({ prompt: intakePrompt, system: systemInstruction, req, uid, geminiOnly: true })
+              const second = await runExtraction({ keys, prompt: intakePrompt, system: systemInstruction, req, uid, geminiOnly: true })
               const retried = parse(second.content, second)
               if (retried && sourceCoverage(transcript, flattenStrings(retried)) > before) patientFields = retried
             } catch { /* keep the first answer rather than failing outright */ }
@@ -795,7 +830,7 @@ ${transcript}`
       if (!letterPrompt) return NextResponse.json({ error: 'Unknown letterType' }, { status: 400 })
 
       try {
-        const { content } = await runExtraction({ prompt: letterPrompt, system: systemInstruction, req, uid })
+        const { content } = await runExtraction({ keys, prompt: letterPrompt, system: systemInstruction, req, uid })
         const jsonMatch = content.match(/\{[\s\S]*\}/)
         if (jsonMatch) {
           // Parse in isolation: a malformed reply is the AI's problem, not
@@ -819,9 +854,6 @@ ${transcript}`
     }
 
     // Standard note generation
-    if (!uid || typeof uid !== 'string' || uid.length === 0 || uid.length > 128) {
-      return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
-    }
 
     if (!transcript || typeof transcript !== 'string' || transcript.length === 0 || transcript.length > 300000) {
       return NextResponse.json({ error: 'Invalid transcript' }, { status: 400 })
@@ -841,7 +873,6 @@ ${transcript}`
       return NextResponse.json({ error: 'Rate limit exceeded. Try again later.' }, { status: 429 })
     }
 
-    const profile = await getProfile(uid).catch(() => null)
     if (profile?.status === 'disabled') {
       return NextResponse.json({ error: 'Account suspended' }, { status: 403 })
     }
@@ -849,9 +880,7 @@ ${transcript}`
     // Paid features. 402 rather than 403: suspension is a judgement about the
     // person, this is only about the state of a subscription, and the client
     // routes the two differently.
-    // The profile is already in hand from the suspension check, so resolve
-    // from it rather than paying for a second read of the same document.
-    const entitlement = resolveEntitlement(profile?.billing, Date.now())
+    // Resolved once at the top of the handler, from the same document.
     if (!entitlement.entitled) {
       logToSink({ level: 'info', tag: 'billing', route: '/api/generate', uid: uid, status: 402, message: `blocked: ${entitlement.reason}` })
       return NextResponse.json({ error: 'Your LushNote subscription needs attention - note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: entitlement.state }, { status: 402 })
@@ -869,7 +898,7 @@ ${transcript}`
       : (systemPrompt ?? '')
 
     const prompt = `${templatePrompt}\n\n${safeTranscript}`
-    const userGeminiKey = req.headers.get('x-gemini-key')
+    const userGeminiKey = keys.geminiKey
 
     // Groq's free tier caps a single request at ~12k tokens/min (input + output),
     // so a long session can only be done by Gemini. Estimate the size so we never
@@ -889,7 +918,7 @@ ${transcript}`
     if (userGeminiKey) {
       try {
         const { text: content, usage } = await generateNote(prompt, effectiveSystemPrompt, userGeminiKey)
-        await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
+        await meterGemini(uid, 'gemini-2.5-flash', usage)
         return NextResponse.json({ content, provider: 'gemini' })
       } catch (err) {
         const m = err instanceof Error ? err.message : ''
@@ -912,7 +941,7 @@ ${transcript}`
       if (checkQuota(quota, 'gemini-2.5-flash')) {
         try {
           const { text: content, usage } = await generateNote(prompt, effectiveSystemPrompt)
-          await updateGeminiUsage(uid, 'gemini-2.5-flash', usage).catch(() => {})
+          await meterGemini(uid, 'gemini-2.5-flash', usage)
           // Their OWN key was daily-exhausted and ours carried this note. The
           // doctor has hit their limit even though nothing visibly failed.
           return NextResponse.json({ content, provider: 'gemini', geminiDailyLimit: geminiDaily })
@@ -948,8 +977,8 @@ ${transcript}`
     // clinic running once Gemini's 20 a day are spent — without it a doctor who
     // never pasted a Groq key of their own got no note at all for the rest of
     // the day, however many patients were still waiting.
-    const groq = resolveGroqKey(req.headers.get('x-groq-key'))
-    const groqKey = groq.key
+    const groqKey = keys.groqKey
+    const groq = { shared: keys.sharedGroq }
     if (!groqKey) {
       // Short enough for Groq but no Groq key. If Gemini stumbled transiently, a
       // retry recovers it; otherwise there's simply no usable key.
@@ -961,6 +990,7 @@ ${transcript}`
 
     try {
       const { content, totalTokens } = await generateNoteGroq(prompt, effectiveSystemPrompt, groqKey)
+      void meterGroq(uid, totalTokens)
       // Only the shared path is logged: a doctor on their own key is
       // unremarkable, while every request on ours is a cost worth counting
       // without reading server logs.

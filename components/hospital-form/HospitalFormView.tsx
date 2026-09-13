@@ -12,6 +12,7 @@ import { GeneratingOverlay } from '@/components/ui/GeneratingOverlay'
 import FormaliseButton from '@/components/ui/FormaliseButton'
 import HospitalFormEditor, { type HospitalFormEditorHandle } from './HospitalFormEditor'
 import type { HospitalFormData, NoteInput, PatientProfile } from '@/types'
+import { aiHeaders } from '@/lib/aiHeaders'
 
 export function emptyFormData(formKey: string): HospitalFormData {
   return { formKey, pid: { urNo: '', surname: '', givenNames: '', dob: '', sex: '' }, noteText: '', dateTime: { date: '', time: '' } }
@@ -124,11 +125,7 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
     if (!cfg) return
     setIsGenerating(true); setGenError(null)
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const groqKey = getGroqKey()
-      if (groqKey) headers['x-groq-key'] = groqKey
-      const geminiKey = getGeminiKey()
-      if (geminiKey) headers['x-gemini-key'] = geminiKey
+      const headers = await aiHeaders()
       const res = await fetch('/api/generate', { method: 'POST', headers, body: JSON.stringify({ mode: 'hospital-form', transcript, formName: cfg.name, uid: user?.uid }) })
       const data = await res.json() as { formFields?: Record<string, unknown>; error?: string }
       if (data.formFields) {
