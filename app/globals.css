@@ -296,6 +296,19 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 
 /* Tab bar surface — lighter frost than the landing nav so the glow layer
    and page content stay visible for the lens to warp. */
+/* A bar of small text sitting over content that MOVES.
+   More opaque than .ln-glass-light (0.35), which is tuned for a static landing
+   nav and leaves grey-on-grey unreadable once patient names scroll behind it;
+   less than .ln-glass-modal (0.82), which is what the Patients toolbar
+   effectively was before this. 0.62 is a starting point to judge on a real
+   phone, not a derived figure - it is one number to change. */
+.ln-glass-toolbar {
+  --lg-frost-blur: 12px;
+  --lg-tint-color: 255, 255, 255;
+  --lg-tint-opacity: 0.62;
+  --lg-border-color: rgba(255, 255, 255, 0.5);
+}
+
 .ln-glass-tabbar {
   --lg-frost-blur:   8px;
   --lg-tint-color:   255, 255, 255;
