@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { getGeminiKey } from '@/lib/utils'
+import { aiHeaders } from '@/lib/aiHeaders'
 
 export interface ScannedPatient {
   name: string
@@ -98,7 +99,9 @@ export default function ScanNoteModal({ open, uid, onClose, onScanned }: ScanNot
         setError('Scanning needs a Gemini API key. Open Settings → API Keys, paste your key and press Save key, then try again.')
         return
       }
-      const headers: Record<string, string> = { 'x-gemini-key': geminiKey }
+      // json:false - this body is FormData and fetch must set its own multipart
+      // boundary. Setting Content-Type by hand here corrupts the upload.
+      const headers = await aiHeaders({ json: false })
       const res = await fetch('/api/ocr', { method: 'POST', headers, body: form })
       const data = await res.json() as { text?: string; patient?: ScannedPatient; error?: string }
       if (!res.ok || !data.text) {

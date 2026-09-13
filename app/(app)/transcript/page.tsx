@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { findQuoteRange } from '@/lib/quoteMatch'
 import { useKeyboardCloseSafety } from '@/hooks/useKeyboardCloseSafety'
 import { getGroqKey, getGeminiKey, withTimeout } from '@/lib/utils'
+import { aiHeaders } from '@/lib/aiHeaders'
 
 export default function TranscriptPage() {
   const { lastTranscript } = useNoteStore()
@@ -86,11 +87,7 @@ export default function TranscriptPage() {
     setLoading(true)
 
     try {
-      const groqKey = getGroqKey()
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (groqKey) headers['x-groq-key'] = groqKey
-      const geminiKey = getGeminiKey()
-      if (geminiKey) headers['x-gemini-key'] = geminiKey
+      const headers = await aiHeaders()
 
       const response = await fetch('/api/chat', {
         method: 'POST',

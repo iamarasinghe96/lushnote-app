@@ -6,6 +6,7 @@ import {
   getBillingConfig, setGstRegistered, computeAuTurnover, saveTurnoverCache,
   stripeEnabled, PRICE_AUD, GST_THRESHOLD_AUD, priceString,
   pipelineHealth, reconcileUser, reprojectUser,
+  aiCostReport,
 } from '@/lib/billing'
 import { runBillingSweep } from '@/lib/firestore/billingSweep'
 
@@ -18,7 +19,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
-      action: 'overview' | 'setGst' | 'setExempt' | 'refreshTurnover' | 'recordsExport' | 'health' | 'reconcile' | 'reproject' | 'runSweep'
+      action: 'overview' | 'setGst' | 'setExempt' | 'refreshTurnover' | 'recordsExport' | 'health' | 'reconcile' | 'reproject' | 'runSweep' | 'aiCost'
       lookup?: string
       registered?: boolean
       effectiveDate?: string | null
@@ -29,6 +30,13 @@ export async function POST(req: NextRequest) {
     let actor
     try { actor = await requireAdmin(req) } catch { return unauthorized() }
     const db = adminDb()
+
+    // Read-only aggregate over what the routes already recorded. No audit row:
+    // writeAudit is for actions that CHANGE something, and a flood of read
+    // entries would bury the ones that matter.
+    if (body.action === 'aiCost') {
+      return NextResponse.json(await aiCostReport())
+    }
 
     if (body.action === 'overview') {
       const cfg = await getBillingConfig()

@@ -118,6 +118,13 @@ export function quotaDate(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
 }
 
+// The month a cost belongs to, as YYYY-MM. Deliberately the SAME timezone as
+// quotaDate: a day key must never fall outside the month key computed from the
+// same instant, which is what happens if one is Pacific and the other UTC.
+export function monthKey(now: Date = new Date()): string {
+  return now.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }).slice(0, 7)
+}
+
 export function getInitials(displayName: string): string {
   if (!displayName) return 'LN'
   const cleaned = displayName.replace(/^(doctor|dr\.?)\s+/i, '').trim()

@@ -7,6 +7,7 @@ import { LUSHNOTE_KB } from '@/lib/supportKb'
 import { listNotes } from '@/lib/firestore/notes'
 import { getGroqKey } from '@/lib/utils'
 import type { Note } from '@/types'
+import { aiHeaders } from '@/lib/aiHeaders'
 
 
 // Tappable starter questions shown in the empty AI Assistant — a mix of app
@@ -391,9 +392,7 @@ export function FAB() {
       )))
       const notesContext = buildNotesContext(question, notes)
 
-      const groqKey = getGroqKey()
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (groqKey) headers['x-groq-key'] = groqKey
+      const headers = await aiHeaders()
 
       const response = await fetch('/api/chat', {
         method: 'POST',

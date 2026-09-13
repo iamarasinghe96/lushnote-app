@@ -29,6 +29,7 @@ import { getHospitalFormsForWorkplace, getHospitalForm } from '@/lib/firestore/h
 import { updateProfile } from '@/lib/firestore/profiles'
 import { getPatientProfiles, savePatientProfile } from '@/lib/firestore/patients'
 import type { AnyTemplate, NoteCreationMode, Note, LetterType, CustomLetterTemplate, HospitalFormDoc, PatientProfile } from '@/types'
+import { aiHeaders } from '@/lib/aiHeaders'
 
 const GEMINI_RPD = 20
 
@@ -587,11 +588,7 @@ export default function GeneratePage() {
     }
 
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const gk = getGroqKey()
-      if (gk) headers['x-groq-key'] = gk
-      const gemk = getGeminiKey()
-      if (gemk) headers['x-gemini-key'] = gemk
+      const headers = await aiHeaders()
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,
@@ -1037,11 +1034,7 @@ export default function GeneratePage() {
     setPatientSaving(true)
     setError(null)
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      const gk = getGroqKey()
-      if (gk) headers['x-groq-key'] = gk
-      const gemk = getGeminiKey()
-      if (gemk) headers['x-gemini-key'] = gemk
+      const headers = await aiHeaders()
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers,

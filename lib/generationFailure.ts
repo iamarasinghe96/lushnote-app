@@ -77,6 +77,14 @@ export function classifyGenerationFailure(
   for (const p of TERMINAL_PATTERNS) {
     if (p.rx.test(msg)) return { kind: 'terminal', message: p.message, action: p.action }
   }
+  // 401 means the session, not the request. The AI routes verify a Firebase ID
+  // token now, and a token that has expired or been revoked will be refused
+  // exactly the same way on a retry - so say what actually fixes it rather than
+  // making the doctor watch a second pointless attempt.
+  if (status === 401) {
+    return { kind: 'terminal', message: 'Your session has expired.', action: 'Sign out and back in, then try again.' }
+  }
+
   // 402/403 are decisions about the account, not about this request.
   if (status === 402 || status === 403) {
     return { kind: 'terminal', message: 'Note creation is paused on this account.', action: 'Open Billing to restore access.' }

@@ -91,3 +91,20 @@ describe('failureDialogCopy', () => {
     }
   })
 })
+
+// The AI routes began verifying a Firebase ID token, so 401 became a real
+// outcome a doctor can hit: a token that expired while the tab sat open, or a
+// session revoked elsewhere. It fails identically on a retry, so it has to be
+// terminal - otherwise the doctor watches a second attempt that cannot work.
+describe('an expired session', () => {
+  it('is terminal, and says what actually fixes it', () => {
+    const f = classifyGenerationFailure('Unauthorized', 401)
+    expect(f.kind).toBe('terminal')
+    expect(f.action).toMatch(/sign/i)
+  })
+
+  it('is not confused with a billing block', () => {
+    expect(classifyGenerationFailure('Unauthorized', 401).message)
+      .not.toBe(classifyGenerationFailure('Unauthorized', 402).message)
+  })
+})

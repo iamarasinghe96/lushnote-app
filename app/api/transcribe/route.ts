@@ -5,7 +5,10 @@ import { transcribeAudio } from '@/lib/gemini'
 import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
-import { resolveGroqKey } from '@/lib/serverAiKeys'
+import { resolveAiKeys, proGeminiKey, sharedGroqKey } from '@/lib/serverAiKeys'
+import { recordAiSpend } from '@/lib/firestore/profiles-admin'
+import { requireUser, unauthorized } from '@/lib/adminGuard'
+import { geminiCostMicros, whisperCostMicros, audioSecondsFromBytes } from '@/lib/aiCost'
 import { getProfile } from '@/lib/firestore/profiles-admin'
 import { getAccessState } from '@/lib/billing'
 
@@ -21,17 +24,19 @@ async function handlePOST(req: NextRequest) {
   let uid = 'unknown'
   let seg = '?'
   try {
+    // Identity is PROVEN here, not asserted - see the note in /api/generate.
+    // The form's own uid field is ignored entirely; `uidField` is kept as the
+    // name the rest of this handler already uses.
+    let uidField: string
+    try { uidField = await requireUser(req) } catch { return unauthorized() }
+    uid = uidField
+    noteRequest({ uid })
+
     const form = await req.formData()
     const audio = form.get('audio')
     const mimeType = form.get('mimeType')
-    const uidField = form.get('uid')
     const segField = form.get('segIndex')
-    uid = typeof uidField === 'string' ? uidField : 'unknown'
     seg = typeof segField === 'string' ? segField : '?'
-
-    if (!uidField || typeof uidField !== 'string' || uidField.length === 0 || uidField.length > 128) {
-      return NextResponse.json({ error: 'Invalid or missing uid' }, { status: 401 })
-    }
     if (!(audio instanceof File)) {
       return NextResponse.json({ error: 'Invalid audio field' }, { status: 400 })
     }
@@ -64,6 +69,17 @@ async function handlePOST(req: NextRequest) {
       return NextResponse.json({ error: 'Your LushNote subscription needs attention - note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: access.entitlement.state }, { status: 402 })
     }
 
+    // Who pays for this call. A paying doctor is served by LushNote's keys; a
+    // trial doctor by their own, which is what the upgrade actually buys.
+    const keys = resolveAiKeys({
+      state: access.entitlement.state,
+      monthSpendMicros: access.monthSpendMicros,
+      userGeminiKey: req.headers.get('x-gemini-key'),
+      userGroqKey: req.headers.get('x-groq-key'),
+      proGeminiKey: proGeminiKey(),
+      sharedGroqKey: sharedGroqKey(),
+    })
+
     const buffer = Buffer.from(await audio.arrayBuffer())
     if (buffer.length > MAX_SEGMENT_BYTES) {
       return NextResponse.json({ error: 'Audio segment too large' }, { status: 413 })
@@ -74,10 +90,17 @@ async function handlePOST(req: NextRequest) {
     // 1. The user's OWN Gemini key — their generous per-account limits. No shared
     //    server key / 20-per-day pool is used, so a long session never exhausts a
     //    quota mid-recording.
-    const userGeminiKey = req.headers.get('x-gemini-key')
+    const userGeminiKey = keys.geminiKey
     if (userGeminiKey) {
       try {
-        const { text } = await transcribeAudio(base64, mimeType, userGeminiKey)
+        const { text, usage } = await transcribeAudio(base64, mimeType, userGeminiKey)
+        // Audio arrives INSIDE promptTokenCount, so it is handed over separately
+        // and subtracted before the text rate is applied - otherwise the most
+        // expensive line in the whole product is billed twice.
+        void recordAiSpend(uidField, {
+          micros: geminiCostMicros(usage, 'gemini-2.5-flash', usage.prompt),
+          provider: 'gemini',
+        }).catch(() => {})
         console.log(`[transcribe] ok provider=gemini seg=${seg} uid=${uid} sizeMB=${sizeMB} chars=${text.length} elapsedMs=${Date.now() - startedAt}`)
         return NextResponse.json({ text, provider: 'gemini' })
       } catch (err) {
@@ -92,8 +115,8 @@ async function handlePOST(req: NextRequest) {
     // are spent used to lose transcription for every remaining segment; the
     // audio survived (it is uploaded before this runs) but the session was
     // unusable until the quota reset the next day.
-    const groq = resolveGroqKey(req.headers.get('x-groq-key'))
-    const groqKey = groq.key
+    const groqKey = keys.groqKey
+    const groq = { shared: keys.sharedGroq }
     if (!groqKey) {
       return NextResponse.json({ error: 'No transcription key. Add your Gemini API key (or a Groq key) in Settings → API Keys.' }, { status: 401 })
     }
@@ -102,6 +125,13 @@ async function handlePOST(req: NextRequest) {
     formData.append('file', new Blob([new Uint8Array(buffer)], { type: mimeType }), `audio.${ext}`)
     try {
       const text = await transcribeAudioGroq(formData, groqKey)
+      // Whisper bills per hour and the reply is a bare string, so the duration
+      // is estimated from the encoded size at the recorder's pinned bitrate.
+      // See audioSecondsFromBytes for why the response format was left alone.
+      void recordAiSpend(uidField, {
+        micros: whisperCostMicros(audioSecondsFromBytes(buffer.length)),
+        provider: 'groq',
+      }).catch(() => {})
       console.log(`[transcribe] ok provider=groq shared=${groq.shared} seg=${seg} uid=${uid} sizeMB=${sizeMB} chars=${text.length} elapsedMs=${Date.now() - startedAt}`)
       // Only the shared path is logged to the sink: a doctor using their own key
       // is unremarkable, while every request on ours is a cost we should be able
