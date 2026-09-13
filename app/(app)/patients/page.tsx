@@ -285,23 +285,25 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[var(--bg)]">
 
-      {/* Back button - right-aligned */}
-      <div
-        className="shrink-0 px-4 pb-2 pt-header border-b border-[var(--border)] flex items-center justify-end"
-        style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
-      >
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-sm text-[var(--blue)] active:scale-95 transition-transform"
-        >
-          All Patients
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <polyline points="9,18 15,12 9,6"/>
-          </svg>
-        </button>
-      </div>
+      {/* The bar lives INSIDE the scroller now. As a sibling above it there was
+          nothing behind it but the page background, so no amount of frost had
+          anything to reveal - the cards could never pass underneath. */}
+      <div className="flex-1 overflow-y-auto scrollbar-none pb-tabbar">
 
-      <div className="flex-1 overflow-y-auto scrollbar-none px-4 pt-4 pb-tabbar space-y-4">
+        {/* Back button - right-aligned */}
+        <div className="sticky top-0 z-20 ln-glass ln-glass-toolbar px-4 pb-2 pt-header border-b border-[var(--border)] flex items-center justify-end">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1.5 text-sm text-[var(--blue)] active:scale-95 transition-transform"
+          >
+            All Patients
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <polyline points="9,18 15,12 9,6"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="px-4 pt-4 space-y-4">
 
         {/* Patient info card */}
         <div
@@ -524,6 +526,7 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
             ))}
           </div>
         )}
+        </div>
       </div>
 
       {/* In-app delete session confirmation */}
@@ -1275,11 +1278,20 @@ export default function PatientsPage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
+      {/* For cards this wrapper IS the scroller, so the sticky bar below has
+          something to stick to and the rows pass behind its frost. For the
+          table, `contents` removes the wrapper from layout and the bar stays a
+          plain flex child as before: PatientTable owns its own scroller and its
+          own sticky header cells, and a second sticky layer over those would
+          fight them. */}
+      <div className={viewMode === 'table' ? 'contents' : 'flex-1 overflow-y-auto scrollbar-none pb-tabbar'}>
       {/* Header: view toggle + Add Patient (always visible) */}
-      <div
-        className="shrink-0 border-b border-[var(--border)] px-4 pb-3 pt-header space-y-2"
-        style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(12px)' }}
-      >
+      {/* z-20 is load-bearing, not decoration: .ln-glass paints its tint and
+          frost on ::before/::after at NEGATIVE z-index, so the host has to
+          establish a stacking context or both layers leak behind an ancestor's
+          background. It also keeps this bar painting over the rows, which come
+          after it in DOM order. */}
+      <div className="sticky top-0 z-20 ln-glass ln-glass-toolbar border-b border-[var(--border)] px-4 pb-3 pt-header space-y-2">
         <div className="flex items-center justify-between gap-2">
           <button
             onClick={() => setFiltersOpen(o => !o)}
@@ -1437,17 +1449,9 @@ export default function PatientsPage() {
         )}
       </div>
 
-      {/* Table view */}
-      {viewMode === 'table' ? (
-        <PatientTable
-          profiles={trackedProfiles}
-          onSave={handleTableSave}
-          onGenerate={p => setGenerateFor(p)}
-          onDelete={p => setTableDeleteTarget(p)}
-        />
-      ) : (
+      {viewMode === 'table' ? null : (
       /* Patient list (cards) */
-      <div className="flex-1 overflow-y-auto scrollbar-none pb-tabbar">
+      <>
         {/* An interrupted recording that never got a patient name lives only in
             the recovery draft (not in progress_notes, so it can't group like a
             real patient). Surface it here as an "Unnamed patient" row so the
@@ -1611,7 +1615,17 @@ export default function PatientsPage() {
             </div>
           ))
         )}
+      </>
+      )}
       </div>
+
+      {viewMode === 'table' && (
+        <PatientTable
+          profiles={trackedProfiles}
+          onSave={handleTableSave}
+          onGenerate={p => setGenerateFor(p)}
+          onDelete={p => setTableDeleteTarget(p)}
+        />
       )}
 
       {flagMenu && (
