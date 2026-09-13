@@ -76,7 +76,7 @@ function fromGemini(candidates: AddressCandidate[]): Result[] {
     .map(c => {
       const address = (c.address as string).trim()
       const oneLine = address.replace(/\s*\n+\s*/g, ', ')
-      const namePart = c.name ? `${c.name.trim()} — ` : ''
+      const namePart = c.name ? `${c.name.trim()} - ` : ''
       const approxPart = c.approximate ? ' (approx.)' : ''
       return { label: `${namePart}${oneLine}${approxPart}`, value: address }
     })
@@ -86,7 +86,7 @@ async function geminiSearch(q: string): Promise<Result[]> {
   if (!process.env.GEMINI_API_KEY) return []
   const prompt =
     `Find the postal address for: "${q}"\n\n` +
-    'Return ONLY valid JSON — an array of up to 4 candidate addresses, most likely first. ' +
+    'Return ONLY valid JSON — an array of up to 4 candidate addresses, most likely first. ' +   // dash-ok: AI prompt text
     'Each item must be: ' +
     '{ "name": "official place name", "address": "street line\\ncity STATE postcode\\ncountry", "approximate": true|false }. ' +
     'Put each part of the address on its own line using \\n. ' +

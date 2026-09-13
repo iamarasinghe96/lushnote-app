@@ -1069,12 +1069,13 @@ const BRACKET_FIELD_RX = /\[(?:presentation|history|medications|mse|content|scal
 
 // Appended to EVERY generation prompt: our note fields are plain text, so a
 // markdown table the model copies from a template renders as walls of dashes.
-const NO_TABLE_INSTRUCTION = `Never output markdown tables (no "|" pipe columns and no "|---|" separator rows). Where a template shows a table, write one labelled line per column for each row instead — e.g. "Situation: …" / "Thought: …" / "Emotion: …" / "Behaviour: …" — with a blank line between rows.`
+const NO_TABLE_INSTRUCTION = `Never output markdown tables (no "|" pipe columns and no "|---|" separator rows). Where a template shows a table, write one labelled line per column for each row instead — e.g. "Situation: …" / "Thought: …" / "Emotion: …" / "Behaviour: …" — with a blank line between rows.`   // dash-ok: AI prompt text
 
 // Section-marker instruction. When a template declares sections, list its exact
 // markers so the model emits parseable [key] lines instead of ### headings.
 function bracketFormatInstruction(markers: string[]): string {
   const list = markers.map(m => `[${m}]`).join(', ')
+  // dash-ok: AI prompt text - rewording it changes what the model returns
   return `Format:
 - Begin each section on its own line with its exact marker: ${list}.
 - Use ONLY these bracket markers as section dividers — no ## markdown headings and no **bold** heading lines.
