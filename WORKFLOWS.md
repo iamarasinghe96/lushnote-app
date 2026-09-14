@@ -1154,6 +1154,39 @@ would only restate whatever was typed.
 
 ---
 
+## `build-from-history` - create a draft from selected patient documents
+
+This removes the copy-and-paste step from longitudinal documents without letting
+the model decide which episode of care the doctor meant. The selection is the
+clinical boundary: an old admission or superseded medication must not enter the
+draft merely because it belongs to the same patient.
+
+| # | Step | What the doctor does | What the code does | Required to continue |
+|---|---|---|---|---|
+| 0 | Open patient | Opens a patient with at least two saved documents | The patient card offers **Build from history** | two documents with saved text |
+| 1 | Select sources | Checks the documents belonging to this episode | Shows document type, date and an excerpt; starts with nothing selected and sends nothing outside the selection | at least two selected documents within the storage-safe input limit |
+| 2 | Choose structure | Chooses any built-in or custom clinical template | Builds one chronological source bundle with an explicit boundary around every document | a template |
+| 3 | Create draft | Reviews the generated document in Edit | Uses the existing authenticated generation and autosave paths; source documents remain unchanged and the source bundle is retained as the new document's transcript | nothing; generation failure leaves the source bundle saved |
+
+### Expected outputs - what must remain true
+
+- The model receives only documents the doctor checked.
+- Sources are chronological and individually labelled with their dates and types.
+- Conflicting sources are preserved as a discrepancy for the doctor rather than
+  silently resolved by the model.
+- Missing facts stay missing; a date is chronology, not proof that a fact remains current.
+- Every source document remains unchanged and available from the patient record.
+- The generated document is an editable draft and is never submitted or signed automatically.
+
+### What protects it
+
+`tests/unit/build-from-history.test.ts` pins chronological ordering, source
+boundaries, the minimum selection and preservation of transcript-only documents.
+The existing generation tests protect authentication, Pro routing and failure
+recovery. The full patient-to-edit interaction remains an E2E coverage gap.
+
+---
+
 ## Not yet recorded
 
 These exist and are unprotected. Each becomes a section here as it is specified:
