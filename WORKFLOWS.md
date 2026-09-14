@@ -1154,6 +1154,33 @@ would only restate whatever was typed.
 
 ---
 
+## `discharge-note` - build an editable discharge note
+
+**Entry:** Any clinical template picker -> **Discharge Note**
+**Ends at:** an editable clinical note with only the discharge topics supported by the selected history or transcript
+**Code:** built-in template `117` in `data/clinical-templates.json`
+**Coverage:** unit contract
+
+The discharge note uses the same evidence-only rule as the letter pathways: a
+topic that is not mentioned is omitted rather than filled with generic prose.
+Its sections map the patient-table material into a discharge document: diagnoses,
+presentation, relevant history, hospital course and management, medications,
+mental state, risk, condition at discharge, follow-up and discharge plan.
+
+### Expected outputs - what must remain true
+
+- The template is available in All and Document template views.
+- Every section tells generation to omit the whole section when its topic is not documented.
+- It never invents a diagnosis, medication, follow-up arrangement or risk assessment.
+- It remains a clinical note, not a letter addressed to a referrer.
+
+### What protects it
+
+`tests/unit/discharge-note-template.test.ts` pins the built-in template identity,
+section order, document classification and evidence-only omission rule.
+
+---
+
 ## `build-from-history` - create a draft from selected patient documents
 
 This removes the copy-and-paste step from longitudinal source records without letting
@@ -1186,66 +1213,6 @@ draft merely because it belongs to the same patient.
 boundaries, the minimum selection, patient-record entries and preservation of transcript-only documents.
 The existing generation tests protect authentication, Pro routing and failure
 recovery. The full patient-to-edit interaction remains an E2E coverage gap.
-
----
-
-## `patient-add` - add a tracked patient
-
-**Entry:** Patients -> **Add Patient**
-**Ends at:** a tracked patient profile saved in Firestore and shown in Patients
-**Code:** `AddPatientModal` -> `savePatientProfile`
-**Coverage:** unit contract plus the shared DOB validator
-
-The first step records the patient's name and optional identifiers before the
-doctor chooses manual entry, dictation or a Bossnet paste. Date of birth sits
-between UR number and Gender, is masked as `DD/MM/YYYY`, and remains optional.
-Once any DOB has been entered, **Next** cannot advance until the complete date is
-valid. The same step-one DOB is retained whichever intake path the doctor then
-chooses; extracted text cannot replace it.
-
-Closing Add patient clears every first-step value, including DOB, so details from
-one patient cannot appear when the modal is next opened.
-
-### Expected outputs - what must remain true
-
-- An empty DOB never blocks Next.
-- A partial, impossible or future DOB blocks Next and shows the existing DOB
-  validation message.
-- Manual entry, dictation and Bossnet paste all save the DOB supplied in step one.
-- Closing and reopening Add patient starts with an empty DOB.
-
-### What protects it
-
-`tests/unit/add-patient.test.ts` pins the Add patient integration contract.
-`tests/unit/dob-validation.test.ts` pins the shared validation messages and date
-rules.
-
----
-
-## `discharge-note` - build an editable discharge note
-
-**Entry:** Any clinical template picker -> **Discharge Note**
-**Ends at:** an editable clinical note with only the discharge topics supported by the selected history or transcript
-**Code:** built-in template `117` in `data/clinical-templates.json`
-**Coverage:** unit contract
-
-The discharge note uses the same evidence-only rule as the letter pathways: a
-topic that is not mentioned is omitted rather than filled with generic prose.
-Its sections map the patient-table material into a discharge document: diagnoses,
-presentation, relevant history, hospital course and management, medications,
-mental state, risk, condition at discharge, follow-up and discharge plan.
-
-### Expected outputs - what must remain true
-
-- The template is available in All and Document template views.
-- Every section tells generation to omit the whole section when its topic is not documented.
-- It never invents a diagnosis, medication, follow-up arrangement or risk assessment.
-- It remains a clinical note, not a letter addressed to a referrer.
-
-### What protects it
-
-`tests/unit/discharge-note-template.test.ts` pins the built-in template identity,
-section order, document classification and evidence-only omission rule.
 
 ---
 
