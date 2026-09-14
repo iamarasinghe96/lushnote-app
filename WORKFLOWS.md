@@ -1154,12 +1154,70 @@ would only restate whatever was typed.
 
 ---
 
+## `build-from-history` - create a draft from selected patient documents
+
+This removes the copy-and-paste step from longitudinal documents without letting
+the model decide which episode of care the doctor meant. The selection is the
+clinical boundary: an old admission or superseded medication must not enter the
+draft merely because it belongs to the same patient.
+
+| # | Step | What the doctor does | What the code does | Required to continue |
+|---|---|---|---|---|
+| 0 | Open patient | Opens a patient with at least two saved documents | The patient card offers **Build from history** | two documents with saved text |
+| 1 | Select sources | Checks the documents belonging to this episode | Shows document type, date and an excerpt; starts with nothing selected and sends nothing outside the selection | at least two selected documents within the storage-safe input limit |
+| 2 | Choose structure | Chooses any built-in or custom clinical template | Builds one chronological source bundle with an explicit boundary around every document | a template |
+| 3 | Create draft | Reviews the generated document in Edit | Uses the existing authenticated generation and autosave paths; source documents remain unchanged and the source bundle is retained as the new document's transcript | nothing; generation failure leaves the source bundle saved |
+
+### Expected outputs - what must remain true
+
+- The model receives only documents the doctor checked.
+- Sources are chronological and individually labelled with their dates and types.
+- Conflicting sources are preserved as a discrepancy for the doctor rather than
+  silently resolved by the model.
+- Missing facts stay missing; a date is chronology, not proof that a fact remains current.
+- Every source document remains unchanged and available from the patient record.
+- The generated document is an editable draft and is never submitted or signed automatically.
+
+### What protects it
+
+`tests/unit/build-from-history.test.ts` pins chronological ordering, source
+boundaries, the minimum selection and preservation of transcript-only documents.
+The existing generation tests protect authentication, Pro routing and failure
+recovery. The full patient-to-edit interaction remains an E2E coverage gap.
+
+---
+
+## `patient-add` - register a patient before documenting
+
+The first step captures the identifiers that distinguish the patient before the
+doctor dictates, pastes or manually enters the clinical record.
+
+| # | Step | What the doctor does | What the code does | Required to continue |
+|---|---|---|---|---|
+| 0 | Identify | Enters the patient name and optionally the UR number, date of birth and gender | Formats the date as DD/MM/YYYY, rejects an impossible completed date and carries all four values into the patient profile | patient name; a completed DOB must be valid |
+| 1 | Choose intake | Chooses dictation, Bossnet paste or manual Table entry | Saves the identifiers with any extracted clinical fields | a signed-in doctor |
+
+### Expected outputs - what must remain true
+
+- Date of birth is optional and never inferred from age or another record.
+- An entered date of birth is saved on every intake path, including manual entry.
+- An impossible completed date cannot advance to the intake method step.
+- Cancelling and reopening Add patient clears the previous identifiers.
+
+### What protects it
+
+`tests/unit/dob-validation.test.ts` pins date formatting and validation. The Add
+patient modal reuses that shared policy so its result cannot disagree with the
+patient editor or transcript confirmation.
+
+---
+
 ## Not yet recorded
 
 These exist and are unprotected. Each becomes a section here as it is specified:
 
 `note-scan` (OCR) ❌ ·
 `note-manual` ❌ · letters, four types ❌ · `hospital-form` ❌ ·
-`patient-add` ❌ · `patient-search` ❌ · `history` ❌ ·
+`patient-search` ❌ · `history` ❌ ·
 `mode-transitions` (note ↔ letter ↔ form) ❌ · `settings-panels` ⚠️ ·
 `billing-states` ⚠️ · `note-scan` OCR key routing ⚠️

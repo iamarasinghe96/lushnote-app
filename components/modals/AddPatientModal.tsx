@@ -8,7 +8,8 @@ import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useAuth } from '@/hooks/useAuth'
 import { savePatientProfile } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
-import { getGroqKey, getGeminiKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName, parsePatientIntakeFields, appendPatientHistory, pushPatientEntry } from '@/lib/utils'
+import { getGroqKey, getGeminiKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName, parsePatientIntakeFields, appendPatientHistory, pushPatientEntry, formatDob } from '@/lib/utils'
+import { shouldFlagDob, validateDob } from '@/lib/dobValidation'
 import type { PatientProfile } from '@/types'
 import BackButton from '@/components/ui/BackButton'
 import { aiHeaders } from '@/lib/aiHeaders'
@@ -43,6 +44,8 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
   const [phase, setPhase] = useState<Phase>('details')
   const [name, setName] = useState('')
   const [urNumber, setUrNumber] = useState('')
+  const [dob, setDob] = useState('')
+  const [dobAttempted, setDobAttempted] = useState(false)
   const [gender, setGender] = useState('')
   const [genderOpen, setGenderOpen] = useState(false)
   const [urNumeric, setUrNumeric] = useState(true)
@@ -66,6 +69,8 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
       setPhase('details')
       setName('')
       setUrNumber('')
+      setDob('')
+      setDobAttempted(false)
       setGender('')
       setGenderOpen(false)
       setUrNumeric(true)
@@ -95,6 +100,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
 
   function goToMethod() {
     if (!name.trim()) { setNameError('Name is required'); return }
+    if (dob && !validateDob(dob).valid) { setDobAttempted(true); return }
     setNameError(null)
     setPhase('method')
   }
@@ -114,6 +120,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
       createdAt: now,
       updatedAt: now,
       ...(urNumber.trim() ? { urNumber: urNumber.trim() } : {}),
+      ...(dob ? { dob } : {}),
       ...(gender ? { gender: gender as PatientProfile['gender'] } : {}),
       // Keep the note itself, not just what the extractor made of it — the
       // tracked fields are a view over this (see CLAUDE.md, Scanned Ward Notes).
@@ -246,11 +253,11 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
           <p className="text-sm text-[var(--danger)]">{permError ?? recError}</p>
         )}
 
-        {/* Step 1 — name + UR */}
+        {/* Step 1 — identifiers needed to distinguish the patient */}
         {phase === 'details' && (
           <>
             <p className="text-sm text-[var(--text2)]">
-              Start with the patient&apos;s name and UR number. You can dictate the rest next.
+              Start with the patient&apos;s identifying details. You can dictate the rest next.
             </p>
             <Input
               label="Patient name"
@@ -290,6 +297,29 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
                 </button>
               </div>
               <p className="mt-1 text-xs text-[var(--text3)]">Optional, but recommended - it links this record in the Table view.</p>
+            </div>
+            <div className="w-full">
+              <label htmlFor="add-patient-dob" className="block text-sm font-medium text-[var(--text)] mb-1">Date of birth</label>
+              <input
+                id="add-patient-dob"
+                type="text"
+                inputMode="numeric"
+                placeholder="DD/MM/YYYY"
+                maxLength={10}
+                value={dob}
+                onChange={e => { setDob(formatDob(e.target.value)); setDobAttempted(false) }}
+                aria-invalid={dobAttempted || shouldFlagDob(dob)}
+                className={`w-full rounded-[var(--r)] border bg-white
+                           px-3 py-2.5 text-sm text-[var(--text)] placeholder:text-[var(--text3)]
+                           outline-none focus:ring-2 motion-safe:transition-colors ${
+                  dobAttempted || shouldFlagDob(dob)
+                    ? 'border-[var(--danger)] focus:border-[var(--danger)] focus:ring-red-500/10'
+                    : 'border-[var(--border)] focus:border-[var(--blue)] focus:ring-blue-500/10'
+                }`}
+              />
+              {(dobAttempted || shouldFlagDob(dob)) && (
+                <p className="mt-1 text-xs text-[var(--danger)]">{validateDob(dob).error}</p>
+              )}
             </div>
             <div className="w-full" ref={genderRef}>
               <label className="block text-sm font-medium text-[var(--text)] mb-1">Gender</label>
