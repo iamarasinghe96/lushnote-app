@@ -3,27 +3,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { historySelectionProblem, historySourceText, sortHistorySources } from '@/lib/buildFromHistory'
-import type { Note } from '@/types'
+import { historySelectionProblem, sortHistorySources, type HistorySource } from '@/lib/buildFromHistory'
 
 interface Props {
   open: boolean
   patientName: string
-  notes: Note[]
+  sources: HistorySource[]
   onClose: () => void
-  onContinue: (notes: Note[]) => void
+  onContinue: (sources: HistorySource[]) => void
 }
 
-function sourceTitle(note: Note): string {
-  if (note.templateName) return note.templateName
-  if (note.docType === 'letter') return 'Letter'
-  if (note.docType === 'hospital-form') return 'Hospital form'
-  return 'Clinical note'
-}
-
-export default function BuildFromHistoryModal({ open, patientName, notes, onClose, onContinue }: Props) {
-  const ordered = useMemo(() => sortHistorySources(notes).reverse(), [notes])
-  const available = useMemo(() => ordered.filter(note => !!note.id && !!historySourceText(note)), [ordered])
+export default function BuildFromHistoryModal({ open, patientName, sources, onClose, onContinue }: Props) {
+  const available = useMemo(() => sortHistorySources(sources).reverse(), [sources])
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -57,7 +48,7 @@ export default function BuildFromHistoryModal({ open, patientName, notes, onClos
 
         {available.length < 2 ? (
           <div className="rounded-[var(--r)] border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">
-            At least two saved documents with content are needed to build from history.
+            At least two saved sources with content are needed to build from history.
           </div>
         ) : (
           <div className="space-y-2">
@@ -73,8 +64,8 @@ export default function BuildFromHistoryModal({ open, patientName, notes, onClos
             </div>
             <div className="max-h-[42dvh] overflow-y-auto space-y-2 pr-1">
               {available.map(note => {
-                const checked = selected.has(note.id!)
-                const excerpt = historySourceText(note).replace(/\s+/g, ' ').slice(0, 120)
+                const checked = selected.has(note.id)
+                const excerpt = note.text.replace(/\s+/g, ' ').slice(0, 120)
                 return (
                   <label
                     key={note.id}
@@ -83,12 +74,12 @@ export default function BuildFromHistoryModal({ open, patientName, notes, onClos
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={() => toggle(note.id!)}
+                      onChange={() => toggle(note.id)}
                       className="mt-0.5 h-4 w-4 accent-[var(--blue)]"
                     />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-semibold text-[var(--text)] truncate">{sourceTitle(note)}</span>
+                        <span className="text-sm font-semibold text-[var(--text)] truncate">{note.templateName || note.documentType}</span>
                         <span className="text-xs text-[var(--text3)] shrink-0">{note.date || 'No date'}</span>
                       </span>
                       <span className="mt-1 block text-xs text-[var(--text2)] line-clamp-2">{excerpt}</span>
@@ -101,7 +92,7 @@ export default function BuildFromHistoryModal({ open, patientName, notes, onClos
         )}
 
         <div className="rounded-[var(--r)] border border-[var(--border)] bg-white px-3 py-2">
-          <p className="text-xs font-medium text-[var(--text)]">{chosen.length} documents selected</p>
+          <p className="text-xs font-medium text-[var(--text)]">{chosen.length} sources selected</p>
           <p className="text-xs text-[var(--text3)] mt-0.5">
             {problem ?? 'You will choose the document template next. The result remains a draft for your review.'}
           </p>

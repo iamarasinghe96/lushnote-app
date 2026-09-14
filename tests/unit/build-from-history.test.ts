@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { buildHistoryBundle, historySelectionProblem, sortHistorySources } from '@/lib/buildFromHistory'
+import { buildHistoryBundle, historySelectionProblem, historySourcesFor, sortHistorySources, type HistorySource } from '@/lib/buildFromHistory'
 import type { Note } from '@/types'
+import { readFileSync } from 'node:fs'
 
 function note(id: string, date: string, content: string, extra: Partial<Note> = {}): Note {
   return {
@@ -10,11 +11,15 @@ function note(id: string, date: string, content: string, extra: Partial<Note> = 
   }
 }
 
+function source(id: string, date: string, text: string): HistorySource {
+  return { id, date, text, documentType: 'Clinical note' }
+}
+
 describe('build from history', () => {
   it('orders selected sources chronologically and labels each boundary', () => {
     const result = buildHistoryBundle([
-      note('later', '12/09/2026', 'Later review'),
-      note('earlier', '08/09/2026', 'Admission review'),
+      source('later', '12/09/2026', 'Later review'),
+      source('earlier', '08/09/2026', 'Admission review'),
     ])
 
     expect(result.indexOf('Date: 08/09/2026')).toBeLessThan(result.indexOf('Date: 12/09/2026'))
@@ -24,30 +29,51 @@ describe('build from history', () => {
   })
 
   it('keeps stable order for documents with the same or missing dates', () => {
-    const selected = [note('a', '', 'One'), note('b', '', 'Two'), note('c', 'bad', 'Three')]
+    const selected = [source('a', '', 'One'), source('b', '', 'Two'), source('c', 'bad', 'Three')]
     expect(sortHistorySources(selected).map(item => item.id)).toEqual(['a', 'b', 'c'])
   })
 
   it('requires two documents and refuses a document with no saved text', () => {
-    expect(historySelectionProblem([note('a', '01/09/2026', 'One')])).toBe('Select at least two documents')
+    expect(historySelectionProblem([source('a', '01/09/2026', 'One')])).toBe('Select at least two sources')
     expect(historySelectionProblem([
-      note('a', '01/09/2026', 'One'),
-      note('b', '02/09/2026', ''),
-    ])).toBe('One of the selected documents has no saved text')
+      source('a', '01/09/2026', 'One'),
+      source('b', '02/09/2026', ''),
+    ])).toBe('One of the selected sources has no saved text')
   })
 
   it('uses a saved transcript when the structured document text is empty', () => {
-    const result = buildHistoryBundle([
+    const result = buildHistoryBundle(historySourcesFor([
       note('a', '01/09/2026', '', { transcript: 'First source transcript' }),
       note('b', '02/09/2026', 'Second source'),
-    ])
+    ]))
     expect(result).toContain('First source transcript')
+  })
+
+  it('includes each Add to patient record entry as its own selectable source', () => {
+    const sources = historySourcesFor([], [
+      { text: 'Later ward round', at: new Date(2026, 8, 5).getTime() },
+      { text: 'Admission ward note', at: new Date(2026, 8, 1).getTime() },
+    ])
+
+    expect(sources).toHaveLength(2)
+    expect(sources.every(item => item.documentType === 'Patient record')).toBe(true)
+    const result = buildHistoryBundle(sources)
+    expect(result).toContain('Document type: Patient record')
+    expect(result.indexOf('Admission ward note')).toBeLessThan(result.indexOf('Later ward round'))
   })
 
   it('refuses a bundle that cannot be retained in the saved transcript', () => {
     expect(historySelectionProblem([
-      note('a', '01/09/2026', 'A'.repeat(25_000)),
-      note('b', '02/09/2026', 'B'.repeat(25_000)),
+      source('a', '01/09/2026', 'A'.repeat(25_000)),
+      source('b', '02/09/2026', 'B'.repeat(25_000)),
     ])).toBe('This selection is too large. Choose a shorter date range.')
+  })
+
+  it('offers built-in and custom letters after selecting history sources', () => {
+    const page = readFileSync('app/(app)/patients/page.tsx', 'utf8')
+    expect(page).toContain('onSelectLetter={type => startLetterFromHistory(type)}')
+    expect(page).toContain("onSelectCustomLetter={template => startLetterFromHistory('custom', template)}")
+    expect(page).toContain('store.setLastTranscript(buildHistoryBundle(historySources))')
+    expect(page).toContain('store.setPendingLetterGeneration(true)')
   })
 })
