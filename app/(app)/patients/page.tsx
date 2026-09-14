@@ -20,7 +20,9 @@ import AddPatientModal from '@/components/modals/AddPatientModal'
 import PatientTable from '@/components/patients/PatientTable'
 import LetterPickerModal from '@/components/modals/LetterPickerModal'
 import TemplatePicker from '@/components/modals/TemplatePicker'
+import BuildFromHistoryModal from '@/components/modals/BuildFromHistoryModal'
 import { formDataFromPatient } from '@/components/hospital-form/HospitalFormView'
+import { buildHistoryBundle, historySourceText } from '@/lib/buildFromHistory'
 import type { Note, PatientProfile, LetterType, CustomLetterTemplate, AnyTemplate, NoteLength, HospitalFormDoc } from '@/types'
 
 interface PatientGroup {
@@ -233,10 +235,11 @@ interface PatientDetailProps {
   onEditPatient: () => void
   onDeletePatient: () => void
   onGenerate: () => void
+  onBuildFromHistory: () => void
   onSaveFields: (patch: Partial<PatientProfile>) => void
 }
 
-function PatientDetail({ patient, profile, editableProfile, notes, clinicianName, flag, onSetFlag, initialExpanded, onBack, onLoadNote, onDeleteNote, onEditPatient, onDeletePatient, onGenerate, onSaveFields }: PatientDetailProps) {
+function PatientDetail({ patient, profile, editableProfile, notes, clinicianName, flag, onSetFlag, initialExpanded, onBack, onLoadNote, onDeleteNote, onEditPatient, onDeletePatient, onGenerate, onBuildFromHistory, onSaveFields }: PatientDetailProps) {
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null)
   const [confirmDeletePatient, setConfirmDeletePatient] = useState(false)
   const [expanded, setExpanded] = useState(!!initialExpanded)
@@ -331,7 +334,7 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
               </div>
             </div>
 
-            <div className="mt-3 flex items-center gap-2">
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
               <div className="relative shrink-0">
                 <button
                   onClick={() => setFlagOpen(o => !o)}
@@ -389,6 +392,16 @@ function PatientDetail({ patient, profile, editableProfile, notes, clinicianName
                            px-3 py-1.5 rounded-[var(--r-sm)] font-medium hover:bg-red-50 active:scale-95 transition-all"
               >
                 Delete
+              </button>
+              <button
+                onClick={onBuildFromHistory}
+                disabled={notes.filter(note => !!note.id && !!historySourceText(note)).length < 2}
+                className="text-xs border border-[var(--blue)] text-[var(--blue)]
+                           px-3 py-1.5 rounded-[var(--r-sm)] font-medium hover:bg-[var(--blue-lt)] active:scale-95 transition-all
+                           disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                title={notes.length < 2 ? 'At least two saved documents are needed' : undefined}
+              >
+                Build from history
               </button>
               <button
                 onClick={onGenerate}
@@ -600,6 +613,9 @@ export default function PatientsPage() {
   // The patient a document is being generated for (opens the letter/note picker).
   const [generateFor, setGenerateFor] = useState<PatientProfile | null>(null)
   const [genTemplateOpen, setGenTemplateOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyTemplateOpen, setHistoryTemplateOpen] = useState(false)
+  const [historySources, setHistorySources] = useState<Note[]>([])
   const [tableDeleteTarget, setTableDeleteTarget] = useState<PatientProfile | null>(null)
   const [hospitalForms, setHospitalForms] = useState<HospitalFormDoc[]>([])
 
@@ -1115,6 +1131,28 @@ export default function PatientsPage() {
     router.push('/edit')
   }
 
+  function startClinicalNoteFromHistory(template: AnyTemplate, noteLength: NoteLength) {
+    if (!selectedPatient || historySources.length < 2) return
+    const p = selectedProfile ?? {
+      displayName: selectedPatient.name,
+      ...(selectedPatient.reg ? { urNumber: selectedPatient.reg } : {}),
+      ...(selectedPatient.dob ? { dob: selectedPatient.dob } : {}),
+    }
+    setHistoryTemplateOpen(false)
+    setHistorySources([])
+    bumpProfileUpdated(p)
+    store.resetHospitalForm()
+    store.resetLetterMode()
+    store.setCurrentNote({ patient: p.displayName, reg_number: p.urNumber ?? '', clinician: profile?.displayName ?? '' })
+    store.setCurrentNoteId(null)
+    store.setLastTranscript(buildHistoryBundle(historySources))
+    store.setLastTranscriptMode('document')
+    store.setLastChosenTemplate(template)
+    store.setOverrideNoteLength(noteLength)
+    store.setPendingAnimation(true)
+    router.push('/edit')
+  }
+
   async function confirmDeleteTracked() {
     const p = tableDeleteTarget
     setTableDeleteTarget(null)
@@ -1224,6 +1262,7 @@ export default function PatientsPage() {
             ...(selectedPatient.reg ? { urNumber: selectedPatient.reg } : {}),
             ...(selectedPatient.dob ? { dob: selectedPatient.dob } : {}),
           })}
+          onBuildFromHistory={() => setHistoryOpen(true)}
           onDeletePatient={async () => {
             // Delete all session notes for this patient
             await Promise.all(patientNotes.filter(n => n.id).map(n => deleteNote(n.id!)))
@@ -1239,6 +1278,22 @@ export default function PatientsPage() {
             }
             setSelectedPatient(null)
           }}
+        />
+        <BuildFromHistoryModal
+          open={historyOpen}
+          patientName={selectedPatient.name}
+          notes={patientNotes}
+          onClose={() => setHistoryOpen(false)}
+          onContinue={selected => {
+            setHistorySources(selected)
+            setHistoryOpen(false)
+            setHistoryTemplateOpen(true)
+          }}
+        />
+        <TemplatePicker
+          open={historyTemplateOpen}
+          onSelect={startClinicalNoteFromHistory}
+          onCancel={() => { setHistoryTemplateOpen(false); setHistorySources([]) }}
         />
         <PatientModal
           open={!!editingProfile}
