@@ -8,7 +8,8 @@ import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useAuth } from '@/hooks/useAuth'
 import { savePatientProfile } from '@/lib/firestore/patients'
 import { deleteTranscriptDraft } from '@/lib/firestore/transcriptDrafts'
-import { getGroqKey, getGeminiKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName, parsePatientIntakeFields, appendPatientHistory, pushPatientEntry } from '@/lib/utils'
+import { getGroqKey, getGeminiKey, openSettings, TRACKED_CLINICAL_FIELDS, capitalizeName, formatDob, parsePatientIntakeFields, appendPatientHistory, pushPatientEntry } from '@/lib/utils'
+import { validateDob, shouldFlagDob } from '@/lib/dobValidation'
 import type { PatientProfile } from '@/types'
 import BackButton from '@/components/ui/BackButton'
 import { aiHeaders } from '@/lib/aiHeaders'
@@ -43,6 +44,10 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
   const [phase, setPhase] = useState<Phase>('details')
   const [name, setName] = useState('')
   const [urNumber, setUrNumber] = useState('')
+  const [dob, setDob] = useState('')
+  const [dobSubmitted, setDobSubmitted] = useState(false)
+  const dobCheck = validateDob(dob)
+  const dobError = dob.trim() && !dobCheck.valid && (dobSubmitted || shouldFlagDob(dob)) ? dobCheck.error : null
   const [gender, setGender] = useState('')
   const [genderOpen, setGenderOpen] = useState(false)
   const [urNumeric, setUrNumeric] = useState(true)
@@ -66,6 +71,8 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
       setPhase('details')
       setName('')
       setUrNumber('')
+      setDob('')
+      setDobSubmitted(false)
       setGender('')
       setGenderOpen(false)
       setUrNumeric(true)
@@ -95,12 +102,14 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
 
   function goToMethod() {
     if (!name.trim()) { setNameError('Name is required'); return }
+    if (dob.trim() && !dobCheck.valid) { setDobSubmitted(true); return }
     setNameError(null)
+    setDobSubmitted(false)
     setPhase('method')
   }
 
   // Persist the tracked patient. Extra clinical fields (from dictation) merge in;
-  // name + UR always come from step 1. Always tracked:true so it shows in the
+  // name + UR + DOB always come from step 1. Always tracked:true so it shows in the
   // Table view. Returns the saved profile (with id) or null on failure.
   async function persist(extra: Partial<PatientProfile>, source?: string): Promise<PatientProfile | null> {
     if (!user) return null
@@ -113,12 +122,13 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
       ...(history ? { history } : {}),
       createdAt: now,
       updatedAt: now,
+      ...extra,
       ...(urNumber.trim() ? { urNumber: urNumber.trim() } : {}),
+      ...(dob.trim() ? { dob: dob.trim() } : {}),
       ...(gender ? { gender: gender as PatientProfile['gender'] } : {}),
       // Keep the note itself, not just what the extractor made of it — the
       // tracked fields are a view over this (see CLAUDE.md, Scanned Ward Notes).
       ...(source?.trim() ? { entries: pushPatientEntry(undefined, source, now) } : {}),
-      ...extra,
     }
     try {
       const id = await savePatientProfile(user.uid, profile)
@@ -246,7 +256,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
           <p className="text-sm text-[var(--danger)]">{permError ?? recError}</p>
         )}
 
-        {/* Step 1 — name + UR */}
+        {/* Step 1 — name + UR + DOB */}
         {phase === 'details' && (
           <>
             <p className="text-sm text-[var(--text2)]">
@@ -290,6 +300,27 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
                 </button>
               </div>
               <p className="mt-1 text-xs text-[var(--text3)]">Optional, but recommended - it links this record in the Table view.</p>
+            </div>
+            <div className="w-full">
+              <label htmlFor="patient-dob" className="block text-sm font-medium text-[var(--text)] mb-1">Date of birth</label>
+              <input
+                id="patient-dob"
+                type="text"
+                inputMode="numeric"
+                placeholder="DD/MM/YYYY"
+                maxLength={10}
+                value={dob}
+                onChange={e => { setDob(formatDob(e.target.value)); setDobSubmitted(false) }}
+                aria-invalid={!!dobError}
+                className={`w-full rounded-[var(--r)] border bg-white
+                           px-3 py-2.5 text-sm text-[var(--text)] placeholder:text-[var(--text3)]
+                           outline-none focus:ring-2 motion-safe:transition-colors ${
+                  dobError
+                    ? 'border-[var(--danger)] focus:border-[var(--danger)] focus:ring-red-500/10'
+                    : 'border-[var(--border)] focus:border-[var(--blue)] focus:ring-blue-500/10'
+                }`}
+              />
+              {dobError && <p className="mt-1 text-xs text-[var(--danger)]">{dobError}</p>}
             </div>
             <div className="w-full" ref={genderRef}>
               <label className="block text-sm font-medium text-[var(--text)] mb-1">Gender</label>
