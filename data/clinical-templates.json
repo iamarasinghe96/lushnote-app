@@ -5468,5 +5468,65 @@
         "core": false
       }
     ]
+  },
+  {
+    "id": 117,
+    "title": "Discharge Note",
+    "category": "Progress Notes",
+    "tplType": "document",
+    "description": "An evidence-only clinical discharge note covering the admission, hospital course, discharge medications, risk, follow-up and plan. Unmentioned topics are omitted.",
+    "prompt": "Generate a clinical discharge note from the supplied source material. Preserve chronology and any unresolved discrepancy. Use only explicitly documented facts. Do not invent normal findings, diagnoses, treatment, medications, risk statements, follow-up or discharge arrangements. Omit every entire section whose topic is not documented. Do not write a salutation, sign-off or letter to a referrer.\n\n[diagnosis] Discharge Diagnoses\nState only diagnoses explicitly documented in the source material. Do not infer a diagnosis from symptoms. Omit this entire section when no discharge diagnosis is documented.\n\n[presentation] Reason for Admission and Presentation\nSummarise the explicitly documented reason for admission or episode of care and the presentation at that time. Omit this entire section when it is not documented.\n\n[history] Relevant Medical and Psychiatric History\nInclude only medical, psychiatric, social or substance-use history explicitly relevant to this admission or episode of care. Omit this entire section when no relevant history is documented.\n\n[content] Hospital Course and Management\nDescribe the documented clinical course, key events, investigations, treatment, response and inpatient management in chronological order. Preserve unresolved discrepancies rather than choosing one account. Omit this entire section when the course or management is not documented.\n\n[medications] Medications on Discharge\nList only medications explicitly documented for discharge, including dose, route and frequency when stated. Distinguish commenced, changed and ceased medicines when documented. Do not carry a medication forward merely because it appeared in an earlier source. Omit this entire section when discharge medications are not documented.\n\n[mse] Mental State at Discharge\nRecord only mental state findings explicitly documented at or near discharge. Omit individual findings that were not assessed or mentioned, and omit this entire section when no discharge mental state is documented.\n\n[risk] Risk Assessment at Discharge\nRecord only explicitly documented suicide, self-harm, violence, vulnerability or other risk findings and any management or safety plan. Do not state that risk was denied unless a source explicitly says so. Omit this entire section when no discharge risk assessment is documented.\n\n[summary] Condition at Discharge\nSummarise the explicitly documented clinical condition, progress and functional status at discharge. Do not describe the patient as improved, stable or recovered unless the sources say so. Omit this entire section when condition at discharge is not documented.\n\n[referrals] Follow-up and Referrals\nList only explicitly documented follow-up providers, appointments, referrals and handover arrangements. Include dates and services only when stated. Omit this entire section when no follow-up or referral is documented.\n\n[nextsteps] Discharge Plan\nList only explicitly documented destination, supports, restrictions, monitoring, contingency advice and actions after discharge. Omit this entire section when no discharge plan is documented.",
+    "sections": [
+      {
+        "key": "diagnosis",
+        "label": "Discharge Diagnoses",
+        "core": true
+      },
+      {
+        "key": "presentation",
+        "label": "Reason for Admission and Presentation",
+        "core": true
+      },
+      {
+        "key": "history",
+        "label": "Relevant Medical and Psychiatric History",
+        "core": true
+      },
+      {
+        "key": "content",
+        "label": "Hospital Course and Management",
+        "core": true
+      },
+      {
+        "key": "medications",
+        "label": "Medications on Discharge",
+        "core": true
+      },
+      {
+        "key": "mse",
+        "label": "Mental State at Discharge",
+        "core": true
+      },
+      {
+        "key": "risk",
+        "label": "Risk Assessment at Discharge",
+        "core": true
+      },
+      {
+        "key": "summary",
+        "label": "Condition at Discharge",
+        "core": true
+      },
+      {
+        "key": "referrals",
+        "label": "Follow-up and Referrals",
+        "core": true
+      },
+      {
+        "key": "nextsteps",
+        "label": "Discharge Plan",
+        "core": true
+      }
+    ]
   }
 ]

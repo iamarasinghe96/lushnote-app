@@ -1,12 +1,20 @@
-import type { Note } from '@/types'
+import type { Note, PatientEntry } from '@/types'
 import { buildNoteText } from '@/lib/utils'
+
+export interface HistorySource {
+  id: string
+  date: string
+  documentType: 'Clinical note' | 'Letter' | 'Hospital form' | 'Patient record'
+  templateName?: string
+  text: string
+}
 
 // The generated note stores this bundle in its 50,000-character transcript
 // field. Refusing a larger selection keeps every chosen source available there
 // instead of making the saved provenance a silent prefix of what the model saw.
 export const MAX_HISTORY_SOURCE_CHARS = 48_000
 
-const DOCUMENT_LABEL: Record<NonNullable<Note['docType']> | 'note', string> = {
+const DOCUMENT_LABEL: Record<NonNullable<Note['docType']> | 'note', Exclude<HistorySource['documentType'], 'Patient record'>> = {
   note: 'Clinical note',
   letter: 'Letter',
   'hospital-form': 'Hospital form',
@@ -23,20 +31,20 @@ function dateValue(value: string): number | null {
   return date.getTime()
 }
 
-export function sortHistorySources(notes: readonly Note[]): Note[] {
-  return notes.map((note, index) => ({ note, index }))
+export function sortHistorySources(sources: readonly HistorySource[]): HistorySource[] {
+  return sources.map((source, index) => ({ source, index }))
     .sort((a, b) => {
-      const left = dateValue(a.note.date)
-      const right = dateValue(b.note.date)
+      const left = dateValue(a.source.date)
+      const right = dateValue(b.source.date)
       if (left === null && right === null) return a.index - b.index
       if (left === null) return -1
       if (right === null) return 1
       return left - right || a.index - b.index
     })
-    .map(item => item.note)
+    .map(item => item.source)
 }
 
-export function historySourceText(note: Note): string {
+function noteText(note: Note): string {
   const clinicalKeys: Array<keyof Note> = [
     'diagnosis', 'presentation', 'history', 'medications', 'mse', 'content',
     'scales', 'risk', 'referrals', 'summary', 'nextsteps', 'extraSections',
@@ -48,8 +56,35 @@ export function historySourceText(note: Note): string {
   return hasStructuredText ? buildNoteText(note).trim() : note.transcript?.trim() || ''
 }
 
-export function buildHistoryBundle(notes: readonly Note[]): string {
-  const sources = sortHistorySources(notes)
+export function historySourceFromNote(note: Note): HistorySource | null {
+  if (!note.id) return null
+  return {
+    id: `document:${note.id}`,
+    date: note.date,
+    documentType: DOCUMENT_LABEL[note.docType ?? 'note'],
+    ...(note.templateName ? { templateName: note.templateName } : {}),
+    text: noteText(note),
+  }
+}
+
+function entryDate(at: number): string {
+  const date = new Date(at)
+  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`
+}
+
+export function historySourcesFor(notes: readonly Note[], entries: readonly PatientEntry[] = []): HistorySource[] {
+  const documents = notes.map(historySourceFromNote).filter((source): source is HistorySource => source !== null)
+  const records = entries.map((entry, index) => ({
+    id: `patient-record:${entry.at}:${index}`,
+    date: entryDate(entry.at),
+    documentType: 'Patient record' as const,
+    text: entry.text.trim(),
+  }))
+  return [...documents, ...records].filter(source => !!source.text)
+}
+
+export function buildHistoryBundle(input: readonly HistorySource[]): string {
+  const sources = sortHistorySources(input)
   const header = [
     'BUILD FROM HISTORY SOURCE BUNDLE',
     'The doctor deliberately selected the source documents below.',
@@ -59,23 +94,22 @@ export function buildHistoryBundle(notes: readonly Note[]): string {
   ].join('\n')
 
   const documents = sources.map((note, index) => {
-    const label = DOCUMENT_LABEL[note.docType ?? 'note']
     const metadata = [
       `SOURCE ${index + 1}`,
       `Date: ${note.date || 'Not documented'}`,
-      `Document type: ${label}`,
+      `Document type: ${note.documentType}`,
       note.templateName ? `Template: ${note.templateName}` : '',
     ].filter(Boolean).join('\n')
-    return `${metadata}\n\n${historySourceText(note) || 'No document text was saved.'}`
+    return `${metadata}\n\n${note.text || 'No document text was saved.'}`
   })
 
   return `${header}\n\n${documents.join('\n\n-----\n\n')}`
 }
 
-export function historySelectionProblem(notes: readonly Note[]): string | null {
-  if (notes.length < 2) return 'Select at least two documents'
-  if (notes.some(note => !historySourceText(note))) return 'One of the selected documents has no saved text'
-  if (buildHistoryBundle(notes).length > MAX_HISTORY_SOURCE_CHARS) {
+export function historySelectionProblem(sources: readonly HistorySource[]): string | null {
+  if (sources.length < 2) return 'Select at least two sources'
+  if (sources.some(source => !source.text.trim())) return 'One of the selected sources has no saved text'
+  if (buildHistoryBundle(sources).length > MAX_HISTORY_SOURCE_CHARS) {
     return 'This selection is too large. Choose a shorter date range.'
   }
   return null

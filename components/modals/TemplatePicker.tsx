@@ -160,7 +160,7 @@ export default function TemplatePicker({ open, onSelect, onCancel, onSelectLette
       setSearch('')
       setTab(defaultTab ?? 'all')
     }
-  }, [open, profile?.personalisation?.noteLength])
+  }, [open, profile?.personalisation?.noteLength, defaultTab])
 
   // Keep local favourites in sync with the profile (including after a toggle refresh)
   useEffect(() => {

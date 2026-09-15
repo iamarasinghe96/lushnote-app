@@ -1154,19 +1154,46 @@ would only restate whatever was typed.
 
 ---
 
+## `discharge-note` - build an editable discharge note
+
+**Entry:** Any clinical template picker -> **Discharge Note**
+**Ends at:** an editable clinical note with only the discharge topics supported by the selected history or transcript
+**Code:** built-in template `117` in `data/clinical-templates.json`
+**Coverage:** unit contract
+
+The discharge note uses the same evidence-only rule as the letter pathways: a
+topic that is not mentioned is omitted rather than filled with generic prose.
+Its sections map the patient-table material into a discharge document: diagnoses,
+presentation, relevant history, hospital course and management, medications,
+mental state, risk, condition at discharge, follow-up and discharge plan.
+
+### Expected outputs - what must remain true
+
+- The template is available in All and Document template views.
+- Every section tells generation to omit the whole section when its topic is not documented.
+- It never invents a diagnosis, medication, follow-up arrangement or risk assessment.
+- It remains a clinical note, not a letter addressed to a referrer.
+
+### What protects it
+
+`tests/unit/discharge-note-template.test.ts` pins the built-in template identity,
+section order, document classification and evidence-only omission rule.
+
+---
+
 ## `build-from-history` - create a draft from selected patient documents
 
-This removes the copy-and-paste step from longitudinal documents without letting
+This removes the copy-and-paste step from longitudinal source records without letting
 the model decide which episode of care the doctor meant. The selection is the
 clinical boundary: an old admission or superseded medication must not enter the
 draft merely because it belongs to the same patient.
 
 | # | Step | What the doctor does | What the code does | Required to continue |
 |---|---|---|---|---|
-| 0 | Open patient | Opens a patient with at least two saved documents | The patient card offers **Build from history** | two documents with saved text |
-| 1 | Select sources | Checks the documents belonging to this episode | Shows document type, date and an excerpt; starts with nothing selected and sends nothing outside the selection | at least two selected documents within the storage-safe input limit |
-| 2 | Choose structure | Chooses any built-in or custom clinical template | Builds one chronological source bundle with an explicit boundary around every document | a template |
-| 3 | Create draft | Reviews the generated document in Edit | Uses the existing authenticated generation and autosave paths; source documents remain unchanged and the source bundle is retained as the new document's transcript | nothing; generation failure leaves the source bundle saved |
+| 0 | Open patient | Opens a patient with at least two saved sources | The patient card offers **Build from history** | two clinical documents or verbatim patient-record entries with saved text |
+| 1 | Select sources | Checks the records belonging to this episode | Shows source type, date and an excerpt; starts with nothing selected and sends nothing outside the selection | at least two selected sources within the storage-safe input limit |
+| 2 | Choose structure | Chooses any built-in or custom clinical template, or a built-in or custom letter template | Builds one chronological source bundle with an explicit boundary around every document | a template |
+| 3 | Create draft | Reviews the generated note or letter in Edit | Uses the existing authenticated generation and autosave paths; source documents remain unchanged and the source bundle is retained as the new document's transcript | nothing; generation failure leaves the source bundle saved |
 
 ### Expected outputs - what must remain true
 
@@ -1176,12 +1203,14 @@ draft merely because it belongs to the same patient.
   silently resolved by the model.
 - Missing facts stay missing; a date is chronology, not proof that a fact remains current.
 - Every source document remains unchanged and available from the patient record.
-- The generated document is an editable draft and is never submitted or signed automatically.
+- Every verbatim entry created by **Add to patient record** is independently selectable, so that intake path is not excluded from longitudinal generation.
+- Referral Letter, Request Medical Records, Free Text Letter and saved custom letter templates are available alongside the clinical templates.
+- The generated note or letter is an editable draft and is never submitted or signed automatically.
 
 ### What protects it
 
 `tests/unit/build-from-history.test.ts` pins chronological ordering, source
-boundaries, the minimum selection and preservation of transcript-only documents.
+boundaries, the minimum selection, patient-record entries and preservation of transcript-only documents.
 The existing generation tests protect authentication, Pro routing and failure
 recovery. The full patient-to-edit interaction remains an E2E coverage gap.
 
