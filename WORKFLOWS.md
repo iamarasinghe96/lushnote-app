@@ -1216,6 +1216,39 @@ recovery. The full patient-to-edit interaction remains an E2E coverage gap.
 
 ---
 
+## `patient-add` - add a tracked patient
+
+**Entry:** Patients -> **Add Patient**
+**Ends at:** a tracked patient profile saved in Firestore and shown in Patients
+**Code:** `AddPatientModal` -> `savePatientProfile`
+**Coverage:** unit contract plus the shared DOB validator
+
+The first step records the patient's name and optional identifiers before the
+doctor chooses manual entry, dictation or a Bossnet paste. Date of birth sits
+between UR number and Gender, is masked as `DD/MM/YYYY`, and remains optional.
+Once any DOB has been entered, **Next** cannot advance until the complete date is
+valid. The same step-one DOB is retained whichever intake path the doctor then
+chooses; extracted text cannot replace it.
+
+Closing Add patient clears every first-step value, including DOB, so details from
+one patient cannot appear when the modal is next opened.
+
+### Expected outputs - what must remain true
+
+- An empty DOB never blocks Next.
+- A partial, impossible or future DOB blocks Next and shows the existing DOB
+  validation message.
+- Manual entry, dictation and Bossnet paste all save the DOB supplied in step one.
+- Closing and reopening Add patient starts with an empty DOB.
+
+### What protects it
+
+`tests/unit/add-patient.test.ts` pins the Add patient integration contract.
+`tests/unit/dob-validation.test.ts` pins the shared validation messages and date
+rules.
+
+---
+
 ## Not yet recorded
 
 These exist and are unprotected. Each becomes a section here as it is specified:
