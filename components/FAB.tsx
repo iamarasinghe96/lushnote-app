@@ -233,8 +233,13 @@ interface ChatMessage {
 // `whitespace-nowrap` and `shrink-0` are what keep the row a ROW: without them
 // flexbox squeezes the labels into two lines each and the tray grows taller than
 // the button it came out of.
-const SUB_BTN = `flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2
-                 text-xs font-medium text-[var(--text)] border border-[var(--border)]
+// `ln-glass` brings its own 1px edge, so the Tailwind `border` utility is gone
+// with it: utilities beat the components layer, and the grey would have won over
+// the white glass edge. `z-0` is the stacking context the negative-z glass
+// layers need (see the liquid glass block in globals.css).
+const SUB_BTN = `ln-glass ln-glass-fab-action z-0
+                 flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2
+                 text-xs font-medium text-[var(--text)]
                  pointer-events-auto motion-safe:transition-transform motion-safe:active:scale-[0.97]`
 
 // Staggered so they fan out rather than appearing at once. Reduced motion is
@@ -242,8 +247,6 @@ const SUB_BTN = `flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-fu
 // buttons are present and usable either way.
 function subStyle(delayMs: number): React.CSSProperties {
   return {
-    background: 'rgba(255,255,255,0.85)',
-    backdropFilter: 'blur(12px)',
     boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
     animation: 'fab-slide-in 0.18s cubic-bezier(0.22,1,0.36,1) both',
     animationDelay: `${delayMs}ms`,
@@ -269,9 +272,9 @@ const CaptureIcon = (
 
 // Two concave four-point sparkles — the shape that reads as "AI" rather than as
 // "chat". Filled, because a stroked sparkle at 16px collapses into a smudge.
-function AiStars({ size }: { size: number }) {
+function AiStars({ size, style }: { size: number; style?: React.CSSProperties }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden style={style}>
       <path d="M10 2c.35 3.4 1 5.65 2.15 6.85S15.6 10.65 19 11c-3.4.35-5.65 1-6.85 2.15S10.35 16.6 10 20c-.35-3.4-1-5.65-2.15-6.85S4.4 11.35 1 11c3.4-.35 5.65-1 6.85-2.15S9.65 5.4 10 2Z" />
       <path d="M18 13.5c.18 1.7.5 2.83 1.08 3.42S20.8 17.82 22.5 18c-1.7.18-2.83.5-3.42 1.08S18.18 20.8 18 22.5c-.18-1.7-.5-2.83-1.08-3.42S15.2 18.18 13.5 18c1.7-.18 2.83-.5 3.42-1.08S17.82 15.2 18 13.5Z" />
     </svg>
@@ -439,18 +442,27 @@ export function FAB() {
         className="fixed left-4 right-4 z-[60] flex items-center gap-2 pointer-events-none"
         style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}
       >
+        {/* `data-glass` keeps the luminance sampler from reading this button as
+            the backdrop of another glass surface. Deliberately NOT
+            `data-glass-adaptive`: that swaps the tint for near-transparent
+            white or navy, which on this button would throw the green away.
+            The box shadow stays - glass has none of its own, and that shadow
+            is what lifts the circle off the page. */}
         <button
           onClick={() => setExpanded(o => !o)}
-          className="relative w-14 h-14 shrink-0 rounded-full text-white flex items-center justify-center
-                     pointer-events-auto motion-safe:transition-colors motion-safe:active:scale-[0.97]"
-          style={{
-            background: '#10b981',
-            boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)',
-          }}
+          data-glass
+          className="ln-glass ln-glass-fab relative z-0 w-14 h-14 shrink-0 rounded-full text-white flex items-center justify-center
+                     pointer-events-auto motion-safe:transition-transform motion-safe:active:scale-[0.97]"
+          style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
           aria-label={expanded ? 'Close capture menu' : 'Open capture menu'}
           aria-expanded={expanded}
         >
-          <AiStars size={26} />
+          {/* White on emerald loses contrast once the fill is 72% of itself, so
+              the sparkles carry a halo in the theme's own dark green. It follows
+              the glyph instead of boxing it, the way .ln-holiday-text does, and
+              costs no layout. Only this instance needs it - the 14px one in the
+              Assistant pill sits on dark text colour, not on glass. */}
+          <AiStars size={26} style={{ filter: 'drop-shadow(0 1px 2px rgba(6,78,59,0.45))' }} />
         </button>
         {expanded && (
           // Order matters: the two capture actions sit CLOSEST to the button,
