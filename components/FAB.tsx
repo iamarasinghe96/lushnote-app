@@ -8,6 +8,9 @@ import { listNotes } from '@/lib/firestore/notes'
 import { getGroqKey } from '@/lib/utils'
 import type { Note } from '@/types'
 import { aiHeaders } from '@/lib/aiHeaders'
+import { resolveEntitlement } from '@/lib/entitlement'
+import { useNoteStore } from '@/hooks/useNoteStore'
+import QuickRecordOverlay, { type QuickRecordResult } from '@/components/capture/QuickRecordOverlay'
 
 
 // Tappable starter questions shown in the empty AI Assistant — a mix of app
@@ -293,6 +296,10 @@ export function FAB() {
   const [aiInput, setAiInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const { user, profile } = useAuth()
+  const store = useNoteStore()
+  // The live getUserMedia request, started inside the Record tap. Its presence
+  // is what puts the recording screen on screen.
+  const [micRequest, setMicRequest] = useState<Promise<MediaStream> | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const notesCacheRef = useRef<{ notes: Note[]; fetchedAt: number } | null>(null)
   const panelRef = useRef(panel)
@@ -320,6 +327,52 @@ export function FAB() {
   function openPanel(type: 'ai') {
     setPanel(type)
     setExpanded(false)
+  }
+
+  // Record starts the microphone on the tap. getUserMedia is called HERE, inside
+  // the click, and only the promise is passed on: awaiting it first would spend
+  // the user gesture, which iOS will not forgive.
+  function startQuickRecord() {
+    setExpanded(false)
+    if (!user) return
+    // A lapsed subscription is paywalled on /generate, which is where a finished
+    // recording has to go. Meeting that wall AFTER recording a consultation
+    // would be a dead end, so meet it first.
+    if (profile && !resolveEntitlement(profile.billing, Date.now()).entitled) {
+      router.push('/generate')
+      return
+    }
+    const request = navigator.mediaDevices
+      ? navigator.mediaDevices.getUserMedia({ audio: true })
+      : Promise.reject(new Error('no mediaDevices'))
+    // The overlay reports the failure; this only stops a rejection that arrives
+    // before it mounts - an already-denied permission answers instantly - from
+    // surfacing as an unhandled rejection.
+    request.catch(() => {})
+    setMicRequest(request)
+  }
+
+  // The FAB opened the microphone, so the FAB closes it. The overlay can be
+  // dismissed before its recorder ever started - while the browser was still
+  // asking - and a track left running keeps the phone's recording indicator lit
+  // over an app that is no longer recording anything.
+  function closeRecorder() {
+    micRequest?.then(mic => mic.getTracks().forEach(t => t.stop())).catch(() => {})
+    setMicRequest(null)
+  }
+
+  // The finished transcript goes to the Generate page, which owns the state
+  // machine that turns one into a note. Same two-way handoff as startCapture
+  // below: an event for the page if it is already mounted, the store and a query
+  // parameter if it is not.
+  function handleRecordingDone(result: QuickRecordResult) {
+    closeRecorder()
+    const detail = { ...result, handled: false }
+    window.dispatchEvent(new CustomEvent('ln-transcript-ready', { detail }))
+    if (!detail.handled) {
+      store.setPendingCapture(result)
+      router.push('/generate?transcript=1')
+    }
   }
 
   // The capture modals live on the generate page, together with the state
@@ -474,7 +527,7 @@ export function FAB() {
           // layout: at any ordinary width all three fit with room to spare.
           <div className="flex min-w-0 items-center gap-2 overflow-x-auto scrollbar-none">
             <button
-              onClick={() => startCapture('record')}
+              onClick={startQuickRecord}
               className={SUB_BTN}
               style={subStyle(0)}
               aria-label="Record a session"
@@ -503,6 +556,16 @@ export function FAB() {
           </div>
         )}
       </div>
+
+      {micRequest && user && (
+        <QuickRecordOverlay
+          micRequest={micRequest}
+          uid={user.uid}
+          recordingDefaults={profile?.recordingDefaults}
+          onDone={handleRecordingDone}
+          onClose={closeRecorder}
+        />
+      )}
 
       {/* AI Assistant panel */}
       {panel === 'ai' && (

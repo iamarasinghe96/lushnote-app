@@ -37,7 +37,19 @@ export default defineConfig({
     storageState: STORAGE_STATE,
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // The recording screen opens the microphone the moment it is reached, so
+        // the browser needs a capture device that exists and answers the same way
+        // every run. Chromium's fake device is a tone; the specs grant the
+        // permission and block anything the recorder would persist.
+        launchOptions: {
+          args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+        },
+      },
+    },
   ],
   webServer: BASE_URL ? undefined : {
     command: 'npm run dev',

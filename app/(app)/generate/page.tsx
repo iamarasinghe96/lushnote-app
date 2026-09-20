@@ -514,6 +514,39 @@ export default function GeneratePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // A recording finished on the FAB's one-tap screen. That screen records; this
+  // page owns the machine that turns a transcript into a note, so the result is
+  // handed over rather than copied. Same two situations as `ln-capture` above,
+  // so the same two ways in: an event when this page is already mounted, the
+  // note store when the FAB had to navigate here first.
+  function resumeHubTranscript(result: { text: string; duration: number; draftId: string }) {
+    captureHubRef.current = true
+    void handleTranscriptReady(result.text, result.duration, result.draftId)
+  }
+
+  useEffect(() => {
+    function onTranscriptReady(e: Event) {
+      const detail = (e as CustomEvent<{ text: string; duration: number; draftId: string; handled: boolean }>).detail
+      if (!detail) return
+      detail.handled = true
+      resumeHubTranscript(detail)
+    }
+    window.addEventListener('ln-transcript-ready', onTranscriptReady)
+    return () => window.removeEventListener('ln-transcript-ready', onTranscriptReady)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const pending = store.pendingCapture
+    if (!pending) return
+    store.setPendingCapture(null)
+    resumeHubTranscript(pending)
+    // Drop the parameter so a refresh cannot replay a recording that has
+    // already become a note, the same way the `?capture=` effect does.
+    router.replace('/generate', { scroll: false })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // The modals now record and transcribe live in segments and hand us the
   // finished transcript text. All we do here is route it into the note or
   // letter flow.

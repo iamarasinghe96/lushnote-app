@@ -61,6 +61,11 @@ interface NoteStore {
   // wrong one would delete a DIFFERENT patient's unfinished recording.
   activeDraftId: string | null
   setActiveDraftId: (id: string | null) => void
+  // A recording finished by the one-tap FAB screen, waiting for the Generate
+  // page to pick it up. In memory only, like everything else here - a
+  // transcript is patient content and never goes near localStorage.
+  pendingCapture: { text: string; duration: number; draftId: string } | null
+  setPendingCapture: (c: { text: string; duration: number; draftId: string } | null) => void
   pendingHospitalFormGeneration: boolean
   setHospitalForm: (f: HospitalFormDoc | null) => void
   setHospitalFormData: (d: HospitalFormData | null) => void
@@ -123,6 +128,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
   const [hospitalFormData, setHospitalFormData] = useState<HospitalFormData | null>(null)
   const [hospitalFormNoteId, setHospitalFormNoteId] = useState<string | null>(null)
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null)
+  const [pendingCapture, setPendingCapture] = useState<{ text: string; duration: number; draftId: string } | null>(null)
   const [pendingHospitalFormGeneration, setPendingHospitalFormGeneration] = useState(false)
 
   function resetHospitalForm() {
@@ -192,6 +198,7 @@ export function NoteStoreProvider({ children }: { children: ReactNode }) {
       hospitalFormData,
       hospitalFormNoteId,
       activeDraftId, setActiveDraftId,
+      pendingCapture, setPendingCapture,
       pendingHospitalFormGeneration,
       setHospitalForm,
       setHospitalFormData,
