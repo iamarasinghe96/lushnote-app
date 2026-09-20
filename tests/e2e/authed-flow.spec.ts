@@ -114,23 +114,66 @@ test('billing page renders this account state', async ({ signedIn: page }) => {
 // parameter for a fresh one. Record used to carry that pair; it now opens in
 // place from anywhere, so Scan carries it and Record pins the new behaviour.
 
+interface RecordingWrites {
+  uploads: () => number
+  transcribes: () => number
+}
+
 /**
- * Nothing this recording writes may outlive the test.
+ * Counts what a cancelled recording tries to persist, and stops it persisting.
  *
- * Cancel tears the recorder down, but the segment already captured still drains
- * in the background: it uploads audio to Storage and writes a recovery draft
- * under the fixture account. That draft would put a "Finish your last recording"
- * banner on /generate for seven days, in the account every other spec signs into.
+ * This is the assertion for a bug that reached a real doctor: Cancel called the
+ * recorder's stop(), which FLUSHES the audio in hand — uploading it, sending it
+ * to be transcribed and writing a recovery draft. Two seconds of a mis-tap came
+ * back as an "Unnamed patient · UNFINISHED" row holding a couple of words,
+ * under a button whose own label says the recording is discarded entirely.
+ * Cancel now calls abort(), which drops that tail.
  *
- * So both calls that persist anything are aborted. NOT to save money — the AI is
- * already mocked for this account (lib/e2eMock.ts). With transcription blocked
- * the draft is written empty, and listTranscriptDrafts filters empty drafts out
- * of every recovery surface, so there is nothing to offer back and nothing to
- * clean up.
+ * Both calls are counted rather than merely blocked: the old path made them, the
+ * fixed path makes neither.
+ *
+ * Both are also refused, so that a REGRESSION cannot leave an unfinished row in
+ * the account every other spec signs into. Not to save money — the AI is already
+ * mocked for this account (lib/e2eMock.ts).
  */
-async function blockRecordingWrites(page: Page): Promise<void> {
-  await page.route('**/api/transcribe', route => route.abort())
-  await page.route('**/*firebasestorage.googleapis.com/**', route => route.abort())
+function watchRecordingWrites(page: Page): RecordingWrites {
+  let uploads = 0
+  let transcribes = 0
+
+  // Predicates, not globs. A glob that fails to match fails SILENTLY, and it
+  // would fail in the direction that hides the bug — leaving the counters at
+  // zero for the wrong reason. Two local runs went that way before this.
+  //
+  // The UPLOAD is the assertion that carries weight. drainQueue uploads the
+  // audio before it transcribes, so the upload is the first thing a flushed
+  // recording does; the transcribe sits behind it and is counted as well only
+  // because it is the call that turns audio into the words on the row.
+  void page.route(url => url.hostname === 'firebasestorage.googleapis.com', route => {
+    uploads++
+    // 403, not abort(). An aborted upload is a NETWORK error, and the Firebase
+    // Storage SDK retries those for two minutes before giving up — so a
+    // regression would sit in that retry loop, quietly, well past the end of
+    // the run. A 403 is refused immediately.
+    return route.fulfill({ status: 403, contentType: 'application/json', body: '{"error":{"message":"blocked by the test suite"}}' })
+  })
+  void page.route(url => url.pathname === '/api/transcribe', route => { transcribes++; return route.abort() })
+
+  return { uploads: () => uploads, transcribes: () => transcribes }
+}
+
+/**
+ * Cancel writes nothing.
+ *
+ * A timer, which the rest of this suite does not use — every other wait here is
+ * on content. Proving an ABSENCE is the one case that cannot be: there is no
+ * element that appears to say "no draft was written". It cannot produce a false
+ * failure either, only a missed regression if the drain were ever slower than
+ * this, so the cost is the four seconds.
+ */
+async function expectNothingPersisted(page: Page, writes: RecordingWrites): Promise<void> {
+  await page.waitForTimeout(4000)
+  expect(writes.uploads(), 'a cancelled recording uploaded its audio').toBe(0)
+  expect(writes.transcribes(), 'a cancelled recording sent audio to be transcribed').toBe(0)
 }
 
 /** The recording screen is up and the microphone is genuinely open. */
@@ -147,7 +190,7 @@ async function expectRecording(page: Page): Promise<void> {
 }
 
 test('the record button starts recording on the Generate tab', async ({ signedIn: page }) => {
-  await blockRecordingWrites(page)
+  const writes = watchRecordingWrites(page)
   await page.goto('/generate')
   await page.getByRole('button', { name: 'Open capture menu' }).click()
   await page.getByRole('button', { name: 'Record a session' }).click()
@@ -155,12 +198,13 @@ test('the record button starts recording on the Generate tab', async ({ signedIn
 
   await page.getByRole('button', { name: 'Cancel recording and discard it' }).click()
   await expect(page.getByText(/Confirm the patient has agreed/i)).toHaveCount(0)
+  await expectNothingPersisted(page, writes)
 })
 
 test('the record button starts recording from another tab without navigating', async ({ signedIn: page }) => {
   // The behaviour change: Record no longer travels to /generate to find a modal.
   // A doctor reaching for it from the patient list records where they stand.
-  await blockRecordingWrites(page)
+  const writes = watchRecordingWrites(page)
   await page.goto('/history')
   await page.getByRole('button', { name: 'Open capture menu' }).click()
   await page.getByRole('button', { name: 'Record a session' }).click()
@@ -169,6 +213,7 @@ test('the record button starts recording from another tab without navigating', a
 
   await page.getByRole('button', { name: 'Cancel recording and discard it' }).click()
   await expect(page.getByText(/Confirm the patient has agreed/i)).toHaveCount(0)
+  await expectNothingPersisted(page, writes)
 })
 
 test('the capture button opens the scan modal from the Generate tab', async ({ signedIn: page }) => {

@@ -72,6 +72,7 @@ export function useSegmentedRecorder() {
   const queueRef = useRef<Blob[]>([])
   const workingRef = useRef(false)
   const pausedRef = useRef(false)
+  const abortingRef = useRef(false)
   const textRef = useRef('')
   const optsRef = useRef<StartOpts | null>(null)
   const sessionIdRef = useRef<string>('')
@@ -228,6 +229,9 @@ export function useSegmentedRecorder() {
     const chunks: Blob[] = []
     rec.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
     rec.onstop = () => {
+      // Cancelled: the audio in hand is dropped rather than uploaded and
+      // transcribed. Everything after this point writes a recovery draft.
+      if (abortingRef.current) { chunks.length = 0; return }
       if (chunks.length) {
         const blob = new Blob(chunks, { type: mimeRef.current })
         if (blob.size > 2000) {
@@ -308,6 +312,7 @@ export function useSegmentedRecorder() {
     setDuration(0)
     setMicLost(false)
     pausedRef.current = false
+    abortingRef.current = false
     mimeRef.current = pickMime()
     startTimeRef.current = Date.now()
     startSegmentRecorder()
@@ -348,5 +353,40 @@ export function useSegmentedRecorder() {
     return { text: textRef.current, duration: dur, draftId: sessionIdRef.current }
   }, [releaseWakeLock])
 
-  return { isRecording, duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, error, micLost, start, stop, currentDraftId }
+  /**
+   * Abandon the recording. The opposite of stop(): the audio still in hand is
+   * DROPPED instead of being uploaded, transcribed and written to a recovery
+   * draft, so a cancelled session leaves nothing behind.
+   *
+   * stop() flushing that tail is right at the end of a consultation and wrong
+   * the moment a doctor taps Cancel - two seconds of a mis-tap came back as an
+   * "Unnamed patient - UNFINISHED" row holding a couple of words, under a
+   * button whose own label says the recording is discarded entirely.
+   *
+   * Segments ALREADY saved during a long recording are deliberately left alone.
+   * They are a different thing: a forty-minute session ended by a stray tap on
+   * a small X must still be recoverable, which is the whole reason the draft
+   * exists. So Cancel discards what has not been saved yet, and nothing more.
+   */
+  const abort = useCallback((): void => {
+    abortingRef.current = true
+    if (cycleRef.current) { clearInterval(cycleRef.current); cycleRef.current = null }
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    releaseWakeLock()
+    // Whatever is queued but not yet being worked on goes with it. A segment
+    // already mid-upload is left to finish: it is one of the saved ones.
+    queueRef.current = []
+    const rec = recorderRef.current
+    if (rec && rec.state !== 'inactive') { try { rec.stop() } catch { /* already stopping */ } }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+    recorderRef.current = null
+    pausedRef.current = false
+    setIsRecording(false)
+    setMicLost(false)
+  }, [releaseWakeLock])
+
+  return { isRecording, duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, error, micLost, start, stop, abort, currentDraftId }
 }

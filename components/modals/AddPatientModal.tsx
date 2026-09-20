@@ -60,7 +60,7 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
   const genderRef = useRef<HTMLDivElement>(null)
   const {
     duration, audioSavedMin, transcribedMin, failures, lastError, micLost,
-    start, stop, currentDraftId, error: recError,
+    start, stop, abort, currentDraftId, error: recError,
   } = useSegmentedRecorder()
   // Which draft this intake recording created, so abandoning it clears that one
   // and never another patient's unfinished recording.
@@ -232,14 +232,18 @@ export default function AddPatientModal({ open, onClose, onSaved }: AddPatientMo
   }
 
   function handleCancelRecording() {
-    stop().catch(() => {})
+    // abort(), not stop(). stop() drains the audio in hand and WRITES the draft,
+    // which used to happen after the delete below had already run - so the row
+    // this code exists to prevent could come back anyway. abort() drops the
+    // tail, which leaves the delete with nothing racing it.
+    abort()
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop())
       streamRef.current = null
     }
     // The intake draft is tagged 'patient-intake' and is not a recoverable note —
-    // clear it so it can't surface in the note-recovery banner. stop() has not
-    // been awaited here, so the id comes from the ref captured at start.
+    // clear it so it can't surface in the note-recovery banner. This still
+    // matters: a long intake may have saved a segment before being cancelled.
     if (user && intakeDraftIdRef.current) deleteTranscriptDraft(user.uid, intakeDraftIdRef.current).catch(() => {})
     onClose()
   }

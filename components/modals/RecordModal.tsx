@@ -39,7 +39,7 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
   const streamRef = useRef<MediaStream | null>(null)
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stopRef = useRef<(() => void) | null>(null)
-  const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, micLost, start, stop, error: recError } = useSegmentedRecorder()
+  const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, micLost, start, stop, abort, error: recError } = useSegmentedRecorder()
   const pip = useRecordingPiP()
   const { user } = useAuth()
 
@@ -122,7 +122,11 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
       autoStopRef.current = null
     }
     pip.teardown()
-    stop().catch(() => {})
+    // abort(), not stop(): stop() flushes the audio in hand into a recovery
+    // draft, so cancelling produced an "Unnamed patient - UNFINISHED" row for a
+    // session the doctor had just abandoned. Segments already written still
+    // survive, which is what the note below describes.
+    abort()
     onClose()
   }
 
