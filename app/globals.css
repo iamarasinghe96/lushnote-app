@@ -311,8 +311,10 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
   --lg-inner-glow:   rgba(255, 255, 255, 0.4);
 }
 
-/* The Record / Capture / Assistant pills that slide out of it. 0.7 sits where
-   the tab bar sits (0.68): the same size label over the same moving content. */
+/* The Record / Capture / Assistant pills that slide out of it, and the small
+   round controls on the recording screen it opens: the timer, Cancel and the
+   multitask button. 0.7 sits where the tab bar sits (0.68): the same size label
+   over the same moving content. */
 .ln-glass-fab-action {
   --lg-frost-blur:   8px;
   --lg-tint-color:   255, 255, 255;
@@ -403,6 +405,22 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 .pt-header { padding-top: calc(env(safe-area-inset-top) + 76px); }
 @media (min-width: 640px) {
   .sm\:pt-header { padding-top: calc(env(safe-area-inset-top) + 76px); }
+}
+
+/* The rings around the microphone on the one-tap recording screen. Two of
+   them, offset, so the pulse reads as breathing rather than as a blink. Pure
+   CSS on purpose: the global reduced-motion clamp below stills them without
+   this component having to know anything about it. */
+@keyframes ln-record-ring {
+  0%   { transform: scale(0.82); opacity: 0.45; }
+  70%  { transform: scale(1.12); opacity: 0; }
+  100% { transform: scale(1.12); opacity: 0; }
+}
+
+.ln-record-ring {
+  border: 1px solid rgba(16, 185, 129, 0.55);
+  background: rgba(16, 185, 129, 0.08);
+  animation: ln-record-ring 2.6s ease-out infinite;
 }
 
 /* FAB sub-buttons sliding out of the main button. The tray runs to the RIGHT of
