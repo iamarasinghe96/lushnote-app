@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test'
 import { test, expect, E2E_PATIENT, SMOKE_TRANSCRIPT } from './fixtures'
 
 // One note, all the way through: paste a transcript, name the patient, pick a
@@ -10,6 +11,12 @@ import { test, expect, E2E_PATIENT, SMOKE_TRANSCRIPT } from './fixtures'
 // parser, the real autosave, the real PDF and Word builders.
 
 test.describe.configure({ mode: 'serial' })
+
+// Record now opens the microphone on the tap, so the context has to grant it or
+// Playwright answers the request with a denial and the screen reports that
+// instead of recording. The fake capture device comes from the launch arguments
+// in playwright.config.ts. Nothing else in this file touches getUserMedia.
+test.use({ permissions: ['microphone'] })
 
 test('signs in and reaches the app shell', async ({ signedIn: page }) => {
   await expect(page.getByTestId('tab-generate')).toBeVisible()
@@ -93,9 +100,9 @@ test('billing page renders this account state', async ({ signedIn: page }) => {
   await expect(page.getByText(/subscription|billing|trial|access/i).first()).toBeVisible({ timeout: 30_000 })
 })
 
-// The capture button, from BOTH places it can be pressed.
+// The capture tray, from BOTH places it can be pressed.
 //
-// It shipped dead on the Generate tab: `router.push('/generate?capture=…')`
+// Scan shipped dead on the Generate tab: `router.push('/generate?capture=…')`
 // while already on /generate changes the URL without remounting the page, so
 // the mount effect that opens the modal never ran. Nothing failed, nothing
 // logged — the button simply did nothing, and only on the tab a doctor is most
@@ -104,14 +111,64 @@ test('billing page renders this account state', async ({ signedIn: page }) => {
 // No unit test can see that. It is browser navigation behaviour, which is
 // exactly what this suite exists for. Both cases are asserted because they take
 // different code paths: the event for a page already mounted, the query
-// parameter for a fresh one.
-test('the capture button opens the recording modal from the Generate tab', async ({ signedIn: page }) => {
+// parameter for a fresh one. Record used to carry that pair; it now opens in
+// place from anywhere, so Scan carries it and Record pins the new behaviour.
+
+/**
+ * Nothing this recording writes may outlive the test.
+ *
+ * Cancel tears the recorder down, but the segment already captured still drains
+ * in the background: it uploads audio to Storage and writes a recovery draft
+ * under the fixture account. That draft would put a "Finish your last recording"
+ * banner on /generate for seven days, in the account every other spec signs into.
+ *
+ * So both calls that persist anything are aborted. NOT to save money — the AI is
+ * already mocked for this account (lib/e2eMock.ts). With transcription blocked
+ * the draft is written empty, and listTranscriptDrafts filters empty drafts out
+ * of every recovery surface, so there is nothing to offer back and nothing to
+ * clean up.
+ */
+async function blockRecordingWrites(page: Page): Promise<void> {
+  await page.route('**/api/transcribe', route => route.abort())
+  await page.route('**/*firebasestorage.googleapis.com/**', route => route.abort())
+}
+
+/** The recording screen is up and the microphone is genuinely open. */
+async function expectRecording(page: Page): Promise<void> {
+  // The modal that used to stand between the tap and the microphone. Its
+  // absence IS the feature, so it is asserted rather than assumed.
+  await expect(page.getByRole('heading', { name: 'Record Session' })).toHaveCount(0)
+  await expect(page.getByText(/Confirm the patient has agreed/i)).toBeVisible()
+  // This line renders only once getUserMedia has resolved and the recorder has
+  // started, which is what makes it worth asserting: it proves the microphone
+  // opened, without depending on a timer that could flake.
+  await expect(page.getByText('Recording. Speak normally.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Stop recording and write the note' })).toBeVisible()
+}
+
+test('the record button starts recording on the Generate tab', async ({ signedIn: page }) => {
+  await blockRecordingWrites(page)
   await page.goto('/generate')
   await page.getByRole('button', { name: 'Open capture menu' }).click()
   await page.getByRole('button', { name: 'Record a session' }).click()
-  // Opens on its In-person/Telehealth choice — no microphone is touched until
-  // Start, so this is safe to assert and cannot flake on a permission prompt.
-  await expect(page.getByRole('heading', { name: 'Record Session' })).toBeVisible()
+  await expectRecording(page)
+
+  await page.getByRole('button', { name: 'Cancel recording and discard it' }).click()
+  await expect(page.getByText(/Confirm the patient has agreed/i)).toHaveCount(0)
+})
+
+test('the record button starts recording from another tab without navigating', async ({ signedIn: page }) => {
+  // The behaviour change: Record no longer travels to /generate to find a modal.
+  // A doctor reaching for it from the patient list records where they stand.
+  await blockRecordingWrites(page)
+  await page.goto('/history')
+  await page.getByRole('button', { name: 'Open capture menu' }).click()
+  await page.getByRole('button', { name: 'Record a session' }).click()
+  await expectRecording(page)
+  await expect(page).toHaveURL(/\/history/)
+
+  await page.getByRole('button', { name: 'Cancel recording and discard it' }).click()
+  await expect(page.getByText(/Confirm the patient has agreed/i)).toHaveCount(0)
 })
 
 test('the capture button opens the scan modal from the Generate tab', async ({ signedIn: page }) => {
@@ -121,15 +178,15 @@ test('the capture button opens the scan modal from the Generate tab', async ({ s
   await expect(page.getByRole('heading', { name: 'Scan a ward note' })).toBeVisible()
 })
 
-test('the capture button opens the recording modal from another tab', async ({ signedIn: page }) => {
+test('the capture button opens the scan modal from another tab', async ({ signedIn: page }) => {
   // The path that always worked — arriving from elsewhere mounts the page, so
   // the `?capture=` parameter is what carries the intent. Pinned so a fix for
   // the same-route case cannot quietly break this one.
   await page.goto('/history')
   await page.getByRole('button', { name: 'Open capture menu' }).click()
-  await page.getByRole('button', { name: 'Record a session' }).click()
+  await page.getByRole('button', { name: /^Capture a note/ }).click()
   await expect(page).toHaveURL(/\/generate/)
-  await expect(page.getByRole('heading', { name: 'Record Session' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Scan a ward note' })).toBeVisible()
   // The parameter is dropped, so a refresh cannot reopen the modal over a
   // capture already finished.
   await expect(page).toHaveURL(/\/generate$/)
