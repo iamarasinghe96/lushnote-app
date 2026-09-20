@@ -20,14 +20,25 @@ describe('Discharge Note built-in template', () => {
     ])
   })
 
+  // Sliced to the NEXT section marker, not to a fixed width. Every block in this
+  // prompt is shorter than 400 characters, so a fixed window spills into its
+  // neighbour and nine of the ten sections go unchecked: [mse] carries the
+  // clause mid-sentence as "and omit this entire section when", which a
+  // case-sensitive assertion misses, and the test passed anyway on [risk]'s copy.
   it('omits unsupported topics rather than manufacturing discharge content', () => {
     expect(discharge?.prompt).toContain('Use only explicitly documented facts')
     expect(discharge?.prompt).toContain('Do not write a salutation, sign-off or letter to a referrer')
-    for (const section of sections()) {
-      const marker = `[${section.key}] ${section.label}`
-      const start = discharge!.prompt.indexOf(marker)
-      expect(start).toBeGreaterThan(-1)
-      expect(discharge!.prompt.slice(start, start + 700)).toContain('Omit this entire section when')
+
+    const prompt = discharge!.prompt
+    const markers = sections()
+      .map(section => ({ key: section.key, start: prompt.indexOf(`[${section.key}] ${section.label}`) }))
+    for (const marker of markers) expect(marker.start).toBeGreaterThan(-1)
+
+    const boundaries = markers.map(marker => marker.start).sort((a, b) => a - b)
+    for (const marker of markers) {
+      const next = boundaries.find(position => position > marker.start) ?? prompt.length
+      const block = prompt.slice(marker.start, next)
+      expect(`${marker.key}: ${block.toLowerCase()}`).toContain('omit this entire section when')
     }
   })
 })
