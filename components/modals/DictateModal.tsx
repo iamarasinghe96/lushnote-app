@@ -121,7 +121,7 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
   const streamRef = useRef<MediaStream | null>(null)
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stopRef = useRef<(() => void) | null>(null)
-  const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, micLost, start, stop, error: recError } = useSegmentedRecorder()
+  const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, micLost, start, stop, abort, error: recError } = useSegmentedRecorder()
   const pip = useRecordingPiP()
   const { user } = useAuth()
 
@@ -207,7 +207,9 @@ export default function DictateModal({ open, onClose, onTranscriptReady, onHospi
       autoStopRef.current = null
     }
     pip.teardown()
-    stop().catch(() => {})
+    // abort(), not stop(): stop() would flush the audio in hand into a recovery
+    // draft for a dictation the doctor has just cancelled.
+    abort()
     onClose()
   }
 

@@ -49,7 +49,7 @@ export default function QuickRecordOverlay({ micRequest, uid, recordingDefaults,
 
   const {
     duration, audioSavedMin, transcribedMin, failures, lastError,
-    audioError, draftError, micLost, start, stop, error: recError,
+    audioError, draftError, micLost, start, stop, abort, error: recError,
   } = useSegmentedRecorder()
   const pip = useRecordingPiP()
 
@@ -123,13 +123,16 @@ export default function QuickRecordOverlay({ micRequest, uid, recordingDefaults,
 
   stopRef.current = doStop
 
-  // Cancel abandons the recording without handing anything on. Segments already
-  // written to the Firestore recovery draft survive, so a mis-tap on a long
-  // session is still recoverable from the Generate page.
+  // Cancel abandons the recording without handing anything on. abort(), not
+  // stop(): stop() flushes the audio in hand into a recovery draft, so a
+  // cancelled mis-tap came back as an "Unnamed patient" row under a button that
+  // says it discards the recording entirely. Segments already saved during a
+  // long session do survive, which is what the copy below says once there are
+  // any - a forty-minute recording ended by a stray tap must stay recoverable.
   function handleCancel() {
     clearAutoStop()
     pip.teardown()
-    stop().catch(() => {})
+    abort()
     releaseMic()
     onClose()
   }
@@ -174,7 +177,11 @@ export default function QuickRecordOverlay({ micRequest, uid, recordingDefaults,
               <p className="text-sm font-semibold text-[var(--text)]">
                 Confirm the patient has agreed to being recorded.
               </p>
-              <p className="text-xs text-[var(--text3)]">Cancel discards this recording entirely.</p>
+              <p className="text-xs text-[var(--text3)]">
+                {audioSavedMin > 0
+                  ? `Cancel stops here. The ${audioSavedMin} min already saved stays recoverable.`
+                  : 'Cancel discards this recording entirely.'}
+              </p>
             </div>
 
             {/* The mic on the same emerald glass as the button that opened
