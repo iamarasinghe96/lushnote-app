@@ -5,7 +5,7 @@
 // still reach is the one that fixes that — so it cannot live behind the gate.
 // It is also where the Stripe Customer Portal returns them.
 
-import { Suspense, useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import BackButton from '@/components/ui/BackButton'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { auth } from '@/lib/firebase'
@@ -71,6 +71,8 @@ function BillingInner() {
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  // Where "Add a payment method" sends a doctor who wants to start paying now.
+  const paymentCardRef = useRef<HTMLDivElement>(null)
 
   const refresh = useCallback(async () => {
     try { setState(await call<State>({ action: 'state' })) } catch { /* the card just stays as it was */ }
@@ -228,12 +230,62 @@ function BillingInner() {
           )}
           {!hasMethod && isTrial && (
             <p className="text-xs text-[var(--text2)]">
-              No payment details are needed during the trial. We&apos;ll remind you a week before it ends.
+              No payment details are needed during the trial - we&apos;ll remind you a week before it ends - but
+              you can add them now and start the paid plan today.
             </p>
           )}
         </div>
 
-        <div className={CARD + ' space-y-3'}>
+        {/* Above the form, not inside it. Converting early is its own decision,
+            and it is the first thing a doctor who wants to pay now looks for.
+            It used to render only WITH a method on file - which hid the whole
+            proposition from exactly the person after it, since the page also
+            says no details are needed during the trial. The server still
+            refuses to end a trial it cannot charge; this only stops the road to
+            it being invisible. `!adding` stays: someone replacing their card is
+            in the middle of something else. */}
+        {isTrial && !adding && (
+          <div className={CARD + ' space-y-2'}>
+            <h2 className="text-sm font-semibold text-[var(--text)]">Upgrade to Pro now</h2>
+            {hasMethod ? (
+              <>
+                <p className="text-xs leading-relaxed text-[var(--text2)]">
+                  Ends your free trial today and starts the paid plan at {state.price}, with higher AI
+                  limits straight away. You keep every note. Cancel or pause any time.
+                </p>
+                <button onClick={upgradeNow} disabled={busy}
+                  className="px-4 py-2 rounded-[var(--r)] bg-[#10b981] text-white text-sm font-medium disabled:opacity-50
+                             hover:bg-[#059669] motion-safe:transition-colors motion-safe:active:scale-[0.97]">
+                  {busy ? 'Upgrading…' : 'Upgrade to Pro'}
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs leading-relaxed text-[var(--text2)]">
+                  {/* formatDate renders a bare "-" for a missing date, which in
+                      the middle of a sentence reads as broken rather than as
+                      unknown. A trialing subscription always carries the date,
+                      so this only ever shows the shorter wording. */}
+                  {b?.trialEndsAt
+                    ? `You do not have to wait until ${formatDate(b.trialEndsAt)}.`
+                    : 'You do not have to wait for the trial to end.'}
+                  {' '}Add a payment method and the paid plan can start today, at {state.price}, with higher AI
+                  limits straight away.
+                </p>
+                {/* Deliberately not upgradeNow(). The server would refuse for
+                    want of a method and the page would answer "add one first" -
+                    a round trip to be told what it already knows. */}
+                <button onClick={() => paymentCardRef.current?.scrollIntoView()}
+                  className="px-4 py-2 rounded-[var(--r)] border border-[#10b981]/50 text-[#059669] text-sm font-medium
+                             hover:bg-[#10b981]/10 motion-safe:transition-colors motion-safe:active:scale-[0.97]">
+                  Add a payment method
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        <div ref={paymentCardRef} className={CARD + ' space-y-3'}>
           <h2 className="text-sm font-semibold text-[var(--text)]">
             {!b ? 'Start your free trial' : hasMethod ? 'Change payment details' : 'Add payment details'}
           </h2>
@@ -267,25 +319,6 @@ function BillingInner() {
               className="px-4 py-2 rounded-[var(--r)] border border-[var(--border)] text-sm text-[var(--text2)] disabled:opacity-50">
               Replace payment method
             </button>
-          )}
-
-          {/* Only while the trial is still running and there is something to
-              charge. Ending a trial with no method on file moves a doctor
-              CLOSER to being paywalled, so the server refuses it and this
-              button is not offered in the first place. */}
-          {isTrial && hasMethod && !adding && (
-            <div className="rounded-[var(--r)] border border-[#10b981]/40 p-3 space-y-2">
-              <p className="text-sm font-semibold text-[var(--text)]">Upgrade to Pro now</p>
-              <p className="text-xs leading-relaxed text-[var(--text2)]">
-                Ends your free trial today and starts the paid plan at {state.price}, with higher AI
-                limits straight away. You keep every note. Cancel or pause any time.
-              </p>
-              <button onClick={upgradeNow} disabled={busy}
-                className="px-4 py-2 rounded-[var(--r)] bg-[#10b981] text-white text-sm font-medium disabled:opacity-50
-                           hover:bg-[#059669] motion-safe:transition-colors motion-safe:active:scale-[0.97]">
-                {busy ? 'Upgrading…' : 'Upgrade to Pro'}
-              </button>
-            </div>
           )}
         </div>
 
