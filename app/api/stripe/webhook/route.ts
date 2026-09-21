@@ -71,8 +71,57 @@ async function writeMandate(mandate: Stripe.Mandate, byCustomer?: string | null)
   logToSink({ level: 'info', tag: 'billing', route: '/api/stripe/webhook', uid: snap.docs[0].id, message: `becs mandate ${mandate.status}` })
 }
 
+/**
+ * Stripe's decline code for a failed invoice, or null.
+ *
+ * Best effort by design: the behaviour hangs off the TIMESTAMP, and this only
+ * makes the message on the billing page specific. The invoice no longer carries
+ * the error itself - it points at an InvoicePayment which points at a
+ * PaymentIntent - and that shape has moved between API versions before, so
+ * every step here is allowed to come back empty rather than throw.
+ */
+async function failureCode(invoice: Stripe.Invoice): Promise<string | null> {
+  try {
+    const payment = invoice.payments?.data?.[0]?.payment
+    const legacy = (invoice as unknown as { payment_intent?: string | { id: string } }).payment_intent
+    const id = payment?.payment_intent ?? (typeof legacy === 'string' ? legacy : legacy?.id)
+    if (typeof id !== 'string' || !id) return null
+    const intent = await stripe().paymentIntents.retrieve(id)
+    return intent.last_payment_error?.code ?? intent.last_payment_error?.decline_code ?? null
+  } catch {
+    return null
+  }
+}
+
 async function handle(event: Stripe.Event): Promise<void> {
   const object = event.data.object as unknown as Record<string, unknown>
+
+  // A payment that BOUNCED, as opposed to one still clearing. They wear the
+  // same subscription status and the same payment method, so without this the
+  // app cannot tell them apart - and treated both as money in flight, which
+  // handed a failed account the paid AI key for as long as Stripe kept
+  // retrying. Recorded AFTER the projection below, which rebuilds `billing`
+  // whole and would otherwise overwrite it.
+  if (event.type === 'invoice.payment_failed' || event.type === 'invoice.paid') {
+    const invoice = event.data.object as Stripe.Invoice
+    const subId = subscriptionIdOf(object)
+    const uid = subId ? await projectSubscription(subId) : null
+    if (!uid) return
+    const failed = event.type === 'invoice.payment_failed'
+    const code = failed ? await failureCode(invoice) : null
+    await adminDb().collection('users').doc(uid).set({
+      billing: {
+        paymentFailedAt: failed ? Date.now() : null,
+        paymentFailureCode: code,
+        updatedAt: Date.now(),
+      },
+    }, { merge: true })
+    logToSink({
+      level: failed ? 'warn' : 'info', tag: 'billing', route: '/api/stripe/webhook', uid,
+      message: failed ? `invoice payment failed (${code ?? 'no code'})` : 'invoice paid',
+    })
+    return
+  }
 
   if (event.type === 'mandate.updated') {
     await writeMandate(event.data.object as Stripe.Mandate, customerIdOf(object))

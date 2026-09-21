@@ -206,6 +206,11 @@ export async function projectSubscription(subscriptionId: string): Promise<strin
     // second trial-end event must not hand out a fresh week.
     gracePeriodEnd: previous?.gracePeriodEnd ?? null,
     paywalledAt: previous?.paywalledAt ?? null,
+    // Carried, not recomputed: only `invoice.payment_failed` knows this, and
+    // this projection runs on every subscription event. Dropping it here would
+    // quietly restore the paid key to an account whose payment had bounced.
+    paymentFailedAt: previous?.paymentFailedAt ?? null,
+    paymentFailureCode: previous?.paymentFailureCode ?? null,
     ...(previous?.billingExempt !== undefined ? { billingExempt: previous.billingExempt } : {}),
     ...(previous?.consent ? { consent: previous.consent } : {}),
     updatedAt: Date.now(),
@@ -218,6 +223,13 @@ export async function projectSubscription(subscriptionId: string): Promise<strin
   if (next.paymentMethodStatus !== 'none' || sub.status === 'active' || sub.status === 'trialing') {
     next.gracePeriodEnd = null
     next.paywalledAt = null
+  }
+  // A failure is cleared only by the subscription actually being paid up. A new
+  // payment method is not enough - it has to go through - which is why this is
+  // a narrower test than the one above.
+  if (sub.status === 'active' || sub.status === 'trialing') {
+    next.paymentFailedAt = null
+    next.paymentFailureCode = null
   }
 
   await ref.set({ billing: next, updatedAt: FieldValue.serverTimestamp() }, { merge: true })

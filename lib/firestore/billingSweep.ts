@@ -11,7 +11,7 @@
 import { adminDb } from '@/lib/firebase-admin'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { startTrial, stripeEnabled, computeAuTurnover, saveTurnoverCache } from '@/lib/billing'
-import type { Billing } from '@/lib/entitlement'
+import { PAYMENT_RETRY_MS, type Billing } from '@/lib/entitlement'
 
 /** Bounded so one night's sweep cannot run past the function's deadline. The
  *  rest are picked up tomorrow; nothing here is time-critical to the hour. */
@@ -50,6 +50,14 @@ export function sweepAction(row: SweepRow, now: number): SweepAction {
   if (b && !b.paywalledAt && !b.billingExempt
       && b.gracePeriodEnd && b.gracePeriodEnd < now
       && b.paymentMethodStatus === 'none') return 'paywall'
+
+  // The same absence, one step further along: a payment bounced and was not
+  // fixed inside the window. resolveEntitlement already stops access on its own
+  // here, so this is for the record and for the paywall email, which has
+  // nothing to fire on until paywalledAt exists.
+  if (b && !b.paywalledAt && !b.billingExempt
+      && b.paymentFailedAt && b.paymentFailedAt + PAYMENT_RETRY_MS < now
+      && b.subscriptionStatus === 'past_due') return 'paywall'
 
   // Paywalling is terminal as far as the sweep is concerned. Without this a
   // paywalled row that had lost its customer id would fall into the backfill

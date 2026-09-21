@@ -17,7 +17,8 @@ export type EntitlementState =
   | 'trialing'
   | 'active'
   | 'grace'          // trial ended with no payment method; still inside the window
-  | 'dunning'        // a payment method exists and Stripe is retrying
+  | 'dunning'        // a payment is in flight - a card retry, or a BECS debit clearing
+  | 'failed'         // a payment actually bounced; a short window to fix it
   | 'paused'         // collection paused; paid period still running
   | 'paywalled'
 
@@ -31,6 +32,18 @@ export interface Entitlement {
 /** Days of continued access after a trial ends with nothing on file. */
 export const GRACE_DAYS = 7
 export const GRACE_MS = GRACE_DAYS * 24 * 60 * 60 * 1000
+
+/**
+ * Days of continued NOTE-TAKING after a payment bounces.
+ *
+ * The paid AI key stops immediately (see PRO_STATES) because it costs money on
+ * every request and the fallback is the doctor's own key, not a locked door.
+ * Note creation gets this window instead, because a bank declines a debit for
+ * reasons a doctor often has not heard about yet, and finding out by having the
+ * app die mid-clinic is the failure this whole module exists to prevent.
+ */
+export const PAYMENT_RETRY_DAYS = 7
+export const PAYMENT_RETRY_MS = PAYMENT_RETRY_DAYS * 24 * 60 * 60 * 1000
 
 export function resolveEntitlement(billing: Billing | undefined, now: number): Entitlement {
   // Nobody has a billing record until the sweep backfills them. Treating that as
@@ -63,7 +76,16 @@ export function resolveEntitlement(billing: Billing | undefined, now: number): E
     case 'past_due':
       // A method on file means Stripe is either retrying a card or waiting for a
       // bank debit to clear. Both are money in motion, not a lapsed account.
-      if (hasMethod) return { entitled: true, state: 'dunning', reason: 'payment in progress' }
+      //
+      // Unless the last attempt actually BOUNCED, which is a different thing
+      // wearing the same status. Only the webhook can tell us, and until it did
+      // a failed payment was indistinguishable from one still clearing.
+      if (hasMethod) {
+        if (!billing.paymentFailedAt) return { entitled: true, state: 'dunning', reason: 'payment in progress' }
+        return now <= billing.paymentFailedAt + PAYMENT_RETRY_MS
+          ? { entitled: true, state: 'failed', reason: 'payment failed, inside the window to fix it' }
+          : { entitled: false, state: 'paywalled', reason: 'payment failed and was not fixed' }
+      }
       if (billing.gracePeriodEnd && now <= billing.gracePeriodEnd) {
         return { entitled: true, state: 'grace', reason: 'grace window' }
       }
@@ -93,9 +115,13 @@ export function resolveEntitlement(billing: Billing | undefined, now: number): E
 export function duePrompt(
   billing: Billing | undefined,
   now: number,
-): 'trialReminder7d' | 'trialReminderDue' | 'paywalled' | null {
+): 'trialReminder7d' | 'trialReminderDue' | 'paymentFailed' | 'paywalled' | null {
   if (!billing || billing.billingExempt) return null
   if (billing.paywalledAt) return 'paywalled'
+  // Before the "a method is on file, so there is nothing to chase" line below.
+  // A bounced payment HAS a method on file - that is exactly the case - so
+  // without this the one prompt that needs saying was the one never said.
+  if (billing.paymentFailedAt && billing.subscriptionStatus === 'past_due') return 'paymentFailed'
   if (billing.paymentMethodStatus === 'active' || billing.paymentMethodStatus === 'pending') return null
   const end = billing.trialEndsAt
   if (!end) return null
@@ -119,6 +145,11 @@ export function duePrompt(
  *            clearing. Cutting off a doctor whose money is already in flight is
  *            the same mistake the entitlement resolver exists to avoid.
  *   paused   collection paused, but a period they already paid for is running.
+ * `failed` is deliberately NOT here. A bounced payment stops the paid key on the
+ * spot - it costs money on every request - and the doctor falls back to their
+ * own key, which is the free-tier experience rather than a blocked one. Their
+ * note-taking keeps PAYMENT_RETRY_DAYS to sort the bank out.
+ *
  *   exempt   complimentary, granted deliberately by an admin. A comp account
  *            means the full product, and there are a handful. If that stops
  *            being true, remove this one entry.
