@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Modal from '@/components/ui/Modal'
+import { ProgressOverlay, FINISHING_TRANSCRIPT } from '@/components/ui/ProgressOverlay'
 import Button from '@/components/ui/Button'
 import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useRecordingPiP } from '@/hooks/useRecordingPiP'
@@ -169,6 +170,12 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
     }
   }
 
+  // The same card the one-tap recording screen shows, rather than a second
+  // spinner inside this modal: stopping a recording should look the same
+  // whichever door it started from. The confirm-transcript window replaces it
+  // in the same commit, so there is no gap to hold here.
+  if (open && phase === 'processing') return <ProgressOverlay label={FINISHING_TRANSCRIPT} />
+
   return (
     <Modal
       open={open}
@@ -296,15 +303,6 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
           </div>
         )}
 
-        {phase === 'processing' && (
-          <div className="text-center py-8">
-            <svg width="28" height="28" viewBox="0 0 24 24" className="animate-spin text-[var(--blue)] mx-auto mb-3" aria-hidden>
-              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25"/>
-              <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round"/>
-            </svg>
-            <p className="text-sm text-[var(--text2)]">Finishing transcription…</p>
-          </div>
-        )}
       </div>
     </Modal>
   )

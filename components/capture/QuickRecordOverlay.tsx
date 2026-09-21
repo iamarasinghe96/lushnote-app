@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import RecordingWave from '@/components/capture/RecordingWave'
 import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useRecordingPiP } from '@/hooks/useRecordingPiP'
+import { ProgressOverlay, FINISHING_TRANSCRIPT } from '@/components/ui/ProgressOverlay'
 import type { RecordingDefaults } from '@/types'
 
 // The one-tap recording screen. Reached from the FAB's Record button, which
@@ -139,6 +140,11 @@ export default function QuickRecordOverlay({ micRequest, uid, recordingDefaults,
 
   const problem = startError ?? recError
 
+  // Not rendered inside the recording screen: this is the card the FAB holds up
+  // through the navigation that follows, and showing it here rather than a
+  // second spinner is what makes the handover invisible.
+  if (phase === 'processing') return <ProgressOverlay label={FINISHING_TRANSCRIPT} />
+
   return (
     <div
       className="ln-glass ln-glass-modal fixed inset-0 z-[110] flex flex-col overflow-y-auto"
@@ -158,15 +164,6 @@ export default function QuickRecordOverlay({ micRequest, uid, recordingDefaults,
             >
               Close
             </button>
-          </>
-        ) : phase === 'processing' ? (
-          <>
-            <svg width="28" height="28" viewBox="0 0 24 24" className="animate-spin motion-reduce:animate-none text-[var(--blue)] mx-auto" aria-hidden>
-              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25" />
-              <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round" />
-            </svg>
-            <p className="text-sm text-[var(--text2)]">Finishing transcription…</p>
-            <p className="text-xs text-[var(--text3)]">Please stay on this screen.</p>
           </>
         ) : (
           <>
