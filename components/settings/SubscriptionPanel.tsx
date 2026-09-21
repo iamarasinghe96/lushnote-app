@@ -19,6 +19,7 @@ const STATE_CHIP: Record<EntitlementState, string> = {
   active: 'Active',
   grace: 'Payment needed',
   dunning: 'Payment processing',
+  failed: 'Payment failed',
   paused: 'Paused',
   paywalled: 'Paused',
 }

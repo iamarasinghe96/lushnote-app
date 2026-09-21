@@ -28,6 +28,11 @@ export default function BillingBanner({ profile, uid }: { profile: User; uid: st
   const message =
     prompt === 'paywalled'
       ? 'Note creation is paused. Add your payment details to restore access - your notes stay available either way.'
+      // A bounced payment, which is the one case where details already exist
+      // and are the problem. Says what to do rather than what went wrong; the
+      // billing page carries the bank's actual reason.
+      : prompt === 'paymentFailed'
+        ? 'Your last payment did not go through. Update your payment details this week to keep creating notes.'
       : prompt === 'trialReminderDue'
         ? 'Your free trial has ended. Add your payment details this week to keep creating notes.'
         : `Your free trial ends${trialEnd ? ` on ${trialEnd}` : ' in a week'}. Add your payment details to keep going.`

@@ -15,7 +15,7 @@ import { resolveHolidayTheme, holidayBackgroundStyle, themeFor, readHolidayOverr
 import { getInitials, applyWorkspaceTheme, resolveThemePrimary } from '@/lib/utils'
 import { getLetterhead } from '@/lib/firestore/letterheads'
 import { getHolidayAppearance, type HolidayAppearance } from '@/lib/holidayTiles'
-import { resolveEntitlement } from '@/lib/entitlement'
+import { resolveEntitlement, isProState } from '@/lib/entitlement'
 import PaywallScreen from '@/components/PaywallScreen'
 import BillingBanner from '@/components/BillingBanner'
 
@@ -207,7 +207,12 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
         {/* Right: LushNote wordmark + avatar */}
         <div className="flex items-center gap-3">
-          <span className={`text-white font-semibold text-sm hidden sm:block select-none${holiday ? ' ln-holiday-text' : ''}`}>LushNote</span>
+          {/* Pro is the same predicate that routes the paid AI key, so the
+              wordmark cannot claim something the AI disagrees with - and a
+              bounced payment drops the badge at the moment it drops the key. */}
+          <span className={`text-white font-semibold text-sm hidden sm:block select-none${holiday ? ' ln-holiday-text' : ''}`}>
+            LushNote{isProState(entitlement.state) && <span className="font-extrabold"> Pro</span>}
+          </span>
           <div ref={menuRef} className="relative">
             <button
               style={{ backgroundColor: avatarBg }}

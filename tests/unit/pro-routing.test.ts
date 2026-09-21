@@ -54,6 +54,8 @@ describe('who gets the paid keys', () => {
 
   it('never treats mere entitlement as having paid', () => {
     // grace and legacy are both entitled: true, and neither has paid.
+    // A bounced payment is not money in flight. The key stops with it.
+    expect(isProState('failed')).toBe(false)
     expect(isProState('grace')).toBe(false)
     expect(isProState('legacy')).toBe(false)
     expect(isProState('trialing')).toBe(false)

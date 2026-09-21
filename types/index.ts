@@ -86,6 +86,16 @@ interface User {
     country: string | null          // billing country, for price display + AU turnover
     gracePeriodEnd: number | null
     paywalledAt: number | null
+    // When the last invoice payment actually FAILED, as opposed to still being
+    // in flight. Without this, a bounced debit and a BECS debit that is simply
+    // clearing look identical - both are past_due with a method on file - and a
+    // failed payment kept full access and the paid AI key for as long as
+    // Stripe's retries ran. Cleared the moment an invoice is paid.
+    paymentFailedAt?: number | null
+    // Stripe's own decline code (`insufficient_funds`, `account_closed`, …).
+    // A scalar, so it is safe to store and to log. Best effort: the behaviour
+    // hangs off the timestamp above, this only makes the message specific.
+    paymentFailureCode?: string | null
     billingExempt?: boolean
     // Kept for dispute defence: what they agreed to, when, and from where.
     consent?: { acceptedAt: number; ip: string; tosVersion: string }
@@ -94,7 +104,7 @@ interface User {
   // When each in-app billing prompt was dismissed. Client-writable and stored on
   // the profile rather than in localStorage so a doctor who dismisses it on the
   // ward computer doesn't meet it again on their phone.
-  billingPrompts?: { trialReminder7d?: number; trialReminderDue?: number; paywalled?: number }
+  billingPrompts?: { trialReminder7d?: number; trialReminderDue?: number; paymentFailed?: number; paywalled?: number }
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
 }

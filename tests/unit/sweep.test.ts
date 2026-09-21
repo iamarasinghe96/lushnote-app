@@ -11,10 +11,37 @@ function row(over: Partial<SweepRow> = {}, billing?: Partial<Billing>): SweepRow
 
 const expired: Partial<Billing> = { gracePeriodEnd: NOW - DAY, paymentMethodStatus: 'none' }
 
+/** A payment that bounced and was never fixed. Note the method is still on
+ *  file and perfectly valid-looking - that is what makes this its own case. */
+const unfixed: Partial<Billing> = {
+  // The customer id matters: without one the row is a backfill candidate, not a
+  // paywall one, and the test would be measuring the wrong branch.
+  stripeCustomerId: 'cus_test', subscriptionStatus: 'past_due',
+  paymentMethodStatus: 'active', paymentFailedAt: NOW - 8 * DAY,
+}
+
 describe('sweepAction', () => {
   it('leaves a suspended account alone entirely', () => {
     // A suspended doctor has no access to take away and no trial to start.
     expect(sweepAction(row({ status: 'disabled' }, expired), NOW)).toBe('skip')
+  })
+
+  it('paywalls a payment that bounced and was never fixed', () => {
+    expect(sweepAction(row({}, unfixed), NOW)).toBe('paywall')
+  })
+
+  it('leaves a bounced payment alone while the window is still open', () => {
+    expect(sweepAction(row({}, { ...unfixed, paymentFailedAt: NOW - DAY }), NOW)).toBe('skip')
+  })
+
+  // The webhook clears the mark when the retry goes through. Without this test
+  // the sweep could paywall an account that had already paid.
+  it('leaves a recovered payment alone', () => {
+    expect(sweepAction(row({}, { ...unfixed, subscriptionStatus: 'active', paymentFailedAt: null }), NOW)).toBe('skip')
+  })
+
+  it('never paywalls an exempt account over a bounced payment', () => {
+    expect(sweepAction(row({}, { ...unfixed, billingExempt: true }), NOW)).toBe('skip')
   })
 
   it('paywalls a grace window that has run out with nothing on file', () => {

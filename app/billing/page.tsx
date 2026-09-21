@@ -11,7 +11,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { auth } from '@/lib/firebase'
 import { useAuth } from '@/hooks/useAuth'
 import PaymentSetup from '@/components/billing/PaymentSetup'
-import type { Billing, Entitlement, EntitlementState } from '@/lib/entitlement'
+import { paymentFailureReason } from '@/lib/paymentFailure'
+import { PAYMENT_RETRY_MS, type Billing, type Entitlement, type EntitlementState } from '@/lib/entitlement'
 
 const CARD = 'rounded-2xl border border-[var(--border)] bg-white p-5'
 
@@ -36,6 +37,7 @@ const STATE_LABEL: Record<EntitlementState, string> = {
   active: 'Active',
   grace: 'Payment needed',
   dunning: 'Payment processing',
+  failed: 'Payment failed',
   paused: 'Paused',
   paywalled: 'Paused - payment needed',
 }
@@ -234,6 +236,21 @@ function BillingInner() {
               Cancelled. You keep full access until {formatDate(b.currentPeriodEnd)}, and nothing further is charged.
             </p>
           )}
+          {/* The other half of the state above: this payment did not go through.
+              What the bank said, how long is left, and the fix is the button in
+              the next card. Deliberately louder than the processing line - this
+              one needs an action, and nothing else in the app was telling them
+              (duePrompt used to go silent the moment a method was on file). */}
+          {st === 'failed' && b?.paymentFailedAt && (
+            <div className="rounded-[var(--r)] border border-amber-300 bg-amber-50 px-3 py-2.5 space-y-1">
+              <p className="text-sm font-semibold text-amber-900">Your last payment did not go through</p>
+              <p className="text-xs leading-relaxed text-amber-800">
+                {paymentFailureReason(b.paymentFailureCode)} Update your payment details below and Stripe will
+                try again. You can keep creating notes until {formatDate(b.paymentFailedAt + PAYMENT_RETRY_MS)}.
+              </p>
+            </div>
+          )}
+
           {/* A bank debit takes a few business days to reach the bank, so the
               money has not moved yet and the banking app shows nothing. Without
               this the page says "Payment processing" and leaves a doctor to

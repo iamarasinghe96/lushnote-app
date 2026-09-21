@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveEntitlement, duePrompt, GRACE_MS, type Billing } from '@/lib/entitlement'
+import { resolveEntitlement, duePrompt, isProState, GRACE_MS, PAYMENT_RETRY_MS, type Billing } from '@/lib/entitlement'
 
 const NOW = Date.UTC(2026, 0, 15)
 const DAY = 24 * 60 * 60 * 1000
@@ -64,6 +64,51 @@ describe('resolveEntitlement', () => {
     })
   })
 
+  // A payment in flight and a payment that bounced wear the same status and the
+  // same payment method. Until the webhook recorded the difference, a failed
+  // payment kept full access AND the paid AI key for as long as Stripe's
+  // retries ran - two to three weeks - and said nothing to the doctor.
+  describe('a payment that actually failed', () => {
+    const failed = (over: Partial<Billing> = {}) => billing({
+      subscriptionStatus: 'past_due', paymentMethodStatus: 'active', paymentFailedAt: NOW, ...over,
+    })
+
+    it('keeps note-taking on the day it bounces', () => {
+      const e = resolveEntitlement(failed(), NOW)
+      expect(e.entitled).toBe(true)
+      expect(e.state).toBe('failed')
+    })
+
+    // The whole point of splitting the state. Access is not the expensive part;
+    // our own API key is, and it stops the moment the money does.
+    it('drops the paid AI key immediately, unlike a payment in flight', () => {
+      expect(isProState(resolveEntitlement(failed(), NOW).state)).toBe(false)
+      expect(isProState(resolveEntitlement(billing({ subscriptionStatus: 'past_due' }), NOW).state)).toBe(true)
+    })
+
+    it('still has access on the last day of the window', () => {
+      expect(resolveEntitlement(failed(), NOW + PAYMENT_RETRY_MS).entitled).toBe(true)
+    })
+
+    it('is paywalled once the window has passed', () => {
+      const e = resolveEntitlement(failed(), NOW + PAYMENT_RETRY_MS + 1)
+      expect(e.entitled).toBe(false)
+      expect(e.state).toBe('paywalled')
+    })
+
+    // What the webhook does when the retry succeeds: clear the mark. Everything
+    // comes back at once, with no second rule to remember.
+    it('is whole again the moment the payment goes through', () => {
+      const e = resolveEntitlement(billing({ subscriptionStatus: 'active', paymentFailedAt: null }), NOW)
+      expect(e.state).toBe('active')
+      expect(isProState(e.state)).toBe(true)
+    })
+
+    it('never outranks an exemption', () => {
+      expect(resolveEntitlement(failed({ billingExempt: true }), NOW + PAYMENT_RETRY_MS + DAY).state).toBe('exempt')
+    })
+  })
+
   describe('paused', () => {
     it('keeps access until the paid period actually ends', () => {
       const e = resolveEntitlement(billing({ paused: true, currentPeriodEnd: NOW + DAY }), NOW)
@@ -112,6 +157,13 @@ describe('resolveEntitlement', () => {
 describe('duePrompt', () => {
   it('is silent for an exempt doctor', () => {
     expect(duePrompt(billing({ billingExempt: true, trialEndsAt: NOW - DAY }), NOW)).toBe(null)
+  })
+
+  // The one prompt that was never shown: it only happens WITH a method on file,
+  // which is exactly the case the next test says to stay quiet about.
+  it('speaks up when a payment has bounced, method on file or not', () => {
+    const b = { subscriptionStatus: 'past_due', paymentMethodStatus: 'active', paymentFailedAt: NOW - DAY } as Billing
+    expect(duePrompt(b, NOW)).toBe('paymentFailed')
   })
 
   it('is silent once a payment method is on file', () => {
