@@ -5,6 +5,7 @@ import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { auth } from '@/lib/firebase'
 import { keyModeMismatch } from '@/lib/stripeKeyMode'
+import { inAustralia } from '@/lib/locale'
 
 // Loaded once per page, not per render — loadStripe fetches Stripe.js and doing
 // it inside the component would refetch on every state change.
@@ -26,9 +27,11 @@ interface Props {
   /** Called after Stripe confirms, so the page can refresh its state. */
   onDone: () => void
   price: string
+  /** Billing country already known from Stripe, when there is one. */
+  country?: string | null
 }
 
-function SetupForm({ onDone, price }: Props) {
+function SetupForm({ onDone, price, preferAuDebit }: Props & { preferAuDebit: boolean }) {
   const stripe = useStripe()
   const elements = useElements()
   const [agreed, setAgreed] = useState(false)
@@ -98,8 +101,20 @@ function SetupForm({ onDone, price }: Props) {
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Stripe renders the card fields, and for Australian customers the BECS
           fields plus its own Direct Debit Request wording — a mandate has to be
-          given by the account holder, so it cannot be reproduced here. */}
-      <PaymentElement options={{ layout: 'tabs' }} />
+          given by the account holder, so it cannot be reproduced here.
+
+          The first entry in `paymentMethodOrder` is the tab that opens, so an
+          Australian doctor lands on bank debit, which is how most of them will
+          pay. Card stays one tap away.
+
+          Naming a method the account has not activated is ignored here, unlike
+          `payment_method_types` on the SetupIntent, which rejects the whole call
+          — the mistake that took this form down once already.
+          `paymentMethodTypesFor()` still decides what is on offer; this only
+          orders what comes back. */}
+      <PaymentElement
+        options={{ layout: 'tabs', ...(preferAuDebit ? { paymentMethodOrder: ['au_becs_debit', 'card'] } : {}) }}
+      />
 
       <label className="flex gap-2.5 items-start text-xs text-[var(--text2)] cursor-pointer">
         <input
@@ -149,13 +164,20 @@ function SetupForm({ onDone, price }: Props) {
   )
 }
 
-export default function PaymentSetup({ onDone, price }: Props) {
+export default function PaymentSetup({ onDone, price, country }: Props) {
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
   const [mismatch, setMismatch] = useState<string | null>(null)
+  // Resolved in the effect below rather than during render: Intl reports UTC on
+  // the server, and a value that differs between the server and client renders
+  // is a hydration mismatch. Nothing needs it before the client secret arrives.
+  const [preferAuDebit, setPreferAuDebit] = useState(false)
 
   useEffect(() => {
     let cancelled = false
+    // A doctor who has paid before has a billing country on file, which beats
+    // any guess. A first-timer has none, and that is the case this is for.
+    setPreferAuDebit(country ? country === 'AU' : inAustralia())
     ;(async () => {
       try {
         const res = await fetch('/api/billing', {
@@ -182,6 +204,7 @@ export default function PaymentSetup({ onDone, price }: Props) {
       }
     })()
     return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (!stripePromise) {
@@ -272,7 +295,7 @@ export default function PaymentSetup({ onDone, price }: Props) {
         },
       }}
     >
-      <SetupForm onDone={onDone} price={price} />
+      <SetupForm onDone={onDone} price={price} preferAuDebit={preferAuDebit} />
     </Elements>
   )
 }
