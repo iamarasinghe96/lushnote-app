@@ -374,6 +374,26 @@ body { -webkit-font-smoothing: antialiased; background: #f8fafc; }
 }
 /* ───────────────────── end Liquid glass ───────────────────── */
 
+/* A field the app is telling a doctor is wrong.
+   
+   The doubled class is not a typo. Tailwind's focus variant compiles to
+   `.focus\:border-[var(--blue)]:focus` - specificity 0,2,0 - so a plain colour
+   utility at 0,1,0 lost every time the field was focused, which is exactly when
+   someone is typing into it and looking at it: a wrong registration number sat
+   inside a calm blue ring.
+
+   Order does not rescue it either. Tailwind's utilities are emitted AFTER this
+   file (measured: byte 77802 against 65953 in the built stylesheet), so matching
+   0,2,0 here still loses the tie. Repeating the class takes the base rule to
+   0,2,0 and the focus rule to 0,3,0, which wins on specificity wherever the
+   utilities happen to land - and costs no !important. */
+.ln-field-invalid.ln-field-invalid,
+.ln-field-invalid.ln-field-invalid:focus {
+  border-color: var(--danger);
+  border-width: 2px;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
 /* Bottom clearance so a page's scrollable content can flow fully BEHIND the
    floating tab bar (revealing the glass refraction) while its last items still
    scroll clear of it. Unlayered so it wins over Tailwind's p-* padding-bottom.

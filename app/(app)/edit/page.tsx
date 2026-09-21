@@ -37,6 +37,7 @@ import ManualGenerateModal from '@/components/modals/ManualGenerateModal'
 import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderModal'
 import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate, ExtraSection, CustomLetterTemplate, LetterData, ReferralFields, RecordsFields, FreetextFields, PatientProfile } from '@/types'
 import { aiHeaders } from '@/lib/aiHeaders'
+import { checkRegStatus } from '@/lib/regNumber'
 
 function formatDuration(secs: number): string {
   const m = Math.floor(secs / 60)
@@ -267,16 +268,6 @@ const CORE_FIELD_DEFS: { key: keyof Note; label: string; list: boolean }[] = [
 ]
 const CORE_DEF_BY_KEY = new Map(CORE_FIELD_DEFS.map(d => [d.key as string, d]))
 
-
-function checkRegStatus(value: string, workplace: Workplace | undefined): 'valid' | 'invalid' | 'none' {
-  if (!workplace || workplace.regSystem !== 'existing' || !workplace.regPattern) return 'none'
-  if (!value) return 'none'
-  try {
-    return new RegExp(workplace.regPattern).test(value) ? 'valid' : 'invalid'
-  } catch {
-    return 'none'
-  }
-}
 
 interface PatientEntry {
   name: string
@@ -3145,7 +3136,9 @@ function EditContent() {
                 className={[
                   saveFlashFields.has('reg_number') ? 'save-flash' : '',
                   regStatus === 'valid' ? 'border-green-400' :
-                  regStatus === 'invalid' ? 'border-red-400' : '',
+                  // Not a colour utility: a focus variant outranks one, so the
+                  // red vanished the moment the doctor was typing in the field.
+                  regStatus === 'invalid' ? 'ln-field-invalid' : '',
                 ].filter(Boolean).join(' ')}
                 hint={regStatus === 'invalid' ? `Expected format: ${activeWorkplace?.regTemplate ?? ''}` : undefined}
               />
