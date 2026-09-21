@@ -129,7 +129,13 @@ function BillingInner() {
     try {
       const r = await call<{ upgraded: boolean; reason?: string }>({ action: 'end-trial-now' })
       await refresh()
-      if (r.upgraded) setToast('You are on the paid plan. Your first invoice is on its way.')
+      // Said here rather than three days later: a card settles in seconds and a
+      // bank debit does not, and the doctor is watching the screen right now.
+      if (r.upgraded) {
+        setToast(state?.billing?.paymentMethodType === 'au_becs_debit'
+          ? 'You are on the paid plan. Your first bank debit is on its way and takes a few business days to clear.'
+          : 'You are on the paid plan. Your first invoice is on its way.')
+      }
       // The server refuses without a method on file rather than invoicing into
       // the void, so say what is missing instead of "something went wrong".
       else if (r.reason === 'no-payment-method') { setAdding(true); setToast('Add a payment method first.') }
@@ -228,6 +234,20 @@ function BillingInner() {
               Cancelled. You keep full access until {formatDate(b.currentPeriodEnd)}, and nothing further is charged.
             </p>
           )}
+          {/* A bank debit takes a few business days to reach the bank, so the
+              money has not moved yet and the banking app shows nothing. Without
+              this the page says "Payment processing" and leaves a doctor to
+              conclude the payment failed - which is exactly what happened.
+
+              BECS only. For a card, this state means a retry after something
+              went wrong, and that must not be dressed up as normal. */}
+          {st === 'dunning' && b?.paymentMethodType === 'au_becs_debit' && (
+            <p className="text-xs text-[var(--text2)]">
+              Your bank debit is on its way. Direct debits take a few business days to clear, which is why
+              nothing has left your account yet. You keep full access in the meantime and there is nothing
+              further to do - Invoices &amp; cancellation below shows when it has cleared.
+            </p>
+          )}
           {!hasMethod && isTrial && (
             <p className="text-xs text-[var(--text2)]">
               No payment details are needed during the trial - we&apos;ll remind you a week before it ends - but
@@ -302,7 +322,11 @@ function BillingInner() {
             </button>
           ) : adding || !hasMethod ? (
             <>
-              <PaymentSetup price={state.price} onDone={() => { setAdding(false); setToast('Payment details saved.'); void refresh() }} />
+              <PaymentSetup
+                price={state.price}
+                country={b?.country ?? null}
+                onDone={() => { setAdding(false); setToast('Payment details saved.'); void refresh() }}
+              />
               {/* Only when there is an existing method to go back to. Without
                   this, tapping Replace payment method by mistake left the form
                   up with no way out but leaving the page. When no method is on
