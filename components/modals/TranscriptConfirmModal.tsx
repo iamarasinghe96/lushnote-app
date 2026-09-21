@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button'
 import { useAuth } from '@/hooks/useAuth'
 import { formatDob, foldPatientProfiles } from '@/lib/utils'
 import { validateDob, shouldFlagDob } from '@/lib/dobValidation'
+import { checkRegStatus } from '@/lib/regNumber'
 import type { Note, PatientProfile } from '@/types'
 
 interface TranscriptConfirmModalProps {
@@ -99,6 +100,12 @@ export default function TranscriptConfirmModal({
   // the real hospital number, so we leave it blank for manual entry.
   const autoReg = activeWorkplace?.regSystem !== 'existing'
   const regPlaceholder = activeWorkplace?.regTemplate ?? 'e.g. 100234'
+  // This screen carried the hospital's format as a placeholder and then never
+  // checked anything against it, so a plainly wrong number looked fine right up
+  // until the note was saved under it. Warns; never blocks - the whole section
+  // is optional, and a doctor typing a number from another site must not be
+  // stopped from saving a consultation over it.
+  const regStatus = checkRegStatus(regNumber, activeWorkplace)
 
   const patientIndex = useMemo(() => {
     const seen = new Map<string, { name: string; reg: string }>()
@@ -299,8 +306,14 @@ export default function TranscriptConfirmModal({
                     const el = e.target
                     setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
                   }}
-                  className="w-full px-3 py-2 text-sm bg-white border border-[var(--border)] rounded-[var(--r-sm)] text-[var(--text)] placeholder:text-[var(--text3)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 motion-safe:transition-colors"
+                  className={`w-full px-3 py-2 text-sm bg-white border border-[var(--border)] rounded-[var(--r-sm)] text-[var(--text)] placeholder:text-[var(--text3)] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-blue-500/10 motion-safe:transition-colors${regStatus === 'invalid' ? ' ln-field-invalid' : ''}`}
                 />
+                {/* The red alone says something is wrong but not what. */}
+                {regStatus === 'invalid' && activeWorkplace?.regTemplate && (
+                  <p className="mt-1 text-xs text-[var(--danger)]">
+                    Expected format: {activeWorkplace.regTemplate}
+                  </p>
+                )}
               </div>
             </div>
 
