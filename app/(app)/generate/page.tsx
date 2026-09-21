@@ -521,7 +521,13 @@ export default function GeneratePage() {
   // note store when the FAB had to navigate here first.
   function resumeHubTranscript(result: { text: string; duration: number; draftId: string }) {
     captureHubRef.current = true
+    // The FAB holds a card over the gap between a finished recording and this
+    // page having something to show. In a `finally`, so it comes down whichever
+    // way this went: the review card, the naming step, or the "nothing was
+    // transcribed" error - a card left over that error would hide the one thing
+    // a doctor needs to read.
     void handleTranscriptReady(result.text, result.duration, result.draftId)
+      .finally(() => window.dispatchEvent(new CustomEvent('ln-capture-ready')))
   }
 
   useEffect(() => {

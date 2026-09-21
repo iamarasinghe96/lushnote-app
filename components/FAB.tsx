@@ -11,6 +11,7 @@ import { aiHeaders } from '@/lib/aiHeaders'
 import { resolveEntitlement } from '@/lib/entitlement'
 import { useNoteStore } from '@/hooks/useNoteStore'
 import QuickRecordOverlay, { type QuickRecordResult } from '@/components/capture/QuickRecordOverlay'
+import { ProgressOverlay, FINISHING_TRANSCRIPT } from '@/components/ui/ProgressOverlay'
 
 
 // Tappable starter questions shown in the empty AI Assistant — a mix of app
@@ -300,6 +301,11 @@ export function FAB() {
   // The live getUserMedia request, started inside the Record tap. Its presence
   // is what puts the recording screen on screen.
   const [micRequest, setMicRequest] = useState<Promise<MediaStream> | null>(null)
+  // The seam between a finished recording and the window that takes it. The FAB
+  // lives in the app layout and does not unmount on navigation, which is the
+  // whole reason it - and not the recording screen - holds this.
+  const [finalizing, setFinalizing] = useState(false)
+  const finalizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const notesCacheRef = useRef<{ notes: Note[]; fetchedAt: number } | null>(null)
   const panelRef = useRef(panel)
@@ -366,6 +372,9 @@ export function FAB() {
   // below: an event for the page if it is already mounted, the store and a query
   // parameter if it is not.
   function handleRecordingDone(result: QuickRecordResult) {
+    // Up BEFORE the overlay goes and before the push, so the card the recording
+    // screen was already showing simply carries on under new ownership.
+    setFinalizing(true)
     closeRecorder()
     const detail = { ...result, handled: false }
     window.dispatchEvent(new CustomEvent('ln-transcript-ready', { detail }))
@@ -395,6 +404,29 @@ export function FAB() {
     window.dispatchEvent(new CustomEvent('ln-capture', { detail }))
     if (!detail.handled) router.push(`/generate?capture=${kind}`)
   }
+
+  // The Generate page says when the next window is actually on screen. It fires
+  // whichever way the transcript went - review card, naming step, or the
+  // "nothing was transcribed" error - because a card left sitting over that
+  // error would hide the one thing worth reading.
+  //
+  // The timer is a backstop, not a schedule: this is a progress card, not a
+  // gate, and a navigation that never lands must not leave a doctor staring at
+  // a blurred screen with no way out.
+  useEffect(() => {
+    function onReady() { setFinalizing(false) }
+    window.addEventListener('ln-capture-ready', onReady)
+    return () => window.removeEventListener('ln-capture-ready', onReady)
+  }, [])
+
+  useEffect(() => {
+    if (!finalizing) return
+    finalizeTimerRef.current = setTimeout(() => setFinalizing(false), 20_000)
+    return () => {
+      if (finalizeTimerRef.current) clearTimeout(finalizeTimerRef.current)
+      finalizeTimerRef.current = null
+    }
+  }, [finalizing])
 
   // Open the AI assistant automatically when arriving from a "ask the AI agent"
   // link elsewhere (e.g. the Terms page), which sets this flag before navigating.
@@ -556,6 +588,8 @@ export function FAB() {
           </div>
         )}
       </div>
+
+      {finalizing && <ProgressOverlay label={FINISHING_TRANSCRIPT} />}
 
       {micRequest && user && (
         <QuickRecordOverlay
