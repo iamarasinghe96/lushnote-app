@@ -31,6 +31,10 @@ export interface PiPStatus {
   seconds: number
   micLost: boolean
   label: string          // e.g. "Referral Letter" / "Dictating"
+  /** Seconds left on a smart-stop countdown, or 0. The floating window is the
+   *  only thing a doctor sees while the app is backgrounded, so a recording
+   *  about to stop has to say so HERE or the warning may as well not exist. */
+  countdown?: number
 }
 
 const W = 480
@@ -98,7 +102,7 @@ export function useRecordingPiP() {
     const canvas = canvasRef.current
     const ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) return
-    const { seconds, micLost, label } = statusRef.current
+    const { seconds, micLost, label, countdown } = statusRef.current
 
     ctx.fillStyle = '#0f172a'
     ctx.fillRect(0, 0, W, H)
@@ -132,9 +136,14 @@ export function useRecordingPiP() {
     ctx.fillText(formatDuration(seconds), W / 2, H / 2 - 6)
 
     // Status
-    ctx.fillStyle = micLost ? '#fbbf24' : '#10b981'
+    ctx.fillStyle = countdown || micLost ? '#fbbf24' : '#10b981'
     ctx.font = '600 18px system-ui, -apple-system, Inter, sans-serif'
-    ctx.fillText(micLost ? 'Paused - microphone interrupted' : `${label}…`, W / 2, H / 2 + 44)
+    ctx.fillText(
+      countdown ? `Sounds finished - stopping in ${countdown}s. Speak to continue.`
+        : micLost ? 'Paused - microphone interrupted'
+        : `${label}…`,
+      W / 2, H / 2 + 44,
+    )
 
     // Reminder — closing this window ends the protection, so say so.
     ctx.fillStyle = '#94a3b8'

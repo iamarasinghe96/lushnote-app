@@ -1074,6 +1074,15 @@ email/phone/address — applied before any AI call. Controlled by `profile.trans
 - Timer: `Math.floor((Date.now() - _recStartTime) / 1000)` — wall clock, NOT an incrementing counter
 - Resync on `visibilitychange` (phone screen lock/unlock cycle)
 - Auto-stop configurable via `recordingDefaults.autoStopMinutes` (default 60)
+- **Smart session end** (`recordingDefaults.smartEnd`, default ON, `conversation` mode
+  only): four signals must agree before a 30-second countdown is offered — a closing
+  phrase in the last 8 words of the newest segment, not preceded by a reporting verb;
+  ≥ 20 s of silence from voice activity detection; no speech since that segment's
+  boundary; ≥ 5 min elapsed; microphone not interrupted. Speech cancels it. The decision
+  is pure (`lib/sessionEnd.ts`); the audio side is `hooks/useVoiceActivity.ts` reusing
+  `rmsLevel`; the wiring is `hooks/useSmartSessionEnd.ts`. Every failure mode returns
+  `listening`, so no detector means no automatic stop. Full rationale and thresholds in
+  WORKFLOWS.md → `note-record`.
 - **Interrupted session:**
   - On START: `localStorage.setItem('_ln_rec_interrupted', JSON.stringify({ts, mode, startTime}))`
   - On STOP (normal): `localStorage.removeItem('_ln_rec_interrupted')`

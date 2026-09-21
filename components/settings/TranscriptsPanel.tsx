@@ -37,6 +37,7 @@ export default function TranscriptsPanel({ profile, onSave, onToast }: Transcrip
   const [recording, setRecording] = useState<RecordingDefaults>({
     autoStop:        profile.recordingDefaults?.autoStop        ?? true,
     autoStopMinutes: profile.recordingDefaults?.autoStopMinutes ?? 55,
+    smartEnd:        profile.recordingDefaults?.smartEnd        ?? true,
   })
   const [saving, setSaving] = useState(false)
 
@@ -117,6 +118,20 @@ export default function TranscriptsPanel({ profile, onSave, onToast }: Transcrip
           <Toggle
             checked={recording.autoStop}
             onChange={v => setRecording(r => ({ ...r, autoStop: v }))}
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-4 py-2">
+          <div>
+            <p className="text-sm text-[var(--text)]">Offer to stop when the session ends</p>
+            <p className="text-xs text-[var(--text3)]">
+              After a goodbye and a long pause, LushNote asks before stopping. Speaking again cancels it.
+              Only for Record Session, never for dictation.
+            </p>
+          </div>
+          <Toggle
+            checked={recording.smartEnd ?? true}
+            onChange={v => setRecording(r => ({ ...r, smartEnd: v }))}
           />
         </div>
 
