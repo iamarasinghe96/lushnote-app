@@ -5,6 +5,7 @@ import RecordingWave from '@/components/capture/RecordingWave'
 import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useRecordingPiP } from '@/hooks/useRecordingPiP'
 import { ProgressOverlay, FINISHING_TRANSCRIPT } from '@/components/ui/ProgressOverlay'
+import { useSmartSessionEnd } from '@/hooks/useSmartSessionEnd'
 import type { RecordingDefaults } from '@/types'
 
 // The one-tap recording screen. Reached from the FAB's Record button, which
@@ -50,9 +51,34 @@ export default function QuickRecordOverlay({ micRequest, uid, recordingDefaults,
 
   const {
     duration, audioSavedMin, transcribedMin, failures, lastError,
-    audioError, draftError, micLost, start, stop, abort, error: recError,
+    audioError, draftError, micLost, start, stop, abort, flushSegment, error: recError,
   } = useSegmentedRecorder()
   const pip = useRecordingPiP()
+  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const finishedRef = useRef(false)
+
+  // One way to finish, whoever asks. Manual Stop, the fixed-duration auto-stop
+  // and the smart stop all come through here, and the ref makes it idempotent:
+  // two of them racing used to mean stop() draining the queue twice.
+  const finishRef = useRef<(() => void) | null>(null)
+
+  const smart = useSmartSessionEnd({
+    enabled: recordingDefaults?.smartEnd ?? true,
+    mode: 'conversation',
+    stream,
+    micLost,
+    startedAt,
+    flushSegment,
+    onStop: () => finishRef.current?.(),
+    onEvent: message => {
+      // Scalar only: a duration and a reason, never the transcript or the
+      // phrase that matched it.
+      fetch('/api/log', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: 'info', tag: 'recording', route: '/record', uid, message }),
+      }).catch(() => {})
+    },
+  })
 
   // Same default as the Record modal: null disables the cut-off entirely.
   const autoStopMinutes = recordingDefaults?.autoStop === false
@@ -73,7 +99,8 @@ export default function QuickRecordOverlay({ micRequest, uid, recordingDefaults,
         if (cancelled) return
         streamRef.current = mic
         setStream(mic)
-        start(mic, { uid, mode: 'conversation' })
+        setStartedAt(Date.now())
+        start(mic, { uid, mode: 'conversation', onSegment: smart.noteSegment })
         setPhase('recording')
         void pip.prepare()
         if (autoStopMinutes !== null) {
@@ -96,7 +123,10 @@ export default function QuickRecordOverlay({ micRequest, uid, recordingDefaults,
 
   // Keep the floating window's HUD in step with the live recording.
   useEffect(() => {
-    pip.setStatus({ seconds: duration, micLost, label: 'Recording session' })
+    pip.setStatus({
+      seconds: duration, micLost, label: 'Recording session',
+      countdown: smart.countingDown ? smart.secondsLeft : 0,
+    })
   })
 
   function clearAutoStop() {
@@ -114,15 +144,22 @@ export default function QuickRecordOverlay({ micRequest, uid, recordingDefaults,
   }
 
   async function doStop() {
+    if (finishedRef.current) return
+    finishedRef.current = true
+    smart.noteStopping()
     clearAutoStop()
     setPhase('processing')
     pip.teardown()
+    // The same path every time, including the smart stop: flush the current
+    // segment, drain the queue, then hand the transcript over. Nothing is
+    // handed on before the recording is whole.
     const result = await stop()
     releaseMic()
     onDone(result)
   }
 
   stopRef.current = doStop
+  finishRef.current = doStop
 
   // Cancel abandons the recording without handing anything on. abort(), not
   // stop(): stop() flushes the audio in hand into a recovery draft, so a
@@ -131,6 +168,9 @@ export default function QuickRecordOverlay({ micRequest, uid, recordingDefaults,
   // long session do survive, which is what the copy below says once there are
   // any - a forty-minute recording ended by a stray tap must stay recoverable.
   function handleCancel() {
+    if (finishedRef.current) return
+    finishedRef.current = true
+    smart.noteStopping()
     clearAutoStop()
     pip.teardown()
     abort()
@@ -204,11 +244,41 @@ export default function QuickRecordOverlay({ micRequest, uid, recordingDefaults,
               </div>
             </div>
 
-            <p className="text-xs text-[var(--text3)]">
-              {phase === 'starting'
-                ? 'Starting the microphone…'
-                : micLost ? 'Paused - waiting for the microphone…' : 'Recording. Speak normally.'}
-            </p>
+            {/* The one thing on this screen that takes something away, so it
+                says exactly what is about to happen, how long there is, and
+                that carrying on is enough to stop it. */}
+            {smart.countingDown ? (
+              <div
+                className="rounded-[var(--r)] border border-amber-300 bg-amber-50 px-3 py-3 space-y-2 text-left"
+                role="status"
+                aria-live="assertive"
+              >
+                <p className="text-sm font-semibold text-amber-900">
+                  Session may have ended. Recording will stop in {smart.secondsLeft} seconds.
+                </p>
+                <p className="text-xs text-amber-800">Speaking again keeps it running.</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={smart.keepRecording}
+                    className="px-3 py-1.5 rounded-[var(--r-sm)] bg-white border border-amber-300 text-xs font-medium text-amber-900"
+                  >
+                    Keep recording
+                  </button>
+                  <button
+                    onClick={doStop}
+                    className="px-3 py-1.5 rounded-[var(--r-sm)] bg-[var(--danger)] text-white text-xs font-medium"
+                  >
+                    Stop now
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-[var(--text3)]">
+                {phase === 'starting'
+                  ? 'Starting the microphone…'
+                  : micLost ? 'Paused - waiting for the microphone…' : 'Recording. Speak normally.'}
+              </p>
+            )}
 
             {/* Cancel · Stop · keep recording in another app. */}
             <div className="flex items-start justify-center gap-6 pt-1">

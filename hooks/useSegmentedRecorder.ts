@@ -20,6 +20,10 @@ interface StartOpts {
   uid: string
   mode: string
   letterType?: string | null
+  /** Fired once a segment's text has been appended, so a caller can read the
+   *  tail of the conversation promptly rather than up to four minutes late.
+   *  The text is patient speech: it goes to the caller and NEVER to a log. */
+  onSegment?: (segment: { segNo: number; text: string; at: number }) => void
 }
 
 interface StopResult {
@@ -216,6 +220,12 @@ export function useSegmentedRecorder() {
             ?? (err instanceof Error ? err.message : 'unknown')
           setDraftError(`Recovery draft could not be saved (${shortErr(String(code))}). If this recording is interrupted, the transcript will NOT be recoverable.`)
         }
+
+        // After the durable writes, never instead of them. A caller throwing in
+        // here must not cost the recording the segment it has just saved.
+        if (r.ok && r.text) {
+          try { opts.onSegment?.({ segNo, text: r.text, at: Date.now() }) } catch { /* not the recorder's problem */ }
+        }
       }
     } finally {
       workingRef.current = false
@@ -325,6 +335,28 @@ export function useSegmentedRecorder() {
     startCycle()
   }, [drainQueue, acquireWakeLock])
 
+  /**
+   * Cut the current segment early and carry straight on.
+   *
+   * The point is promptness, not shorter segments: a long silence means the
+   * tail of the conversation is sitting in a MediaRecorder that will not close
+   * for another four minutes, and nothing can read it until it does. The blob
+   * joins the SAME queue as every other segment - uploaded to Storage first,
+   * then transcribed, then appended to the draft - so the recovery guarantee is
+   * untouched. The cycle restarts from now, so this does not shorten the next
+   * segment either.
+   */
+  const flushSegment = useCallback(() => {
+    if (!streamRef.current || pausedRef.current || abortingRef.current) return
+    const rec = recorderRef.current
+    if (!rec || rec.state === 'inactive') return
+    if (cycleRef.current) { clearInterval(cycleRef.current); cycleRef.current = null }
+    try { rec.stop() } catch { return }
+    startSegmentRecorder()
+    startCycle()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const stop = useCallback(async (): Promise<StopResult> => {
     if (cycleRef.current) { clearInterval(cycleRef.current); cycleRef.current = null }
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
@@ -388,5 +420,5 @@ export function useSegmentedRecorder() {
     setMicLost(false)
   }, [releaseWakeLock])
 
-  return { isRecording, duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, error, micLost, start, stop, abort, currentDraftId }
+  return { isRecording, duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, error, micLost, start, stop, abort, flushSegment, currentDraftId }
 }

@@ -236,7 +236,7 @@ implied
 | 5 | Each segment | — | Audio uploaded to Storage **first** (durable), then transcribed, then appended to `transcriptDrafts/current` |
 | 6 | Optional | **Keep recording while I use another app** | `useRecordingPiP` — a canvas HUD in Picture-in-Picture keeps the tab unfrozen so the OS does not take the mic |
 | 7 | Interruption | A call arrives, mic is taken | `mute`/`ended` on the track flushes the in-flight segment, shows *Paused — microphone interrupted*; `unmute` resumes |
-| 8 | Stop | **Stop recording**, or the auto-stop the doctor set | Drains the queue — this is *Finishing transcript* |
+| 8 | Stop | **Stop recording**, the auto-stop the doctor set, or the smart session end below | All three go through one `finish()` — drains the queue, which is *Finishing transcript* |
 | 9 | Name | Confirm transcript → patient, reg, DOB, gender | Same modal as `note-paste` |
 | 10 | Template | **Skip, use default note** → Comprehensive Psychology Note | `handleTemplateSelect` → `/edit` |
 | 11 | Generate | Watches fields fill | `runPendingGeneration` on the edit page |
@@ -260,6 +260,57 @@ by reflex. The backdrop uses `onMouseDown`, so a *drag* beginning on the
 backdrop also counted — one more reason it could not stay live.
 
 The same applies to **Dictate Note**, which records identically.
+
+### Smart session end — what else may stop a recording, and why
+
+Since 2026-09-21, a **Record Session** recording can also stop itself. The
+backdrop and Escape remain inert: this is not a relaxation of the rule above,
+it is one more deliberate gesture, made by the doctor when they said goodbye
+and then stopped talking.
+
+It is **on by default**, and off per doctor in Settings → Transcripts. The cost
+of a false positive is a consultation recorded only to the point it was cut —
+the audio and transcript up to there are already durable, but the rest is not
+recorded at all — so every threshold below is set to fail towards *keep
+recording*.
+
+**Four signals, and all of them must agree** (`lib/sessionEnd.ts`):
+
+| Signal | Threshold | Why |
+|---|---|---|
+| Session length | ≥ **5 min** | A shorter recording is a corridor conversation, and cutting one short costs more than ending it automatically saves |
+| Closing phrase | in the **last 8 words** of the newest transcribed segment | A goodbye mid-segment is someone describing their week |
+| Not reported speech | no `said`/`told`/`asked`/`wrote` within 4 words before it | "She said goodbye to her mother" is not the end of an appointment |
+| Silence since | ≥ **20 s** continuous, from voice activity detection | A phrase alone never stops a recording |
+| No speech after the candidate | `lastSpeechAt ≤ segment.at` | They said goodbye and then carried on — the candidate is stale |
+| Microphone healthy | `micLost === false` | A mic taken by a phone call reads as perfect silence; it is not a goodbye |
+
+Then a **30-second countdown** — "Session may have ended. Recording will stop
+in N seconds", with **Keep recording** and **Stop now**. It is drawn in the
+Picture-in-Picture HUD too, because that is the only thing a backgrounded
+doctor can see. **Any speech cancels it** without a tap, and the candidate that
+raised it is spent: only a newer segment may raise another, or cancelling would
+be undone a second later by the same goodbye.
+
+Two things it does **not** do:
+
+- **It does not shorten segments.** Rotation stays at four minutes. After 12 s
+  of quiet the current segment is cut early *once*, so its text is back before
+  the silence is long enough to act on — through the same queue, uploaded to
+  Storage first, then transcribed, then appended to the draft.
+- **It does not take a different exit.** The countdown expiring calls the same
+  `finish()` as the red Stop button: flush, drain, hand over. One idempotent
+  coordinator per screen, so manual stop, the fixed-duration auto-stop and this
+  one cannot call `stop()` twice when they race.
+
+**Every subsystem fails open.** No `AudioContext`, a thrown audio graph, a
+transcription failure, a mode that is not `conversation` — each one means the
+detector returns `listening` forever. No detector, no automatic stop. The
+fixed-duration auto-stop keeps working on its own regardless.
+
+Logs carry scalar events only — `smart-end: candidate after 24s quiet`,
+`countdown cancelled (speech)`, `stopped after 18m`. Never the transcript,
+never the phrase that matched.
 
 ### Nothing may be the only copy
 

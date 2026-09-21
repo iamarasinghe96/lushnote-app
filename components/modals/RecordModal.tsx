@@ -6,6 +6,7 @@ import { ProgressOverlay, FINISHING_TRANSCRIPT } from '@/components/ui/ProgressO
 import Button from '@/components/ui/Button'
 import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useRecordingPiP } from '@/hooks/useRecordingPiP'
+import { useSmartSessionEnd } from '@/hooks/useSmartSessionEnd'
 import { useAuth } from '@/hooks/useAuth'
 import type { RecordingDefaults } from '@/types'
 
@@ -40,9 +41,33 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
   const streamRef = useRef<MediaStream | null>(null)
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stopRef = useRef<(() => void) | null>(null)
-  const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, micLost, start, stop, abort, error: recError } = useSegmentedRecorder()
+  const { duration, audioSavedMin, transcribedMin, failures, lastError, audioError, draftError, micLost, start, stop, abort, flushSegment, error: recError } = useSegmentedRecorder()
   const pip = useRecordingPiP()
   const { user } = useAuth()
+  const [micStream, setMicStream] = useState<MediaStream | null>(null)
+  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const finishedRef = useRef(false)
+  // One finish, whoever asks: manual Stop, the fixed-duration auto-stop and the
+  // smart stop all arrive here, and the ref keeps two racing ones from draining
+  // the queue twice.
+  const finishRef = useRef<(() => void) | null>(null)
+
+  const smart = useSmartSessionEnd({
+    enabled: recordingDefaults?.smartEnd ?? true,
+    mode: 'conversation',
+    stream: micStream,
+    micLost,
+    startedAt,
+    flushSegment,
+    onStop: () => finishRef.current?.(),
+    onEvent: message => {
+      // Scalar only. Never the transcript, never the phrase that matched.
+      fetch('/api/log', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level: 'info', tag: 'recording', route: '/generate', uid: user?.uid, message }),
+      }).catch(() => {})
+    },
+  })
 
   // null means auto-stop is disabled; otherwise stop after this many minutes
   const autoStopMinutes = recordingDefaults?.autoStop === false
@@ -56,6 +81,9 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
   useEffect(() => {
     if (!open) {
       setPhase('idle')
+      finishedRef.current = false
+      setMicStream(null)
+      setStartedAt(null)
       setAutoStopped(false)
       setInterrupted(false)
       setPermError(null)
@@ -82,10 +110,16 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
 
   // Keep the floating window's HUD in step with the live recording.
   useEffect(() => {
-    pip.setStatus({ seconds: duration, micLost, label: 'Recording session' })
+    pip.setStatus({
+      seconds: duration, micLost, label: 'Recording session',
+      countdown: smart.countingDown ? smart.secondsLeft : 0,
+    })
   })
 
   async function doStop() {
+    if (finishedRef.current) return
+    finishedRef.current = true
+    smart.noteStopping()
     if (autoStopRef.current) {
       clearTimeout(autoStopRef.current)
       autoStopRef.current = null
@@ -104,6 +138,7 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
 
   // Keep stopRef current so the auto-stop timeout always calls the latest version
   stopRef.current = doStop
+  finishRef.current = doStop
 
   // The X while recording: abort the session and go back WITHOUT handing the
   // transcript on to the naming step. stop() tears down the recorder loop and
@@ -118,6 +153,9 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
   // Segments already written to the Firestore recovery draft are left intact,
   // so a deliberate abort of a long recording is still recoverable.
   function handleCancelRecording() {
+    if (finishedRef.current) return
+    finishedRef.current = true
+    smart.noteStopping()
     if (autoStopRef.current) {
       clearTimeout(autoStopRef.current)
       autoStopRef.current = null
@@ -153,7 +191,9 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
       const audioOnlyStream = subMode === 'telehealth'
         ? new MediaStream(stream.getAudioTracks())
         : stream
-      start(audioOnlyStream, { uid: user.uid, mode: 'conversation' })
+      setMicStream(audioOnlyStream)
+      setStartedAt(Date.now())
+      start(audioOnlyStream, { uid: user.uid, mode: 'conversation', onSegment: smart.noteSegment })
       setPhase('recording')
       if (autoStopMinutes !== null) {
         autoStopRef.current = setTimeout(() => {
@@ -239,7 +279,37 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
                 {formatDuration(duration)}
               </span>
             </div>
-            <p className="text-sm text-[var(--text3)]">{micLost ? 'Paused - waiting for the microphone…' : 'Recording in progress…'}</p>
+            {/* The one thing here that takes something away, so it says what
+                is about to happen, how long there is, and that simply carrying
+                on is enough to stop it. */}
+            {smart.countingDown ? (
+              <div
+                className="rounded-[var(--r)] border border-amber-300 bg-amber-50 px-3 py-3 space-y-2 text-left"
+                role="status"
+                aria-live="assertive"
+              >
+                <p className="text-sm font-semibold text-amber-900">
+                  Session may have ended. Recording will stop in {smart.secondsLeft} seconds.
+                </p>
+                <p className="text-xs text-amber-800">Speaking again keeps it running.</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={smart.keepRecording}
+                    className="px-3 py-1.5 rounded-[var(--r-sm)] bg-white border border-amber-300 text-xs font-medium text-amber-900"
+                  >
+                    Keep recording
+                  </button>
+                  <button
+                    onClick={doStop}
+                    className="px-3 py-1.5 rounded-[var(--r-sm)] bg-[var(--danger)] text-white text-xs font-medium"
+                  >
+                    Stop now
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--text3)]">{micLost ? 'Paused - waiting for the microphone…' : 'Recording in progress…'}</p>
+            )}
             {/* Multitask: a page driving an active picture-in-picture video isn't
                 treated as backgrounded, so the microphone survives. Opened only
                 on this press — the browser requires a gesture, and an unasked-for

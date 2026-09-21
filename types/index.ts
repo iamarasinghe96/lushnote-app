@@ -475,6 +475,10 @@ interface TranscriptPrivacy {
 interface RecordingDefaults {
   autoStop: boolean
   autoStopMinutes: number     // 1–150
+  // Offer to stop when the consultation sounds finished. Read as `?? true`
+  // everywhere, so it is ON for every doctor with no migration, and this field
+  // only ever exists to record someone turning it OFF.
+  smartEnd?: boolean
 }
 
 interface GeminiUsage {
