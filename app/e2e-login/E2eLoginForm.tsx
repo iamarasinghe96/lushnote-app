@@ -18,7 +18,7 @@ export default function E2eLoginForm() {
     setError('')
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password)
-      router.replace('/generate')
+      router.replace('/app/generate')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign-in failed')
       setBusy(false)

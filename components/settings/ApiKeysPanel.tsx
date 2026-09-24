@@ -88,7 +88,7 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
       await updateProfile(uid, { groqApiKey: trimmed })
       sessionStorage.setItem('groq_api_key', trimmed)
       onToast('Groq key saved')
-      setTimeout(() => router.push('/generate'), 900)
+      setTimeout(() => router.push('/app/generate'), 900)
     } catch {
       onToast('Failed to save Groq key')
       setGroqSaving(false)
@@ -120,7 +120,7 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
           <p className="text-sm font-semibold text-[var(--text)]">Your subscription covers the AI</p>
           <p className="text-xs leading-relaxed text-[var(--text2)]">
             You do not need a key of your own, and there is no daily limit to watch. The subscription includes a
-            monthly <a href="/billing" className="text-[var(--blue)] underline">fair-use allowance</a> that one
+            monthly <a href="/app/billing" className="text-[var(--blue)] underline">fair-use allowance</a> that one
             clinician rarely comes near.
           </p>
           <button onClick={() => setShowKeys(v => !v)} aria-expanded={showKeys}
@@ -140,7 +140,7 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
           <p className="text-sm font-semibold text-amber-900">Running on your own key until {allowanceResetsOn(month)}</p>
           <p className="text-xs leading-relaxed text-amber-800">
             This month&apos;s fair-use allowance is used, so your AI runs on the key below, or LushNote&apos;s free fallback
-            without one. <a href="/billing" className="underline">Enterprise</a> removes the limit for practices and heavy use.
+            without one. <a href="/app/billing" className="underline">Enterprise</a> removes the limit for practices and heavy use.
           </p>
         </div>
       )}

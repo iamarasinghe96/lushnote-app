@@ -81,7 +81,7 @@ function AdminConsole() {
   }, [selectSection])
 
   // The More menu, opened and closed the same way as the header user menu in
-  // app/(app)/layout.tsx: a mounted flag that outlives `open` for the length of
+  // app/app/(shell)/layout.tsx: a mounted flag that outlives `open` for the length of
   // the closing animation, released by a timer rather than onAnimationEnd. An
   // animation that is interrupted or never fires would otherwise leave an
   // invisible panel over the console swallowing clicks; pointer-events-none
@@ -195,7 +195,7 @@ function AdminConsole() {
               )}
             </div>
           </nav>
-          <BackButton onClick={() => router.push('/generate')} label="Back to app" tone="onDark" className="ml-auto sm:ml-0 shrink-0 whitespace-nowrap" />
+          <BackButton onClick={() => router.push('/app/generate')} label="Back to app" tone="onDark" className="ml-auto sm:ml-0 shrink-0 whitespace-nowrap" />
         </div>
         {/* Section navbar — second row, scrollable, mobile only */}
         <nav className="sm:hidden flex gap-1 px-3 pb-2 overflow-x-auto scrollbar-none">

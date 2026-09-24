@@ -1,3 +1,14 @@
+// The signed-in app moved under /app so the public site could own the root.
+// The old paths still arrive from bookmarks, installed home-screen apps, emails
+// already sitting in inboxes, and Stripe's return URLs, so each one forwards,
+// query string included. Temporary (307) on purpose: a browser caches a 308
+// forever, which would strand people if the move were ever rolled back.
+const MOVED_TO_APP = ['generate', 'edit', 'transcript', 'history', 'patients', 'export', 'settings', 'billing', 'onboarding']
+
+// Only the production deployment may be indexed. Vercel sets VERCEL_ENV to
+// 'preview' for every branch build, including the owner's `preview` alias.
+const INDEXABLE = process.env.VERCEL_ENV === 'production'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -8,6 +19,14 @@ const nextConfig = {
   },
   images: {
     domains: ['lh3.googleusercontent.com'],
+  },
+  async redirects() {
+    return [
+      // /app itself has no page. The shell's guard then sends a signed-out
+      // visitor to /login and an unfinished signup to /app/onboarding.
+      { source: '/app', destination: '/app/generate', permanent: false },
+      ...MOVED_TO_APP.map(p => ({ source: `/${p}`, destination: `/app/${p}`, permanent: false })),
+    ]
   },
   async headers() {
     const csp = [
@@ -61,6 +80,14 @@ const nextConfig = {
           { key: 'Permissions-Policy', value: 'microphone=(self), geolocation=(), display-capture=(self)' },
           { key: 'Content-Security-Policy', value: csp },
         ],
+      },
+      ...(INDEXABLE ? [] : [{
+        source: '/(.*)',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+      }]),
+      {
+        source: '/app/:path*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
       },
     ]
   },

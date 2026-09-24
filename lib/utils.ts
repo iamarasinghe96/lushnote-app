@@ -175,7 +175,7 @@ export function resolveThemePrimary(themeIndex: number, themeColor?: string): st
 }
 
 export function openSettings(tab: string): void {
-  window.location.href = '/settings?tab=' + tab
+  window.location.href = '/app/settings?tab=' + tab
 }
 
 export function toOrganizationKey(workplaceName: string): string {

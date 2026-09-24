@@ -1,5 +1,8 @@
 import { notFound } from 'next/navigation'
 import E2eLoginForm from './E2eLoginForm'
+import { NOINDEX } from '@/lib/noindex'
+
+export const metadata = NOINDEX
 
 // The automated suite's way in.
 //

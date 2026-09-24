@@ -35,14 +35,14 @@ export default function PaywallScreen({ state }: { state: EntitlementState }) {
 
       <div className="flex flex-wrap gap-2 justify-center pt-1">
         <button
-          onClick={() => router.push('/billing')}
+          onClick={() => router.push('/app/billing')}
           className="px-4 py-2 rounded-[var(--r)] bg-[var(--blue)] text-white text-sm font-medium
                      motion-safe:transition-transform motion-safe:active:scale-95"
         >
           Set up billing
         </button>
         <button
-          onClick={() => router.push('/history')}
+          onClick={() => router.push('/app/history')}
           className="px-4 py-2 rounded-[var(--r)] border border-[var(--border)] text-[var(--text2)] text-sm font-medium
                      motion-safe:transition-transform motion-safe:active:scale-95"
         >

@@ -158,7 +158,7 @@ function inNaidocWeek(date: Date): boolean {
  *
  * A campaign is NOT resolved here: it has no date of its own, it comes from
  * Firestore, and it outranks everything this function can return — see the
- * header in app/(app)/layout.tsx.
+ * header in app/app/(shell)/layout.tsx.
  */
 export function resolveHolidayTheme(date: Date): HolidayTheme | null {
   const d = date.getDate()

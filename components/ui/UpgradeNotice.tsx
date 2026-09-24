@@ -53,7 +53,7 @@ export function UpgradeNotice({ onDismiss }: Props) {
           <div className="mt-3 flex items-center gap-2">
             <button
               type="button"
-              onClick={() => router.push('/billing')}
+              onClick={() => router.push('/app/billing')}
               className="rounded-[var(--r)] border border-[var(--blue)] px-3 py-1.5 text-xs font-medium
                          text-[var(--blue)] hover:bg-[var(--blue-lt)]
                          motion-safe:transition-colors motion-safe:active:scale-[0.97]"

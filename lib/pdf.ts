@@ -34,7 +34,7 @@ export type RichSeg = { text: string; bold: boolean; italic: boolean }
 // Split a line into normal/bold/italic segments based on **bold** and *italic*
 // markdown markers. Bold is tried first in the alternation, so ** pairs are
 // never misread as two single-* italic markers. Exported so the letter PDF
-// generator (app/(app)/edit/page.tsx) can render the same inline formatting.
+// generator (app/app/(shell)/edit/page.tsx) can render the same inline formatting.
 export function parseBoldSegments(text: string): RichSeg[] {
   const segs: RichSeg[] = []
   const rx = /\*\*(.+?)\*\*|\*(.+?)\*/g
