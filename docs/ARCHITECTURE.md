@@ -1509,6 +1509,11 @@ Standalone: `window.matchMedia('(display-mode: standalone)').matches` → "LushN
 Reads `profile.geminiUsage['gemini-2.5-flash']`, compares date to today.
 Shows progress bar `usedToday / 20`. At limit: orange. Below: blue.
 
+**Pro doctors** (LushNote's key behind them this month) see neither the meter nor
+the key cards by default: they have no daily limit and need no key, so the cards
+fold behind a "Show my own API keys" button. Trial, Enterprise and a used-up
+fair-use month show everything, because those run on the doctor's own key.
+
 ---
 
 ## Custom Template Builder — Full Fields
