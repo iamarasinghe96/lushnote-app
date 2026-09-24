@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withRequest, noteRequest } from '@/lib/requestContext'
 import { mockForCaller, mockGenerateResponse } from '@/lib/e2eMock'
-import { generateNote, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
+import { generateNote, checkQuota, usedToday, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
 import { generateNoteGroq, parseGroqWaitSeconds } from '@/lib/groq'
-import { getProfile, meterGemini, meterGroq } from '@/lib/firestore/profiles-admin'
+import { getProfile, meterGemini, meterGroq, meterFreeKeyAttempt } from '@/lib/firestore/profiles-admin'
 import { requireUser, unauthorized } from '@/lib/adminGuard'
 import { rateLimit } from '@/lib/rateLimit'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import { logToSink } from '@/lib/firestore/systemLogs'
-import { resolveAiKeys, proGeminiKey, sharedGroqKey, type AiKeyChoice } from '@/lib/serverAiKeys'
+import { resolveAiKeys, proGeminiKey, sharedGroqKey, FREE_KEY_TALLY, type AiKeyChoice } from '@/lib/serverAiKeys'
+import { withGeminiHandover, type HandoverOptions } from '@/lib/geminiHandover'
 import { monthKey } from '@/lib/utils'
 import { resolveEntitlement } from '@/lib/entitlement'
 
@@ -191,6 +192,18 @@ STOP. BEFORE YOU ANSWER, CHECK THESE. YOUR OUTPUT IS COMPARED AGAINST THE SOURCE
 // 1.0 the same note produced a different set of fields on every run.
 const EXTRACTION_TEMPERATURE = 0.1
 
+/** How this route counts a free-key attempt and reports a resend. Scalar
+ *  only: the reason is a code like GEMINI_DAILY_LIMIT, never the note. */
+function handoverFor(uid: string | undefined): HandoverOptions {
+  return {
+    onFreeAttempt: () => meterFreeKeyAttempt(uid ?? ''),
+    onHandover: reason => logToSink({
+      level: 'info', tag: 'gemini-handover', route: '/api/generate', uid,
+      message: `free key did not answer (${reason}); the paid key took the request`,
+    }),
+  }
+}
+
 // Letters, patient intake and hospital forms are short, structured JSON jobs, so
 // they run Groq FIRST — it is fast and doesn't touch the doctor's Gemini quota.
 // Groq's free tier caps tokens-per-minute though, and a long ward note or letter
@@ -243,14 +256,17 @@ async function runExtraction(opts: {
   let userKeyFailure: AiFailure | null = null
   if (userGeminiKey) {
     try {
-      let { text, usage, finishReason } = await generateNote(prompt, system, userGeminiKey, { temperature: EXTRACTION_TEMPERATURE, json: true })
+      const handover = handoverFor(uid)
+      let { text, usage, finishReason } = await withGeminiHandover(userGeminiKey, opts.keys.geminiHandoverKey,
+        k => generateNote(prompt, system, k, { temperature: EXTRACTION_TEMPERATURE, json: true }), handover)
       if (uid) await meterGemini(uid, 'gemini-2.5-flash', usage)
       // A reply that stopped at the ceiling is a half-written object, and no
       // amount of repairing makes one parse. Google says so explicitly, so the
       // one retry is spent on a real signal rather than on a hunch.
       if (finishReason === 'MAX_TOKENS') {
         logToSink({ level: 'warn', tag: 'gemini-key', route: '/api/generate', uid, message: `truncated at ceiling (thoughts=${usage.thoughts}, output=${usage.output}) — retrying uncapped` })
-        const retry = await generateNote(prompt, system, userGeminiKey, { temperature: EXTRACTION_TEMPERATURE, json: true, uncapped: true })
+        const retry = await withGeminiHandover(userGeminiKey, opts.keys.geminiHandoverKey,
+          k => generateNote(prompt, system, k, { temperature: EXTRACTION_TEMPERATURE, json: true, uncapped: true }), handover)
         if (uid) await meterGemini(uid, 'gemini-2.5-flash', retry.usage)
         text = retry.text; finishReason = retry.finishReason
       }
@@ -342,9 +358,10 @@ async function handlePOST(req: NextRequest) {
     const profile = await getProfile(uid).catch(() => null)
     const entitlement = resolveEntitlement(profile?.billing, Date.now())
 
-    // Who pays for every provider call below. A paying doctor is served by
-    // LushNote's keys; a trial doctor by their own, which is what the upgrade
-    // actually buys them.
+    // Who pays for every provider call below. A paying doctor is backed by
+    // LushNote's keys - their own free Gemini key first while it has most of its
+    // day left, ours behind it (see withGeminiHandover). A trial doctor runs on
+    // their own, which is what the upgrade actually buys them.
     const keys = resolveAiKeys({
       state: entitlement.state,
       monthSpendMicros: profile?.aiCost?.[monthKey()]?.micros ?? 0,
@@ -352,6 +369,7 @@ async function handlePOST(req: NextRequest) {
       userGroqKey: req.headers.get('x-groq-key'),
       proGeminiKey: proGeminiKey(),
       sharedGroqKey: sharedGroqKey(),
+      freeKeyUsedToday: usedToday(profile?.geminiUsage, FREE_KEY_TALLY),
     })
 
     // Preview deployments only, and never production — see lib/e2eMock. Placed
@@ -917,7 +935,8 @@ ${transcript}`
     // reflects real usage (their key hits the same free-tier RPD).
     if (userGeminiKey) {
       try {
-        const { text: content, usage } = await generateNote(prompt, effectiveSystemPrompt, userGeminiKey)
+        const { text: content, usage } = await withGeminiHandover(userGeminiKey, keys.geminiHandoverKey,
+          k => generateNote(prompt, effectiveSystemPrompt, k), handoverFor(uid))
         await meterGemini(uid, 'gemini-2.5-flash', usage)
         return NextResponse.json({ content, provider: 'gemini' })
       } catch (err) {

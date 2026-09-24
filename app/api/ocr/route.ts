@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withRequest, noteRequest } from '@/lib/requestContext'
 import { mockForCaller, mockOcrResponse } from '@/lib/e2eMock'
-import { ocrClinicalImages, checkQuota, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
-import { getProfile, meterGemini, meterGroq } from '@/lib/firestore/profiles-admin'
+import { ocrClinicalImages, checkQuota, usedToday, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
+import { getProfile, meterGemini, meterGroq, meterFreeKeyAttempt } from '@/lib/firestore/profiles-admin'
 import { requireUser, unauthorized } from '@/lib/adminGuard'
-import { resolveAiKeys, proGeminiKey } from '@/lib/serverAiKeys'
+import { resolveAiKeys, proGeminiKey, FREE_KEY_TALLY } from '@/lib/serverAiKeys'
+import { withGeminiHandover } from '@/lib/geminiHandover'
 import { monthKey } from '@/lib/utils'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
@@ -129,17 +130,20 @@ async function handlePOST(req: NextRequest) {
     // Gemini only: reading handwriting is a vision job, and the Groq fallback
     // models are text-only. The doctor's own key first — it is their quota, so it
     // is never gated — then the shared key while the daily pool lasts.
-    // A paying doctor reads ward notes on LushNote's key; a trial doctor on
+    // A paying doctor reads ward notes on their own free key first while it has
+    // most of its day left, LushNote's paid key behind it; a trial doctor on
     // their own. OCR is Gemini-only - the Groq models are text-only - so there
     // is no Groq half to this decision.
-    const userGeminiKey = resolveAiKeys({
+    const keys = resolveAiKeys({
       state: entitlement.state,
       monthSpendMicros: profile?.aiCost?.[monthKey()]?.micros ?? 0,
       userGeminiKey: req.headers.get('x-gemini-key'),
       userGroqKey: null,
       proGeminiKey: proGeminiKey(),
       sharedGroqKey: null,
-    }).geminiKey
+      freeKeyUsedToday: usedToday(profile?.geminiUsage, FREE_KEY_TALLY),
+    })
+    const userGeminiKey = keys.geminiKey
     let userKeyFailure: string | null = null
 
     const readPage = async (): Promise<OcrReply | null> => {
@@ -151,7 +155,13 @@ async function handlePOST(req: NextRequest) {
       let raw: string | null = null
       if (userGeminiKey) {
         try {
-          raw = await call(userGeminiKey)
+          raw = await withGeminiHandover(userGeminiKey, keys.geminiHandoverKey, call, {
+            onFreeAttempt: () => meterFreeKeyAttempt(uidField),
+            onHandover: reason => logToSink({
+              level: 'info', tag: 'gemini-handover', route: '/api/ocr', uid: uidField,
+              message: `free key did not answer (${reason}); the paid key took the request`,
+            }),
+          })
         } catch (err) {
           userKeyFailure = keyFailureMessage(err)
           logToSink({ level: 'warn', tag: 'gemini-key', route: '/api/ocr', uid: uidField, message: describeGeminiError(err) })

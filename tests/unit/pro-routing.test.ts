@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { resolveAiKeys, PRO_MONTHLY_CEILING_MICROS } from '@/lib/serverAiKeys'
+import { resolveAiKeys, PRO_MONTHLY_CEILING_MICROS, FREE_KEY_HANDOVER_AT } from '@/lib/serverAiKeys'
+import { GEMINI_RPD } from '@/lib/gemini'
 import { isProState, PRO_STATES } from '@/lib/entitlement'
 import type { EntitlementState } from '@/lib/entitlement'
 
@@ -24,7 +25,7 @@ const KEYS = {
 }
 
 function resolve(state: EntitlementState, over: Partial<Parameters<typeof resolveAiKeys>[0]> = {}) {
-  return resolveAiKeys({ state, monthSpendMicros: 0, ...KEYS, ...over })
+  return resolveAiKeys({ state, monthSpendMicros: 0, freeKeyUsedToday: 0, ...KEYS, ...over })
 }
 
 describe('who gets the paid keys', () => {
@@ -32,12 +33,14 @@ describe('who gets the paid keys', () => {
     expect([...PRO_STATES].sort()).toEqual(['active', 'dunning', 'exempt', 'paused'])
   })
 
+  // Backed, not necessarily served: while their own free key has most of its
+  // day left it answers first, and the paid key stands directly behind it.
   it.each(['active', 'dunning', 'paused', 'exempt'] as EntitlementState[])(
-    '%s is served by LushNote',
+    '%s is backed by LushNote',
     state => {
       const r = resolve(state)
       expect(r.pro).toBe(true)
-      expect(r.geminiKey).toBe('pro-gemini')
+      expect([r.geminiKey, r.geminiHandoverKey]).toContain('pro-gemini')
     },
   )
 
@@ -49,6 +52,16 @@ describe('who gets the paid keys', () => {
       const r = resolve(state)
       expect(r.pro).toBe(false)
       expect(r.geminiKey).toBe('user-gemini')
+    },
+  )
+
+  // Not even as a fallback. A handover key on a trial doctor would quietly put
+  // their failed requests on our bill.
+  it.each(['trialing', 'legacy', 'grace', 'paywalled'] as EntitlementState[])(
+    '%s is never handed over to the paid key',
+    state => {
+      expect(resolve(state).geminiHandoverKey).toBeNull()
+      expect(resolve(state, { freeKeyUsedToday: 999 }).geminiHandoverKey).toBeNull()
     },
   )
 
@@ -133,5 +146,54 @@ describe('the fair-use ceiling', () => {
   it('does not degrade a doctor who was never Pro', () => {
     const r = resolve('trialing', { monthSpendMicros: 100, ceilingMicros: 50 })
     expect(r.degraded).toBe(false)
+  })
+})
+
+// The doctor's own free key first, the paid key behind it, and the day's
+// switch made before Google's limit rather than at it.
+describe('Pro: their free key first, then ours', () => {
+  it('serves a Pro doctor on their own free key while the day is young', () => {
+    const r = resolve('active', { freeKeyUsedToday: 0 })
+    expect(r.geminiKey).toBe('user-gemini')
+    expect(r.geminiHandoverKey).toBe('pro-gemini')
+    expect(r.pro).toBe(true)
+  })
+
+  it('keeps the free key right up to the handover point', () => {
+    const r = resolve('active', { freeKeyUsedToday: FREE_KEY_HANDOVER_AT - 1 })
+    expect(r.geminiKey).toBe('user-gemini')
+    expect(r.geminiHandoverKey).toBe('pro-gemini')
+  })
+
+  it('retires the free key for the rest of the day at the handover point', () => {
+    const r = resolve('active', { freeKeyUsedToday: FREE_KEY_HANDOVER_AT })
+    expect(r.geminiKey).toBe('pro-gemini')
+    expect(r.geminiHandoverKey).toBeNull()
+  })
+
+  // The owner's requirement in one line: not the full quota, and never waiting
+  // for the limit to be the thing that says stop.
+  it('hands over with part of the free day still unspent', () => {
+    expect(FREE_KEY_HANDOVER_AT).toBeGreaterThan(0)
+    expect(FREE_KEY_HANDOVER_AT).toBeLessThan(GEMINI_RPD)
+  })
+
+  it('goes straight to the paid key for a Pro doctor with no key of their own', () => {
+    const r = resolve('active', { userGeminiKey: null })
+    expect(r.geminiKey).toBe('pro-gemini')
+    expect(r.geminiHandoverKey).toBeNull()
+  })
+
+  // Nothing to hand over to: the free key serves alone, exactly as it did
+  // before Pro existed, rather than a doctor being left with nothing.
+  it('runs on the free key alone when the paid key is not configured', () => {
+    const r = resolve('active', { proGeminiKey: null })
+    expect(r.geminiKey).toBe('user-gemini')
+    expect(r.geminiHandoverKey).toBeNull()
+  })
+
+  it('hands a degraded doctor back without a paid key behind them', () => {
+    const r = resolve('active', { monthSpendMicros: 100, ceilingMicros: 50 })
+    expect(r.geminiHandoverKey).toBeNull()
   })
 })

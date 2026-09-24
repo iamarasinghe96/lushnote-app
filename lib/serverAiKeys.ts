@@ -37,6 +37,29 @@ export function resolveGroqKey(userKey: string | null | undefined): GroqKeyChoic
 // ── Pro: LushNote's own paid keys, for doctors who pay ─────────────────────
 
 import { isProState, type EntitlementState } from '@/lib/entitlement'
+import { GEMINI_RPD } from '@/lib/gemini'
+
+/**
+ * The usage tally that counts requests a Pro doctor's OWN free key has been
+ * asked to serve today. Kept apart from the per-model tallies because those
+ * count every Gemini request whichever key answered, and the handover needs
+ * to know about this key alone.
+ */
+export const FREE_KEY_TALLY = 'free-key'
+
+/**
+ * A Pro doctor's own free Gemini key serves their requests until this many
+ * have been sent to it today, then LushNote's paid key takes over for the rest
+ * of the day.
+ *
+ * Three quarters of the free allowance, not all of it. Our tally is not
+ * Google's: one of our requests can be several of theirs (the overload backoff
+ * and the model fallback in geminiPost each send another), and requests racing
+ * each other can both read the same count. Handing over with a quarter of the
+ * day still in hand means the free key is retired while it is still working,
+ * rather than discovered empty in the middle of a consultation.
+ */
+export const FREE_KEY_HANDOVER_AT = Math.floor(GEMINI_RPD * 0.75)
 
 /**
  * Fair-use ceiling, in micro-USD per month.
@@ -53,8 +76,18 @@ export const PRO_MONTHLY_CEILING_MICROS = 0
 
 export interface AiKeyChoice {
   geminiKey: string | null
+  /**
+   * LushNote's paid key, set only while a Pro doctor's own free key is serving
+   * `geminiKey`. If that free key fails partway through a request - quota,
+   * throttle, a revoked key - the SAME request is re-sent on this one, so the
+   * handover never costs a doctor a note or a transcribed segment.
+   * See withGeminiHandover.
+   */
+  geminiHandoverKey: string | null
   groqKey: string | null
-  /** True when LushNote's keys are serving this request, i.e. we are paying. */
+  /** True when LushNote's keys back this request, i.e. we pay for whatever the
+   *  doctor's own free key does not cover - either directly, or as the
+   *  handover key behind it. */
   pro: boolean
   /** True when a Pro doctor is over the ceiling and has been handed back to
    *  their own keys. The response carries this so the page can say so. */
@@ -81,6 +114,9 @@ export function resolveAiKeys(input: {
   userGroqKey: string | null
   proGeminiKey: string | null
   sharedGroqKey: string | null
+  /** Requests the doctor's own free key has been sent today, from the
+   *  FREE_KEY_TALLY usage record. Only read for a Pro doctor. */
+  freeKeyUsedToday: number
   /** Defaults to PRO_MONTHLY_CEILING_MICROS. Injectable so the degrade path is
    *  exercised by tests while the real ceiling is still 0 - otherwise turning it
    *  on would be the first time that branch had ever run. */
@@ -97,6 +133,7 @@ export function resolveAiKeys(input: {
   // first, the shared Groq key as the net that keeps a clinic running.
   const asFree = (degraded: boolean): AiKeyChoice => ({
     geminiKey: own.gemini,
+    geminiHandoverKey: null,
     groqKey: own.groq ?? sharedGroq,
     pro: false,
     degraded,
@@ -117,8 +154,17 @@ export function resolveAiKeys(input: {
   // old behaviour, which the admin health card is there to surface.
   if (!proGemini && !sharedGroq) return asFree(false)
 
+  // The doctor's own free key first, while it has most of its day left. It
+  // costs LushNote nothing, and the paid key sits behind it on every request so
+  // a free key that gives out mid-request hands over rather than failing.
+  // Retired for the rest of the day at FREE_KEY_HANDOVER_AT, before Google's
+  // limit, never at it. A doctor with no key of their own goes straight to the
+  // paid one, as before.
+  const freeFirst = !!own.gemini && !!proGemini && input.freeKeyUsedToday < FREE_KEY_HANDOVER_AT
+
   return {
-    geminiKey: proGemini ?? own.gemini,
+    geminiKey: freeFirst ? own.gemini : (proGemini ?? own.gemini),
+    geminiHandoverKey: freeFirst ? proGemini : null,
     groqKey: sharedGroq ?? own.groq,
     pro: true,
     degraded: false,

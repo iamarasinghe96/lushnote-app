@@ -6,7 +6,8 @@ import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { resolveAiKeys, proGeminiKey, sharedGroqKey } from '@/lib/serverAiKeys'
-import { recordAiSpend } from '@/lib/firestore/profiles-admin'
+import { recordAiSpend, meterFreeKeyAttempt } from '@/lib/firestore/profiles-admin'
+import { withGeminiHandover } from '@/lib/geminiHandover'
 import { requireUser, unauthorized } from '@/lib/adminGuard'
 import { geminiCostMicros, whisperCostMicros, audioSecondsFromBytes } from '@/lib/aiCost'
 import { getProfile } from '@/lib/firestore/profiles-admin'
@@ -69,8 +70,9 @@ async function handlePOST(req: NextRequest) {
       return NextResponse.json({ error: 'Your LushNote subscription needs attention - note creation is paused. Open Billing to restore access.', code: 'subscription_required', state: access.entitlement.state }, { status: 402 })
     }
 
-    // Who pays for this call. A paying doctor is served by LushNote's keys; a
-    // trial doctor by their own, which is what the upgrade actually buys.
+    // Who pays for this call. A paying doctor is backed by LushNote's keys -
+    // their own free Gemini key first while it has most of its day left, ours
+    // behind it (see withGeminiHandover). A trial doctor runs on their own.
     const keys = resolveAiKeys({
       state: access.entitlement.state,
       monthSpendMicros: access.monthSpendMicros,
@@ -78,6 +80,7 @@ async function handlePOST(req: NextRequest) {
       userGroqKey: req.headers.get('x-groq-key'),
       proGeminiKey: proGeminiKey(),
       sharedGroqKey: sharedGroqKey(),
+      freeKeyUsedToday: access.freeKeyUsedToday,
     })
 
     const buffer = Buffer.from(await audio.arrayBuffer())
@@ -93,7 +96,17 @@ async function handlePOST(req: NextRequest) {
     const userGeminiKey = keys.geminiKey
     if (userGeminiKey) {
       try {
-        const { text, usage } = await transcribeAudio(base64, mimeType, userGeminiKey)
+        // A long consultation is where a free key's day actually goes - ten of
+        // these for forty minutes - so this is the call that most needs to hand
+        // over rather than fall to Groq mid-recording.
+        const { text, usage } = await withGeminiHandover(userGeminiKey, keys.geminiHandoverKey,
+          k => transcribeAudio(base64, mimeType, k), {
+            onFreeAttempt: () => meterFreeKeyAttempt(uidField),
+            onHandover: reason => logToSink({
+              level: 'info', tag: 'gemini-handover', route: '/api/transcribe', uid: uidField,
+              message: `free key did not answer (${reason}); the paid key took segment ${seg}`,
+            }),
+          })
         // Audio arrives INSIDE promptTokenCount, so it is handed over separately
         // and subtracted before the text rate is applied - otherwise the most
         // expensive line in the whole product is billed twice.

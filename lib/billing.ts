@@ -10,7 +10,9 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase-admin'
 import { resolveEntitlement, GRACE_MS, type Billing, type Entitlement, type EntitlementState } from '@/lib/entitlement'
 import { monthKey } from '@/lib/utils'
-import { proGeminiKey } from '@/lib/serverAiKeys'
+import { proGeminiKey, FREE_KEY_TALLY } from '@/lib/serverAiKeys'
+import { usedToday } from '@/lib/gemini'
+import type { GeminiUsage } from '@/types'
 
 // The secret key IS the feature flag. Without it every billing path no-ops and
 // the app behaves exactly as it did before monetization — which is what keeps
@@ -330,6 +332,9 @@ export interface AccessState {
   /** This month's estimated AI spend, from the same document. Carried here so
    *  the Pro key decision costs no extra read. */
   monthSpendMicros: number
+  /** Requests a Pro doctor's own free Gemini key has been sent today. Same
+   *  document, same reason: the handover decision costs no extra read. */
+  freeKeyUsedToday: number
 }
 
 export async function getAccessState(uid: string, now = Date.now()): Promise<AccessState> {
@@ -337,6 +342,7 @@ export async function getAccessState(uid: string, now = Date.now()): Promise<Acc
     suspended: false,
     entitlement: { entitled: true, state: 'legacy', reason: 'no uid' },
     monthSpendMicros: 0,
+    freeKeyUsedToday: 0,
   }
   if (!uid) return open
   try {
@@ -345,11 +351,13 @@ export async function getAccessState(uid: string, now = Date.now()): Promise<Acc
       status?: string
       billing?: Billing
       aiCost?: Record<string, { micros?: number }>
+      geminiUsage?: GeminiUsage
     } | undefined
     return {
       suspended: data?.status === 'disabled',
       entitlement: resolveEntitlement(data?.billing, now),
       monthSpendMicros: data?.aiCost?.[monthKey()]?.micros ?? 0,
+      freeKeyUsedToday: usedToday(data?.geminiUsage, FREE_KEY_TALLY),
     }
   } catch {
     // Never lock a clinician out because a read blipped. A spend of 0 also fails

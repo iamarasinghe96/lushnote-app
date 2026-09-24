@@ -1179,7 +1179,9 @@ having paid $30.
 | # | Step | What the doctor does | What the code does | Required to continue |
 |---|---|---|---|---|
 | 0 | Any AI call | Records, dictates, pastes, scans | `requireUser(req)` verifies a Firebase ID token. **All four AI routes**, before any provider key is read. The uid used to arrive in the request body and was checked only for length | a valid, unrevoked ID token |
-| 1 | Decide who pays | — | `resolveAiKeys` (`lib/serverAiKeys.ts`), once per request. `active`, `dunning`, `paused` and `exempt` are served by LushNote's keys; `trialing`, `legacy`, `grace` and `paywalled` by the doctor's own | nothing - it always returns a usable key if any exists |
+| 1 | Decide who pays | — | `resolveAiKeys` (`lib/serverAiKeys.ts`), once per request. `active`, `dunning`, `paused` and `exempt` are backed by LushNote's keys; `trialing`, `legacy`, `grace` and `paywalled` run on the doctor's own | nothing - it always returns a usable key if any exists |
+| 1a | Free key first | Nothing; it is invisible | A Pro doctor with a Gemini key of their own is served on it while `geminiUsage['free-key']` is under `FREE_KEY_HANDOVER_AT` (15 of Google's 20), with the paid key set as `geminiHandoverKey` behind it. At 15 the paid key takes the rest of the day | nothing |
+| 1b | Free key gives out mid-request | Nothing; they get the note | `withGeminiHandover` resends that same request on the paid key - quota, throttle, revoked key alike. Resent once; a paid-key failure goes to the route's normal handling. Every attempt on the free key is counted, success or not | nothing |
 | 2 | Over the ceiling | Nothing; they are not told mid-note | `PRO_MONTHLY_CEILING_MICROS` (**ships at 0 = disabled**). Once set, a Pro doctor past it is handed back to their own key, then the shared Groq key. **Never blocked** | nothing |
 | 3 | Meter it | — | `meterGemini` / `meterGroq` write the quota counter and the estimated cost to `users/{uid}.aiCost`, keyed by month | nothing - fire-and-forget, never blocks a note |
 
@@ -1187,6 +1189,12 @@ having paid $30.
 
 - A trial doctor's Gemini requests still count towards their own 20 a day.
 - A paying doctor sees no daily limit and no key requirement in Settings.
+- A paying doctor with their own Gemini key is served on it for the first 15
+  requests of the day, on ours for the rest, and never sees the join - including
+  a request that was in flight when their key gave out.
+- `gemini-handover` log lines mean a free key failed mid-request and the paid key
+  took it. A steady stream of them for one doctor usually means their own key is
+  revoked or throttled.
 - `/admin?section=billing` shows **Pro AI key: Set** and this month's estimated cost.
 - A doctor with no key of their own and no subscription still reaches the shared
   Groq key, exactly as before Pro existed.
