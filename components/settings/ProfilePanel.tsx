@@ -224,6 +224,22 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
         <label className="block text-sm font-medium text-[var(--text)] mb-1">
           Email opening line
         </label>
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {([
+            'I reviewed this patient today and wanted to share the following progress note.',
+            "Please find enclosed a progress note from today's session.",
+            'I am writing to update you on the progress of our mutual patient.',
+          ] as const).map(preset => (
+            <button key={preset} type="button" onClick={() => setEmailPretext(preset)}
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                emailPretext === preset
+                  ? 'border-[var(--blue)] bg-[var(--blue-lt)] text-[var(--blue)]'
+                  : 'border-[var(--border)] text-[var(--text2)] hover:border-[var(--blue)]/50'
+              }`}>
+              {preset.length > 50 ? preset.slice(0, 50) + '...' : preset}
+            </button>
+          ))}
+        </div>
         <textarea
           value={emailPretext}
           onChange={e => setEmailPretext(e.target.value)}
