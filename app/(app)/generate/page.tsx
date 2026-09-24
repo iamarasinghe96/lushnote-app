@@ -94,12 +94,16 @@ function ModeCard({ icon, title, description, onClick }: ModeCardProps) {
   )
 }
 
+// The clipboard a doctor already recognises on this row, with the two text
+// lines swapped for an arrow going INTO it. Deliberately not the cloud on
+// UploadIcon below: that one is for audio files, and two cards on the same
+// screen both starting "Upload" have to be tellable apart at 20px.
 const PasteIcon = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
     <rect x="9" y="2" width="6" height="4" rx="1"/>
     <path d="M5 4h-1a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1"/>
-    <line x1="9" y1="12" x2="15" y2="12"/>
-    <line x1="9" y1="16" x2="15" y2="16"/>
+    <path d="M12 18v-7" strokeLinecap="round"/>
+    <polyline points="9,14 12,11 15,14" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 )
 const RecordIcon = (
@@ -1249,7 +1253,7 @@ export default function GeneratePage() {
             </div>
           </div>
         )}
-        <ModeCard icon={PasteIcon} title="Paste Transcript or Ward Note" description="Session transcript, or a Bossnet note to fill patient details" onClick={handlePasteMode} />
+        <ModeCard icon={PasteIcon} title="Upload or Paste Notes" description="Paste a session transcript, or upload a photo of a ward note" onClick={handlePasteMode} />
         <ModeCard icon={RecordIcon} title="Record Session" description="In-person or telehealth recording" onClick={() => startMode('conversation')} />
         <ModeCard icon={DictateIcon} title="Dictate Note" description="Narrate the note yourself" onClick={() => startMode('dictation')} />
 
@@ -1276,7 +1280,7 @@ export default function GeneratePage() {
 
 
       {/* How the content arrives: typed/pasted text, or a photo of a paper note */}
-      <Modal open={phase === 'paste-choice'} onClose={handleCancel} title="Paste Transcript or Ward Note" maxWidth="lg">
+      <Modal open={phase === 'paste-choice'} onClose={handleCancel} title="Upload or Paste Notes" maxWidth="lg">
         <div className="px-5 pb-5 space-y-3">
           <ModeCard
             icon={PasteIcon}
@@ -1322,7 +1326,7 @@ export default function GeneratePage() {
       />
 
       {/* Paste transcript modal */}
-      <Modal open={phase === 'paste-input'} onClose={handleCancel} title="Paste Transcript or Ward Note" maxWidth="lg">
+      <Modal open={phase === 'paste-input'} onClose={handleCancel} title="Upload or Paste Notes" maxWidth="lg">
         <div className="px-5 pb-5 space-y-4">
           <Textarea
             value={inputText}

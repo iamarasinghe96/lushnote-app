@@ -103,7 +103,7 @@ against absence, and pinned by the rules tests so it cannot return.
 
 ## `note-paste` — Paste a transcript or ward note
 
-**Entry:** Generate → **Paste Transcript or Ward Note** → **Paste text**
+**Entry:** Generate → **Upload or Paste Notes** → **Paste text**
 **Ends at:** `/edit` with a generated note, OR the patient's record filled
 **Code:** `app/(app)/generate/page.tsx` → `TranscriptConfirmModal` → `TemplatePicker`
 **Coverage:** ⚠️ — the classifier is unit-tested; one browser spec covers the
