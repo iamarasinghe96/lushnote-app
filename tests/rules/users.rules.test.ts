@@ -120,6 +120,38 @@ describe('users/{uid} — billing is server-written only', () => {
   })
 })
 
+describe('users/{uid} — the AI cost meter is server-written only', () => {
+  // Fair use is measured on this. A doctor who could write it could zero their
+  // own month and stay on LushNote's paid key indefinitely.
+  async function seedWithSpend() {
+    await env.withSecurityRulesDisabled(async ctx => {
+      await setDoc(doc(ctx.firestore(), 'users', UID), {
+        ...COMPLETED_PROFILE, aiCost: { '2026-09': { micros: 5, paid: 5, calls: 1 } },
+      })
+    })
+  }
+
+  it('refuses a client resetting its own month', async () => {
+    await seedWithSpend()
+    await assertFails(updateDoc(doc(db(UID), 'users', UID), { aiCost: { '2026-09': { micros: 0, paid: 0, calls: 0 } } }))
+  })
+
+  it('refuses an overwrite that drops the meter', async () => {
+    await seedWithSpend()
+    await assertFails(setDoc(doc(db(UID), 'users', UID), COMPLETED_PROFILE))
+  })
+
+  it('refuses a new profile that arrives with spend already on it', async () => {
+    await assertFails(setDoc(doc(db(UID), 'users', UID), { ...COMPLETED_PROFILE, aiCost: {} }))
+  })
+
+  // The pin must not cost doctors their ordinary edits.
+  it('still allows an ordinary edit on a profile that has spend recorded', async () => {
+    await seedWithSpend()
+    await assertSucceeds(updateDoc(doc(db(UID), 'users', UID), { displayName: 'Dr Renamed' }))
+  })
+})
+
 describe('users/{uid} — onboarding draft', () => {
   const DRAFT = { step: 3, displayName: 'Dr Test', workplaceName: 'City Clinic' }
 

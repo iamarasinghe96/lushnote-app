@@ -97,6 +97,12 @@ interface User {
     // hangs off the timestamp above, this only makes the message specific.
     paymentFailureCode?: string | null
     billingExempt?: boolean
+    // Enterprise: the subscription continues, but the AI runs on the
+    // organisation's own API key and is billed to them by the provider, so no
+    // fair-use allowance applies. Set by the doctor accepting the Enterprise
+    // terms on /billing, or by an admin. Inside `billing` so the rules pin
+    // covers it - see lib/fairUse.ts.
+    enterprise?: { since: number; tosVersion: string; by: 'doctor' | 'admin' } | null
     // Kept for dispute defence: what they agreed to, when, and from where.
     consent?: { acceptedAt: number; ip: string; tosVersion: string }
     updatedAt: number
@@ -104,7 +110,7 @@ interface User {
   // When each in-app billing prompt was dismissed. Client-writable and stored on
   // the profile rather than in localStorage so a doctor who dismisses it on the
   // ward computer doesn't meet it again on their phone.
-  billingPrompts?: { trialReminder7d?: number; trialReminderDue?: number; paymentFailed?: number; paywalled?: number }
+  billingPrompts?: { trialReminder7d?: number; trialReminderDue?: number; paymentFailed?: number; paywalled?: number; fairUse?: number }
   createdAt?: FirestoreTimestamp
   updatedAt?: FirestoreTimestamp
 }
@@ -512,6 +518,13 @@ interface AiCostMonth {
   unpriced: number
   gemini: number
   groq: number
+  /**
+   * The part of `micros` spent on LUSHNOTE'S keys - the Pro Gemini key and the
+   * shared Groq key. Everything else was the doctor's own key, which costs us
+   * nothing. This is the figure fair use is measured on (lib/fairUse.ts).
+   * Absent on months recorded before it existed, which read as 0.
+   */
+  paid?: number
   updatedAt: number
 }
 

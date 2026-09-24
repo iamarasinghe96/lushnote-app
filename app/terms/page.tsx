@@ -1,6 +1,6 @@
 'use client'
 
-const EFFECTIVE_DATE = '26 June 2025'
+const EFFECTIVE_DATE = '24 September 2026'
 const CONTACT_EMAIL = 'admin@lushnote.com.au'
 
 export default function TermsPage() {
@@ -123,6 +123,17 @@ export default function TermsPage() {
             account and is never shared or used for any purpose other than making AI requests
             on your behalf.
           </p>
+
+          <SubHeading>Usage records</SubHeading>
+          <p>
+            For each account we record, by month, how many AI requests it makes, which service
+            answered them, and our estimate of what they cost. These are counts and dollar
+            figures only - never the content of a request, a transcript or a note. We use them to
+            run and pay for the service, to apply the fair-use allowance described under
+            &ldquo;Subscriptions and Billing&rdquo;, and to notice when one account is being used far
+            beyond what one clinician would. LushNote administrators can see these figures for your
+            account. As with everything else, they cannot see your notes.
+          </p>
         </Section>
 
         <Section title="5. How We Protect Your Data">
@@ -152,6 +163,19 @@ export default function TermsPage() {
             that automatically removes patient names, dates of birth, phone numbers, and other
             identifiers from transcripts before they are sent to any AI provider. We recommend
             enabling this feature.
+          </p>
+
+          <SubHeading>Whose AI key is used</SubHeading>
+          <p>
+            During the free trial, AI requests use your own Gemini or Groq key where you have
+            provided one, and LushNote&rsquo;s shared fallback keys otherwise. On the paid plan,
+            LushNote&rsquo;s own keys serve your requests; if you have saved a Gemini key of your
+            own, it answers your first requests each day on Google&rsquo;s free allowance before
+            LushNote&rsquo;s key takes over. Once an account has used the month&rsquo;s fair-use
+            allowance, its requests go back to its own key, or the shared fallback, until the next
+            month. On Enterprise, requests use your organisation&rsquo;s own API key, under your
+            organisation&rsquo;s own agreement with Google. Whichever key is used, a request is sent
+            only to produce the response you asked for.
           </p>
 
           <SubHeading>Services we use</SubHeading>
@@ -279,6 +303,26 @@ export default function TermsPage() {
             refund the unused part of a period you chose to end early.
           </p>
           <p>
+            <strong>Fair use.</strong> The subscription includes AI on LushNote&rsquo;s keys up to a
+            monthly fair-use allowance. The allowance is set at what one subscription pays for, after
+            payment-processing fees, and is measured with our own estimate of what the AI provider
+            charges for your requests, which you can follow on the Billing page. It exists so that
+            an account used far beyond one clinician&rsquo;s needs is not paid for by everyone
+            else&rsquo;s subscription. When an account uses its allowance, its AI requests run on the
+            account&rsquo;s own API key, or LushNote&rsquo;s shared fallback, until the start of the next
+            calendar month. Nothing is blocked, nothing extra is charged, and your notes are not
+            affected, although the AI may be slower or limited by your own key&rsquo;s allowance.
+          </p>
+          <p>
+            <strong>Enterprise.</strong> You can move to Enterprise at any time from the Billing page.
+            The subscription price does not change. Your AI requests then run on your
+            organisation&rsquo;s own Gemini API key, and your organisation pays Google directly for them,
+            at Google&rsquo;s prices and under its own agreement with Google, in addition to the LushNote
+            subscription. No fair-use allowance applies. You can return to the standard plan at any
+            time. We may contact an account that regularly uses its allowance to suggest Enterprise,
+            and may move an account to Enterprise after agreeing it with you.
+          </p>
+          <p>
             <strong>Pausing.</strong> Pausing stops future charges and keeps your account, your
             payment details and everything you have written. Access continues to the end of the
             period you have paid for and resumes as soon as you un-pause. Pausing deletes nothing.
@@ -389,6 +433,15 @@ export default function TermsPage() {
               Only what you type into the note fields: patient name, registration number, date,
               diagnosis, session notes, and so on. LushNote does not collect Medicare numbers,
               home addresses, photos, or billing details.
+            </FAQ>
+
+            <FAQ q="What is the fair-use allowance?">
+              The paid plan includes AI on LushNote&rsquo;s keys up to a monthly allowance, set at what
+              one subscription pays for. One clinician rarely comes near it. If an account uses it, the
+              AI runs on the account&rsquo;s own key until the next month, and nothing is blocked. Practices
+              and heavy users can move to Enterprise, where the AI runs on their own organisation&rsquo;s key
+              and Google bills them for it directly. LushNote records only counts and estimated costs to
+              measure this, never what your notes say.
             </FAQ>
 
             <FAQ q="I am a patient. How do I request my records?">

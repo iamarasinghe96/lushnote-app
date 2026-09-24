@@ -10,8 +10,10 @@ export interface SupportTopic {
 
 export const LUSHNOTE_KB = `LushNote is a clinical note builder for clinicians.
 Features: 116 clinical note templates, voice recording and transcription, AI note generation, patient management, referral/records/custom letters, hospital progress-note forms, and PDF/clipboard/email/Share export.
-API: Users bring their own Gemini API key (free from aistudio.google.com) and optionally a Groq key.
-Gemini limit: 20 notes/day free tier. A Groq key extends this significantly.
+API: During the free trial, users bring their own Gemini API key (free from aistudio.google.com) and optionally a Groq key. On the paid plan (AUD $30/month) LushNote's own keys cover the AI, so no key is needed; a saved Gemini key still answers the first requests each day before LushNote's key takes over.
+Gemini limit: 20 notes/day on Google's free tier, which applies to a user's own free key. A Groq key extends this significantly.
+Fair use: the paid plan includes AI on LushNote's keys up to a monthly fair-use allowance, set at what one subscription pays for. One clinician rarely reaches it. Past it, the AI runs on the account's own key (or LushNote's free fallback) until the next calendar month; nothing is blocked and nothing extra is charged. Progress is shown on the Billing page.
+Enterprise: for practices and heavy use. Same subscription price; the AI runs on the organisation's own Gemini API key (billing enabled in Google Cloud) and Google bills the organisation directly. No fair-use allowance. Move to Enterprise, or back, from the Billing page; the organisation's key must first be saved in Settings > API Keys.
 Templates: 116 built-in templates across Progress Notes, Assessments, Therapy Notes, Risk & Safety. Create your own in Settings > Templates.
 Export: PDF (formatted A4), clipboard copy, email, and Share (attaches the PDF file). Print produces the same PDF as the download.
 Personalisation: Set your professional identity, treatment approaches, and document style in Settings > Personalisation.
@@ -25,6 +27,7 @@ LushNote official policy (Terms of Service & Privacy Policy) — this is the ONL
 - Account deletion: delete your account any time from Settings > Profile; all notes, patient profiles, and account details are permanently and irreversibly removed (no backups).
 - Compliance: designed to comply with the Australian Privacy Act 1988 (Cth) and the Australian Privacy Principles; governed by Australian law.
 - API keys: your Gemini/Groq keys are stored securely and used only for AI requests on your behalf.
+- Usage records: LushNote records per-account monthly counts of AI requests and an estimate of their cost, never the content. They are used to run the service and apply fair use, and administrators can see them; administrators cannot see notes.
 - Contact: admin@lushnote.com.au.`
 export const SUPPORT_TOPICS: SupportTopic[] = [
   { key: 'bug', label: 'Report a bug', prompt: 'Please describe the bug in a few sentences — what you did, what happened, and paste any error message you saw.' },

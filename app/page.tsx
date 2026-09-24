@@ -265,8 +265,33 @@ export default function Page() {
           </p>
           <p className="text-xs text-[var(--text3)] max-w-md mx-auto">
             Prices are in Australian dollars. If your card is issued outside Australia, your bank converts the charge
-            and may add a small foreign-transaction fee. You bring your own Gemini or Groq API key, so the AI runs on
-            your own free quota.
+            and may add a small foreign-transaction fee.
+          </p>
+
+          {/* Fair use, stated before anyone signs up rather than discovered
+              later. Two plans, the same subscription; what differs is whose key
+              pays for the AI. */}
+          <div className="grid sm:grid-cols-2 gap-3 pt-4 text-left">
+            <div className="rounded-[var(--r-lg)] border border-[var(--border)] bg-white/70 p-4 space-y-1.5">
+              <p className="text-sm font-semibold text-[var(--text)]">LushNote</p>
+              <p className="text-xs font-medium text-[var(--text2)]">{landingPrice}</p>
+              <p className="text-xs leading-relaxed text-[var(--text2)]">
+                AI included. During the trial it runs on your own free Gemini or Groq key; once you subscribe,
+                LushNote&apos;s keys cover it, up to a monthly fair-use allowance set at what the subscription pays for.
+                One clinician rarely comes near it. Past it, the AI runs on your own key until the next month.
+              </p>
+            </div>
+            <div className="rounded-[var(--r-lg)] border border-[var(--border)] bg-white/70 p-4 space-y-1.5">
+              <p className="text-sm font-semibold text-[var(--text)]">Enterprise</p>
+              <p className="text-xs font-medium text-[var(--text2)]">{landingPrice} plus your own AI usage</p>
+              <p className="text-xs leading-relaxed text-[var(--text2)]">
+                For practices and heavy use. The AI runs on your organisation&apos;s own Gemini API key
+                and Google bills you directly for what you use, at Google&apos;s rates. No fair-use allowance.
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-[var(--text3)]">
+            Full details in our <a href="/terms" className="underline">terms and privacy policy</a>.
           </p>
         </div>
       </section>
@@ -380,7 +405,7 @@ const FEATURES: { icon: React.ReactNode; title: string; description: string }[] 
       </svg>
     ),
     title: 'Gemini + Groq AI',
-    description: 'Bring your own free API key. Gemini 2.5 Flash with Groq as fallback.',
+    description: 'Gemini 2.5 Flash with Groq as fallback. Included on the paid plan; your own free key during the trial.',
   },
   {
     icon: (

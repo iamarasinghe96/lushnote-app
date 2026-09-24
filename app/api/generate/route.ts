@@ -8,7 +8,8 @@ import { requireUser, unauthorized } from '@/lib/adminGuard'
 import { rateLimit } from '@/lib/rateLimit'
 import { applyTranscriptRedactions, privacyDirective, DEFAULT_TRANSCRIPT_PRIVACY } from '@/lib/redact'
 import { logToSink } from '@/lib/firestore/systemLogs'
-import { resolveAiKeys, proGeminiKey, sharedGroqKey, FREE_KEY_TALLY, type AiKeyChoice } from '@/lib/serverAiKeys'
+import { resolveAiKeys, proGeminiKey, sharedGroqKey, FREE_KEY_TALLY, type AiKeyChoice, onLushnoteKey } from '@/lib/serverAiKeys'
+import { paidSpend, isEnterprise } from '@/lib/fairUse'
 import { withGeminiHandover, type HandoverOptions } from '@/lib/geminiHandover'
 import { monthKey } from '@/lib/utils'
 import { resolveEntitlement } from '@/lib/entitlement'
@@ -240,7 +241,7 @@ async function runExtraction(opts: {
   if (groqKey && !preferGemini) {
     try {
       const { content, totalTokens } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
-      if (uid) void meterGroq(uid, totalTokens)
+      if (uid) void meterGroq(uid, totalTokens, opts.keys.sharedGroq)
       return { content, provider: 'groq' }
     } catch (err) {
       groqFailed = true
@@ -257,17 +258,19 @@ async function runExtraction(opts: {
   if (userGeminiKey) {
     try {
       const handover = handoverFor(uid)
+      // The key that actually answered, so the cost lands on whoever paid.
+      let served: string | null = null
       let { text, usage, finishReason } = await withGeminiHandover(userGeminiKey, opts.keys.geminiHandoverKey,
-        k => generateNote(prompt, system, k, { temperature: EXTRACTION_TEMPERATURE, json: true }), handover)
-      if (uid) await meterGemini(uid, 'gemini-2.5-flash', usage)
+        k => { served = k; return generateNote(prompt, system, k, { temperature: EXTRACTION_TEMPERATURE, json: true }) }, handover)
+      if (uid) await meterGemini(uid, 'gemini-2.5-flash', usage, { paid: onLushnoteKey(opts.keys, served) })
       // A reply that stopped at the ceiling is a half-written object, and no
       // amount of repairing makes one parse. Google says so explicitly, so the
       // one retry is spent on a real signal rather than on a hunch.
       if (finishReason === 'MAX_TOKENS') {
         logToSink({ level: 'warn', tag: 'gemini-key', route: '/api/generate', uid, message: `truncated at ceiling (thoughts=${usage.thoughts}, output=${usage.output}) — retrying uncapped` })
         const retry = await withGeminiHandover(userGeminiKey, opts.keys.geminiHandoverKey,
-          k => generateNote(prompt, system, k, { temperature: EXTRACTION_TEMPERATURE, json: true, uncapped: true }), handover)
-        if (uid) await meterGemini(uid, 'gemini-2.5-flash', retry.usage)
+          k => { served = k; return generateNote(prompt, system, k, { temperature: EXTRACTION_TEMPERATURE, json: true, uncapped: true }) }, handover)
+        if (uid) await meterGemini(uid, 'gemini-2.5-flash', retry.usage, { paid: onLushnoteKey(opts.keys, served) })
         text = retry.text; finishReason = retry.finishReason
       }
       return { content: text, provider: 'gemini', finishReason }
@@ -293,7 +296,8 @@ async function runExtraction(opts: {
     if (!uid || checkQuota(profile?.geminiUsage ?? {}, 'gemini-2.5-flash')) {
       try {
         const { text, usage, finishReason } = await generateNote(prompt, system, undefined, { temperature: EXTRACTION_TEMPERATURE, json: true })
-        if (uid) await meterGemini(uid, 'gemini-2.5-flash', usage)
+        // The shared free-tier key: rationed by checkQuota, costs us nothing.
+        if (uid) await meterGemini(uid, 'gemini-2.5-flash', usage, { paid: false })
         return { content: text, provider: 'gemini', finishReason }
       } catch (err) {
         logToSink({ level: 'warn', tag: 'gemini-shared', route: '/api/generate', uid, message: describeGeminiError(err) })
@@ -305,7 +309,7 @@ async function runExtraction(opts: {
   if (groqKey && preferGemini) {
     try {
       const { content, totalTokens } = await generateNoteGroq(prompt, system + GROQ_HARD_RULES, groqKey, undefined, EXTRACTION_TEMPERATURE)
-      if (uid) void meterGroq(uid, totalTokens)
+      if (uid) void meterGroq(uid, totalTokens, opts.keys.sharedGroq)
       return { content, provider: 'groq' }
     } catch (err) {
       logToSink({ level: 'warn', tag: 'groq', route: '/api/generate', uid, message: err instanceof Error ? err.message.slice(0, 300) : 'unknown' })
@@ -364,7 +368,8 @@ async function handlePOST(req: NextRequest) {
     // their own, which is what the upgrade actually buys them.
     const keys = resolveAiKeys({
       state: entitlement.state,
-      monthSpendMicros: profile?.aiCost?.[monthKey()]?.micros ?? 0,
+      paidSpendMicros: paidSpend(profile?.aiCost?.[monthKey()]),
+      enterprise: isEnterprise(profile?.billing),
       userGeminiKey: req.headers.get('x-gemini-key'),
       userGroqKey: req.headers.get('x-groq-key'),
       proGeminiKey: proGeminiKey(),
@@ -935,9 +940,10 @@ ${transcript}`
     // reflects real usage (their key hits the same free-tier RPD).
     if (userGeminiKey) {
       try {
+        let served: string | null = null
         const { text: content, usage } = await withGeminiHandover(userGeminiKey, keys.geminiHandoverKey,
-          k => generateNote(prompt, effectiveSystemPrompt, k), handoverFor(uid))
-        await meterGemini(uid, 'gemini-2.5-flash', usage)
+          k => { served = k; return generateNote(prompt, effectiveSystemPrompt, k) }, handoverFor(uid))
+        await meterGemini(uid, 'gemini-2.5-flash', usage, { paid: onLushnoteKey(keys, served) })
         return NextResponse.json({ content, provider: 'gemini' })
       } catch (err) {
         const m = err instanceof Error ? err.message : ''
@@ -960,7 +966,8 @@ ${transcript}`
       if (checkQuota(quota, 'gemini-2.5-flash')) {
         try {
           const { text: content, usage } = await generateNote(prompt, effectiveSystemPrompt)
-          await meterGemini(uid, 'gemini-2.5-flash', usage)
+          // The shared free-tier key: rationed by checkQuota, costs us nothing.
+          await meterGemini(uid, 'gemini-2.5-flash', usage, { paid: false })
           // Their OWN key was daily-exhausted and ours carried this note. The
           // doctor has hit their limit even though nothing visibly failed.
           return NextResponse.json({ content, provider: 'gemini', geminiDailyLimit: geminiDaily })
@@ -1009,7 +1016,7 @@ ${transcript}`
 
     try {
       const { content, totalTokens } = await generateNoteGroq(prompt, effectiveSystemPrompt, groqKey)
-      void meterGroq(uid, totalTokens)
+      void meterGroq(uid, totalTokens, groq.shared)
       // Only the shared path is logged: a doctor on their own key is
       // unremarkable, while every request on ours is a cost worth counting
       // without reading server logs.

@@ -5,7 +5,8 @@ import { chatResponse, checkQuota, usedToday, GEMINI_RATE_LIMIT_ERROR, GEMINI_DA
 import { generateNoteGroq } from '@/lib/groq'
 import { getProfile, meterGemini, meterGroq, meterFreeKeyAttempt } from '@/lib/firestore/profiles-admin'
 import { requireUser, unauthorized } from '@/lib/adminGuard'
-import { resolveAiKeys, proGeminiKey, sharedGroqKey, FREE_KEY_TALLY } from '@/lib/serverAiKeys'
+import { resolveAiKeys, proGeminiKey, sharedGroqKey, FREE_KEY_TALLY, onLushnoteKey } from '@/lib/serverAiKeys'
+import { paidSpend, isEnterprise } from '@/lib/fairUse'
 import { withGeminiHandover } from '@/lib/geminiHandover'
 import { monthKey } from '@/lib/utils'
 import { rateLimit } from '@/lib/rateLimit'
@@ -49,7 +50,8 @@ async function handlePOST(req: NextRequest) {
     // route and not another.
     const keys = resolveAiKeys({
       state: resolveEntitlement(callerProfile?.billing, Date.now()).state,
-      monthSpendMicros: callerProfile?.aiCost?.[monthKey()]?.micros ?? 0,
+      paidSpendMicros: paidSpend(callerProfile?.aiCost?.[monthKey()]),
+      enterprise: isEnterprise(callerProfile?.billing),
       userGeminiKey: req.headers.get('x-gemini-key'),
       userGroqKey: req.headers.get('x-groq-key'),
       proGeminiKey: proGeminiKey(),
@@ -119,7 +121,8 @@ Keep responses concise and practical.`
       const groqKey = keys.groqKey
       if (groqKey) {
         try {
-          const { content: answer } = await generateNoteGroq(prompt, systemPrompt, groqKey, 1024)
+          const { content: answer, totalTokens } = await generateNoteGroq(prompt, systemPrompt, groqKey, 1024)
+          void meterGroq(authedUid, totalTokens, keys.sharedGroq)
           return NextResponse.json({ answer, provider: 'groq' })
         } catch {
           // fall through to Gemini
@@ -133,7 +136,7 @@ Keep responses concise and practical.`
           ]
           const { text: answer, usage } = await chatResponse(messages, systemPrompt)
           {
-            await meterGemini(authedUid, 'chat', usage)
+            await meterGemini(authedUid, 'chat', usage, { paid: false })
           }
           return NextResponse.json({ answer, provider: 'gemini' })
         } catch (err) {
@@ -232,14 +235,19 @@ Respond ONLY as strict JSON with no other text:
           // Chat runs on flash-lite, a separate Google quota from notes, but it
           // counts against the same free-key tally. That hands a doctor over a
           // little earlier than strictly needed, which is the right direction.
-          const { text: answer } = await withGeminiHandover(userGeminiKey, keys.geminiHandoverKey,
-            k => chatResponse(messages, systemPrompt, k), {
+          // Metered here too. This call was never counted at all, which was
+          // harmless while it only ever ran on the doctor's own key and is not
+          // now that ours can answer it.
+          let served: string | null = null
+          const { text: answer, usage } = await withGeminiHandover(userGeminiKey, keys.geminiHandoverKey,
+            k => { served = k; return chatResponse(messages, systemPrompt, k) }, {
               onFreeAttempt: () => meterFreeKeyAttempt(authedUid),
               onHandover: reason => logToSink({
                 level: 'info', tag: 'gemini-handover', route: '/api/chat', uid: authedUid,
                 message: `free key did not answer (${reason}); the paid key took the request`,
               }),
             })
+          await meterGemini(authedUid, 'chat', usage, { paid: onLushnoteKey(keys, served) })
           if (answer.trim()) return NextResponse.json({ answer, provider: 'gemini' })
         } catch (err) {
           if (!(err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR)) geminiTransient = true
@@ -251,7 +259,7 @@ Respond ONLY as strict JSON with no other text:
         try {
           const { text: answer, usage } = await chatResponse(messages, systemPrompt)
           if (answer.trim()) {
-            await meterGemini(authedUid, 'chat', usage)
+            await meterGemini(authedUid, 'chat', usage, { paid: false })
             return NextResponse.json({ answer, provider: 'gemini' })
           }
         } catch (err) {
@@ -266,7 +274,8 @@ Respond ONLY as strict JSON with no other text:
       const groqKey = keys.groqKey
       if (groqViable && groqKey) {
         try {
-          const { content: answer } = await generateNoteGroq(question, systemPrompt, groqKey)
+          const { content: answer, totalTokens } = await generateNoteGroq(question, systemPrompt, groqKey)
+          void meterGroq(authedUid, totalTokens, keys.sharedGroq)
           if (answer.trim()) return NextResponse.json({ answer, provider: 'groq' })
         } catch { /* fall through to a clear error */ }
       }
@@ -324,7 +333,7 @@ Return ONLY the system prompt text, nothing else - no explanation, no preamble.`
         try {
           const { text: systemPrompt, usage } = await chatResponse(msgs, engineerSystemPrompt)
           {
-            await meterGemini(authedUid, 'chat', usage)
+            await meterGemini(authedUid, 'chat', usage, { paid: false })
           }
           return NextResponse.json({ systemPrompt, provider: 'gemini' })
         } catch (err) {
@@ -337,7 +346,8 @@ Return ONLY the system prompt text, nothing else - no explanation, no preamble.`
       if (!groqKey) {
         return NextResponse.json({ error: 'No API key available' }, { status: 401 })
       }
-      const { content: systemPrompt } = await generateNoteGroq(userMsg, engineerSystemPrompt, groqKey)
+      const { content: systemPrompt, totalTokens } = await generateNoteGroq(userMsg, engineerSystemPrompt, groqKey)
+      void meterGroq(authedUid, totalTokens, keys.sharedGroq)
       return NextResponse.json({ systemPrompt, provider: 'groq' })
     }
 
@@ -420,7 +430,8 @@ Return ONLY strict JSON, no markdown, no commentary:
       const groqKey = keys.groqKey
       if (groqKey) {
         try {
-          const { content } = await generateNoteGroq(userMsg, refineSystem, groqKey, 1500)
+          const { content, totalTokens } = await generateNoteGroq(userMsg, refineSystem, groqKey, 1500)
+          void meterGroq(authedUid, totalTokens, keys.sharedGroq)
           const parsed = parseResult(content)
           if (parsed) return NextResponse.json({ template: parsed, provider: 'groq' })
         } catch { /* fall through to Gemini */ }
@@ -462,14 +473,15 @@ Return ONLY strict JSON, no markdown, no commentary:
           const msgs: Array<{ role: 'user' | 'model'; parts: [{ text: string }] }> = [{ role: 'user', parts: [{ text: rawInput }] }]
           const { text: result, usage } = await chatResponse(msgs, systemPrompt)
           // Was `0`, so every standardise call was counted as free.
-          await meterGemini(authedUid, 'chat', usage)
+          await meterGemini(authedUid, 'chat', usage, { paid: false })
           return NextResponse.json({ result, provider: 'gemini' })
         } catch { /* fall through to Groq */ }
       }
 
       const groqKey = keys.groqKey
       if (!groqKey) return NextResponse.json({ error: 'No API key available' }, { status: 401 })
-      const { content: result } = await generateNoteGroq(rawInput, systemPrompt, groqKey)
+      const { content: result, totalTokens } = await generateNoteGroq(rawInput, systemPrompt, groqKey)
+      void meterGroq(authedUid, totalTokens, keys.sharedGroq)
       return NextResponse.json({ result, provider: 'groq' })
     }
 
@@ -520,7 +532,7 @@ Return ONLY strict JSON, no markdown, no commentary:
       if (checkQuota(quota, 'chat')) {
         try {
           const { text: reply, usage } = await chatResponse(messages, systemPrompt)
-          await meterGemini(uid, 'chat', usage)
+          await meterGemini(uid, 'chat', usage, { paid: false })
           return NextResponse.json({ reply, provider: 'gemini' })
         } catch (err) {
           // A momentary stumble is not the doctor's quota: it used to peg their
@@ -541,7 +553,8 @@ Return ONLY strict JSON, no markdown, no commentary:
     }))
 
     const prompt = groqMessages.map(m => m.content).join('\n')
-    const { content: reply } = await generateNoteGroq(prompt, systemPrompt, groqKey)
+    const { content: reply, totalTokens } = await generateNoteGroq(prompt, systemPrompt, groqKey)
+    void meterGroq(authedUid, totalTokens, keys.sharedGroq)
     return NextResponse.json({ reply, provider: 'groq' })
 
   } catch (err) {

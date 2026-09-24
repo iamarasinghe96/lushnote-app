@@ -5,10 +5,13 @@ import { withRequest, noteRequest } from '@/lib/requestContext'
 import {
   startTrial, stripeEnabled, getBillingConfig, priceString, PRICE_AUD, TRIAL_MONTHS,
   createSetupIntent, confirmSetup, createPortalSession, recordConsent, setPaused, stripeOffboard, TOS_VERSION,
-  endTrialNow,
+  endTrialNow, setEnterprise,
 } from '@/lib/billing'
 import { adminDb } from '@/lib/firebase-admin'
 import { resolveEntitlement, type Billing } from '@/lib/entitlement'
+import { fairUseOf } from '@/lib/fairUse'
+import { monthKey } from '@/lib/utils'
+import type { AiCostMonth } from '@/types'
 
 // The one authenticated billing surface: start a trial, report state, open a
 // SetupIntent, record the authorisation, hand off to Stripe's portal, pause and
@@ -18,8 +21,10 @@ import { resolveEntitlement, type Billing } from '@/lib/entitlement'
 async function handlePOST(req: NextRequest) {
   try {
     const body = await req.json() as {
-      action?: 'start-trial' | 'public-config' | 'state' | 'setup-intent' | 'confirm-setup' | 'record-consent' | 'portal' | 'pause' | 'resume' | 'offboard-self' | 'end-trial-now'
+      action?: 'start-trial' | 'public-config' | 'state' | 'setup-intent' | 'confirm-setup' | 'record-consent' | 'portal' | 'pause' | 'resume' | 'offboard-self' | 'end-trial-now' | 'enterprise'
       returnUrl?: string
+      /** For `enterprise`: true to join, false to go back to the standard plan. */
+      on?: boolean
       setupIntentId?: string
     }
     noteRequest({ mode: body.action ?? 'billing' })
@@ -77,7 +82,29 @@ async function handlePOST(req: NextRequest) {
         entitlement: resolveEntitlement(billing, Date.now()),
         price: priceString(cfg.gstRegistered, billing?.country === 'AU'),
         tosVersion: TOS_VERSION,
+        // Where this account stands against the fair-use allowance, from the
+        // same pure function the AI routes decide on - so the page and the
+        // routes cannot tell a doctor two different things.
+        fairUse: fairUseOf({
+          aiCost: snap.data()?.aiCost as Record<string, Partial<AiCostMonth>> | undefined,
+          billing, month: monthKey(),
+        }),
+        // Whether a key of their own is saved. Never the key itself.
+        hasOwnGeminiKey: !!String(snap.data()?.geminiApiKey ?? '').trim(),
       })
+    }
+
+    // Enterprise: the organisation's own key pays for the AI from here on. The
+    // doctor has read and accepted the terms on /billing; what they accepted is
+    // recorded with the version, as a payment authorisation is.
+    if (body.action === 'enterprise') {
+      const on = body.on === true
+      const result = await setEnterprise(uid, on, 'doctor')
+      logToSink({
+        level: 'info', tag: 'fair-use', route: '/api/billing', uid,
+        message: result.reason ? `enterprise ${on ? 'join' : 'leave'} refused: ${result.reason}` : `enterprise ${on ? 'joined' : 'left'} by the doctor`,
+      })
+      return NextResponse.json(result)
     }
 
     if (body.action === 'setup-intent') {

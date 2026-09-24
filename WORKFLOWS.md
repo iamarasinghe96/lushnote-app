@@ -1182,8 +1182,8 @@ having paid $30.
 | 1 | Decide who pays | — | `resolveAiKeys` (`lib/serverAiKeys.ts`), once per request. `active`, `dunning`, `paused` and `exempt` are backed by LushNote's keys; `trialing`, `legacy`, `grace` and `paywalled` run on the doctor's own | nothing - it always returns a usable key if any exists |
 | 1a | Free key first | Nothing; it is invisible | A Pro doctor with a Gemini key of their own is served on it while `geminiUsage['free-key']` is under `FREE_KEY_HANDOVER_AT` (15 of Google's 20), with the paid key set as `geminiHandoverKey` behind it. At 15 the paid key takes the rest of the day | nothing |
 | 1b | Free key gives out mid-request | Nothing; they get the note | `withGeminiHandover` resends that same request on the paid key - quota, throttle, revoked key alike. Resent once; a paid-key failure goes to the route's normal handling. Every attempt on the free key is counted, success or not | nothing |
-| 2 | Over the ceiling | Nothing; they are not told mid-note | `PRO_MONTHLY_CEILING_MICROS` (**ships at 0 = disabled**). Once set, a Pro doctor past it is handed back to their own key, then the shared Groq key. **Never blocked** | nothing |
-| 3 | Meter it | — | `meterGemini` / `meterGroq` write the quota counter and the estimated cost to `users/{uid}.aiCost`, keyed by month | nothing - fire-and-forget, never blocks a note |
+| 2 | Over fair use | Sees a banner once that month, and the Billing card | `aiCost[month].paid` at or past `FAIR_USE_ALLOWANCE_MICROS` (`lib/fairUse.ts`): handed back to their own key, then the shared Groq key, until the month turns. Enterprise accounts are never over. **Never blocked** | nothing |
+| 3 | Meter it | — | `meterGemini` / `meterGroq` write the quota counter and the estimated cost to `users/{uid}.aiCost`, keyed by month, with `paid` set from whether the key that answered was LushNote's | nothing - fire-and-forget, never blocks a note |
 
 **Expected outputs**
 
@@ -1202,14 +1202,45 @@ having paid $30.
 **What protects it**
 
 `tests/unit/pro-routing.test.ts` pins every entitlement state to its key owner,
-that nobody is ever left without a key, and the degrade path through an injected
-ceiling - so switching the real one on is not the first time that branch runs.
+that nobody is ever left without a key, the fair-use switch at the allowance, that
+Enterprise never has our key behind it, and which key a call's cost is put on.
+`tests/unit/fair-use.test.ts` pins the allowance to what the subscription nets.
 `tests/unit/ai-cost.test.ts` pins the arithmetic, notably that audio is priced at
 the audio rate and not billed twice.
 
 **Not protected**: that the PRICING rates match the providers' real prices. They
 are an input to be checked against a pricing page, and a test asserting them
 would only restate whatever was typed.
+
+---
+
+## `fair-use` - an account past its share, and Enterprise
+
+**Entry:** any AI call by a doctor on the paid plan. **Ends at:** the AI still
+answering, on whichever key the month allows.
+
+| # | Step | What the doctor does | What the code does | Required to continue |
+|---|---|---|---|---|
+| 1 | Normal month | Nothing | LushNote's keys serve them; `aiCost[month].paid` grows only when our key answered | nothing |
+| 2 | Near the allowance | Sees 80%+ on the Billing card | `fairUseOf` reports `approaching`; the Enterprise offer opens on its own. A `fair-use` log line marks the crossing | nothing |
+| 3 | Allowance used | One banner that month, dismissible; the Billing card and API Keys say why | `resolveAiKeys` returns `degraded: true` and their own keys. **Nothing is blocked** and nothing is charged | nothing |
+| 4 | Move to Enterprise | Saves their organisation's key, ticks the terms, taps Move to Enterprise on `/billing` | `setEnterprise` writes `billing.enterprise` with the terms version, and a copy to `billing_records`. Refused without a saved Gemini key | a saved Gemini key and a subscription |
+| 5 | Admin watches | - | `/admin?section=users`, Fair use filter: accounts at 80%+, heaviest first. The account card shows this month, the last three, and an Enterprise switch (audited as `billing.setEnterprise`) | admin |
+
+### Expected outputs - what must remain true
+
+- An account is only ever measured on spend LushNote paid for.
+- Past the allowance a doctor keeps working, on their own key or the shared net.
+- An Enterprise account never has LushNote's Gemini key behind it and is never "over".
+- A doctor cannot edit `aiCost` or `billing.enterprise` from the browser.
+- Next month starts with a fresh allowance, with no job to run.
+
+### What protects it
+
+`tests/unit/fair-use.test.ts`, `tests/unit/pro-routing.test.ts`, and the `aiCost`
+cases in `tests/rules/users.rules.test.ts`.
+
+**Not protected**: the pricing rates behind the estimate (see `pro-keys`).
 
 ---
 

@@ -230,6 +230,10 @@ the admin console reach the same verdict — the same reasoning that keeps
 
 ### The ceiling
 
+> **Since superseded** by the fair-use allowance (`lib/fairUse.ts`, and "Fair use
+> and Enterprise" in `docs/ARCHITECTURE.md`): on at break-even, measured on
+> LushNote-paid spend only, with Enterprise as the way past it.
+
 ```ts
 export const PRO_MONTHLY_CEILING_MICROS = 0   // TODO: set from Stage 1 data
 ```

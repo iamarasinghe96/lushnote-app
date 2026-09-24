@@ -3,6 +3,10 @@ import { stripeOffboard } from '@/lib/billing'
 import { adminAuth } from '@/lib/firebase-admin-auth'
 import { writeAudit } from '@/lib/firestore/systemLogs'
 import type { Query } from 'firebase-admin/firestore'
+import { fairUseOf, type FairUse } from '@/lib/fairUse'
+import { resolveEntitlement, type Billing, type EntitlementState } from '@/lib/entitlement'
+import { monthKey } from '@/lib/utils'
+import type { AiCostMonth } from '@/types'
 
 // The ONLY fields an admin may see about a doctor. Built by explicit allow-list
 // (never a spread), so secrets can never leak: groqApiKey, geminiApiKey,
@@ -20,6 +24,8 @@ export interface AdminBillingSummary {
   gracePeriodEnd: number | null
   paywalledAt: number | null
   billingExempt: boolean
+  /** When the account moved to Enterprise, or null. */
+  enterpriseSince: number | null
   stripeCustomerId: string | null
   subscriptionId: string | null
 }
@@ -44,6 +50,13 @@ export interface AdminUserRow {
   createdAt: number | null
   updatedAt: number | null
   billingSummary?: AdminBillingSummary | null
+  /** The resolver's state, so the panel can tell a paying account from a trial
+   *  without re-deriving it from the summary. */
+  entitlementState: EntitlementState
+  /** This month against the fair-use allowance, computed by the same pure
+   *  function the AI routes and the doctor's billing page use. Figures only -
+   *  counts and estimated dollars, never anything a note contained. */
+  fairUse: FairUse
 }
 
 export interface AdminUserDetail extends AdminUserRow {
@@ -74,6 +87,8 @@ function billingSummaryOf(v: unknown): AdminBillingSummary | null {
     gracePeriodEnd: typeof b.gracePeriodEnd === 'number' ? b.gracePeriodEnd : null,
     paywalledAt: typeof b.paywalledAt === 'number' ? b.paywalledAt : null,
     billingExempt: b.billingExempt === true,
+    enterpriseSince: typeof (b.enterprise as { since?: unknown } | null | undefined)?.since === 'number'
+      ? (b.enterprise as { since: number }).since : null,
     stripeCustomerId: str(b.stripeCustomerId) || null,
     subscriptionId: str(b.subscriptionId) || null,
   }
@@ -103,6 +118,12 @@ export function redactUser(uid: string, d: Record<string, unknown>): AdminUserRo
     // here because the panel links to the dashboard with them, and they are
     // identifiers rather than secrets.
     billingSummary: billingSummaryOf(d.billing),
+    entitlementState: resolveEntitlement(d.billing as Billing | undefined, Date.now()).state,
+    fairUse: fairUseOf({
+      aiCost: d.aiCost as Record<string, Partial<AiCostMonth>> | undefined,
+      billing: d.billing as Billing | undefined,
+      month: monthKey(),
+    }),
     createdAt: millis(d.createdAt),
     updatedAt: millis(d.updatedAt),
   }
@@ -142,6 +163,7 @@ export async function detailAdminUser(uid: string): Promise<AdminUserDetail | nu
     uid, email: authRec?.email ?? '', displayName: authRec?.displayName ?? '', credentials: '',
     status: 'pending', tier: 'free', workplaces: [], onboardingComplete: false,
     termsAccepted: false, marketingConsent: false, geminiUsage: null, aiCost: null,
+    entitlementState: 'legacy', fairUse: fairUseOf({ aiCost: null, billing: null, month: monthKey() }),
     createdAt: authRec?.metadata?.creationTime ? Date.parse(authRec.metadata.creationTime) : null, updatedAt: null,
   }
   return {

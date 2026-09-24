@@ -9,6 +9,8 @@ import { quotaDate, monthKey } from '@/lib/utils'
 import type { User, GeminiUsage, AiCostMonth } from '@/types'
 import { geminiCostMicros, groqTextCostMicros } from '@/lib/aiCost'
 import { FREE_KEY_TALLY } from '@/lib/serverAiKeys'
+import { FAIR_USE_ALLOWANCE_MICROS, FAIR_USE_WARN_SHARE, isEnterprise } from '@/lib/fairUse'
+import { logToSink } from '@/lib/firestore/systemLogs'
 
 export async function getProfile(uid: string): Promise<User | null> {
   const snap = await adminDb().collection('users').doc(uid).get()
@@ -63,10 +65,14 @@ const AI_COST_MONTHS_KEPT = 13
  * `micros` of null means the model had no price in lib/aiCost. The call is still
  * counted, under `unpriced`, so a renamed model shows up as a gap rather than
  * silently costing zero.
+ *
+ * `paid` says whose key served the call. Required rather than defaulted: a
+ * default would let a new call site put its spend on the wrong side of the
+ * line fair use is measured on, and nothing would ever notice.
  */
 export async function recordAiSpend(
   uid: string,
-  spend: { micros: number | null; provider: 'gemini' | 'groq' },
+  spend: { micros: number | null; provider: 'gemini' | 'groq'; paid: boolean },
 ): Promise<void> {
   if (!uid) return
   const ref = adminDb().collection('users').doc(uid)
@@ -87,7 +93,23 @@ export async function recordAiSpend(
       unpriced: (prev?.unpriced ?? 0) + (priced ? 0 : 1),
       gemini: (prev?.gemini ?? 0) + (spend.provider === 'gemini' && priced ? spend.micros! : 0),
       groq: (prev?.groq ?? 0) + (spend.provider === 'groq' && priced ? spend.micros! : 0),
+      paid: (prev?.paid ?? 0) + (spend.paid && priced ? spend.micros! : 0),
       updatedAt: Date.now(),
+    }
+
+    // One line when an account crosses a fair-use threshold, not one per
+    // request past it: this transaction is the only place that sees the before
+    // and after together. Scalar only - the uid and a fraction, never content.
+    if (!isEnterprise(snap.data()?.billing)) {
+      const before = prev?.paid ?? 0
+      const after = next.paid ?? 0
+      const warnAt = FAIR_USE_ALLOWANCE_MICROS * FAIR_USE_WARN_SHARE
+      const crossed = before < FAIR_USE_ALLOWANCE_MICROS && after >= FAIR_USE_ALLOWANCE_MICROS ? 'used up'
+        : before < warnAt && after >= warnAt ? 'at 80%'
+        : null
+      if (crossed) {
+        logToSink({ level: 'info', tag: 'fair-use', route: 'recordAiSpend', uid, message: `fair-use allowance ${crossed} for ${key}` })
+      }
     }
 
     // Prune inside the same transaction. A MERGE write cannot delete map keys,
@@ -124,14 +146,14 @@ export async function recordAiSpend(
 export async function meterGemini(
   uid: string,
   modelKey: string,
-  usage: number | { prompt: number; output: number; thoughts: number; total: number } = 0,
-  audioTokens = 0,
+  usage: number | { prompt: number; output: number; thoughts: number; total: number },
+  opts: { paid: boolean; audioTokens?: number },
 ): Promise<void> {
   if (!uid) return
   const u = typeof usage === 'number' ? { prompt: 0, output: 0, thoughts: 0, total: usage } : usage
   await Promise.all([
     updateGeminiUsage(uid, modelKey, usage).catch(() => {}),
-    recordAiSpend(uid, { micros: geminiCostMicros(u, modelKey, audioTokens), provider: 'gemini' }).catch(() => {}),
+    recordAiSpend(uid, { micros: geminiCostMicros(u, modelKey, opts.audioTokens ?? 0), provider: 'gemini', paid: opts.paid }).catch(() => {}),
   ])
 }
 
@@ -148,8 +170,9 @@ export async function meterFreeKeyAttempt(uid: string): Promise<void> {
   await updateGeminiUsage(uid, FREE_KEY_TALLY, 0)
 }
 
-/** Groq text generation. Groq reports one total with no prompt/output split. */
-export async function meterGroq(uid: string, totalTokens: number): Promise<void> {
+/** Groq text generation. Groq reports one total with no prompt/output split.
+ *  `paid` is true when the key was LushNote's shared one (keys.sharedGroq). */
+export async function meterGroq(uid: string, totalTokens: number, paid: boolean): Promise<void> {
   if (!uid) return
-  await recordAiSpend(uid, { micros: groqTextCostMicros(totalTokens), provider: 'groq' }).catch(() => {})
+  await recordAiSpend(uid, { micros: groqTextCostMicros(totalTokens), provider: 'groq', paid }).catch(() => {})
 }

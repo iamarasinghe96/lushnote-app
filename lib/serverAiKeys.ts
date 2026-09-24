@@ -38,6 +38,7 @@ export function resolveGroqKey(userKey: string | null | undefined): GroqKeyChoic
 
 import { isProState, type EntitlementState } from '@/lib/entitlement'
 import { GEMINI_RPD } from '@/lib/gemini'
+import { FAIR_USE_ALLOWANCE_MICROS } from '@/lib/fairUse'
 
 /**
  * The usage tally that counts requests a Pro doctor's OWN free key has been
@@ -61,19 +62,6 @@ export const FREE_KEY_TALLY = 'free-key'
  */
 export const FREE_KEY_HANDOVER_AT = Math.floor(GEMINI_RPD * 0.75)
 
-/**
- * Fair-use ceiling, in micro-USD per month.
- *
- * SHIPS DISABLED (0 = no ceiling). A number guessed before any real data would
- * either never fire or fire on a doctor doing ordinary work. Turn it on once
- * users/{uid}.aiCost has a month of figures behind it, and pick it from the
- * distribution rather than from an estimate.
- *
- * For scale when the time comes: AUD $30 is roughly USD $19.50, less Stripe
- * fees, so about 18_700_000 micro-USD of revenue per doctor per month.
- */
-export const PRO_MONTHLY_CEILING_MICROS = 0
-
 export interface AiKeyChoice {
   geminiKey: string | null
   /**
@@ -84,13 +72,20 @@ export interface AiKeyChoice {
    * See withGeminiHandover.
    */
   geminiHandoverKey: string | null
+  /**
+   * LushNote's Gemini key whenever it is in play for this request - as the key
+   * itself or as the handover behind the doctor's own. Call sites compare the
+   * key that actually answered against it (see onLushnoteKey) so the cost is
+   * recorded against whoever really paid. Fair use is measured on that split.
+   */
+  lushnoteGeminiKey: string | null
   groqKey: string | null
   /** True when LushNote's keys back this request, i.e. we pay for whatever the
    *  doctor's own free key does not cover - either directly, or as the
    *  handover key behind it. */
   pro: boolean
-  /** True when a Pro doctor is over the ceiling and has been handed back to
-   *  their own keys. The response carries this so the page can say so. */
+  /** True when a Pro doctor has used this month's fair-use allowance and has
+   *  been handed back to their own keys until the month turns. */
   degraded: boolean
   /** Present only when the Groq key in use is LushNote's shared one. */
   sharedGroq: boolean
@@ -109,7 +104,13 @@ export interface AiKeyChoice {
  */
 export function resolveAiKeys(input: {
   state: EntitlementState
-  monthSpendMicros: number
+  /** This month's spend on LUSHNOTE'S keys only (paidSpend of the month's
+   *  aiCost record). Calls the doctor's own key served cost us nothing and do
+   *  not count towards fair use. */
+  paidSpendMicros: number
+  /** Enterprise: the organisation's own key pays for the AI, so ours is never
+   *  put behind it and no allowance applies. */
+  enterprise: boolean
   userGeminiKey: string | null
   userGroqKey: string | null
   proGeminiKey: string | null
@@ -117,10 +118,9 @@ export function resolveAiKeys(input: {
   /** Requests the doctor's own free key has been sent today, from the
    *  FREE_KEY_TALLY usage record. Only read for a Pro doctor. */
   freeKeyUsedToday: number
-  /** Defaults to PRO_MONTHLY_CEILING_MICROS. Injectable so the degrade path is
-   *  exercised by tests while the real ceiling is still 0 - otherwise turning it
-   *  on would be the first time that branch had ever run. */
-  ceilingMicros?: number
+  /** Defaults to FAIR_USE_ALLOWANCE_MICROS. Injectable so tests can put an
+   *  account either side of the line without spending eighteen dollars. */
+  allowanceMicros?: number
 }): AiKeyChoice {
   const own = {
     gemini: (input.userGeminiKey ?? '').trim() || null,
@@ -134,6 +134,7 @@ export function resolveAiKeys(input: {
   const asFree = (degraded: boolean): AiKeyChoice => ({
     geminiKey: own.gemini,
     geminiHandoverKey: null,
+    lushnoteGeminiKey: null,
     groqKey: own.groq ?? sharedGroq,
     pro: false,
     degraded,
@@ -142,10 +143,15 @@ export function resolveAiKeys(input: {
 
   if (!isProState(input.state)) return asFree(false)
 
-  // Over the ceiling: hand back to their own keys and say so. Never blocked -
-  // the same rule the rest of the app is built on.
-  const ceiling = input.ceilingMicros ?? PRO_MONTHLY_CEILING_MICROS
-  if (ceiling > 0 && input.monthSpendMicros >= ceiling) {
+  // Enterprise: the organisation's key pays, which is the whole agreement. Ours
+  // is not put behind it even as a handover - that would quietly move their AI
+  // bill back onto us. The shared Groq net stays, as it does for everyone.
+  if (input.enterprise) return asFree(false)
+
+  // Fair use used up: back to their own keys until the month turns, and the
+  // page says so. Never blocked - the same rule the rest of the app is built on.
+  const allowance = input.allowanceMicros ?? FAIR_USE_ALLOWANCE_MICROS
+  if (allowance > 0 && input.paidSpendMicros >= allowance) {
     return asFree(true)
   }
 
@@ -165,11 +171,17 @@ export function resolveAiKeys(input: {
   return {
     geminiKey: freeFirst ? own.gemini : (proGemini ?? own.gemini),
     geminiHandoverKey: freeFirst ? proGemini : null,
+    lushnoteGeminiKey: proGemini,
     groqKey: sharedGroq ?? own.groq,
     pro: true,
     degraded: false,
     sharedGroq: !!sharedGroq,
   }
+}
+
+/** Whether the key that answered a Gemini call was LushNote's. */
+export function onLushnoteKey(keys: Pick<AiKeyChoice, 'lushnoteGeminiKey'>, servedKey: string | null | undefined): boolean {
+  return !!servedKey && servedKey === keys.lushnoteGeminiKey
 }
 
 /** Server-only. NEVER prefix with NEXT_PUBLIC_: that inlines a value into the
