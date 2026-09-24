@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withRequest, noteRequest } from '@/lib/requestContext'
 import { mockForCaller, mockChatResponse } from '@/lib/e2eMock'
-import { chatResponse, checkQuota, GEMINI_RATE_LIMIT_ERROR, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
+import { chatResponse, checkQuota, usedToday, GEMINI_RATE_LIMIT_ERROR, GEMINI_DAILY_LIMIT_ERROR } from '@/lib/gemini'
 import { generateNoteGroq } from '@/lib/groq'
-import { getProfile, meterGemini, meterGroq } from '@/lib/firestore/profiles-admin'
+import { getProfile, meterGemini, meterGroq, meterFreeKeyAttempt } from '@/lib/firestore/profiles-admin'
 import { requireUser, unauthorized } from '@/lib/adminGuard'
-import { resolveAiKeys, proGeminiKey, sharedGroqKey } from '@/lib/serverAiKeys'
+import { resolveAiKeys, proGeminiKey, sharedGroqKey, FREE_KEY_TALLY } from '@/lib/serverAiKeys'
+import { withGeminiHandover } from '@/lib/geminiHandover'
 import { monthKey } from '@/lib/utils'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
@@ -53,6 +54,7 @@ async function handlePOST(req: NextRequest) {
       userGroqKey: req.headers.get('x-groq-key'),
       proGeminiKey: proGeminiKey(),
       sharedGroqKey: sharedGroqKey(),
+      freeKeyUsedToday: usedToday(callerProfile?.geminiUsage, FREE_KEY_TALLY),
     })
 
     if (mockForCaller(callerProfile)) {
@@ -227,7 +229,17 @@ Respond ONLY as strict JSON with no other text:
       // 1. User's own Gemini key — no per-day cap, handles long transcripts.
       if (userGeminiKey) {
         try {
-          const { text: answer } = await chatResponse(messages, systemPrompt, userGeminiKey)
+          // Chat runs on flash-lite, a separate Google quota from notes, but it
+          // counts against the same free-key tally. That hands a doctor over a
+          // little earlier than strictly needed, which is the right direction.
+          const { text: answer } = await withGeminiHandover(userGeminiKey, keys.geminiHandoverKey,
+            k => chatResponse(messages, systemPrompt, k), {
+              onFreeAttempt: () => meterFreeKeyAttempt(authedUid),
+              onHandover: reason => logToSink({
+                level: 'info', tag: 'gemini-handover', route: '/api/chat', uid: authedUid,
+                message: `free key did not answer (${reason}); the paid key took the request`,
+              }),
+            })
           if (answer.trim()) return NextResponse.json({ answer, provider: 'gemini' })
         } catch (err) {
           if (!(err instanceof Error && err.message === GEMINI_DAILY_LIMIT_ERROR)) geminiTransient = true

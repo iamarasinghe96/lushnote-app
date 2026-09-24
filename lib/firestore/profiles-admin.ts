@@ -8,6 +8,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { quotaDate, monthKey } from '@/lib/utils'
 import type { User, GeminiUsage, AiCostMonth } from '@/types'
 import { geminiCostMicros, groqTextCostMicros } from '@/lib/aiCost'
+import { FREE_KEY_TALLY } from '@/lib/serverAiKeys'
 
 export async function getProfile(uid: string): Promise<User | null> {
   const snap = await adminDb().collection('users').doc(uid).get()
@@ -132,6 +133,19 @@ export async function meterGemini(
     updateGeminiUsage(uid, modelKey, usage).catch(() => {}),
     recordAiSpend(uid, { micros: geminiCostMicros(u, modelKey, audioTokens), provider: 'gemini' }).catch(() => {}),
   ])
+}
+
+/**
+ * One request sent to a Pro doctor's own free Gemini key. The tally
+ * resolveAiKeys reads to decide when the paid key takes over for the day.
+ *
+ * Its own record rather than the per-model one, because that one also counts
+ * requests the paid key served, and the handover is about this key alone.
+ * Tokens and spend are still metered where they always were, by meterGemini.
+ */
+export async function meterFreeKeyAttempt(uid: string): Promise<void> {
+  if (!uid) return
+  await updateGeminiUsage(uid, FREE_KEY_TALLY, 0)
 }
 
 /** Groq text generation. Groq reports one total with no prompt/output split. */

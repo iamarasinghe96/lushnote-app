@@ -73,8 +73,10 @@ GITHUB_TOKEN              — fine-grained PAT, this repo only: Contents RW, Pul
                             offer it, so run status is read from the Actions API. Server-side
                             only; used by the Releases panel.
 GITHUB_REPO               — iamarasinghe96/lushnote-app
-LUSHNOTE_GEMINI_PRO_KEY   — a PAID Google project, server-side only. Serves doctors whose
-                            subscription is active/dunning/paused/exempt. Deliberately NOT
+LUSHNOTE_GEMINI_PRO_KEY   — a PAID Google project, server-side only. Backs doctors whose
+                            subscription is active/dunning/paused/exempt: their own free
+                            key serves first, this one takes over before its day runs
+                            out and catches any request it fails. Deliberately NOT
                             GEMINI_API_KEY, which is a free-tier shared key gated by the
                             20-a-day checkQuota; Pro must not be quota-gated.
                             NEVER prefix with NEXT_PUBLIC_ - that inlines it into the
@@ -923,6 +925,35 @@ already in flight; `exempt` because a complimentary account means the full produ
 `resolveAiKeys` (`lib/serverAiKeys.ts`) decides once per request and is PURE, for
 the same reason `resolveEntitlement` is: the routes must not be able to disagree
 with each other about who is paying.
+
+**A Pro doctor's own free Gemini key goes first.** It costs LushNote nothing, so
+while it has most of its day left it serves their requests, and the paid key
+stands directly behind it as `geminiHandoverKey`. Two mechanisms, doing
+different jobs:
+
+- **The planned switch.** Every request the free key is sent is counted in its
+  own tally, `geminiUsage['free-key']`, on Google's Pacific-midnight calendar.
+  At `FREE_KEY_HANDOVER_AT` (three quarters of `GEMINI_RPD`, so 15 of 20)
+  `resolveAiKeys` retires it for the rest of the day. Before the limit, never at
+  it: one of our requests can be several of Google's (the overload backoff and
+  model fallback in `geminiPost` each send another), and concurrent requests
+  can read the same count, so our tally runs behind Google's.
+- **The request in flight.** If the free key gives out anyway - a per-minute
+  throttle, a tally that ran behind, a key the doctor revoked -
+  `withGeminiHandover` (`lib/geminiHandover.ts`) sends the same request again
+  on the paid key. The doctor gets their note or transcribed segment, not an
+  error. Resent once; a paid-key failure goes to the route's normal handling.
+
+The tally counts **attempts, not successes**, so a dead free key is tried at
+most 15 times before the paid key takes the day. Every AI call site that runs on
+the resolved Gemini key goes through the handover: note generation, structured
+extraction and its truncation retry, transcription, OCR and chat. Transcription
+matters most - a forty-minute consultation is ten of them - and it is also the
+one that was never in the per-model tally, which is why the handover keeps a
+tally of its own rather than reading that one.
+
+A Pro doctor with no key of their own goes straight to the paid key. A trial
+doctor never gets a handover key at all.
 
 **Nothing here can block a doctor.** A missing Pro key, a blank one or a Firestore
 blip all fall back to the doctor's own key and then the shared Groq key. That

@@ -431,9 +431,14 @@ export async function chatResponse(
 
 export const GEMINI_RPD = 20
 
+/** How many requests this tally has counted today, on Google's quota calendar
+ *  (US Pacific midnight). A record from any earlier day counts as zero. */
+export function usedToday(usageRecord: GeminiUsage | undefined, modelKey: string): number {
+  const record = usageRecord?.[modelKey]
+  if (!record || record.date !== quotaDate()) return 0
+  return record.count
+}
+
 export function checkQuota(usageRecord: GeminiUsage, modelKey: string): boolean {
-  const today = quotaDate()
-  const record = usageRecord[modelKey]
-  if (!record || record.date !== today) return true
-  return record.count < GEMINI_RPD
+  return usedToday(usageRecord, modelKey) < GEMINI_RPD
 }
