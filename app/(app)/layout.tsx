@@ -282,17 +282,15 @@ function AppContent({ children }: { children: React.ReactNode }) {
                     onClick={() => setMenuOpen(false)}
                     className="flex items-center justify-between gap-2 px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--bg)] rounded-lg mx-1"
                   >
-                    {label}
-                    {/* The plan, beside the item that manages it - the same
-                        verdict as the "LushNote Pro" title above. Enterprise
-                        is a paying plan too, but runs on the organisation's
-                        own key, so it is named for what it is. */}
-                    {tab === 'subscription' && isProState(entitlement.state) && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0
-                                       bg-[#10b981]/10 text-[#059669] border border-[#10b981]/30">
-                        {isEnterprise(profile.billing) ? 'Enterprise' : 'Pro'}
-                      </span>
-                    )}
+                    <span className="flex items-center gap-1.5">
+                      {label}
+                      {tab === 'subscription' && isProState(entitlement.state) && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full
+                                         bg-[#10b981]/10 text-[#059669] border border-[#10b981]/30">
+                          {isEnterprise(profile.billing) ? 'Enterprise' : 'Pro'}
+                        </span>
+                      )}
+                    </span>
                     {tab === 'support' && supportUnread && (
                       <span className="w-2 h-2 rounded-full bg-red-600 shrink-0 motion-safe:animate-pulse" aria-label="new reply" />
                     )}
