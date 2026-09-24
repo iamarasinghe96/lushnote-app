@@ -28,7 +28,7 @@ test('signs in and reaches the app shell', async ({ signedIn: page }) => {
 test('generates a note from a pasted transcript and exports it', async ({ signedIn: page }) => {
   await page.goto('/generate')
 
-  await page.getByRole('button', { name: /Paste Transcript or Ward Note/ }).click()
+  await page.getByRole('button', { name: /Upload or Paste Notes/ }).click()
   await page.getByRole('button', { name: /^Paste text/ }).click()
 
   await page.getByPlaceholder(/Paste a session transcript/).fill(SMOKE_TRANSCRIPT)
