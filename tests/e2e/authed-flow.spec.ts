@@ -26,7 +26,7 @@ test('signs in and reaches the app shell', async ({ signedIn: page }) => {
 })
 
 test('generates a note from a pasted transcript and exports it', async ({ signedIn: page }) => {
-  await page.goto('/generate')
+  await page.goto('/app/generate')
 
   await page.getByRole('button', { name: /Upload or Paste Notes/ }).click()
   await page.getByRole('button', { name: /^Paste text/ }).click()
@@ -87,14 +87,14 @@ test('the saved note appears under its patient', async ({ signedIn: page }) => {
 
 test('settings panels open', async ({ signedIn: page }) => {
   for (const tab of ['profile', 'api-keys', 'templates']) {
-    await page.goto(`/settings?tab=${tab}`)
+    await page.goto(`/app/settings?tab=${tab}`)
     await expect(page.locator('main, body')).toBeVisible()
     await expect(page.getByText(/something went wrong/i)).toHaveCount(0)
   }
 })
 
 test('billing page renders this account state', async ({ signedIn: page }) => {
-  await page.goto('/billing')
+  await page.goto('/app/billing')
   // The fixture account is billingExempt, so whatever copy it shows, it must
   // not be the paywall.
   await expect(page.getByText(/subscription|billing|trial|access/i).first()).toBeVisible({ timeout: 30_000 })
@@ -191,7 +191,7 @@ async function expectRecording(page: Page): Promise<void> {
 
 test('the record button starts recording on the Generate tab', async ({ signedIn: page }) => {
   const writes = watchRecordingWrites(page)
-  await page.goto('/generate')
+  await page.goto('/app/generate')
   await page.getByRole('button', { name: 'Open capture menu' }).click()
   await page.getByRole('button', { name: 'Record a session' }).click()
   await expectRecording(page)
@@ -205,7 +205,7 @@ test('the record button starts recording from another tab without navigating', a
   // The behaviour change: Record no longer travels to /generate to find a modal.
   // A doctor reaching for it from the patient list records where they stand.
   const writes = watchRecordingWrites(page)
-  await page.goto('/history')
+  await page.goto('/app/history')
   await page.getByRole('button', { name: 'Open capture menu' }).click()
   await page.getByRole('button', { name: 'Record a session' }).click()
   await expectRecording(page)
@@ -217,7 +217,7 @@ test('the record button starts recording from another tab without navigating', a
 })
 
 test('the capture button opens the scan modal from the Generate tab', async ({ signedIn: page }) => {
-  await page.goto('/generate')
+  await page.goto('/app/generate')
   await page.getByRole('button', { name: 'Open capture menu' }).click()
   await page.getByRole('button', { name: /^Capture a note/ }).click()
   await expect(page.getByRole('heading', { name: 'Scan a ward note' })).toBeVisible()
@@ -227,7 +227,7 @@ test('the capture button opens the scan modal from another tab', async ({ signed
   // The path that always worked — arriving from elsewhere mounts the page, so
   // the `?capture=` parameter is what carries the intent. Pinned so a fix for
   // the same-route case cannot quietly break this one.
-  await page.goto('/history')
+  await page.goto('/app/history')
   await page.getByRole('button', { name: 'Open capture menu' }).click()
   await page.getByRole('button', { name: /^Capture a note/ }).click()
   await expect(page).toHaveURL(/\/generate/)

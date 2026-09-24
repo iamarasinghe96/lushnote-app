@@ -55,7 +55,7 @@ export default function BillingBanner({ profile, uid }: { profile: User; uid: st
     >
       <p className="text-xs text-amber-900 flex-1 min-w-[200px]">{message}</p>
       <button
-        onClick={() => router.push('/billing')}
+        onClick={() => router.push('/app/billing')}
         className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--blue)] text-white
                    motion-safe:transition-transform motion-safe:active:scale-95"
       >
@@ -98,7 +98,7 @@ function FairUseNotice({ profile, uid, onHide }: { profile: User; uid: string; o
         Nothing is blocked.
       </p>
       <button
-        onClick={() => router.push('/billing')}
+        onClick={() => router.push('/app/billing')}
         className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--blue)] text-white
                    motion-safe:transition-transform motion-safe:active:scale-95"
       >

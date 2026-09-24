@@ -1,0 +1,490 @@
+'use client'
+
+const EFFECTIVE_DATE = '24 September 2026'
+const CONTACT_EMAIL = 'admin@lushnote.com.au'
+
+export default function TermsContent() {
+  // "Ask the AI agent" lives in the app (the FAB assistant), which isn't on this
+  // standalone page — flag it and navigate; the FAB opens it on the next load.
+  function openAssistant() {
+    try { sessionStorage.setItem('ln-open-assistant', '1') } catch { /* ignore */ }
+    window.location.href = '/app/generate'
+  }
+  return (
+    <div className="text-[#0f172a]">
+      <div className="max-w-3xl mx-auto px-4 py-12 print:py-4">
+
+        <div className="flex justify-end mb-6 print:hidden">
+          <button
+            onClick={() => window.print()}
+            className="text-sm px-4 py-1.5 rounded-full border border-[#e2e8f0] text-[#475569]
+                       hover:border-[#2563eb]/50 hover:text-[#2563eb] motion-safe:transition-colors"
+          >
+            Download PDF
+          </button>
+        </div>
+
+        {/* Acknowledgment */}
+        <div className="mb-10 p-5 rounded-2xl border border-[#d8f0e8] bg-[#f0fdf8]">
+          <p className="text-sm font-semibold text-[#059669] mb-1">Acknowledgment of Country</p>
+          <p className="text-sm text-[#475569] leading-relaxed text-justify">
+            LushNote acknowledges the Traditional Custodians of the lands on which we work and live,
+            and pays respect to Elders past and present. We are committed to building healthcare
+            tools that reduce the documentation burden on all clinicians, freeing up more time
+            for the patients who need care most.
+          </p>
+        </div>
+
+        <h1 className="text-3xl font-bold mb-1">Terms of Service and Privacy Policy</h1>
+        <p className="text-sm text-[#94a3b8] mb-10">Effective date: {EFFECTIVE_DATE}</p>
+
+        <Section title="1. Our Purpose">
+          <p>
+            LushNote is a clinical documentation tool built for clinicians. Our goal is to
+            reduce the time spent on paperwork so you can focus on your patients.
+          </p>
+          <p>
+            Protecting patient privacy is central to everything we do. Every decision about how
+            LushNote works has been made with privacy as the starting point.
+          </p>
+        </Section>
+
+        <Section title="2. Accepting These Terms">
+          <p>
+            By creating a LushNote account, you agree to these Terms of Service and Privacy
+            Policy. If these terms aren&rsquo;t the right fit for you, that&rsquo;s completely
+            understandable - simply choose not to create an account. And if you already have one
+            and change your mind, you can{' '}
+            <a href="/app/settings?tab=profile" className="text-[#2563eb] underline">delete your account</a>{' '}
+            at any time, and all of your data is permanently removed.
+          </p>
+          <p>
+            These terms are governed by Australian law. LushNote is designed to comply with
+            the Privacy Act 1988 (Cth) and the Australian Privacy Principles.
+          </p>
+        </Section>
+
+        <Section title="3. Who We Are">
+          <p>
+            LushNote is an independent tool developed by an individual Australian developer.
+            We are not affiliated with any hospital, health network, or AI company.
+          </p>
+          <p>
+            Questions or concerns? Reach us at{' '}
+            <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#2563eb] underline">{CONTACT_EMAIL}</a>.
+          </p>
+        </Section>
+
+        <Section title="4. What Data We Collect">
+          <SubHeading>Your account</SubHeading>
+          <p>
+            When you sign in with Google, we receive your name, email address, and a unique
+            account identifier. This is only used to log you in and link your notes to your account.
+            We never use your account information for advertising.
+          </p>
+
+          <SubHeading>Your clinical notes</SubHeading>
+          <p>
+            Notes you create, including patient details and session content, are stored securely
+            in your account. Only you can access your own notes. No LushNote team member or
+            administrator can view your patient data.
+          </p>
+
+          <SubHeading>Audio recordings</SubHeading>
+          <p>
+            If you record a session or dictate a note, the audio is streamed straight to the
+            transcription service, converted to text, and then immediately discarded. Only the
+            resulting text - the transcript - is kept, and it is saved as part of the note in your
+            account, where you can review, edit, or delete it like any other note content. The
+            audio file itself is never saved, never uploaded to storage, and never archived, so
+            there is no recording that could be replayed or retrieved after transcription.
+          </p>
+
+          <SubHeading>Letters and generated documents</SubHeading>
+          <p>
+            When you generate a letter (such as a referral, a records request, or a custom
+            letter), it is saved securely to your account in the same way as your clinical
+            notes, so you can find it later under the relevant patient and re-open, edit, or
+            export it. Like your notes, saved letters can only be accessed by you, and no
+            LushNote team member or administrator can view them. You can delete any saved
+            letter at any time. The underlying audio, if you dictated the letter, is still
+            never stored - it is transcribed and immediately discarded.
+          </p>
+
+          <SubHeading>API keys</SubHeading>
+          <p>
+            If you provide your own Gemini or Groq API key, it is stored securely in your
+            account and is never shared or used for any purpose other than making AI requests
+            on your behalf.
+          </p>
+
+          <SubHeading>Usage records</SubHeading>
+          <p>
+            For each account we record, by month, how many AI requests it makes, which service
+            answered them, and our estimate of what they cost. These are counts and dollar
+            figures only - never the content of a request, a transcript or a note. We use them to
+            run and pay for the service, to apply the fair-use allowance described under
+            &ldquo;Subscriptions and Billing&rdquo;, and to notice when one account is being used far
+            beyond what one clinician would. LushNote administrators can see these figures for your
+            account. As with everything else, they cannot see your notes.
+          </p>
+        </Section>
+
+        <Section title="5. How We Protect Your Data">
+          <p>
+            Your data is protected in several straightforward ways:
+          </p>
+          <ul className="list-disc pl-5 space-y-2 text-[#475569]">
+            <li>All data is encrypted while stored and while being transmitted between your device and our servers.</li>
+            <li>Your notes can only be accessed by you. This is enforced at the server level, not just in the application.</li>
+            <li>No developer or administrator at LushNote has access to your clinical notes. There is no admin view of patient data.</li>
+            <li>Sign-in is handled entirely by Google. LushNote never receives or stores your password.</li>
+          </ul>
+        </Section>
+
+        <Section title="6. AI and Third-Party Services">
+          <SubHeading>Does LushNote train AI on your data?</SubHeading>
+          <p>
+            No. Your notes, transcripts, and patient information are never used to train or
+            improve any AI model. Data is sent to AI providers only to generate a response
+            for your immediate request, and only while that request is being processed.
+          </p>
+
+          <SubHeading>Transcript redaction</SubHeading>
+          <p>
+            LushNote includes an optional redaction feature
+            (<a href="/app/settings?tab=transcripts" className="text-[#2563eb] underline">Settings → Transcripts</a>)
+            that automatically removes patient names, dates of birth, phone numbers, and other
+            identifiers from transcripts before they are sent to any AI provider. We recommend
+            enabling this feature.
+          </p>
+
+          <SubHeading>Whose AI key is used</SubHeading>
+          <p>
+            During the free trial, AI requests use your own Gemini or Groq key where you have
+            provided one, and LushNote&rsquo;s shared fallback keys otherwise. On the paid plan,
+            LushNote&rsquo;s own keys serve your requests; if you have saved a Gemini key of your
+            own, it answers your first requests each day on Google&rsquo;s free allowance before
+            LushNote&rsquo;s key takes over. Once an account has used the month&rsquo;s fair-use
+            allowance, its requests go back to its own key, or the shared fallback, until the next
+            month. On Enterprise, requests use your organisation&rsquo;s own API key, under your
+            organisation&rsquo;s own agreement with Google. Whichever key is used, a request is sent
+            only to produce the response you asked for.
+          </p>
+
+          <SubHeading>Services we use</SubHeading>
+          <table className="w-full text-sm border border-[#e2e8f0] rounded-xl overflow-hidden mt-2">
+            <thead className="bg-[#f1f5f9]">
+              <tr>
+                <th className="text-left px-3 py-2 font-semibold">Service</th>
+                <th className="text-left px-3 py-2 font-semibold">What it does</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#e2e8f0]">
+              <tr>
+                <td className="px-3 py-2">Firebase (Google Cloud)</td>
+                <td className="px-3 py-2">Stores your account and clinical notes securely</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2">Google Gemini</td>
+                <td className="px-3 py-2">Transcribes audio and generates notes (request only)</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2">Groq</td>
+                <td className="px-3 py-2">Fallback transcription and note generation (request only)</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2">Vercel</td>
+                <td className="px-3 py-2">Hosts the LushNote website</td>
+              </tr>
+            </tbody>
+          </table>
+        </Section>
+
+        <Section title="7. Your Rights">
+          <p>
+            Under the Australian Privacy Act 1988 and the Australian Privacy Principles, you have
+            the right to:
+          </p>
+          <ul className="list-disc pl-5 space-y-2 text-[#475569]">
+            <li>Access the personal information we hold about you</li>
+            <li>Correct any inaccurate information</li>
+            <li><a href="/app/settings?tab=profile" className="text-[#2563eb] underline">Delete your account</a> and all associated data at any time</li>
+            <li>Lodge a complaint with the Office of the Australian Information Commissioner at{' '}
+              <a href="https://www.oaic.gov.au" className="text-[#2563eb] underline" target="_blank" rel="noopener noreferrer">oaic.gov.au</a>{' '}
+              if you believe your privacy has been mishandled</li>
+          </ul>
+          <p>
+            As a registered clinician, you also hold your own professional obligations under
+            AHPRA and your professional college (RANZCP, RACGP, etc.). LushNote is a
+            documentation tool and does not replace those obligations.
+          </p>
+        </Section>
+
+        <Section title="8. Deleting Your Account">
+          <p>
+            When you delete your LushNote account, all of your data is permanently removed.
+            This includes every clinical note, every patient profile, and your personal
+            account details. The steps happen in this order:
+          </p>
+          <ol className="list-decimal pl-5 space-y-2 text-[#475569]">
+            <li>You confirm your identity via Google sign-in</li>
+            <li>All of your clinical notes are deleted</li>
+            <li>All patient profiles in your account are deleted</li>
+            <li>Your account profile is deleted</li>
+            <li>Your Google account is disconnected from LushNote</li>
+          </ol>
+          <p>
+            Deletion is permanent and cannot be undone. We do not keep backups of deleted
+            accounts. Once deleted, your data cannot be recovered by you or by LushNote.
+          </p>
+          <p>
+            You can{' '}
+            <a href="/app/settings?tab=profile" className="text-[#2563eb] underline">delete your account</a>{' '}
+            at any time from your profile settings.
+          </p>
+        </Section>
+
+        <Section title="9. Your Responsibilities as a Clinician">
+          <p>
+            By using LushNote, you confirm that you:
+          </p>
+          <ul className="list-disc pl-5 space-y-2 text-[#475569]">
+            <li>Will review and verify all AI-generated content before using it clinically or sharing it with patients or colleagues</li>
+            <li>Understand that LushNote is a documentation aid and does not replace clinical judgement</li>
+            <li>Have obtained any consent required by law before recording or transcribing a patient session</li>
+            <li>Will keep your LushNote account and API keys confidential and will not share access with others</li>
+          </ul>
+        </Section>
+
+        <Section title="10. How Long We Keep Your Data">
+          <p>
+            Your notes stay in your account for as long as your account is active. You can
+            delete individual notes at any time from the{' '}
+            <a href="/app/history" className="text-[#2563eb] underline">History tab</a>, or delete
+            everything by{' '}
+            <a href="/app/settings?tab=profile" className="text-[#2563eb] underline">deleting your account</a>.
+          </p>
+          <p>
+            Audio recordings are not stored at all. Letters you generate are saved to your
+            account alongside your notes and kept for as long as your account is active; you
+            can delete any letter at any time. There are no automatic deletion timelines for
+            notes or letters you choose to keep.
+          </p>
+        </Section>
+
+        <Section title="11. Subscriptions and Billing">
+          <p>
+            LushNote is free for three months. After that it is AUD $30 per month, billed monthly
+            until you cancel. Nothing is charged during the trial and we do not ask for payment
+            details to start - we email you a week before the trial ends, and again on the day.
+          </p>
+          <p>
+            Prices are in Australian dollars for everyone, wherever you are. If your card is issued
+            outside Australia your bank converts the charge and may add its own foreign-transaction
+            fee, which we do not receive and cannot control.
+          </p>
+          <p>
+            <strong>Paying.</strong> Card payments are available worldwide. If you bank in Australia
+            you may instead authorise a direct debit, in which case you accept a Direct Debit Request
+            and Service Agreement presented by our payment processor at the time you enter your
+            details. Bank debits can take several business days to clear, and your access continues
+            while that happens.
+          </p>
+          <p>
+            <strong>Cancelling.</strong> You can cancel at any time. Your access continues until the
+            end of the period you have already paid for, and nothing further is charged. We do not
+            refund the unused part of a period you chose to end early.
+          </p>
+          <p>
+            <strong>Fair use.</strong> The subscription includes AI on LushNote&rsquo;s keys up to a
+            monthly fair-use allowance. The allowance is set at what one subscription pays for, after
+            payment-processing fees, and is measured with our own estimate of what the AI provider
+            charges for your requests, which you can follow on the Billing page. It exists so that
+            an account used far beyond one clinician&rsquo;s needs is not paid for by everyone
+            else&rsquo;s subscription. When an account uses its allowance, its AI requests run on the
+            account&rsquo;s own API key, or LushNote&rsquo;s shared fallback, until the start of the next
+            calendar month. Nothing is blocked, nothing extra is charged, and your notes are not
+            affected, although the AI may be slower or limited by your own key&rsquo;s allowance.
+          </p>
+          <p>
+            <strong>Enterprise.</strong> You can move to Enterprise at any time from the Billing page.
+            The subscription price does not change. Your AI requests then run on your
+            organisation&rsquo;s own Gemini API key, and your organisation pays Google directly for them,
+            at Google&rsquo;s prices and under its own agreement with Google, in addition to the LushNote
+            subscription. No fair-use allowance applies. You can return to the standard plan at any
+            time. We may contact an account that regularly uses its allowance to suggest Enterprise,
+            and may move an account to Enterprise after agreeing it with you.
+          </p>
+          <p>
+            <strong>Pausing.</strong> Pausing stops future charges and keeps your account, your
+            payment details and everything you have written. Access continues to the end of the
+            period you have paid for and resumes as soon as you un-pause. Pausing deletes nothing.
+          </p>
+          <p>
+            <strong>If a payment fails.</strong> Our payment processor retries over about two weeks
+            and emails you about it. If it never succeeds, creating and editing notes is paused -
+            but reading, exporting and your patient list keep working, because your clinical records
+            are never held behind a payment.
+          </p>
+          <p>
+            <strong>Refunds.</strong> If we bill you in error we refund it in full. Otherwise we do
+            not refund partly-used periods. Nothing in these terms limits your rights under the
+            Australian Consumer Law.
+          </p>
+          <p>
+            <strong>Records.</strong> Billing is handled by Gaia Symbiosis (sole trader, ABN shown on
+            your invoices). Tax invoices and receipts are emailed automatically. We are required to
+            keep invoice, transaction and GST records for five years, so those records are retained
+            even after you delete your account - see &ldquo;How Long We Keep Your Data&rdquo; above.
+            Your card and bank details are held by our payment processor, never by LushNote.
+          </p>
+        </Section>
+
+        <Section title="12. Data Breach Notification">
+          <p>
+            If a data breach occurs that could cause serious harm, we will notify both the
+            Office of the Australian Information Commissioner and any affected users as
+            quickly as possible, in line with the Notifiable Data Breaches scheme under the
+            Privacy Act 1988 (Cth).
+          </p>
+        </Section>
+
+        <Section title="13. Disclaimer">
+          <p>
+            LushNote is provided as-is. While we work hard to keep the service reliable and
+            accurate, we cannot guarantee that AI-generated notes will always be clinically
+            correct. You are responsible for reviewing all output before using it.
+          </p>
+          <p>
+            To the extent permitted by Australian Consumer Law, LushNote is not liable for
+            any loss arising from reliance on AI-generated content or from service outages.
+            Your statutory rights under the Australian Consumer Law are not affected.
+          </p>
+        </Section>
+
+        <Section title="14. Changes to These Terms">
+          <p>
+            If we make significant changes to these terms, we will update the date at the top
+            of this page and notify active users by email. Continuing to use LushNote after
+            being notified of changes means you accept the updated terms.
+          </p>
+        </Section>
+
+        {/* FAQ */}
+        <div className="mt-14">
+          <h2 className="text-2xl font-bold mb-6">Common Questions</h2>
+          <div className="space-y-4">
+            <FAQ q="If I delete my account, does all my data get deleted?">
+              Yes, everything is deleted permanently. Every note, every patient profile, and
+              your personal account details are removed immediately. This cannot be undone,
+              and we cannot recover deleted data.
+            </FAQ>
+
+            <FAQ q="If I recorded a patient session, can someone hack LushNote and get to it?">
+              Audio is never stored. It exists only for the few seconds it takes to transcribe,
+              then it is gone. There is no recording archive that could be accessed. Your written
+              notes are stored securely and can only be accessed by your account.
+            </FAQ>
+
+            <FAQ q="Does LushNote train AI on my patient data?">
+              No. Your data is never used to train or improve any AI model. It is only sent to
+              the AI provider in the moment you generate a note, purely to produce that response.
+            </FAQ>
+
+            <FAQ q="Who can see my patient notes?">
+              Only you. No LushNote developer or administrator has access to your clinical notes.
+              There is no internal dashboard where staff can view patient data.
+            </FAQ>
+
+            <FAQ q="Where is my data stored?">
+              Your notes are stored on Google Cloud (Firebase), which uses secure data centres
+              and encrypts all data at rest and in transit. LushNote does not run its own
+              database servers.
+            </FAQ>
+
+            <FAQ q="What happens to the audio after a session recording?">
+              The audio is transcribed to text immediately and then discarded. Only that text -
+              the transcript - is kept, as part of your note in your account. The audio file is
+              never saved, never uploaded to storage, and cannot be retrieved or replayed after
+              transcription is complete.
+            </FAQ>
+
+            <FAQ q="Is LushNote compliant with Australian privacy law?">
+              Yes. LushNote is designed to comply with the Privacy Act 1988 (Cth) and the
+              Australian Privacy Principles. As a clinician, you also hold your own obligations
+              under state health records laws and AHPRA standards, which LushNote supports but
+              does not replace.
+            </FAQ>
+
+            <FAQ q="Can the developer access my patient data?">
+              No. There is no back-door, no admin account, and no internal tool that gives
+              anyone at LushNote access to clinical note content. Your notes are protected
+              at the server level, not just by the application.
+            </FAQ>
+
+            <FAQ q="What patient information does LushNote store?">
+              Only what you type into the note fields: patient name, registration number, date,
+              diagnosis, session notes, and so on. LushNote does not collect Medicare numbers,
+              home addresses, photos, or billing details.
+            </FAQ>
+
+            <FAQ q="What is the fair-use allowance?">
+              The paid plan includes AI on LushNote&rsquo;s keys up to a monthly allowance, set at what
+              one subscription pays for. One clinician rarely comes near it. If an account uses it, the
+              AI runs on the account&rsquo;s own key until the next month, and nothing is blocked. Practices
+              and heavy users can move to Enterprise, where the AI runs on their own organisation&rsquo;s key
+              and Google bills them for it directly. LushNote records only counts and estimated costs to
+              measure this, never what your notes say.
+            </FAQ>
+
+            <FAQ q="I am a patient. How do I request my records?">
+              Patient records are stored under the account of the treating clinician. Please contact
+              your clinician directly to request access to or deletion of your records. If you
+              have a privacy concern, you can also contact the OAIC at oaic.gov.au.
+            </FAQ>
+          </div>
+        </div>
+
+        {/* Contact */}
+        <div className="mt-14 pt-8 border-t border-[#e2e8f0]">
+          <p className="text-sm text-[#475569]">
+            If you have any questions about these terms or a privacy concern, please reach out to{' '}
+            <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#2563eb] underline">{CONTACT_EMAIL}</a>{' '}
+            or{' '}
+            <button type="button" onClick={openAssistant} className="text-[#2563eb] underline">ask the AI agent</button>.
+            We aim to respond within 5 business days.
+          </p>
+          <p className="text-xs text-[#94a3b8] mt-3">
+            LushNote. Built to save doctors. &copy; 2025
+          </p>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mb-10">
+      <h2 className="text-lg font-bold text-[#0f172a] mb-3 pb-2 border-b border-[#e2e8f0]">{title}</h2>
+      <div className="space-y-3 text-[#475569] leading-relaxed text-sm text-justify">
+        {children}
+      </div>
+    </section>
+  )
+}
+
+function SubHeading({ children }: { children: React.ReactNode }) {
+  return <p className="font-semibold text-[#0f172a] mt-4 mb-1">{children}</p>
+}
+
+function FAQ({ q, children }: { q: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-[#e2e8f0] bg-white p-5">
+      <p className="font-semibold text-[#0f172a] text-sm mb-2">{q}</p>
+      <p className="text-sm text-[#475569] leading-relaxed text-justify">{children}</p>
+    </div>
+  )
+}

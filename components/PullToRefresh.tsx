@@ -7,7 +7,7 @@ import { isReloadRisky } from '@/lib/reloadGuard'
 // Routes where pull-to-refresh must stay OFF. The Export tab scrolls a scaled
 // A4 form preview; a top-of-scroll pull there fights the preview scroll and
 // would reload mid-review. Everywhere else (Generate, Edit, Patients…) keeps it.
-const DISABLED_ROUTES = ['/export']
+const DISABLED_ROUTES = ['/app/export']
 
 // The app uses a fixed 100dvh layout with `overflow: hidden` on <body>, so the
 // browser's native pull-to-refresh never fires (it needs the document itself to

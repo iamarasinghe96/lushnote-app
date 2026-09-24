@@ -13,14 +13,53 @@ test('the deployment reports which commit it is running', async ({ request }) =>
   expect(body.sha.length).toBeGreaterThan(0)
 })
 
-test('landing page shows the hero and the price', async ({ page }) => {
+test('landing page shows the hero and the way in', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Clinical notes in seconds' })).toBeVisible()
-  // The price is fetched, so it starts at the default and may be replaced. Both
-  // readings are the same offer; what must never happen is the section rendering
-  // without a price at all.
-  await expect(page.getByRole('heading', { name: /Three months free\. Then .*\$30/ })).toBeVisible()
-  await expect(page.getByText(/No payment details to start/)).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Psychiatrist with a documentation backlog?' })).toBeVisible()
+  await page.getByRole('link', { name: 'Start your free trial' }).first().click()
+  await expect(page).toHaveURL(/\/login$/)
+  await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
+})
+
+// Google showed the site with no title and no description because the old
+// landing page rendered a spinner on the server and its content only in the
+// browser. This reads the raw HTML, before any JavaScript, as a crawler does.
+test('the landing page content is in the server HTML', async ({ request }) => {
+  const html = await (await request.get('/')).text()
+  expect(html).toContain('<title>LushNote - AI clinical notes for psychiatrists</title>')
+  expect(html).toContain('Turn psychiatric consultations into progress notes')
+  expect(html).toContain('Psychiatrist with a documentation backlog?')
+  expect(html).toContain('"@type":"Organization"')
+})
+
+test('pricing page shows the price', async ({ page }) => {
+  await page.goto('/pricing')
+  await expect(page.getByRole('heading', { level: 1, name: 'Pricing' })).toBeVisible()
+  await expect(page.getByText('A$30/month', { exact: true })).toBeVisible()
+})
+
+test('every public page is reachable from the header or footer', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.goto('/')
+  for (const [name, path] of [['How it works', '/how-it-works'], ['Pricing', '/pricing'], ['Security', '/security'], ['About', '/about'], ['Contact', '/contact']]) {
+    await expect(page.getByRole('navigation', { name: 'Main' }).first().getByRole('link', { name })).toHaveAttribute('href', path)
+  }
+  for (const [name, path] of [['Privacy', '/privacy'], ['Terms', '/terms'], ['Security', '/security'], ['Contact', '/contact']]) {
+    await expect(page.getByRole('navigation', { name: 'Footer' }).getByRole('link', { name, exact: true })).toHaveAttribute('href', path)
+  }
+})
+
+test('the app is never offered to search engines', async ({ request }) => {
+  const res = await request.get('/app/generate')
+  expect(res.headers()['x-robots-tag']).toContain('noindex')
+  expect(await res.text()).toContain('<meta name="robots" content="noindex, nofollow"/>')
+})
+
+test('an old app address still lands in the app', async ({ page }) => {
+  // Bookmarks, installed home-screen apps, emails and Stripe return URLs all
+  // carry the paths from before the app moved under /app.
+  await page.goto('/settings?tab=profile')
+  await expect(page).toHaveURL(/\/login$/)
 })
 
 test('terms and privacy policy is reachable and complete', async ({ page }) => {
@@ -29,11 +68,11 @@ test('terms and privacy policy is reachable and complete', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Common Questions' })).toBeVisible()
 })
 
-test('billing page sends a signed-out visitor back to the landing page', async ({ page }) => {
-  // /billing lives outside the (app) group so a lapsed doctor can reach it.
+test('billing page sends a signed-out visitor to log in', async ({ page }) => {
+  // /app/billing lives outside the (shell) group so a lapsed doctor can reach it.
   // Signed out, it must not render billing state to nobody.
-  await page.goto('/billing')
-  await expect(page).toHaveURL(/\/$/)
+  await page.goto('/app/billing')
+  await expect(page).toHaveURL(/\/login$/)
 })
 
 test('the deployment under test has the preview flags on', async ({ page, baseURL }) => {

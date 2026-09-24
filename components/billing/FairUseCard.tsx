@@ -107,7 +107,7 @@ export default function FairUseCard({ fairUse, paid, hasOwnGeminiKey, busy, onEn
           {!hasOwnGeminiKey ? (
             <p className="text-xs leading-relaxed text-[var(--text2)]">
               First save your organisation&apos;s Gemini key in{' '}
-              <a href="/settings?tab=api-keys" className="text-[var(--blue)] underline">Settings, API Keys</a>, then come back here.
+              <a href="/app/settings?tab=api-keys" className="text-[var(--blue)] underline">Settings, API Keys</a>, then come back here.
             </p>
           ) : (
             <>

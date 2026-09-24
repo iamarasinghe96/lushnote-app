@@ -1,4 +1,7 @@
 import Link from 'next/link'
+import { NOINDEX } from '@/lib/noindex'
+
+export const metadata = NOINDEX
 
 export default function AccountDeletedPage() {
   return (

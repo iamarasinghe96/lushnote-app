@@ -50,13 +50,13 @@ export default function TabBar() {
   const { lastTranscript } = useNoteStore()
 
   const tabs = [
-    { href: '/generate',   label: 'Generate',   icon: GenerateIcon },
-    { href: '/edit',       label: 'Edit',        icon: EditIcon },
-    { href: '/export',     label: 'Export',      icon: ExportIcon },
+    { href: '/app/generate',   label: 'Generate',   icon: GenerateIcon },
+    { href: '/app/edit',       label: 'Edit',        icon: EditIcon },
+    { href: '/app/export',     label: 'Export',      icon: ExportIcon },
     lastTranscript
-      ? { href: '/transcript', label: 'Transcript', icon: TranscriptIcon }
-      : { href: '/history',    label: 'History',    icon: HistoryIcon },
-    { href: '/patients',   label: 'Patients',    icon: PatientsIcon },
+      ? { href: '/app/transcript', label: 'Transcript', icon: TranscriptIcon }
+      : { href: '/app/history',    label: 'History',    icon: HistoryIcon },
+    { href: '/app/patients',   label: 'Patients',    icon: PatientsIcon },
   ]
 
   const activeIndex = tabs.findIndex(

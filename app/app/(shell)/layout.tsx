@@ -1,0 +1,382 @@
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
+import { useRouter, usePathname } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
+import { NoteStoreProvider, useNoteStore } from '@/hooks/useNoteStore'
+import { useSupportThread } from '@/hooks/useSupportThread'
+import TabBar from '@/components/tabs/TabBar'
+import { FAB } from '@/components/FAB'
+import { PullToRefresh } from '@/components/PullToRefresh'
+import { RateLimitBanner } from '@/components/ui/RateLimitBanner'
+import WhatsNewPopup from '@/components/WhatsNewPopup'
+import { resolveHolidayTheme, holidayBackgroundStyle, themeFor, readHolidayOverride, campaignActive, campaignTheme, type HolidayKey } from '@/lib/holidayTheme'
+import { getInitials, applyWorkspaceTheme, resolveThemePrimary } from '@/lib/utils'
+import { getLetterhead } from '@/lib/firestore/letterheads'
+import { getHolidayAppearance, type HolidayAppearance } from '@/lib/holidayTiles'
+import { resolveEntitlement, isProState } from '@/lib/entitlement'
+import { isEnterprise } from '@/lib/fairUse'
+import PaywallScreen from '@/components/PaywallScreen'
+import BillingBanner from '@/components/BillingBanner'
+
+// Where notes are made. Everything else — History, Patients, Export, Settings —
+// stays reachable when a subscription lapses.
+const CREATE_ROUTES = ['/app/generate', '/app/edit', '/app/transcript']
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <NoteStoreProvider>
+      <AppContent>{children}</AppContent>
+    </NoteStoreProvider>
+  )
+}
+
+function AppContent({ children }: { children: React.ReactNode }) {
+  const { user, profile, loading, signOut } = useAuth()
+  const store = useNoteStore()
+  const router = useRouter()
+  const pathname = usePathname()
+  const [menuOpen, setMenuOpen] = useState(false)
+  // Admin preview only. Read after mount because localStorage isn't available
+  // during SSR; a real holiday never depends on it, so nothing flashes.
+  const [holidayPreview, setHolidayPreview] = useState<HolidayKey | null>(null)
+  useEffect(() => { setHolidayPreview(readHolidayOverride()) }, [])
+  // Artwork uploaded from the admin console wins over the file in /public. The
+  // read is async, but the gradient underneath means there is nothing to flash.
+  const [appearance, setAppearance] = useState<HolidayAppearance>({ tiles: {}, scrims: {} })
+  useEffect(() => { getHolidayAppearance().then(setAppearance) }, [])
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [rateLimitWait, setRateLimitWait] = useState<number | null>(null)
+  const [pendingRetry, setPendingRetry] = useState<(() => void) | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (loading) return
+    if (!user) { router.replace('/login'); return }
+    if (!profile?.onboardingComplete) router.replace('/app/onboarding')
+  }, [loading, user, profile, router])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    function onMouseDown(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [menuOpen])
+
+  useEffect(() => { setMenuOpen(false) }, [pathname])
+
+  // The menu has to outlive `menuOpen` by the length of its closing animation,
+  // or it would vanish the instant it is dismissed and only the opening would
+  // look considered.
+  //
+  // A timer rather than `onAnimationEnd`: an interrupted or never-fired
+  // animation would leave the panel mounted and invisible over the page, and an
+  // invisible panel that swallows taps is a far worse bug than a 140ms delay
+  // nobody can see. `pointer-events-none` covers that window anyway.
+  const [menuMounted, setMenuMounted] = useState(false)
+  useEffect(() => {
+    if (menuOpen) { setMenuMounted(true); return }
+    if (!menuMounted) return
+    const t = setTimeout(() => setMenuMounted(false), 140)
+    return () => clearTimeout(t)
+  }, [menuOpen, menuMounted])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  useEffect(() => {
+    function handler(e: Event) {
+      const detail = (e as CustomEvent<{ waitSeconds: number; retry?: () => void }>).detail
+      if (detail.retry) setPendingRetry(() => detail.retry!)
+      setRateLimitWait(detail.waitSeconds)
+    }
+    window.addEventListener('groq-rate-limit', handler)
+    return () => window.removeEventListener('groq-rate-limit', handler)
+  }, [])
+
+  useEffect(() => {
+    if (!profile) return
+    const wp = profile.workplaces?.find(w => w.id === profile.activeWorkplaceId)
+    applyWorkspaceTheme(wp?.themeIndex ?? 1, wp?.themeColor)
+  }, [profile])
+
+  // Load shared letterhead for active workplace into NoteStore
+  useEffect(() => {
+    if (!profile) return
+    const activeWp = profile.workplaces?.find(w => w.id === profile.activeWorkplaceId)
+    if (!activeWp?.name) { store.setActiveLetterhead(null); return }
+    getLetterhead(activeWp.name).then(lh => store.setActiveLetterhead(lh))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.activeWorkplaceId])
+
+  async function handleSignOut() {
+    await signOut()
+    router.replace('/')
+  }
+
+  if (loading) return <LoadingScreen />
+  if (!user || !profile?.onboardingComplete) return null
+
+  // Suspended by an admin: block the app entirely (the account's sign-in is also
+  // disabled server-side, so this is the in-session backstop). Only a sign-out.
+  if (profile.status === 'disabled') {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center bg-[var(--bg)]">
+        <div className="w-12 h-12 rounded-full bg-red-100 border border-red-300 flex items-center justify-center text-red-600 text-xl">⚠️</div>
+        <h1 className="text-lg font-semibold text-[var(--text)]">Your account is suspended</h1>
+        <p className="text-sm text-[var(--text2)] max-w-sm">Access to LushNote has been paused. If you think this is a mistake, contact admin@lushnote.com.au.</p>
+        <button onClick={handleSignOut} className="mt-2 px-4 py-2 rounded-[var(--r)] bg-[var(--blue)] text-white text-sm font-medium">Sign out</button>
+      </div>
+    )
+  }
+
+  // Paywalled: the note-creating tabs are replaced, the reading ones are not.
+  // Same verdict the API routes reach, from the same pure resolver on the same
+  // webhook-written fields — a client that decided this for itself would drift.
+  const entitlement = resolveEntitlement(profile.billing, Date.now())
+  const paywalled = !entitlement.entitled && CREATE_ROUTES.some(r => pathname.startsWith(r))
+
+  // Resolved synchronously from today's date — no fetch, no effect — so the
+  // themed bar is correct on the FIRST paint and a refresh on the day never
+  // flashes the plain blue.
+  // A campaign outranks every calendar theme: it is put up deliberately, for a
+  // reason that matters more on the day than tinsel does. It is the one theme
+  // that cannot resolve synchronously — its window lives in Firestore — but the
+  // gradient underneath means there is still no blue flash.
+  const campaign = appearance.campaign && campaignActive(appearance.campaign, new Date())
+    ? campaignTheme(appearance.campaign)
+    : null
+  const holiday = campaign
+    ?? resolveHolidayTheme(new Date())
+    ?? (holidayPreview ? (holidayPreview === 'campaign' && appearance.campaign ? campaignTheme(appearance.campaign) : themeFor(holidayPreview)) : null)
+  const activeWorkplace = profile?.workplaces?.find(w => w.id === profile.activeWorkplaceId)
+  const avatarBg = resolveThemePrimary(activeWorkplace?.themeIndex ?? 1, activeWorkplace?.themeColor)
+  const initials = getInitials(profile?.displayName || '')
+  const { hasUnread: supportUnread } = useSupportThread()
+
+  return (
+    <div className="relative flex flex-col bg-[var(--bg)]" style={{ height: '100dvh' }}>
+
+      {/* ── Header — absolute pill, floats over page content ── */}
+      <header
+        data-header
+        data-glass
+        className={`ln-glass ln-glass-brand lg-frost-sm absolute left-4 right-4 z-30${holiday ? ' ln-holiday' : ''}`}
+        style={{
+          top: 'calc(env(safe-area-inset-top) + 8px)',
+          height: 60,
+          borderRadius: 30,
+          boxShadow: '0 4px 20px rgba(37,99,235,0.22)',
+          overflow: 'visible',
+          // Only the background changes on a holiday. Geometry, glass and every
+          // child keep their existing rules, so there is nothing to re-layout.
+          ...(holiday ? holidayBackgroundStyle(holiday, appearance.tiles[holiday.key], appearance.scrims[holiday.key]) : {}),
+        }}
+      >
+        <div className="relative z-10 flex items-center justify-between px-4 h-full">
+
+        {/* Left: LN circle + name/subtitle */}
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={() => router.push('/app/generate')}
+            aria-label="Home"
+            className="shrink-0 rounded-full motion-safe:transition-transform motion-safe:active:scale-95"
+          >
+            <img src="/LushNote_Logo.svg" alt="LushNote - Home" className="w-10 h-10 rounded-full" />
+          </button>
+          {profile && (
+            <div className={`flex flex-col min-w-0${holiday ? ' ln-holiday-text' : ''}`}>
+              <span className="text-sm font-bold text-white leading-tight truncate max-w-[200px] sm:max-w-xs">
+                {holiday?.banner
+                  ? holiday.banner.replace('{name}', profile.displayName)
+                  : profile.displayName}
+              </span>
+              <span className="text-xs text-white/70 leading-tight truncate max-w-[200px] sm:max-w-xs">
+                {[profile.credentials, activeWorkplace?.name].filter(Boolean).join(' · ')}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Right: LushNote wordmark + avatar */}
+        <div className="flex items-center gap-3">
+          {/* Pro is the same predicate that routes the paid AI key, so the
+              wordmark cannot claim something the AI disagrees with - and a
+              bounced payment drops the badge at the moment it drops the key. */}
+          <span className={`text-white font-semibold text-sm hidden sm:block select-none${holiday ? ' ln-holiday-text' : ''}`}>
+            LushNote{isProState(entitlement.state) && <span className="font-extrabold"> Pro</span>}
+          </span>
+          <div ref={menuRef} className="relative">
+            <button
+              style={{ backgroundColor: avatarBg }}
+              className={`w-9 h-9 rounded-full text-white text-xs font-bold flex items-center justify-center shrink-0
+                         border-2 motion-safe:transition-all motion-safe:active:scale-95
+                         ${menuOpen ? 'border-white ring-2 ring-white/30' : 'border-white/50'}`}
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label="User menu"
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+            >
+              {initials}
+            </button>
+            {/* Support moved into Settings, but a human reply still has to be
+                noticeable from anywhere. The dot rides the avatar, which is the
+                one control on every screen that leads to Settings. */}
+            {supportUnread && (
+              <span
+                className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-600 border-2 border-white motion-safe:animate-pulse"
+                aria-hidden
+              />
+            )}
+
+            {menuMounted && (
+              <div
+                role="menu"
+                className={`absolute right-0 top-11 w-52 rounded-xl bg-white
+                           border border-[var(--border)] py-1 z-40
+                           ${menuOpen ? '' : 'pointer-events-none'}`}
+                style={{
+                  boxShadow: 'var(--shadow-lg)',
+                  // Under the avatar, so the scale reads as the menu unfolding
+                  // out of the button rather than growing from its own middle.
+                  transformOrigin: 'top right',
+                  animation: `${menuOpen ? 'menu-in' : 'menu-out'} 0.14s cubic-bezier(0.22,1,0.36,1) both`,
+                }}
+              >
+                {/* The caret is what makes it one object with the avatar rather
+                    than a card that happens to be nearby. A rotated square
+                    showing only its top and left edges, centred on the avatar:
+                    the panel is right-aligned and the avatar is 36px wide, so
+                    its centre sits 18px in, and a 12px caret at right-3 lands
+                    exactly under it. */}
+                <span
+                  aria-hidden
+                  className="absolute -top-[7px] right-3 h-3 w-3 rotate-45 rounded-tl-[3px]
+                             bg-white border-l border-t border-[var(--border)]"
+                />
+                <div className="relative px-3 py-2 text-xs text-[var(--text3)] border-b border-[var(--border)] truncate select-none">
+                  {user.email}
+                </div>
+
+                {([
+                  { label: 'Profile',         tab: 'profile' },
+                  { label: 'Workplaces',      tab: 'workplaces' },
+                  { label: 'Templates',       tab: 'templates' },
+                  { label: 'Transcripts',     tab: 'transcripts' },
+                  { label: 'API Keys',        tab: 'api-keys' },
+                  { label: 'Personalisation', tab: 'personalisation' },
+                  { label: 'Subscription',    tab: 'subscription' },
+                  { label: 'Live Support',    tab: 'support' },
+                ] as const).map(({ label, tab }) => (
+                  <Link
+                    key={tab}
+                    href={`/app/settings?tab=${tab}`}
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center justify-between gap-2 px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--bg)] rounded-lg mx-1"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {label}
+                      {tab === 'subscription' && isProState(entitlement.state) && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full
+                                         bg-[#10b981]/10 text-[#059669] border border-[#10b981]/30">
+                          {isEnterprise(profile.billing) ? 'Enterprise' : 'Pro'}
+                        </span>
+                      )}
+                    </span>
+                    {tab === 'support' && supportUnread && (
+                      <span className="w-2 h-2 rounded-full bg-red-600 shrink-0 motion-safe:animate-pulse" aria-label="new reply" />
+                    )}
+                  </Link>
+                ))}
+
+                <div className="h-px bg-[var(--border)] mx-2 my-1" />
+
+                {user?.uid === process.env.NEXT_PUBLIC_ADMIN_UID && (
+                  <>
+                    <Link
+                      href="/admin"
+                      onClick={() => setMenuOpen(false)}
+                      className="block px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--bg)] rounded-lg mx-1"
+                    >
+                      Admin Console
+                    </Link>
+                    <div className="h-px bg-[var(--border)] mx-2 my-1" />
+                  </>
+                )}
+
+                <button
+                  onClick={handleSignOut}
+                  className="w-full text-left px-3 py-2 text-sm text-[var(--danger)]
+                             hover:bg-[var(--bg)] rounded-lg mx-1"
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        </div>{/* end z-10 content wrapper */}
+      </header>
+
+      {/* ── Content — fills entire 100dvh behind the absolute header ── */}
+      <main className="flex-1 overflow-hidden relative">
+        {/* Rate limit banner sits below the header */}
+        {rateLimitWait !== null && (
+          <div className="absolute left-0 right-0 z-20" style={{ top: 'calc(env(safe-area-inset-top) + 76px)' }}>
+            <RateLimitBanner
+              waitSeconds={rateLimitWait}
+              onDismiss={() => setRateLimitWait(null)}
+              onRetry={() => { setRateLimitWait(null); pendingRetry?.() }}
+            />
+          </div>
+        )}
+        {/* Above the page, not over it: a doctor mid-note should read this, not
+            have it cover what they are writing. */}
+        {!paywalled && <BillingBanner profile={profile} uid={user.uid} />}
+        <div key={pathname} className="animate-fade-in h-full" style={{ willChange: 'opacity' }}>
+          {paywalled ? <PaywallScreen state={entitlement.state} /> : children}
+        </div>
+      </main>
+
+      {/* ── Tab bar ── */}
+      <TabBar />
+
+      {/* ── FAB ── */}
+      <FAB />
+
+      {/* ── One-time "What's New" popup ── */}
+      <WhatsNewPopup />
+
+      {/* ── Pull-to-refresh (touch only) ── */}
+      <PullToRefresh />
+
+      {/* ── Toast ── */}
+      {toast && (
+        <div className="fixed left-1/2 -translate-x-1/2 z-[70] bg-[var(--text)] text-white text-xs rounded-full px-4 py-2 pointer-events-none select-none"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)', boxShadow: '0 2px 8px rgba(15,23,42,.12)' }}>
+          {toast}
+        </div>
+      )}
+
+    </div>
+  )
+}
+
+function LoadingScreen() {
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-[#f8fafc]">
+      <svg width="32" height="32" viewBox="0 0 24 24" className="animate-spin text-[#10b981]" aria-hidden>
+        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" strokeOpacity="0.25"/>
+        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="4" fill="none" strokeLinecap="round"/>
+      </svg>
+    </div>
+  )
+}

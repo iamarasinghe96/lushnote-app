@@ -41,8 +41,10 @@ between them forbade touching most of the live codebase.
 
 | Directory | What lives there |
 |---|---|
-| `app/(app)/` | The authenticated shell and its tabs: generate, edit, export, history, patients, transcript |
-| `app/` (siblings) | Routes OUTSIDE the shell, deliberately: `settings`, `billing`, `admin`, `onboarding`, `terms`, `unsubscribe`, `account-deleted`, `e2e-login` |
+| `app/(marketing)/` | The public site, server-rendered with no auth check: `/`, `how-it-works`, `pricing`, `security`, `privacy`, `terms`, `about`, `contact`, `login`. See "Public site and search" |
+| `app/app/(shell)/` | The authenticated shell and its tabs, served under `/app`: generate, edit, export, history, patients, transcript |
+| `app/app/` (siblings of the shell) | `settings`, `billing`, `onboarding`: signed-in, under `/app`, but outside the shell deliberately |
+| `app/` (other) | `admin`, `unsubscribe`, `account-deleted`, `e2e-login`, plus `robots.ts` and `sitemap.ts` |
 | `app/api/` | Server routes. The four AI ones are `generate`, `transcribe`, `chat`, `ocr`; then `billing`, `stripe/webhook`, `lifecycle`, `support`, `log`, `version`, and the `admin/*` family |
 | `components/ui/` | Shared primitives. Includes `Select` (a native select cannot be themed) and `BackButton` |
 | `components/modals/`, `tabs/`, `settings/`, `admin/`, `billing/`, `patients/`, `capture/`, `hospital-form/` | Feature components, one directory per area |
@@ -1073,22 +1075,58 @@ array order = picker priority, ≤15). Each has `{ id, title, description, secti
 ## Auth Flow
 
 ```
-Page load
+/login → Continue with Google → /app → /app/generate
 → Firebase onAuthStateChanged
-  → no user        → landing page
+  → no user        → /login
   → has user       → load Firestore profile
-    → new/missing  → onboarding (6 steps)
-    → incomplete   → onboarding
+    → new/missing  → /app/onboarding (6 steps)
+    → incomplete   → /app/onboarding
     → complete     → app shell → active tab
 ```
 
-Onboarding steps (6, all in `app/onboarding/page.tsx`): (1) About you — name +
+The public pages never redirect a signed-in doctor. They show an "Open LushNote"
+link instead, except in an installed home-screen app, which is forwarded to
+`/app` (`components/marketing/SignedInBar.tsx` says why).
+
+Onboarding steps (6, all in `app/app/onboarding/page.tsx`): (1) About you — name +
 credentials + position + provider no. + work phone (2) Workplace (3) Email
 template (4) AI keys — separate Gemini and Groq inputs (5) Signature (6) Review.
 Only name, workplace and the terms tick are required; 3–5 are skippable.
 Every review row carries a pencil: plain text fields edit in place, workplace /
 AI keys / signature reopen their step with a **Back to review** return. The full
 pathway and its expected outputs are recorded in `WORKFLOWS.md`.
+
+---
+
+## Public site and search
+
+Google once listed lushnote.com.au with no title and no description. The landing
+page was a client component that rendered a spinner on the server until Firebase
+settled, so a crawler received an empty shell, and there was no robots.txt or
+sitemap. The fix split the site in two:
+
+- **The public site** (`app/(marketing)/`) is server-rendered with no auth check,
+  so its content is in the HTML. Each page exports its own title, description,
+  canonical and social card through `pageMeta` in `lib/site.ts`, which also holds
+  the canonical host and the page list the sitemap is built from. The home page
+  carries an Organization JSON-LD record. No analytics or third-party scripts
+  anywhere, public site or app.
+- **The app** moved under `/app`, and every page there is `noindex` twice over:
+  the metadata in `app/app/layout.tsx` and an `X-Robots-Tag` header in
+  `next.config.mjs`. The old paths (`/generate`, `/billing`, ...) redirect with a
+  307, query string included, because bookmarks, installed home-screen apps,
+  emails already sent and Stripe's return URLs still use them.
+- **Only production is indexable.** `INDEXABLE` is `VERCEL_ENV === 'production'`.
+  Every other build sends `noindex` in the root metadata, an `X-Robots-Tag` on
+  every route, and a robots.txt that disallows everything.
+
+`/terms` holds the agreed Terms of Service and Privacy Policy, and its text is
+unchanged by the move. `/privacy` and `/security` are placeholders marked TODO,
+deliberately: legal, data-residency and retention statements are the owner's to
+write.
+
+`tests/e2e/public.spec.ts` reads the raw HTML of `/`, as a crawler does, and fails
+if the title, description or headline are missing from it.
 
 ---
 

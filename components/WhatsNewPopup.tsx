@@ -37,7 +37,7 @@ export default function WhatsNewPopup() {
 
   function seeMore() {
     dismiss()
-    router.push('/settings?tab=whats-new')
+    router.push('/app/settings?tab=whats-new')
   }
 
   if (!item) return null

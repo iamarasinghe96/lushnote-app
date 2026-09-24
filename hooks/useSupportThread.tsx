@@ -6,7 +6,7 @@ import { LUSHNOTE_KB, SUPPORT_TOPICS, playSupportChime, type SupportTopic } from
 
 // Live Support, lifted out of the FAB so it can live in Settings.
 //
-// The move is not cosmetic. `app/settings/` is a SIBLING of `app/(app)/`, not a
+// The move is not cosmetic. `app/app/settings/` is a SIBLING of `app/app/(shell)/`, not a
 // child — their only shared ancestor is the root layout. So a doctor reading
 // Settings and a doctor looking at the app shell are in different React trees,
 // and the thread has to be provided above both or they would poll separately and

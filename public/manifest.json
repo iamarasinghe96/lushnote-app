@@ -2,7 +2,7 @@
   "name": "LushNote",
   "short_name": "LushNote",
   "description": "Clinical note builder for psychiatrists",
-  "start_url": "/",
+  "start_url": "/app",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#1d4ed8",

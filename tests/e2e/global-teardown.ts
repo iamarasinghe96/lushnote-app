@@ -20,7 +20,7 @@ export default async function globalTeardown(config: FullConfig): Promise<void> 
     const context = await browser.newContext({ baseURL, storageState: STORAGE_STATE })
     const page = await context.newPage()
     await signIn(page)
-    await page.goto('/patients')
+    await page.goto('/app/patients')
 
     const row = page.getByText(E2E_PATIENT).first()
     if (await row.isVisible({ timeout: 15_000 }).catch(() => false)) {

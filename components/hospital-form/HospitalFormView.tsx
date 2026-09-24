@@ -334,7 +334,7 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
             uid={user?.uid}
           />
         )}
-        <button onClick={() => router.push('/export')} className={`${isGenerating ? 'ml-auto ' : ''}shrink-0 text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-full motion-safe:active:scale-95 motion-safe:transition-transform`}>Export</button>
+        <button onClick={() => router.push('/app/export')} className={`${isGenerating ? 'ml-auto ' : ''}shrink-0 text-xs bg-white text-[var(--blue)] font-semibold px-3 py-1.5 rounded-full motion-safe:active:scale-95 motion-safe:transition-transform`}>Export</button>
       </div>
       {isGenerating && <GeneratingOverlay noun="progress note" />}
       <div className="absolute inset-0 overflow-y-auto scrollbar-none pb-tabbar" style={{ paddingTop: contentPt }}>

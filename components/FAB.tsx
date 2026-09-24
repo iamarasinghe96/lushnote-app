@@ -174,8 +174,8 @@ const SETTINGS_TAB_BY_LABEL: Record<string, string> = {
 // Main tab/section names → their route. Only linked when qualified by
 // tab/section/screen/page/view so ordinary verbs ("edit the note") aren't touched.
 const TAB_ROUTE: Record<string, string> = {
-  generate: '/generate', edit: '/edit', export: '/export',
-  history: '/history', patients: '/patients', transcript: '/transcript',
+  generate: '/app/generate', edit: '/app/edit', export: '/app/export',
+  history: '/app/history', patients: '/app/patients', transcript: '/app/transcript',
 }
 // Order matters (alternation is tried left-to-right at each position): the
 // specific "Settings > Tab" wins over a qualified main tab, which wins over a
@@ -191,9 +191,9 @@ function linkifyNav(text: string, onNav: (href: string) => void): ReactNode[] {
   NAV_RX.lastIndex = 0
   while ((m = NAV_RX.exec(text)) !== null) {
     let href: string | undefined
-    if (m[1]) { const tab = SETTINGS_TAB_BY_LABEL[m[1].toLowerCase()]; if (tab) href = '/settings?tab=' + tab }
+    if (m[1]) { const tab = SETTINGS_TAB_BY_LABEL[m[1].toLowerCase()]; if (tab) href = '/app/settings?tab=' + tab }
     else if (m[2]) href = TAB_ROUTE[m[2].toLowerCase()]
-    else href = '/settings'
+    else href = '/app/settings'
     if (!href) continue
     if (m.index > last) out.push(text.slice(last, m.index))
     const to = href
@@ -345,7 +345,7 @@ export function FAB() {
     // recording has to go. Meeting that wall AFTER recording a consultation
     // would be a dead end, so meet it first.
     if (profile && !resolveEntitlement(profile.billing, Date.now()).entitled) {
-      router.push('/generate')
+      router.push('/app/generate')
       return
     }
     const request = navigator.mediaDevices
@@ -380,7 +380,7 @@ export function FAB() {
     window.dispatchEvent(new CustomEvent('ln-transcript-ready', { detail }))
     if (!detail.handled) {
       store.setPendingCapture(result)
-      router.push('/generate?transcript=1')
+      router.push('/app/generate?transcript=1')
     }
   }
 
@@ -402,7 +402,7 @@ export function FAB() {
     // correct if the capture modals ever move to another route.
     const detail: { kind: 'record' | 'photo'; handled: boolean } = { kind, handled: false }
     window.dispatchEvent(new CustomEvent('ln-capture', { detail }))
-    if (!detail.handled) router.push(`/generate?capture=${kind}`)
+    if (!detail.handled) router.push(`/app/generate?capture=${kind}`)
   }
 
   // The Generate page says when the next window is actually on screen. It fires
@@ -446,7 +446,7 @@ export function FAB() {
     setPanel(null)
     setExpanded(false)
     window.dispatchEvent(new CustomEvent('ln-open-patient', { detail: { name } }))
-    router.push('/patients?patient=' + encodeURIComponent(name))
+    router.push('/app/patients?patient=' + encodeURIComponent(name))
   }
 
   function handleNavClick(href: string) {
@@ -505,7 +505,7 @@ export function FAB() {
 
 
 
-  if (pathname === '/transcript') return null
+  if (pathname === '/app/transcript') return null
 
   return (
     <>

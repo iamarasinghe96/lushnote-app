@@ -181,7 +181,7 @@ describe('build from history', () => {
   })
 
   it('offers built-in and custom letters after selecting history sources', () => {
-    const page = readFileSync('app/(app)/patients/page.tsx', 'utf8')
+    const page = readFileSync('app/app/(shell)/patients/page.tsx', 'utf8')
     expect(page).toContain('onSelectLetter={type => startLetterFromHistory(type)}')
     expect(page).toContain("onSelectCustomLetter={template => startLetterFromHistory('custom', template)}")
     expect(page).toContain('store.setLastTranscript(buildHistoryBundle(historySources))')

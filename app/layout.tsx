@@ -3,14 +3,34 @@ import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/components/AuthProvider'
 import { SupportThreadProvider } from '@/hooks/useSupportThread'
 import { LiquidGlass } from '@/components/LiquidGlass'
+import { SITE_URL, SITE_NAME, DEFAULT_TITLE, DEFAULT_DESCRIPTION, SOCIAL_IMAGE, INDEXABLE } from '@/lib/site'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'LushNote',
-  description: 'Clinical note builder for psychiatrists',
-  applicationName: 'LushNote',
+  metadataBase: new URL(SITE_URL),
+  title: { default: DEFAULT_TITLE, template: `%s | ${SITE_NAME}` },
+  description: DEFAULT_DESCRIPTION,
+  applicationName: SITE_NAME,
+  // Previews and local builds say noindex; production says nothing restrictive.
+  // /app and the admin pages override this with their own noindex.
+  robots: INDEXABLE ? { index: true, follow: true } : { index: false, follow: false },
+  openGraph: {
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    url: '/',
+    siteName: SITE_NAME,
+    locale: 'en_AU',
+    type: 'website',
+    images: [SOCIAL_IMAGE],
+  },
+  twitter: {
+    card: 'summary',
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [SOCIAL_IMAGE.url],
+  },
   manifest: '/manifest.json',
   // Stop iOS Safari data detectors from auto-linkifying emails/phones/addresses in
   // the UI (e.g. underlining the "Signed in as …@gmail.com" line and its lead-in).
@@ -31,14 +51,6 @@ export const metadata: Metadata = {
   other: {
     'mobile-web-app-capable': 'yes',
   },
-  metadataBase: new URL('https://lushnote.com.au'),
-  openGraph: {
-    title: 'LushNote',
-    description: 'Clinical note builder for psychiatrists',
-    url: 'https://lushnote.com.au',
-    siteName: 'LushNote',
-    type: 'website',
-  },
 }
 
 export const viewport: Viewport = {
@@ -54,8 +66,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={inter.className}>
       <body>
-        {/* Support lives at the ROOT because app/settings is a SIBLING of
-            app/(app), not a child — their only shared ancestor is here. It also
+        {/* Support lives at the ROOT because app/app/settings is a SIBLING of
+            app/app/(shell), not a child — their only shared ancestor is here. It also
             has to keep polling while the panel is closed, so a human reply
             raises the badge wherever the doctor happens to be. */}
         <AuthProvider>
