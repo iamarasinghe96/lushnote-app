@@ -38,6 +38,11 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
   // same as being on a paid plan: Enterprise runs on the organisation's key by
   // agreement, and a used-up fair-use month runs on their own until it turns.
   const isPro = onPaidPlan && !fairUse.enterprise && fairUse.level !== 'exceeded'
+  // A Pro doctor has nothing here to do, so the key cards fold away behind one
+  // button rather than asking to be filled in. Everyone else - trial,
+  // Enterprise, a used-up fair-use month - runs on these keys and sees them.
+  const [showKeys, setShowKeys] = useState(false)
+  const keysVisible = !isPro || showKeys
 
   const geminiUsage = profile?.geminiUsage?.['gemini-2.5-flash']
   const today = quotaDate()
@@ -106,21 +111,28 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
 
   return (
     <div className="max-w-lg space-y-6">
-      {/* A Pro doctor does not need a key at all. Their own, if saved, is
-          USED - it answers the first requests of each day on Google's free
-          allowance before LushNote's key takes over - and it is also what serves
-          them past the fair-use allowance. So the copy says so rather than
-          calling it an unused backup, which it has not been since free-key-first. */}
+      {/* A Pro doctor does not need a key at all, so the cards below stay
+          folded until asked for. A key they do save is USED - it answers the
+          first requests of each day on Google's free allowance before
+          LushNote's key takes over - so the copy never calls it an unused backup. */}
       {isPro && (
-        <div className="rounded-[var(--r-lg)] border border-[#10b981]/40 bg-[#10b981]/5 p-4 space-y-1">
+        <div className="rounded-[var(--r-lg)] border border-[#10b981]/40 bg-[#10b981]/5 p-4 space-y-2">
           <p className="text-sm font-semibold text-[var(--text)]">Your subscription covers the AI</p>
           <p className="text-xs leading-relaxed text-[var(--text2)]">
-            You do not need a key of your own, and there is no daily limit to watch. If you save one below, it
-            answers your first requests each day on Google&apos;s free allowance and LushNote&apos;s key takes over from
-            there. The subscription includes a monthly{' '}
-            <a href="/billing" className="text-[var(--blue)] underline">fair-use allowance</a> that one clinician
-            rarely comes near.
+            You do not need a key of your own, and there is no daily limit to watch. The subscription includes a
+            monthly <a href="/billing" className="text-[var(--blue)] underline">fair-use allowance</a> that one
+            clinician rarely comes near.
           </p>
+          <button onClick={() => setShowKeys(v => !v)} aria-expanded={showKeys}
+            className="text-xs font-medium text-[var(--blue)] underline">
+            {showKeys ? 'Hide my own API keys' : 'Show my own API keys'}
+          </button>
+          {showKeys && (
+            <p className="text-xs leading-relaxed text-[var(--text3)]">
+              Optional. A Gemini key saved here answers your first requests each day on Google&apos;s free allowance,
+              then LushNote&apos;s key takes over.
+            </p>
+          )}
         </div>
       )}
       {onPaidPlan && !fairUse.enterprise && fairUse.level === 'exceeded' && (
@@ -142,6 +154,7 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
         </div>
       )}
 
+      {keysVisible && (<>
       {/* Gemini */}
       <section className="rounded-[var(--r-lg)] border border-[var(--border)] bg-white p-4 space-y-3"
                style={{ boxShadow: 'var(--shadow-sm)' }}>
@@ -180,43 +193,45 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
           </Button>
         </div>
 
-        <div className="mt-3 p-3 bg-[var(--bg)] rounded-[var(--r)] border border-[var(--border)] space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-[var(--text2)]">
-              {ownKey ? 'Requests today' : 'Daily requests'}
-            </span>
-            {/* The 20-a-day pool does not apply on Pro, so showing a doctor
-                filling it up would be telling them about a limit they no
-                longer have. */}
-            <span className={`text-xs font-bold ${!ownKey && !isPro && usedToday >= GEMINI_RPD ? 'text-orange-500' : 'text-[var(--text)]'}`}>
-              {ownKey || isPro ? usedToday : `${usedToday} / ${GEMINI_RPD}`}
-            </span>
-          </div>
-          {!ownKey && !isPro && (
-            <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full ${usedToday >= GEMINI_RPD ? 'bg-orange-400' : 'bg-[var(--blue)]'}`}
-                style={{ width: `${Math.min((usedToday / GEMINI_RPD) * 100, 100)}%` }}
-              />
+        {/* Not on Pro. The day's count is about Google's free allowance, and
+            a Pro doctor has no daily limit to watch - showing them a meter
+            filling up would be telling them about a limit they do not have. */}
+        {!isPro && (
+          <div className="mt-3 p-3 bg-[var(--bg)] rounded-[var(--r)] border border-[var(--border)] space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-[var(--text2)]">
+                {ownKey ? 'Requests today' : 'Daily requests'}
+              </span>
+              <span className={`text-xs font-bold ${!ownKey && usedToday >= GEMINI_RPD ? 'text-orange-500' : 'text-[var(--text)]'}`}>
+                {ownKey ? usedToday : `${usedToday} / ${GEMINI_RPD}`}
+              </span>
             </div>
-          )}
-          {tokensToday > 0 && (
-            <p className="text-xs text-[var(--text3)]">
-              {tokensToday.toLocaleString()} tokens today
-              {(inToday || outToday) ? ` · ${inToday.toLocaleString()} in · ${outToday.toLocaleString()} out` : ''}
-              {thinkToday ? ` · ${thinkToday.toLocaleString()} thinking` : ''}
-            </p>
-          )}
-          {ownKey ? (
-            <p className="text-xs text-[var(--text3)]">
-              Counted from Google&apos;s own response on every call, so these are exact. Your key runs on Google&apos;s quota - check your remaining allowance in <ExternalLink href="https://aistudio.google.com/app/apikey">AI Studio</ExternalLink>.
-            </p>
-          ) : usedToday >= GEMINI_RPD ? (
-            <p className="text-xs text-orange-500">Limit reached - add a Groq key to continue.</p>
-          ) : (
-            <p className="text-xs text-[var(--text3)]">Resets daily. Add a Groq key to extend.</p>
-          )}
-        </div>
+            {!ownKey && (
+              <div className="h-2 bg-[var(--border)] rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${usedToday >= GEMINI_RPD ? 'bg-orange-400' : 'bg-[var(--blue)]'}`}
+                  style={{ width: `${Math.min((usedToday / GEMINI_RPD) * 100, 100)}%` }}
+                />
+              </div>
+            )}
+            {tokensToday > 0 && (
+              <p className="text-xs text-[var(--text3)]">
+                {tokensToday.toLocaleString()} tokens today
+                {(inToday || outToday) ? ` · ${inToday.toLocaleString()} in · ${outToday.toLocaleString()} out` : ''}
+                {thinkToday ? ` · ${thinkToday.toLocaleString()} thinking` : ''}
+              </p>
+            )}
+            {ownKey ? (
+              <p className="text-xs text-[var(--text3)]">
+                Counted from Google&apos;s own response on every call, so these are exact. Your key runs on Google&apos;s quota - check your remaining allowance in <ExternalLink href="https://aistudio.google.com/app/apikey">AI Studio</ExternalLink>.
+              </p>
+            ) : usedToday >= GEMINI_RPD ? (
+              <p className="text-xs text-orange-500">Limit reached - add a Groq key to continue.</p>
+            ) : (
+              <p className="text-xs text-[var(--text3)]">Resets daily. Add a Groq key to extend.</p>
+            )}
+          </div>
+        )}
       </section>
 
       {/* Groq */}
@@ -269,6 +284,7 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
           </Button>
         )}
       </section>
+      </>)}
     </div>
   )
 }
