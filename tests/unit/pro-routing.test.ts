@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { resolveAiKeys, PRO_MONTHLY_CEILING_MICROS, FREE_KEY_HANDOVER_AT } from '@/lib/serverAiKeys'
+import { resolveAiKeys, FREE_KEY_HANDOVER_AT, onLushnoteKey } from '@/lib/serverAiKeys'
+import { FAIR_USE_ALLOWANCE_MICROS } from '@/lib/fairUse'
 import { GEMINI_RPD } from '@/lib/gemini'
 import { isProState, PRO_STATES } from '@/lib/entitlement'
 import type { EntitlementState } from '@/lib/entitlement'
@@ -14,7 +15,7 @@ import type { EntitlementState } from '@/lib/entitlement'
 // all entitled without money moving.
 
 const ALL_STATES: EntitlementState[] = [
-  'legacy', 'exempt', 'trialing', 'active', 'grace', 'dunning', 'paused', 'paywalled',
+  'legacy', 'exempt', 'trialing', 'active', 'grace', 'dunning', 'failed', 'paused', 'paywalled',
 ]
 
 const KEYS = {
@@ -25,7 +26,7 @@ const KEYS = {
 }
 
 function resolve(state: EntitlementState, over: Partial<Parameters<typeof resolveAiKeys>[0]> = {}) {
-  return resolveAiKeys({ state, monthSpendMicros: 0, freeKeyUsedToday: 0, ...KEYS, ...over })
+  return resolveAiKeys({ state, paidSpendMicros: 0, enterprise: false, freeKeyUsedToday: 0, ...KEYS, ...over })
 }
 
 describe('who gets the paid keys', () => {
@@ -106,23 +107,23 @@ describe('nobody is ever left without a key', () => {
   })
 })
 
-describe('the fair-use ceiling', () => {
-  // Ships off. A number guessed before any real data either never fires or
-  // fires on somebody doing ordinary work.
-  it('is disabled until real figures exist', () => {
-    expect(PRO_MONTHLY_CEILING_MICROS).toBe(0)
+// Fair use: the line past which an account costs LushNote more in AI than its
+// subscription brings in. Measured on OUR keys only - see lib/fairUse.ts.
+describe('the fair-use allowance', () => {
+  // On, now. It used to ship at 0 = disabled while there were no figures; the
+  // owner has since set the rule - past break-even an account is using more
+  // than its share - so the allowance is what the subscription nets.
+  it('is switched on, at a real figure', () => {
+    expect(FAIR_USE_ALLOWANCE_MICROS).toBeGreaterThan(0)
   })
 
-  it('does nothing while disabled, however much was spent', () => {
-    const r = resolve('active', { monthSpendMicros: 999_999_999 })
-    expect(r.pro).toBe(true)
-    expect(r.degraded).toBe(false)
+  it('is what the routes use when no allowance is passed in', () => {
+    expect(resolve('active', { paidSpendMicros: FAIR_USE_ALLOWANCE_MICROS - 1 }).degraded).toBe(false)
+    expect(resolve('active', { paidSpendMicros: FAIR_USE_ALLOWANCE_MICROS }).degraded).toBe(true)
   })
 
-  // The degrade path, exercised through an injected ceiling so that turning the
-  // real one on is not the first time this branch has ever run.
   it('hands a doctor back to their own key rather than blocking them', () => {
-    const r = resolve('active', { monthSpendMicros: 100, ceilingMicros: 50 })
+    const r = resolve('active', { paidSpendMicros: 100, allowanceMicros: 50 })
     expect(r.degraded).toBe(true)
     expect(r.pro).toBe(false)
     expect(r.geminiKey).toBe('user-gemini')
@@ -130,22 +131,80 @@ describe('the fair-use ceiling', () => {
 
   it('still leaves a doctor with no key of their own something to run on', () => {
     const r = resolve('active', {
-      monthSpendMicros: 100, ceilingMicros: 50,
+      paidSpendMicros: 100, allowanceMicros: 50,
       userGeminiKey: null, userGroqKey: null,
     })
     expect(r.degraded).toBe(true)
     expect(r.groqKey).toBe('shared-groq')
   })
 
-  it('stays on the paid key right up to the ceiling', () => {
-    const r = resolve('active', { monthSpendMicros: 49, ceilingMicros: 50 })
+  it('stays on the paid key right up to the allowance', () => {
+    const r = resolve('active', { paidSpendMicros: 49, allowanceMicros: 50 })
     expect(r.pro).toBe(true)
     expect(r.degraded).toBe(false)
   })
 
   it('does not degrade a doctor who was never Pro', () => {
-    const r = resolve('trialing', { monthSpendMicros: 100, ceilingMicros: 50 })
+    const r = resolve('trialing', { paidSpendMicros: 100, allowanceMicros: 50 })
     expect(r.degraded).toBe(false)
+  })
+
+  // An allowance of 0 means none, not "already used up".
+  it('treats an allowance of 0 as no allowance at all', () => {
+    expect(resolve('active', { paidSpendMicros: 999, allowanceMicros: 0 }).degraded).toBe(false)
+  })
+})
+
+// Enterprise: the same subscription, the AI on the organisation's own key.
+describe('Enterprise', () => {
+  // The agreement in one line: their key pays. Ours behind it, even as a
+  // handover, would put their AI bill quietly back on us.
+  it('runs on their own key with ours nowhere behind it', () => {
+    const r = resolve('active', { enterprise: true })
+    expect(r.geminiKey).toBe('user-gemini')
+    expect(r.geminiHandoverKey).toBeNull()
+    expect(r.lushnoteGeminiKey).toBeNull()
+    expect(r.pro).toBe(false)
+  })
+
+  // Nothing of ours to use up, so there is nothing to be over.
+  it('is never reported as over fair use, whatever was spent', () => {
+    const r = resolve('active', { enterprise: true, paidSpendMicros: 10 * FAIR_USE_ALLOWANCE_MICROS })
+    expect(r.degraded).toBe(false)
+  })
+
+  it('keeps the shared Groq net like everyone else', () => {
+    const r = resolve('active', { enterprise: true, userGeminiKey: null, userGroqKey: null })
+    expect(r.groqKey).toBe('shared-groq')
+  })
+})
+
+// Which side of the fair-use line a call's cost lands on. Wrong here, and the
+// allowance is measured on the doctor's own free key - which costs us nothing.
+describe('who paid for a call', () => {
+  it('names our Gemini key whenever it is in play', () => {
+    expect(resolve('active').lushnoteGeminiKey).toBe('pro-gemini')
+    expect(resolve('active', { freeKeyUsedToday: FREE_KEY_HANDOVER_AT }).lushnoteGeminiKey).toBe('pro-gemini')
+  })
+
+  it.each(['trialing', 'legacy', 'grace', 'paywalled', 'failed'] as EntitlementState[])(
+    '%s never has our key in play', state => {
+      expect(resolve(state).lushnoteGeminiKey).toBeNull()
+    },
+  )
+
+  it('counts a call as ours only when our key answered it', () => {
+    const keys = resolve('active')
+    expect(onLushnoteKey(keys, 'pro-gemini')).toBe(true)
+    expect(onLushnoteKey(keys, 'user-gemini')).toBe(false)
+    // The shared free-tier path passes no key at all.
+    expect(onLushnoteKey(keys, undefined)).toBe(false)
+    expect(onLushnoteKey(keys, null)).toBe(false)
+  })
+
+  // Both null must not read as a match.
+  it('does not count a keyless call as ours for a doctor with no key in play', () => {
+    expect(onLushnoteKey(resolve('trialing'), null)).toBe(false)
   })
 })
 
@@ -193,7 +252,7 @@ describe('Pro: their free key first, then ours', () => {
   })
 
   it('hands a degraded doctor back without a paid key behind them', () => {
-    const r = resolve('active', { monthSpendMicros: 100, ceilingMicros: 50 })
+    const r = resolve('active', { paidSpendMicros: 100, allowanceMicros: 50 })
     expect(r.geminiHandoverKey).toBeNull()
   })
 })

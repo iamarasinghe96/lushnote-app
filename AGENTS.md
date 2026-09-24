@@ -114,6 +114,7 @@ policy that was not really changed.
 | `prefers-reduced-motion` clears duration AND delay | `tests/unit/reduced-motion.test.ts` |
 | The Content-Security-Policy host list | `tests/unit/csp.test.ts` |
 | Which entitlement states get LushNote's paid AI keys | `tests/unit/pro-routing.test.ts` |
+| The fair-use allowance, and that it counts only LushNote-paid spend | `tests/unit/fair-use.test.ts` |
 | Which payment methods are offered | `tests/unit/payment-methods.test.ts` |
 | The 90-day `system_logs` retention window | `tests/unit/log-retention.test.ts` |
 | The admin nav's pinned/overflow split | `tests/unit/admin-sections.test.ts` |

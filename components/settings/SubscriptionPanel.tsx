@@ -115,8 +115,16 @@ export default function SubscriptionPanel({ profile }: SubscriptionPanelProps) {
         </p>
         <p className="text-xs text-[var(--text3)] mb-3">
           Prices are in Australian dollars. If your card is issued outside Australia, your bank converts the charge
-          and may add a small foreign-transaction fee. You still bring your own Gemini or Groq key, so the AI runs on
-          your own quota.
+          and may add a small foreign-transaction fee.
+        </p>
+        {/* Fair use, said where the price is. Same wording as the landing page
+            and the terms, so a doctor meets one rule rather than three. */}
+        <p className="text-xs text-[var(--text3)] mb-3">
+          During the trial your AI runs on your own Gemini or Groq key. On the paid plan LushNote&apos;s keys cover it, up
+          to a monthly fair-use allowance set at what the subscription pays for; past it, the AI runs on your own key
+          until the next month. Practices and heavy users can move to{' '}
+          <a href="/billing" className="text-[var(--blue)] underline">Enterprise</a>: the same subscription, with the AI on
+          your organisation&apos;s own key and billed to you by Google.
         </p>
         <p className="text-sm text-[var(--text2)] mb-4">
           If you&apos;re rural or going through a tough financial period, just reach out - we&apos;ll make sure cost

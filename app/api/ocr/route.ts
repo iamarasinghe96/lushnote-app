@@ -4,7 +4,8 @@ import { mockForCaller, mockOcrResponse } from '@/lib/e2eMock'
 import { ocrClinicalImages, checkQuota, usedToday, GEMINI_DAILY_LIMIT_ERROR, GEMINI_KEY_INVALID_ERROR, GEMINI_RATE_LIMIT_ERROR, GEMINI_OVERLOADED_ERROR, describeGeminiError } from '@/lib/gemini'
 import { getProfile, meterGemini, meterGroq, meterFreeKeyAttempt } from '@/lib/firestore/profiles-admin'
 import { requireUser, unauthorized } from '@/lib/adminGuard'
-import { resolveAiKeys, proGeminiKey, FREE_KEY_TALLY } from '@/lib/serverAiKeys'
+import { resolveAiKeys, proGeminiKey, FREE_KEY_TALLY, onLushnoteKey } from '@/lib/serverAiKeys'
+import { paidSpend, isEnterprise } from '@/lib/fairUse'
 import { withGeminiHandover } from '@/lib/geminiHandover'
 import { monthKey } from '@/lib/utils'
 import { rateLimit } from '@/lib/rateLimit'
@@ -136,7 +137,8 @@ async function handlePOST(req: NextRequest) {
     // is no Groq half to this decision.
     const keys = resolveAiKeys({
       state: entitlement.state,
-      monthSpendMicros: profile?.aiCost?.[monthKey()]?.micros ?? 0,
+      paidSpendMicros: paidSpend(profile?.aiCost?.[monthKey()]),
+      enterprise: isEnterprise(profile?.billing),
       userGeminiKey: req.headers.get('x-gemini-key'),
       userGroqKey: null,
       proGeminiKey: proGeminiKey(),
@@ -149,7 +151,8 @@ async function handlePOST(req: NextRequest) {
     const readPage = async (): Promise<OcrReply | null> => {
       const call = async (key?: string) => {
         const { text, usage } = await ocrClinicalImages(images, key)
-        await meterGemini(uidField, 'gemini-2.5-flash', usage)
+        // `key` is undefined on the shared free-tier path, which costs us nothing.
+        await meterGemini(uidField, 'gemini-2.5-flash', usage, { paid: onLushnoteKey(keys, key) })
         return text
       }
       let raw: string | null = null

@@ -5,7 +5,7 @@ import { transcribeAudio } from '@/lib/gemini'
 import { transcribeAudioGroq, parseGroqWaitSeconds } from '@/lib/groq'
 import { rateLimit } from '@/lib/rateLimit'
 import { logToSink } from '@/lib/firestore/systemLogs'
-import { resolveAiKeys, proGeminiKey, sharedGroqKey } from '@/lib/serverAiKeys'
+import { resolveAiKeys, proGeminiKey, sharedGroqKey, onLushnoteKey } from '@/lib/serverAiKeys'
 import { recordAiSpend, meterFreeKeyAttempt } from '@/lib/firestore/profiles-admin'
 import { withGeminiHandover } from '@/lib/geminiHandover'
 import { requireUser, unauthorized } from '@/lib/adminGuard'
@@ -75,7 +75,8 @@ async function handlePOST(req: NextRequest) {
     // behind it (see withGeminiHandover). A trial doctor runs on their own.
     const keys = resolveAiKeys({
       state: access.entitlement.state,
-      monthSpendMicros: access.monthSpendMicros,
+      paidSpendMicros: access.paidSpendMicros,
+      enterprise: access.enterprise,
       userGeminiKey: req.headers.get('x-gemini-key'),
       userGroqKey: req.headers.get('x-groq-key'),
       proGeminiKey: proGeminiKey(),
@@ -99,8 +100,10 @@ async function handlePOST(req: NextRequest) {
         // A long consultation is where a free key's day actually goes - ten of
         // these for forty minutes - so this is the call that most needs to hand
         // over rather than fall to Groq mid-recording.
+        // The key that actually answered, so the cost lands on whoever paid.
+        let served: string | null = null
         const { text, usage } = await withGeminiHandover(userGeminiKey, keys.geminiHandoverKey,
-          k => transcribeAudio(base64, mimeType, k), {
+          k => { served = k; return transcribeAudio(base64, mimeType, k) }, {
             onFreeAttempt: () => meterFreeKeyAttempt(uidField),
             onHandover: reason => logToSink({
               level: 'info', tag: 'gemini-handover', route: '/api/transcribe', uid: uidField,
@@ -113,6 +116,7 @@ async function handlePOST(req: NextRequest) {
         void recordAiSpend(uidField, {
           micros: geminiCostMicros(usage, 'gemini-2.5-flash', usage.prompt),
           provider: 'gemini',
+          paid: onLushnoteKey(keys, served),
         }).catch(() => {})
         console.log(`[transcribe] ok provider=gemini seg=${seg} uid=${uid} sizeMB=${sizeMB} chars=${text.length} elapsedMs=${Date.now() - startedAt}`)
         return NextResponse.json({ text, provider: 'gemini' })
@@ -144,6 +148,7 @@ async function handlePOST(req: NextRequest) {
       void recordAiSpend(uidField, {
         micros: whisperCostMicros(audioSecondsFromBytes(buffer.length)),
         provider: 'groq',
+        paid: groq.shared,
       }).catch(() => {})
       console.log(`[transcribe] ok provider=groq shared=${groq.shared} seg=${seg} uid=${uid} sizeMB=${sizeMB} chars=${text.length} elapsedMs=${Date.now() - startedAt}`)
       // Only the shared path is logged to the sink: a doctor using their own key

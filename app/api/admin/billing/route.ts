@@ -6,7 +6,7 @@ import {
   getBillingConfig, setGstRegistered, computeAuTurnover, saveTurnoverCache,
   stripeEnabled, PRICE_AUD, GST_THRESHOLD_AUD, priceString,
   pipelineHealth, reconcileUser, reprojectUser,
-  aiCostReport,
+  aiCostReport, setEnterprise,
 } from '@/lib/billing'
 import { runBillingSweep } from '@/lib/firestore/billingSweep'
 
@@ -19,8 +19,9 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
-      action: 'overview' | 'setGst' | 'setExempt' | 'refreshTurnover' | 'recordsExport' | 'health' | 'reconcile' | 'reproject' | 'runSweep' | 'aiCost'
+      action: 'overview' | 'setGst' | 'setExempt' | 'refreshTurnover' | 'recordsExport' | 'health' | 'reconcile' | 'reproject' | 'runSweep' | 'aiCost' | 'setEnterprise'
       lookup?: string
+      enterprise?: boolean
       registered?: boolean
       effectiveDate?: string | null
       uid?: string
@@ -112,6 +113,16 @@ export async function POST(req: NextRequest) {
       )
       await writeAudit({ actorUid: actor.uid, action: 'billing.setExempt', targetUid: uid, meta: { exempt: exempt === true } })
       return NextResponse.json({ success: true, exempt: exempt === true })
+    }
+
+    // Beside setExempt, for the same reason: money decisions audit in one place.
+    if (body.action === 'setEnterprise') {
+      const { uid } = body
+      if (!uid) return NextResponse.json({ error: 'uid required' }, { status: 400 })
+      const result = await setEnterprise(uid, body.enterprise === true, 'admin')
+      if (result.reason) return NextResponse.json({ error: 'This account has no subscription yet' }, { status: 400 })
+      await writeAudit({ actorUid: actor.uid, action: 'billing.setEnterprise', targetUid: uid, meta: { enterprise: result.enterprise } })
+      return NextResponse.json({ success: true, enterprise: result.enterprise })
     }
 
     if (body.action === 'recordsExport') {

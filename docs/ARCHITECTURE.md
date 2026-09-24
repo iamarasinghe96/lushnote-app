@@ -960,10 +960,39 @@ blip all fall back to the doctor's own key and then the shared Groq key. That
 makes Pro silently become the old behaviour, which is safe but invisible, so
 `/admin?section=billing` reports whether the key is set.
 
-`PRO_MONTHLY_CEILING_MICROS` ships at 0, meaning disabled. A ceiling guessed before
-real spending data either never fires or fires on somebody doing ordinary work. It
-is an injectable input as well as a constant, so the degrade path is exercised by
-tests rather than running for the first time on the day it is switched on.
+## Fair use and Enterprise
+
+The subscription is a flat AUD $30 against a cost that grows with every note, and
+nothing stops one login being used by a whole ward. `lib/fairUse.ts` (pure) draws
+the line where the arithmetic turns: an account whose spend **on LushNote's keys**
+this month reaches what one subscription nets after fees
+(`FAIR_USE_ALLOWANCE_MICROS`, about USD $18.70) has used its fair share.
+
+- **Past it, never blocked.** `resolveAiKeys` returns `degraded: true` and the
+  doctor's own keys, then the shared Groq net, until the month turns. The billing
+  page, a once-a-month banner and the API Keys panel say so and offer Enterprise.
+- **Enterprise** is `billing.enterprise` - inside the rules-pinned `billing` map,
+  set by the doctor accepting it on `/billing` or by an admin, and carried through
+  every webhook projection. The subscription is unchanged; the AI runs on the
+  organisation's own key and Google bills them. LushNote's key is never put behind
+  it, not even as a handover, and no allowance applies.
+- **Measured on OUR keys only.** `aiCost[month].paid` is the part of the month's
+  spend that LushNote's Pro Gemini key or shared Groq key served. A Pro doctor's own
+  free key answers their first requests each day and costs us nothing, so the old
+  total would have put accounts over on money we never spent. Every call site
+  records which key actually answered (`onLushnoteKey`), and `recordAiSpend` makes
+  `paid` a required field so a new call site cannot forget.
+- **Tamper-proof.** `aiCost` is pinned in `firestore.rules` exactly as `billing`
+  is. Before this a doctor could have zeroed their own month.
+- **Watched in Users.** `/admin?section=users` has a Fair use filter (accounts at
+  80% or more, heaviest first), a chip on each row, and a card per account with
+  the month, the last three, and the Enterprise switch. `recordAiSpend` logs a
+  `fair-use` line once when an account crosses 80% and once at 100%.
+
+**The allowance is only as good as `lib/aiCost.ts`'s rates**, which are still
+unverified estimates. It is break-even by the owner's rule; a very busy single
+clinician transcribing on Gemini can come near it, which is why nothing past it
+is blocked.
 
 ## The AI routes prove who is calling
 
@@ -985,6 +1014,9 @@ and one of those two is the transcription path.
 
 `users/{uid}.aiCost`, keyed by month, written by `recordAiSpend`. Pricing is
 `lib/aiCost.ts`, pure and tested.
+
+Each month also carries `paid`: the part served by LushNote's own keys, which
+is what fair use measures (see above). Months recorded before it read as 0.
 
 **Every figure is an estimate** - our arithmetic over provider-reported token
 counts, never an invoice - and every surface that renders it says so. Four traps,
@@ -1355,22 +1387,11 @@ triage (now in Settings) so the two cannot drift.
 
 ---
 
-## LUSHNOTE_KB (inject verbatim into AI assistant system prompt)
+## LUSHNOTE_KB
 
-```
-LushNote is a clinical note builder for psychiatrists.
-Features: 116 clinical note templates, voice recording and transcription, AI note generation, patient management, PDF/clipboard/email export, custom templates.
-API: Users bring their own Gemini API key (free from aistudio.google.com) and optionally Groq key.
-Gemini limit: 20 notes/day free tier. Groq key extends this significantly.
-Security: Notes stored in Firebase Firestore, encrypted at rest. Audio is never stored — transcribed then immediately discarded.
-Privacy: Transcript redaction available in Settings > Transcripts. Redacts names, DOB, other identifiers.
-Add to home screen: iOS — tap Share button then "Add to Home Screen". Android — tap the install prompt banner.
-Common issues: Generation fails → check API key in Settings > API Keys. Recording won't start → check microphone permissions in browser settings.
-Templates: 116 built-in templates across Progress Notes, Assessments, Therapy Notes, Risk & Safety.
-Export: PDF (formatted A4), clipboard copy, email via mailto with professional cover letter.
-Custom templates: Create in Settings > Templates with your own AI instructions.
-Personalisation: Set your professional identity, treatment approaches, and document style in Settings > Personalisation to customise all AI outputs.
-```
+The assistant's knowledge base is `LUSHNOTE_KB` in `lib/supportKb.ts`, sent
+verbatim to `/api/chat`. It used to be pasted here as well, and the copy had
+drifted: it still said every doctor brings their own key. Read the file.
 
 ---
 

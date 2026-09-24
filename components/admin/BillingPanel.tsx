@@ -43,6 +43,7 @@ const COHORT_LABEL: Record<string, string> = {
 interface AiCost {
   month: string
   totalMicros: number
+  totalPaidMicros: number
   totalCalls: number
   unpricedCalls: number
   doctorsWithSpend: number
@@ -287,8 +288,10 @@ export default function BillingPanel() {
                 <h3 className="text-sm font-semibold text-[#0f172a]">AI cost this month</h3>
                 <span className="text-[11px] text-[#94a3b8]">estimated, {ai.month}</span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm">
                 <Stat label="Total" value={formatMicros(ai.totalMicros)} />
+                {/* What LushNote actually pays for; the rest ran on doctors' own keys. */}
+                <Stat label="On our keys" value={formatMicros(ai.totalPaidMicros ?? 0)} />
                 <Stat label="In AUD" value={`~$${microsToAud(ai.totalMicros).toFixed(2)}`} />
                 <Stat label="Doctors" value={String(ai.doctorsWithSpend)} />
                 <Stat label="Calls" value={ai.totalCalls.toLocaleString()} />

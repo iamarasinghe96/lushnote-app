@@ -11,8 +11,10 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { auth } from '@/lib/firebase'
 import { useAuth } from '@/hooks/useAuth'
 import PaymentSetup from '@/components/billing/PaymentSetup'
+import FairUseCard from '@/components/billing/FairUseCard'
+import type { FairUse } from '@/lib/fairUse'
 import { paymentFailureReason } from '@/lib/paymentFailure'
-import { PAYMENT_RETRY_MS, type Billing, type Entitlement, type EntitlementState } from '@/lib/entitlement'
+import { PAYMENT_RETRY_MS, isProState, type Billing, type Entitlement, type EntitlementState } from '@/lib/entitlement'
 
 const CARD = 'rounded-2xl border border-[var(--border)] bg-white p-5'
 
@@ -46,6 +48,8 @@ interface State {
   billing: Billing | null
   entitlement: Entitlement
   price: string
+  fairUse?: FairUse
+  hasOwnGeminiKey?: boolean
 }
 
 async function call<T>(body: Record<string, unknown>): Promise<T> {
@@ -160,6 +164,18 @@ function BillingInner() {
     } finally { setBusy(false) }
   }
 
+  async function setEnterprise(on: boolean) {
+    setBusy(true)
+    try {
+      const r = await call<{ enterprise: boolean; reason?: string }>({ action: 'enterprise', on })
+      await refresh()
+      if (r.reason === 'no-key') setToast('Save your organisation\'s Gemini key in Settings, API Keys first.')
+      else if (r.reason) setToast('Enterprise needs a subscription first.')
+      else setToast(on ? 'You are on Enterprise. Your AI now runs on your organisation\'s key.' : 'You are back on the standard plan.')
+    } catch { setToast('Could not change your plan right now. Please try again.') }
+    finally { setBusy(false) }
+  }
+
   if (loading || !state) {
     return <div className="h-dvh flex items-center justify-center text-sm text-[var(--text3)]">Loading…</div>
   }
@@ -272,6 +288,16 @@ function BillingInner() {
             </p>
           )}
         </div>
+
+        {state.fairUse && (
+          <FairUseCard
+            fairUse={state.fairUse}
+            paid={isProState(st)}
+            hasOwnGeminiKey={!!state.hasOwnGeminiKey}
+            busy={busy}
+            onEnterprise={setEnterprise}
+          />
+        )}
 
         {/* Above the form, not inside it. Converting early is its own decision,
             and it is the first thing a doctor who wants to pay now looks for.

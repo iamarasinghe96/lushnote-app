@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Button from '@/components/ui/Button'
 import { updateProfile } from '@/lib/firestore/profiles'
-import { quotaDate, sanitizeApiKey } from '@/lib/utils'
+import { quotaDate, monthKey, sanitizeApiKey } from '@/lib/utils'
+import { allowanceResetsOn, fairUseOf } from '@/lib/fairUse'
 import type { User } from '@/types'
 import { resolveEntitlement, isProState } from '@/lib/entitlement'
 
@@ -30,7 +31,13 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
 
   // The same verdict the server reaches - resolveEntitlement is pure precisely
   // so the two cannot disagree about who is Pro.
-  const isPro = isProState(resolveEntitlement(profile?.billing, Date.now()).state)
+  const onPaidPlan = isProState(resolveEntitlement(profile?.billing, Date.now()).state)
+  const month = monthKey()
+  const fairUse = fairUseOf({ aiCost: profile?.aiCost, billing: profile?.billing, month })
+  // Whether LushNote's key is actually behind this doctor right now. Not the
+  // same as being on a paid plan: Enterprise runs on the organisation's key by
+  // agreement, and a used-up fair-use month runs on their own until it turns.
+  const isPro = onPaidPlan && !fairUse.enterprise && fairUse.level !== 'exceeded'
 
   const geminiUsage = profile?.geminiUsage?.['gemini-2.5-flash']
   const today = quotaDate()
@@ -99,15 +106,38 @@ export default function ApiKeysPanel({ profile, uid, onToast }: ApiKeysPanelProp
 
   return (
     <div className="max-w-lg space-y-6">
-      {/* A Pro doctor does not need a key at all. Their own is KEPT rather than
-          cleared, because it is what serves them if we ever have to hand a very
-          heavy month back to them - so the copy says kept, not unused. */}
+      {/* A Pro doctor does not need a key at all. Their own, if saved, is
+          USED - it answers the first requests of each day on Google's free
+          allowance before LushNote's key takes over - and it is also what serves
+          them past the fair-use allowance. So the copy says so rather than
+          calling it an unused backup, which it has not been since free-key-first. */}
       {isPro && (
         <div className="rounded-[var(--r-lg)] border border-[#10b981]/40 bg-[#10b981]/5 p-4 space-y-1">
           <p className="text-sm font-semibold text-[var(--text)]">Your subscription covers the AI</p>
           <p className="text-xs leading-relaxed text-[var(--text2)]">
-            You do not need a key of your own, and there is no daily limit to watch. Any key you have
-            saved below is kept as a backup and is not being used.
+            You do not need a key of your own, and there is no daily limit to watch. If you save one below, it
+            answers your first requests each day on Google&apos;s free allowance and LushNote&apos;s key takes over from
+            there. The subscription includes a monthly{' '}
+            <a href="/billing" className="text-[var(--blue)] underline">fair-use allowance</a> that one clinician
+            rarely comes near.
+          </p>
+        </div>
+      )}
+      {onPaidPlan && !fairUse.enterprise && fairUse.level === 'exceeded' && (
+        <div className="rounded-[var(--r-lg)] border border-amber-300 bg-amber-50 p-4 space-y-1">
+          <p className="text-sm font-semibold text-amber-900">Running on your own key until {allowanceResetsOn(month)}</p>
+          <p className="text-xs leading-relaxed text-amber-800">
+            This month&apos;s fair-use allowance is used, so your AI runs on the key below, or LushNote&apos;s free fallback
+            without one. <a href="/billing" className="underline">Enterprise</a> removes the limit for practices and heavy use.
+          </p>
+        </div>
+      )}
+      {fairUse.enterprise && (
+        <div className="rounded-[var(--r-lg)] border border-[var(--blue)]/30 bg-[var(--blue-lt)] p-4 space-y-1">
+          <p className="text-sm font-semibold text-[var(--text)]">Enterprise: your organisation&apos;s key pays for the AI</p>
+          <p className="text-xs leading-relaxed text-[var(--text2)]">
+            Save the Gemini key from your organisation&apos;s Google Cloud project, with billing turned on, below. Every
+            AI request uses it and Google bills your organisation directly. LushNote adds no daily limit of its own.
           </p>
         </div>
       )}

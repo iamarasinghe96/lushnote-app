@@ -42,6 +42,16 @@ service cloud.firestore {
         : !('billing' in request.resource.data);
     }
 
+    // The AI cost meter is written ONLY by the API routes through the Admin SDK.
+    // Fair use is measured on it (lib/fairUse.ts), so a client that could edit
+    // it could reset its own month to zero and stay on LushNote's paid key
+    // however much it used. Pinned exactly as billing is, removal included.
+    function aiCostUntouched() {
+      return ('aiCost' in resource.data)
+        ? ('aiCost' in request.resource.data && request.resource.data.aiCost == resource.data.aiCost)
+        : !('aiCost' in request.resource.data);
+    }
+
     function noteValid() {
       let d = request.resource.data;
       return d.userId is string && d.userId.size() <= 128
@@ -118,8 +128,9 @@ service cloud.firestore {
       allow create: if owns(userId) && profileValid()
                     && (!('tier'   in request.resource.data) || request.resource.data.tier   == 'free')
                     && (!('status' in request.resource.data) || request.resource.data.status == 'active')
-                    && !('billing' in request.resource.data);
-      allow update: if owns(userId) && profileValid() && noPrivilegeEscalation() && billingUntouched();
+                    && !('billing' in request.resource.data)
+                    && !('aiCost' in request.resource.data);
+      allow update: if owns(userId) && profileValid() && noPrivilegeEscalation() && billingUntouched() && aiCostUntouched();
       allow delete: if owns(userId);
 
       match /patientProfiles/{profileId} {

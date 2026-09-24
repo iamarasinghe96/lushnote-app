@@ -12,6 +12,7 @@ import { resolveEntitlement, GRACE_MS, type Billing, type Entitlement, type Enti
 import { monthKey } from '@/lib/utils'
 import { proGeminiKey, FREE_KEY_TALLY } from '@/lib/serverAiKeys'
 import { usedToday } from '@/lib/gemini'
+import { PLAN_PRICE_AUD, paidSpend, isEnterprise } from '@/lib/fairUse'
 import type { GeminiUsage } from '@/types'
 
 // The secret key IS the feature flag. Without it every billing path no-ops and
@@ -44,7 +45,8 @@ export function priceId(): string {
 // One amount for the world, denominated in AUD. A doctor in Dublin is charged
 // AUD 30 and their own bank does the conversion, so there is no localised price
 // to compute and no exchange rate for us to hold.
-export const PRICE_AUD = 30
+// Defined beside the fair-use allowance, which is measured against it.
+export const PRICE_AUD = PLAN_PRICE_AUD
 export const TRIAL_MONTHS = 3
 /** The GST registration threshold that the admin turnover monitor watches. */
 export const GST_THRESHOLD_AUD = 75000
@@ -215,6 +217,10 @@ export async function projectSubscription(subscriptionId: string): Promise<strin
     paymentFailureCode: previous?.paymentFailureCode ?? null,
     ...(previous?.billingExempt !== undefined ? { billingExempt: previous.billingExempt } : {}),
     ...(previous?.consent ? { consent: previous.consent } : {}),
+    // Carried for the same reason as the failure stamp: Stripe knows nothing of
+    // it, and dropping it on the next subscription event would silently move an
+    // organisation's AI bill back onto LushNote's key.
+    ...(previous?.enterprise ? { enterprise: previous.enterprise } : {}),
     updatedAt: Date.now(),
   }
 
@@ -329,9 +335,11 @@ export async function startTrial(uid: string): Promise<StartTrialResult> {
 export interface AccessState {
   suspended: boolean
   entitlement: Entitlement
-  /** This month's estimated AI spend, from the same document. Carried here so
-   *  the Pro key decision costs no extra read. */
-  monthSpendMicros: number
+  /** This month's estimated spend on LushNote's keys, from the same document.
+   *  Carried here so the fair-use decision costs no extra read. */
+  paidSpendMicros: number
+  /** Enterprise accounts pay their own AI; same document, same reason. */
+  enterprise: boolean
   /** Requests a Pro doctor's own free Gemini key has been sent today. Same
    *  document, same reason: the handover decision costs no extra read. */
   freeKeyUsedToday: number
@@ -341,7 +349,8 @@ export async function getAccessState(uid: string, now = Date.now()): Promise<Acc
   const open: AccessState = {
     suspended: false,
     entitlement: { entitled: true, state: 'legacy', reason: 'no uid' },
-    monthSpendMicros: 0,
+    paidSpendMicros: 0,
+    enterprise: false,
     freeKeyUsedToday: 0,
   }
   if (!uid) return open
@@ -350,19 +359,20 @@ export async function getAccessState(uid: string, now = Date.now()): Promise<Acc
     const data = snap.data() as {
       status?: string
       billing?: Billing
-      aiCost?: Record<string, { micros?: number }>
+      aiCost?: Record<string, { paid?: number }>
       geminiUsage?: GeminiUsage
     } | undefined
     return {
       suspended: data?.status === 'disabled',
       entitlement: resolveEntitlement(data?.billing, now),
-      monthSpendMicros: data?.aiCost?.[monthKey()]?.micros ?? 0,
+      paidSpendMicros: paidSpend(data?.aiCost?.[monthKey()]),
+      enterprise: isEnterprise(data?.billing),
       freeKeyUsedToday: usedToday(data?.geminiUsage, FREE_KEY_TALLY),
     }
   } catch {
     // Never lock a clinician out because a read blipped. A spend of 0 also fails
-    // OPEN: it keeps a paying doctor on the paid key rather than degrading them
-    // over a Firestore blip.
+    // OPEN: it keeps a paying doctor on the paid key rather than handing them
+    // back to their own over a Firestore blip.
     return { ...open, entitlement: { entitled: true, state: 'legacy', reason: 'billing read failed' } }
   }
 }
@@ -371,7 +381,7 @@ export async function getAccessState(uid: string, now = Date.now()): Promise<Acc
 
 /** Bumped whenever the billing terms change. Recorded with each consent so an
  *  old authorisation can be read against the wording it was given under. */
-export const TOS_VERSION = '2026-08-billing-v1'
+export const TOS_VERSION = '2026-09-fair-use-v1'
 
 /**
  * Record that a doctor authorised the charge. Written BEFORE the payment method
@@ -386,6 +396,36 @@ export async function recordConsent(uid: string, ip: string): Promise<{ accepted
   )
   await adminDb().collection('billing_records').doc(uid).set({ consent }, { merge: true })
   return consent
+}
+
+/**
+ * Move an account onto Enterprise, or back off it.
+ *
+ * Enterprise changes whose key pays for the AI, not what is charged: the
+ * subscription carries on as it was. So this writes one field inside `billing`
+ * (which the rules pin, so only the server can set it) and a copy of the
+ * agreement into billing_records, which outlives the account - the same
+ * reasoning as recordConsent.
+ *
+ * Refuses an account with no subscription record: Enterprise only means
+ * anything to a paying account, and writing a lone `enterprise` field would
+ * create a billing map with no status in it.
+ */
+export async function setEnterprise(
+  uid: string, on: boolean, by: 'doctor' | 'admin',
+): Promise<{ enterprise: boolean; reason?: 'no-subscription' | 'no-key' }> {
+  const ref = adminDb().collection('users').doc(uid)
+  const data = (await ref.get()).data() as { billing?: Billing; geminiApiKey?: string } | undefined
+  if (!data?.billing) return { enterprise: false, reason: 'no-subscription' }
+  // A doctor joining with no key of their own would be left on the shared Groq
+  // net alone. An admin may still set it - they are acting on a conversation
+  // the app cannot see.
+  if (on && by === 'doctor' && !(data.geminiApiKey ?? '').trim()) return { enterprise: false, reason: 'no-key' }
+
+  const enterprise = on ? { since: Date.now(), tosVersion: TOS_VERSION, by } : null
+  await ref.set({ billing: { enterprise, updatedAt: Date.now() } }, { merge: true })
+  await adminDb().collection('billing_records').doc(uid).set({ enterprise }, { merge: true })
+  return { enterprise: on }
 }
 
 async function customerIdFor(uid: string): Promise<string | null> {
@@ -954,6 +994,8 @@ export async function reprojectUser(uid: string): Promise<boolean> {
 export interface AiCostReport {
   month: string
   totalMicros: number
+  /** The part of totalMicros spent on LushNote's keys - what fair use counts. */
+  totalPaidMicros: number
   totalCalls: number
   unpricedCalls: number
   doctorsWithSpend: number
@@ -972,7 +1014,7 @@ export interface AiCostReport {
  */
 export async function aiCostReport(month = monthKey(), limit = 10): Promise<AiCostReport> {
   const out: AiCostReport = {
-    month, totalMicros: 0, totalCalls: 0, unpricedCalls: 0, doctorsWithSpend: 0, top: [],
+    month, totalMicros: 0, totalPaidMicros: 0, totalCalls: 0, unpricedCalls: 0, doctorsWithSpend: 0, top: [],
   }
   try {
     const snap = await adminDb().collection('users').limit(2000).get()
@@ -981,13 +1023,14 @@ export async function aiCostReport(month = monthKey(), limit = 10): Promise<AiCo
       const data = d.data() as {
         email?: string
         billing?: Billing
-        aiCost?: Record<string, { micros?: number; calls?: number; unpriced?: number }>
+        aiCost?: Record<string, { micros?: number; calls?: number; unpriced?: number; paid?: number }>
       }
       const m = data.aiCost?.[month]
       if (!m) continue
       const micros = m.micros ?? 0
       const calls = m.calls ?? 0
       out.totalMicros += micros
+      out.totalPaidMicros += paidSpend(m)
       out.totalCalls += calls
       out.unpricedCalls += m.unpriced ?? 0
       out.doctorsWithSpend += 1
