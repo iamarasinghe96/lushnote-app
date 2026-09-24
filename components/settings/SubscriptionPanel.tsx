@@ -110,12 +110,7 @@ export default function SubscriptionPanel({ profile }: SubscriptionPanelProps) {
 
         <p className="text-sm text-[var(--text2)] mb-3">
           LushNote is three months free, then {price}. Cancel anytime and keep access to the end of the period
-          you&apos;ve paid for. Card payments work worldwide; in Australia you can use direct debit instead. Your notes
-          are always yours to export, whatever you decide.
-        </p>
-        <p className="text-xs text-[var(--text3)] mb-3">
-          Prices are in Australian dollars. If your card is issued outside Australia, your bank converts the charge
-          and may add a small foreign-transaction fee.
+          you&apos;ve paid for. Your notes are always yours to export, whatever you decide.
         </p>
         {/* Fair use, said where the price is. Same wording as the landing page
             and the terms, so a doctor meets one rule rather than three. */}
@@ -126,11 +121,6 @@ export default function SubscriptionPanel({ profile }: SubscriptionPanelProps) {
           <a href="/billing" className="text-[var(--blue)] underline">Enterprise</a>: the same subscription, with the AI on
           your organisation&apos;s own key and billed to you by Google.
         </p>
-        <p className="text-sm text-[var(--text2)] mb-4">
-          If you&apos;re rural or going through a tough financial period, just reach out - we&apos;ll make sure cost
-          is never the reason you can&apos;t use it.
-        </p>
-
         <a href="/billing"
            className="inline-block px-4 py-2 rounded-[var(--r)] bg-[var(--blue)] text-white text-sm font-medium">
           Manage billing

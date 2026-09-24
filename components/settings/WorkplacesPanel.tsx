@@ -563,7 +563,7 @@ export default function WorkplacesPanel({ profile, onSave, onToast }: Workplaces
           </Button>
         ) : (
           <p className="text-xs text-[var(--text3)]">
-            Free plan includes 1 workplace.
+            Upgrade to add more workplaces.
           </p>
         )
       )}
