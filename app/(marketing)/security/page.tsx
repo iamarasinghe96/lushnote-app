@@ -3,7 +3,7 @@ import { PageBody, PageIntro, Block, Todo } from '@/components/marketing/Page'
 
 export const metadata = pageMeta({
   title: 'Security',
-  description: 'How LushNote looks after the clinical information that psychiatrists and their patients trust it with.',
+  description: 'How LushNote looks after the clinical information that doctors and their patients trust it with.',
   path: '/security',
 })
 

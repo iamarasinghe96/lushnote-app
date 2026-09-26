@@ -5,7 +5,7 @@ import { PageBody, PageIntro, Block, PRIMARY_CTA_LARGE } from '@/components/mark
 export const metadata = pageMeta({
   title: 'How it works',
   description:
-    'Record, dictate or paste a psychiatric consult and LushNote drafts the note or letter from it with your template. Review, then export as PDF or email.',
+    'Record, dictate or paste a consult and LushNote drafts the note or letter from it with your template. Review, then export as PDF or email.',
   path: '/how-it-works',
 })
 
@@ -36,7 +36,7 @@ export default function HowItWorksPage() {
     <PageBody>
       <PageIntro
         title="How LushNote works"
-        lead="LushNote turns a psychiatric consultation into the documents that follow it. You stay in charge of every word."
+        lead="LushNote turns a consultation into the documents that follow it. You stay in charge of every word."
       />
 
       <Block title="From consult to finished document">

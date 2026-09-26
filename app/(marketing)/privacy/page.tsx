@@ -4,7 +4,7 @@ import { PageBody, PageIntro, Block, Todo } from '@/components/marketing/Page'
 
 export const metadata = pageMeta({
   title: 'Privacy Policy',
-  description: 'The LushNote privacy policy for the AI clinical note builder used by psychiatrists in Australia.',
+  description: 'The LushNote privacy policy for the AI clinical note builder used by doctors in Australia.',
   path: '/privacy',
 })
 

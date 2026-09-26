@@ -13,12 +13,16 @@ test('the deployment reports which commit it is running', async ({ request }) =>
   expect(body.sha.length).toBeGreaterThan(0)
 })
 
-test('landing page shows the hero and the way in', async ({ page }) => {
+test('landing page shows the hero, the price and the way in', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { level: 1, name: 'Psychiatrist with a documentation backlog?' })).toBeVisible()
-  await page.getByRole('link', { name: 'Start your free trial' }).first().click()
-  await expect(page).toHaveURL(/\/login$/)
-  await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
+  await expect(page.getByText('Built to save doctors', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Clinical notes in seconds' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Three months free\. Then .*\$30/ })).toBeVisible()
+  await expect(page.getByText(/No payment details to start/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sign Up Free' })).toBeVisible()
+  // The liquid-glass pill is the landing page's design. It was once replaced
+  // by a plain header in passing, and nothing noticed until the owner did.
+  await expect(page.getByRole('navigation', { name: 'Main' })).toHaveAttribute('data-glass')
 })
 
 // Google showed the site with no title and no description because the old
@@ -26,9 +30,10 @@ test('landing page shows the hero and the way in', async ({ page }) => {
 // browser. This reads the raw HTML, before any JavaScript, as a crawler does.
 test('the landing page content is in the server HTML', async ({ request }) => {
   const html = await (await request.get('/')).text()
-  expect(html).toContain('<title>LushNote - AI clinical notes for psychiatrists</title>')
-  expect(html).toContain('Turn psychiatric consultations into progress notes')
-  expect(html).toContain('Psychiatrist with a documentation backlog?')
+  expect(html).toContain('<title>LushNote - AI clinical notes for doctors</title>')
+  expect(html).toContain('Turn consultations into clinical notes')
+  expect(html).toContain('Clinical notes in seconds')
+  expect(html).toContain('Built to save doctors')
   expect(html).toContain('"@type":"Organization"')
 })
 
@@ -42,7 +47,7 @@ test('every public page is reachable from the header or footer', async ({ page }
   await page.setViewportSize({ width: 1280, height: 800 })
   await page.goto('/')
   for (const [name, path] of [['How it works', '/how-it-works'], ['Pricing', '/pricing'], ['Security', '/security'], ['About', '/about'], ['Contact', '/contact']]) {
-    await expect(page.getByRole('navigation', { name: 'Main' }).first().getByRole('link', { name })).toHaveAttribute('href', path)
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name })).toHaveAttribute('href', path)
   }
   for (const [name, path] of [['Privacy', '/privacy'], ['Terms', '/terms'], ['Security', '/security'], ['Contact', '/contact']]) {
     await expect(page.getByRole('navigation', { name: 'Footer' }).getByRole('link', { name, exact: true })).toHaveAttribute('href', path)

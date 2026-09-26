@@ -4,7 +4,7 @@ import { SignInPanel } from '@/components/marketing/SignInPanel'
 
 export const metadata = pageMeta({
   title: 'Log in',
-  description: 'Log in to LushNote, or create an account to start your free trial of the AI clinical note builder for psychiatrists.',
+  description: 'Log in to LushNote, or create an account to start your free trial of the AI clinical note builder for doctors.',
   path: '/login',
 })
 
