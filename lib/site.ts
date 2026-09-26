@@ -5,9 +5,9 @@ import type { Metadata } from 'next'
 // serves as primary; the other one should redirect here.
 export const SITE_URL = 'https://www.lushnote.com.au'
 export const SITE_NAME = 'LushNote'
-export const DEFAULT_TITLE = 'LushNote - AI clinical notes for psychiatrists'
+export const DEFAULT_TITLE = 'LushNote - AI clinical notes for doctors'
 export const DEFAULT_DESCRIPTION =
-  'Turn psychiatric consultations into progress notes, referral letters and discharge summaries in minutes. Built in Australia. Try it free.'
+  'Turn consultations into clinical notes, referral letters and discharge summaries in minutes. Built in Australia for doctors. Try it free.'
 export const SOCIAL_IMAGE = { url: '/icon-512.png', width: 512, height: 512, alt: 'LushNote' }
 
 /** Only the production deployment is indexed. Vercel sets VERCEL_ENV to

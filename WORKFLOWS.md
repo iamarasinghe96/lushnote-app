@@ -21,8 +21,8 @@ between patients.
 ## `public-site` — The public pages and what search engines see
 
 **Entry:** a search result, or typing lushnote.com.au
-**Ends at:** `/login`, via **Start free trial** or **Log in**
-**Code:** `app/(marketing)/` → `components/marketing/` → `lib/site.ts`, `app/robots.ts`, `app/sitemap.ts`
+**Ends at:** Google sign-in from the landing page (**Sign Up Free**, **Sign In**), or `/login` from any other public page
+**Code:** `app/(home)/page.tsx`, `app/(marketing)/` → `components/marketing/` → `lib/site.ts`, `app/robots.ts`, `app/sitemap.ts`
 **Coverage:** ✅ `tests/e2e/public.spec.ts`
 
 ### Expected outputs — what must remain true
@@ -30,7 +30,8 @@ between patients.
 - The HTML of `/`, before any JavaScript, contains the title, the description,
   the headline and the Organization JSON-LD
 - Every public page has its own title, description and canonical link
-- The header links How it works, Pricing, Security, About and Contact; the footer
+- The landing page keeps its liquid-glass nav, full-page gradient and "Built to save doctors" badge
+- The header links How it works, Pricing, Security, About and Contact (in the landing pill on desktop only); the footer
   links Privacy, Terms, Security and Contact
 - A signed-in doctor on a public page sees **Open LushNote**, and an installed
   home-screen app goes straight to `/app`
@@ -41,7 +42,7 @@ between patients.
 
 ## `signup` — Sign up and onboarding
 
-**Entry:** any public page → **Start free trial** → `/login` → **Continue with Google**
+**Entry:** landing page → **Sign Up Free**, or any other public page → **Start free trial** → `/login` → **Continue with Google**
 **Ends at:** `/app/generate`, signed in, with a complete profile in Firestore
 **Code:** `components/marketing/SignInPanel.tsx` → `components/AuthProvider.tsx` → `app/app/onboarding/page.tsx`
 **Coverage:** ⚠️ — the Firestore write is pinned by `tests/rules/users.rules.test.ts`;
@@ -51,7 +52,7 @@ the six-step UI itself has no browser spec yet
 
 | # | Step | What the doctor does | What the code does | Required to continue |
 |---|---|---|---|---|
-| 0 | Sign in | Clicks **Start free trial**, then **Continue with Google** on `/login`, picks a Google account, confirms | `signInWithPopup` (`AuthProvider.tsx:69`). Google popup only — there is no email/password path in the product. `ensureProfileStub` then writes `users/{uid}` with `onboardingComplete: false`, so an abandoned signup still leaves a record | a Google account |
+| 0 | Sign in | Clicks **Sign Up Free** on the landing page (or **Continue with Google** on `/login`), picks a Google account, confirms | `signInWithPopup` (`AuthProvider.tsx:69`). Google popup only — there is no email/password path in the product. `ensureProfileStub` then writes `users/{uid}` with `onboardingComplete: false`, so an abandoned signup still leaves a record | a Google account |
 | 0a | *(previews only)* | — | Google OAuth runs only from a hostname on Firebase's **Authorized domains** list. Production and `localhost` are on it; a Vercel preview is not until its branch alias is added. The failure is a popup that opens black and closes at once — see `DEPLOYMENT.md` step 6 | the domain being authorised |
 | 1 | About you | Full name, Credentials, Position/Title, Provider No., Work phone | Held in local state; nothing is written yet | **Full name only.** The other four are optional |
 | 2 | Your workplace | Workplace name (autocomplete, or a custom name not in the list), institution type, and whether the institution has a patient registration system | `HospitalAutocomplete`. If **yes**, `detectIdPattern(example)` tokenises the sample ID into alpha/digit/separator runs and stores `regPattern` + `regTemplate`, which is what later warns a doctor who types a malformed number. If **no**, LushNote's own `YYYYMMDDNNN` numbering is used | **Workplace name only.** Registration system defaults to none |

@@ -3,7 +3,7 @@ import TermsContent from './TermsContent'
 
 export const metadata = pageMeta({
   title: 'Terms of Service',
-  description: 'The terms of service and privacy policy for LushNote, the AI clinical note builder for psychiatrists in Australia.',
+  description: 'The terms of service and privacy policy for LushNote, the AI clinical note builder for doctors in Australia.',
   path: '/terms',
 })
 

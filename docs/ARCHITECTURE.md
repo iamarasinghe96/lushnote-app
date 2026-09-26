@@ -41,7 +41,8 @@ between them forbade touching most of the live codebase.
 
 | Directory | What lives there |
 |---|---|
-| `app/(marketing)/` | The public site, server-rendered with no auth check: `/`, `how-it-works`, `pricing`, `security`, `privacy`, `terms`, `about`, `contact`, `login`. See "Public site and search" |
+| `app/(home)/` | The landing page, `/`: its own liquid-glass nav and full-page gradient, server-rendered. See "Public site and search" |
+| `app/(marketing)/` | The other public pages, server-rendered with no auth check under a shared plain header: `how-it-works`, `pricing`, `security`, `privacy`, `terms`, `about`, `contact`, `login`. See "Public site and search" |
 | `app/app/(shell)/` | The authenticated shell and its tabs, served under `/app`: generate, edit, export, history, patients, transcript |
 | `app/app/` (siblings of the shell) | `settings`, `billing`, `onboarding`: signed-in, under `/app`, but outside the shell deliberately |
 | `app/` (other) | `admin`, `unsubscribe`, `account-deleted`, `e2e-login`, plus `robots.ts` and `sitemap.ts` |
@@ -1105,7 +1106,7 @@ page was a client component that rendered a spinner on the server until Firebase
 settled, so a crawler received an empty shell, and there was no robots.txt or
 sitemap. The fix split the site in two:
 
-- **The public site** (`app/(marketing)/`) is server-rendered with no auth check,
+- **The public site** (`app/(home)/` for `/`, `app/(marketing)/` for the rest) is server-rendered with no auth check,
   so its content is in the HTML. Each page exports its own title, description,
   canonical and social card through `pageMeta` in `lib/site.ts`, which also holds
   the canonical host and the page list the sitemap is built from. The home page

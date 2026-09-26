@@ -3,7 +3,7 @@ import { PageBody, PageIntro, Block, Todo } from '@/components/marketing/Page'
 
 export const metadata = pageMeta({
   title: 'About',
-  description: 'LushNote is an Australian AI documentation tool for psychiatrists, built to give clinicians back the time that paperwork takes.',
+  description: 'LushNote is an Australian AI documentation tool for doctors, built to give clinicians back the time that paperwork takes.',
   path: '/about',
 })
 
@@ -12,7 +12,7 @@ export default function AboutPage() {
     <PageBody>
       <PageIntro
         title="About LushNote"
-        lead="LushNote is a clinical documentation tool built in Australia for psychiatrists. It turns a consultation into the paperwork that follows it, so more of the day goes to patients."
+        lead="LushNote is a clinical documentation tool built in Australia for doctors. It turns a consultation into the paperwork that follows it, so more of the day goes to patients."
       />
       <Block title="Why we built it">
         <Todo>Who is behind LushNote, and why it was built.</Todo>

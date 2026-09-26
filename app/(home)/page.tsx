@@ -1,0 +1,456 @@
+import type { ReactNode } from 'react'
+import { DEFAULT_DESCRIPTION, SITE_NAME, SITE_URL, CONTACT_EMAIL, pageMeta } from '@/lib/site'
+import { PLAN_PRICE_AUD } from '@/lib/fairUse'
+import { LandingAuth, LandingButton, LandingError } from '@/components/marketing/LandingAuth'
+
+// The landing page. A server component on purpose: it used to be a client
+// component that rendered a spinner until Firebase settled, so the HTML Google
+// received was empty and the site was listed with no title or description.
+// The design is the original one; only the rendering moved to the server.
+
+export const metadata = pageMeta({ description: DEFAULT_DESCRIPTION, path: '/' })
+
+const ORGANIZATION = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: SITE_NAME,
+  url: SITE_URL,
+  logo: `${SITE_URL}/icon-512.png`,
+  sameAs: [] as string[],
+}
+
+// The same string /api/billing's public-config returns for a visitor, from the
+// same constant billing charges.
+const PRICE = `AUD $${PLAN_PRICE_AUD}/month`
+
+// The hero background, shared by the in-page fixed layer AND the <body> so the
+// same gradient also fills the PWA home-indicator safe-area strip (the fixed
+// layer is clipped to the small viewport and never reaches it).
+const HERO_BG = [
+  'radial-gradient(ellipse 90% 55% at 50% 0%,   rgba(90,214,167,0.85) 0%, transparent 58%)',
+  'radial-gradient(ellipse 65% 40% at 92% 18%,  rgba(37,99,235,0.60)  0%, transparent 52%)',
+  'radial-gradient(ellipse 55% 35% at 0%   0%,  rgba(37,99,235,0.45)  0%, transparent 55%)',
+  'radial-gradient(ellipse 70% 38% at 6%  50%,  rgba(90,214,167,0.55) 0%, transparent 52%)',
+  'radial-gradient(ellipse 65% 38% at 90% 70%,  rgba(37,99,235,0.55)  0%, transparent 52%)',
+  'radial-gradient(ellipse 60% 30% at 18% 90%,  rgba(90,214,167,0.50) 0%, transparent 48%)',
+  'radial-gradient(ellipse 100% 45% at 50% 100%, rgba(90,214,167,0.55) 0%, transparent 60%)',
+  '#d8f0e8',
+].join(', ')
+
+const GLASS_CARD = {
+  background: 'rgba(255,255,255,0.12)',
+  backdropFilter: 'blur(28px) saturate(1.6)',
+  WebkitBackdropFilter: 'blur(28px) saturate(1.6)',
+  boxShadow: '0 2px 16px rgba(15,23,42,.06), 0 0 0 1px rgba(255,255,255,0.65)',
+}
+
+const NAV_LINKS = [
+  { href: '/how-it-works', label: 'How it works' },
+  { href: '/pricing', label: 'Pricing' },
+  { href: '/security', label: 'Security' },
+  { href: '/about', label: 'About' },
+  { href: '/contact', label: 'Contact' },
+]
+
+export default function Page() {
+  return (
+    <LandingAuth>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION) }} />
+      <div className="h-dvh overflow-y-auto text-[var(--text)] relative" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        {/* Fixed full-viewport gradient behind the scrolling content. Kept as a
+            self-contained element — NO global html/body overrides — because a
+            landing <style>/effect that mutated html/body got hoisted/left applied
+            and leaked into the authenticated app, breaking the fixed tab bar. */}
+        <div aria-hidden style={{ position: 'fixed', inset: 0, zIndex: -1, background: HERO_BG }} />
+
+        {/* ── Nav ── */}
+        <nav
+          aria-label="Main"
+          data-glass
+          data-glass-adaptive
+          className="ln-glass ln-glass-light lg-frost-lg fixed z-40 flex items-center justify-between
+                     h-14 sm:h-[60px] px-4 sm:px-6"
+          style={{
+            top: 'calc(env(safe-area-inset-top) + 12px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 'calc(100% - 56px)',
+            maxWidth: 1140,
+            borderRadius: 30,
+            boxShadow: '0px 6px 24px rgba(0, 0, 0, 0.2)',
+          }}
+        >
+          <div className="flex items-center gap-2 sm:gap-3 select-none min-w-0">
+            <img src="/icon.svg" alt="" width={40} height={40} className="w-9 h-9 sm:w-10 sm:h-10 shrink-0" aria-hidden />
+            <span className="hidden sm:inline font-semibold text-[var(--text)] text-xl">LushNote</span>
+          </div>
+          {/* Desktop only: on a phone the pill has room for the two buttons and
+              nothing else. The footer carries the same links on every width. */}
+          <div className="hidden lg:flex items-center gap-5 text-[15px] text-[var(--text2)]">
+            {NAV_LINKS.map(l => (
+              <a key={l.href} href={l.href} className="hover:text-[var(--text)] motion-safe:transition-colors">{l.label}</a>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            <LandingButton
+              label="Sign In"
+              hideWhenSignedIn
+              className="px-4 sm:px-5 py-2 sm:py-2.5 text-sm sm:text-[15px] font-medium text-[var(--text2)] hover:text-[var(--text)]
+                         border border-white/70 rounded-full hover:border-white whitespace-nowrap
+                         motion-safe:transition-colors disabled:opacity-50"
+            />
+            <LandingButton
+              label="Sign Up Free"
+              busyLabel="Signing in…"
+              className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-[15px] font-semibold text-white bg-[#10b981] rounded-full
+                         hover:bg-[#059669] whitespace-nowrap motion-safe:transition-colors motion-safe:active:scale-[0.97]
+                         motion-safe:transition-transform disabled:opacity-50"
+            />
+          </div>
+        </nav>
+
+        {/* ── Hero ── */}
+        <section
+          className="relative flex flex-col items-center justify-center min-h-dvh text-center px-4"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 96px)' }}
+        >
+          <div className="max-w-2xl mx-auto space-y-6">
+            <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold
+                             bg-[var(--blue-lt)] text-[var(--blue)]">
+              Built to save doctors
+            </span>
+
+            <h1 className="text-4xl sm:text-5xl font-bold text-[var(--text)] leading-tight">
+              Clinical notes in seconds
+            </h1>
+
+            <p className="text-lg text-[var(--text2)] leading-relaxed">
+              AI-powered notes and referral letters for doctors.{' '}<br className="hidden sm:block" />
+              Record, transcribe, structure, all in one workflow.
+            </p>
+
+            <LandingError />
+
+            <div className="flex items-center justify-center">
+              <LandingButton
+                label="Get started free"
+                busyLabel="Signing in…"
+                className="w-full sm:w-auto px-6 py-3 rounded-[var(--r)] bg-[#10b981] text-white
+                           font-semibold text-sm hover:bg-[#059669]
+                           motion-safe:transition-colors motion-safe:active:scale-[0.97]
+                           motion-safe:duration-100 disabled:opacity-50"
+              />
+            </div>
+
+            <div className="flex justify-center pt-8">
+              <img src="/LushNote_Logo.svg" alt="LushNote" className="w-28 h-28" />
+            </div>
+          </div>
+        </section>
+
+        {/* ── How it works ── */}
+        <section id="how-it-works" className="py-20 px-4">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-2xl font-bold text-center text-[var(--text)] mb-12">
+              How it works
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-8">
+              {HOW_IT_WORKS.map((step, i) => (
+                <div key={step.title} className="flex flex-col items-center text-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[var(--blue-lt)] text-[var(--blue)]
+                                  flex items-center justify-center text-sm font-bold shrink-0">
+                    {i + 1}
+                  </div>
+                  <p className="font-semibold text-[var(--text)] text-sm">{step.title}</p>
+                  <p className="text-xs text-[var(--text2)] leading-relaxed">{step.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Features grid ── */}
+        <section className="py-20 px-4">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-2xl font-bold text-center text-[var(--text)] mb-12">
+              Everything you need
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {FEATURES.map(f => (
+                <div key={f.title} className="rounded-[var(--r-lg)] p-4 backdrop-blur-md" style={GLASS_CARD}>
+                  <div className="mb-2 text-[var(--blue)]">{f.icon}</div>
+                  <p className="text-sm font-semibold text-[var(--text)] mb-1">{f.title}</p>
+                  <p className="text-xs text-[var(--text2)] leading-relaxed">{f.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Five modes ── */}
+        <section className="py-20 px-4">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-2xl font-bold text-center text-[var(--text)] mb-12">
+              Five ways to create a note
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {MODES.map(m => (
+                <div key={m.title} className="rounded-[var(--r-lg)] border border-[var(--border)] p-4" style={GLASS_CARD}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-lg bg-[var(--blue-lt)] flex items-center justify-center shrink-0">
+                      {m.icon}
+                    </div>
+                    <p className="text-sm font-semibold text-[var(--text)]">{m.title}</p>
+                    {m.soon && (
+                      <span className="ml-auto text-[10px] font-medium text-[var(--text3)] bg-[var(--bg)] px-2 py-0.5 rounded-full">
+                        soon
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[var(--text2)] leading-relaxed">{m.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Pricing ── */}
+        <section id="pricing" className="py-20 px-4">
+          <div className="max-w-xl mx-auto text-center space-y-4">
+            <h2 className="text-2xl sm:text-3xl font-bold text-[var(--text)]">
+              Three months free. Then {PRICE}.
+            </h2>
+            <p className="text-[var(--text2)]">
+              Every feature included. No payment details to start - we&apos;ll remind you a week before the trial ends.
+              Cancel anytime and keep access to the end of the period you&apos;ve paid for; your notes are always yours
+              to export.
+            </p>
+            <p className="text-sm text-[var(--text2)]">
+              Card payments worldwide, or direct debit from an Australian bank account.
+            </p>
+            <p className="text-xs text-[var(--text3)] max-w-md mx-auto">
+              Prices are in Australian dollars. If your card is issued outside Australia, your bank converts the charge
+              and may add a small foreign-transaction fee.
+            </p>
+
+            {/* Fair use, stated before anyone signs up rather than discovered
+                later. Two plans, the same subscription; what differs is whose key
+                pays for the AI. */}
+            <div className="grid sm:grid-cols-2 gap-3 pt-4 text-left">
+              <div className="rounded-[var(--r-lg)] border border-[var(--border)] bg-white/70 p-4 space-y-1.5">
+                <p className="text-sm font-semibold text-[var(--text)]">LushNote</p>
+                <p className="text-xs font-medium text-[var(--text2)]">{PRICE}</p>
+                <p className="text-xs leading-relaxed text-[var(--text2)]">
+                  AI included. During the trial it runs on your own free Gemini or Groq key; once you subscribe,
+                  LushNote&apos;s keys cover it, up to a monthly fair-use allowance set at what the subscription pays for.
+                  One clinician rarely comes near it. Past it, the AI runs on your own key until the next month.
+                </p>
+              </div>
+              <div className="rounded-[var(--r-lg)] border border-[var(--border)] bg-white/70 p-4 space-y-1.5">
+                <p className="text-sm font-semibold text-[var(--text)]">Enterprise</p>
+                <p className="text-xs font-medium text-[var(--text2)]">{PRICE} plus your own AI usage</p>
+                <p className="text-xs leading-relaxed text-[var(--text2)]">
+                  For practices and heavy use. The AI runs on your organisation&apos;s own Gemini API key
+                  and Google bills you directly for what you use, at Google&apos;s rates. No fair-use allowance.
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-[var(--text3)]">
+              Full details in our <a href="/terms" className="underline">terms and privacy policy</a>.
+            </p>
+          </div>
+        </section>
+
+        {/* ── Bottom CTA ── */}
+        <section className="py-20 px-4">
+          <div
+            className="max-w-xl mx-auto text-center space-y-4 rounded-[var(--r-lg)] py-14 px-6"
+            style={{
+              background: 'rgba(29,78,216,0.18)',
+              backdropFilter: 'blur(32px) saturate(1.8)',
+              WebkitBackdropFilter: 'blur(32px) saturate(1.8)',
+              border: '1px solid rgba(29,78,216,0.30)',
+              boxShadow: '0 8px 32px rgba(29,78,216,0.12), inset 0 1px 0 rgba(255,255,255,0.25)',
+            }}
+          >
+            <h2 className="text-3xl font-bold text-[#1d4ed8]">Document smarter.</h2>
+            <p className="text-[var(--text2)] text-lg">Save one more life.</p>
+            <LandingButton
+              label="Start for free"
+              busyLabel="Signing in…"
+              className="mt-2 px-8 py-3 rounded-[var(--r)] bg-[var(--blue)] text-white font-semibold
+                         text-sm hover:bg-[var(--blue-dk)]
+                         motion-safe:transition-colors motion-safe:active:scale-[0.97]
+                         motion-safe:duration-100 disabled:opacity-50"
+            />
+          </div>
+        </section>
+
+        {/* ── Footer ── */}
+        <footer className="border-t border-[var(--border)] py-6 px-4">
+          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-[var(--text3)]">
+              © 2025 LushNote. Built to save doctors.
+            </p>
+            <nav aria-label="Footer" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-[var(--text3)]">
+              {NAV_LINKS.slice(0, 4).map(l => (
+                <a key={l.href} href={l.href} className="hover:text-[var(--text)] motion-safe:transition-colors">{l.label}</a>
+              ))}
+              <a href="/privacy" className="hover:text-[var(--text)] motion-safe:transition-colors">Privacy</a>
+              <a href="/terms" className="hover:text-[var(--text)] motion-safe:transition-colors">Terms</a>
+              <a href="/contact" className="hover:text-[var(--text)] motion-safe:transition-colors">Contact</a>
+              <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-[var(--text)] motion-safe:transition-colors">{CONTACT_EMAIL}</a>
+            </nav>
+          </div>
+        </footer>
+      </div>
+    </LandingAuth>
+  )
+}
+
+const HOW_IT_WORKS = [
+  {
+    title: 'Record',
+    description: 'Record a session, dictate a note, or paste a transcript.',
+  },
+  {
+    title: 'Transcribe',
+    description: 'Audio is transcribed instantly using Gemini or Groq.',
+  },
+  {
+    title: 'Generate',
+    description: 'Choose a template - AI structures a complete clinical note.',
+  },
+  {
+    title: 'Export',
+    description: 'Download as PDF, copy to clipboard, or send by email.',
+  },
+]
+
+const FEATURES: { icon: ReactNode; title: string; description: string }[] = [
+  {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="1.75" aria-hidden>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+      </svg>
+    ),
+    title: '116 clinical templates',
+    description: 'Progress notes, assessments, therapy notes, and risk & safety across all specialties.',
+  },
+  {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="1.75" aria-hidden>
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+    ),
+    title: 'Privacy-first',
+    description: 'Audio is never stored. Transcripts are redacted before leaving your device.',
+  },
+  {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="1.75" aria-hidden>
+        <rect x="2" y="7" width="20" height="14" rx="2"/>
+        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+      </svg>
+    ),
+    title: 'Multiple workplaces',
+    description: 'Switch between clinics with one tap. Each with its own colour theme.',
+  },
+  {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="1.75" aria-hidden>
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 8v4l3 3"/>
+      </svg>
+    ),
+    title: 'Gemini + Groq AI',
+    description: 'Gemini 2.5 Flash with Groq as fallback. Included on the paid plan; your own free key during the trial.',
+  },
+  {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="1.75" aria-hidden>
+        <path d="M12 20h9"/>
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+      </svg>
+    ),
+    title: 'Custom templates',
+    description: 'Build your own AI instructions, tailored to your exact documentation style.',
+  },
+  {
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="1.75" aria-hidden>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <polyline points="9,15 12,18 15,15"/>
+      </svg>
+    ),
+    title: 'PDF & email export',
+    description: 'Download A4 PDFs or send to colleagues with a pre-written cover letter.',
+  },
+]
+
+const MODES = [
+  {
+    title: 'Paste Transcript',
+    description: 'Paste a transcript and LushNote structures it into a complete clinical note.',
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="2" aria-hidden>
+        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+        <rect x="8" y="2" width="8" height="4" rx="1"/>
+      </svg>
+    ),
+    soon: false,
+  },
+  {
+    title: 'Dictate Note',
+    description: 'Record yourself speaking and get an AI-structured note from your dictation.',
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="2" aria-hidden>
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8" y1="23" x2="16" y2="23"/>
+      </svg>
+    ),
+    soon: false,
+  },
+  {
+    title: 'Record Session',
+    description: 'Record in-person or telehealth sessions directly in the browser.',
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="2" aria-hidden>
+        <circle cx="12" cy="12" r="10"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    ),
+    soon: false,
+  },
+  {
+    title: 'Create Document',
+    description: 'Paste or upload a text document and generate a structured note from it.',
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="2" aria-hidden>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14,2 14,8 20,8"/>
+      </svg>
+    ),
+    soon: false,
+  },
+  {
+    title: 'Upload Recording',
+    description: 'Upload an audio file from any device for transcription and note generation.',
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="2" aria-hidden>
+        <polyline points="16,16 12,12 8,16"/>
+        <line x1="12" y1="12" x2="12" y2="21"/>
+        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+      </svg>
+    ),
+    soon: true,
+  },
+]
