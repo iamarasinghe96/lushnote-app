@@ -357,6 +357,14 @@ the catch-all `allow read, write: if false` silently denies every access.
 
 `tests/rules/users.rules.test.ts` exercises the real file against the emulator.
 
+**Storage rules live in `storage.rules`**, tested by `tests/rules/storage.rules.test.ts`
+against the Storage emulator. Until September 2026 the only copy was in the
+Firebase console, where it let any signed-in account read any doctor's signature
+and letterhead photos by uid. Nothing deploys the file: publish it with
+`firebase deploy --only storage` or paste it into Firebase Console → Storage →
+Rules. Owner-only reads do not break PDFs or the admin console, because both use
+the saved download URL, and a token URL does not pass through rules.
+
 ---
 
 ## Billing (Stripe) — all 8 layers landed; plan in MONETIZATION_PLAN.md
