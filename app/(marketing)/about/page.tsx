@@ -1,5 +1,5 @@
 import { pageMeta } from '@/lib/site'
-import { PageBody, PageIntro, Block, Todo } from '@/components/marketing/Page'
+import { PageBody, PageIntro, Block } from '@/components/marketing/Page'
 
 export const metadata = pageMeta({
   title: 'About',
@@ -15,7 +15,15 @@ export default function AboutPage() {
         lead="LushNote is a clinical documentation tool built in Australia for doctors. It turns a consultation into the paperwork that follows it, so more of the day goes to patients."
       />
       <Block title="Why we built it">
-        <Todo>Who is behind LushNote, and why it was built.</Todo>
+        <p>
+          Documentation takes a large share of every clinician&apos;s day, and most of it happens after the patient has
+          left. LushNote exists to give that time back: record or dictate the consultation, and the note, the referral
+          letter or the hospital form is drafted for you to review.
+        </p>
+        <p>
+          LushNote is built and run by an independent Australian developer. It is not affiliated with any hospital,
+          health network or AI company, and it is shaped by feedback from the doctors who use it.
+        </p>
       </Block>
       <div className="p-5 rounded-[var(--r-lg)] border border-[#d8f0e8] bg-[#f0fdf8]">
         <h2 className="text-sm font-semibold text-[#059669] mb-1">Acknowledgment of Country</h2>

@@ -1129,10 +1129,12 @@ sitemap. The fix split the site in two:
   Every other build sends `noindex` in the root metadata, an `X-Robots-Tag` on
   every route, and a robots.txt that disallows everything.
 
-`/terms` holds the agreed Terms of Service and Privacy Policy, and its text is
-unchanged by the move. `/privacy` and `/security` are placeholders marked TODO,
-deliberately: legal, data-residency and retention statements are the owner's to
-write.
+`/terms` holds the agreed Terms of Service and Privacy Policy, and governs.
+`/privacy` and `/security` summarise it in plain language. Every statement on
+them is either in `/terms` or enforced in code (the rules files, the admin API,
+`lib/redact.ts`); keep it that way. They deliberately name no storage region,
+certification or retention period that nothing in the product backs, so change
+them in the same commit as any change to what is stored, where, or for how long.
 
 `tests/e2e/public.spec.ts` reads the raw HTML of `/`, as a crawler does, and fails
 if the title, description or headline are missing from it.
