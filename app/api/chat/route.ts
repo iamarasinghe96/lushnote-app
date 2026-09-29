@@ -10,6 +10,7 @@ import { paidSpend, isEnterprise } from '@/lib/fairUse'
 import { withGeminiHandover } from '@/lib/geminiHandover'
 import { monthKey } from '@/lib/utils'
 import { rateLimit } from '@/lib/rateLimit'
+import { LUSHNOTE_KB } from '@/lib/supportKb'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import { resolveEntitlement } from '@/lib/entitlement'
 import { reconcileRefinedSections } from '@/lib/letterTemplateRefine'
@@ -150,13 +151,22 @@ Keep responses concise and practical.`
 
     // ── Support triage: can the bot resolve it, or escalate to a human? ──────────
     if (type === 'support-triage') {
-      const { topic, description, kb } = body as {
-        topic?: string; description?: string; kb?: string
+      const { topic: rawTopic, description } = body as {
+        topic?: string; description?: string
       }
+      const topic = (rawTopic ?? '').toString().slice(0, 120)
       const desc = (description ?? '').toString().trim()
       if (!desc || desc.length > 4000) {
         return NextResponse.json({ error: 'Invalid description' }, { status: 400 })
       }
+      // This runs on LushNote's own Groq key, so the knowledge base is the
+      // server's copy rather than whatever the request carries - a client-sent
+      // one was a prompt of any size on our account - and it is capped per
+      // doctor. Over the cap it hands straight to a human, as a failure does.
+      if (!rateLimit(`${callerUid}:triage`, 30, 60 * 60 * 1000).allowed) {
+        return NextResponse.json({ canHelp: false, answer: '' })
+      }
+      const kb = LUSHNOTE_KB
 
       const triageSystem = `You are LushNote's first-line support triage assistant. A clinician has raised a support item.
 Topic: ${topic || 'General'}

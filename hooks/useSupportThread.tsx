@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { LUSHNOTE_KB, SUPPORT_TOPICS, playSupportChime, type SupportTopic } from '@/lib/supportKb'
+import { SUPPORT_TOPICS, playSupportChime, type SupportTopic } from '@/lib/supportKb'
 
 // Live Support, lifted out of the FAB so it can live in Settings.
 //
@@ -267,7 +267,7 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ type: 'support-triage', topic, description: text, kb: LUSHNOTE_KB }),
+        body: JSON.stringify({ type: 'support-triage', topic, description: text }),
       })
       const data = await res.json() as { canHelp?: boolean; answer?: string }
       if (data.canHelp && data.answer?.trim()) {
