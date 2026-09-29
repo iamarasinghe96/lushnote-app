@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase-admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { logToSink } from '@/lib/firestore/systemLogs'
+import { requireUser, unauthorized } from '@/lib/adminGuard'
 
 // One-way incoming webhook, used only when the two-way bot isn't configured.
 // Server-only env var (rotate the old hardcoded value when deploying this).
@@ -40,9 +41,15 @@ async function slackApi(method: string, payload: Record<string, unknown>): Promi
 
 export async function POST(req: NextRequest) {
   try {
+    // Identity is PROVEN, never asserted. Every action here reads or writes the
+    // support thread keyed by uid through the Admin SDK, which Firestore rules do
+    // not cover, so a uid taken from the body let anyone who knew a doctor's uid
+    // read their support replies, post as them, or close their thread.
+    let uid: string
+    try { uid = await requireUser(req) } catch { return unauthorized() }
+
     const body = await req.json() as {
       action: 'send' | 'poll' | 'escalate' | 'close' | 'markRead'
-      uid: string
       name?: string
       email?: string
       message?: string
@@ -51,10 +58,7 @@ export async function POST(req: NextRequest) {
       ts?: string
     }
 
-    const { action, uid } = body
-    if (!uid || typeof uid !== 'string' || uid.length === 0 || uid.length > 128) {
-      return NextResponse.json({ error: 'Invalid uid' }, { status: 401 })
-    }
+    const { action } = body
 
     if (action === 'send') {
       const message = (body.message ?? '').trim()

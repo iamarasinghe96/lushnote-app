@@ -92,18 +92,26 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
     setMessages(prev => [...prev, msg])
   }, [])
 
+  // The support route takes the doctor's identity from this token, never from
+  // the body. Every caller sits inside a try, so a failed token fetch is handled
+  // exactly like a failed request.
+  const supportPost = useCallback(async (payload: Record<string, unknown>): Promise<Response> => {
+    const token = await user!.getIdToken()
+    return fetch('/api/support', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    })
+  }, [user])
+
   // Tell the server the doctor has read up to this Slack ts, so already-seen
   // replies don't come back as "unread" on the next fresh page load.
   const markRead = useCallback(async (ts: string) => {
     if (!user || !ts) return
     try {
-      await fetch('/api/support', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'markRead', uid: user.uid, ts }),
-      })
+      await supportPost({ action: 'markRead', ts })
     } catch { /* best-effort; next open retries */ }
-  }, [user])
+  }, [user, supportPost])
 
   // Poll the Slack thread for human replies. A FRESH page load never replays the
   // whole thread — the doctor lands on the clean topic menu and only genuinely
@@ -114,11 +122,7 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
   const poll = useCallback(async () => {
     if (!user) return
     try {
-      const res = await fetch('/api/support', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'poll', uid: user.uid }),
-      })
+      const res = await supportPost({ action: 'poll' })
       const data = await res.json() as { twoWay: boolean; messages?: SupportMessage[]; threadExists?: boolean; ticket?: string | null; lastReadTs?: string | null }
       setTwoWay(data.twoWay)
       if (data.threadExists) threadActiveRef.current = true
@@ -170,7 +174,7 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
     } catch {
       // transient network failure - next poll retries
     }
-  }, [user, markRead])
+  }, [user, markRead, supportPost])
 
   // Prime once on mount + a light background poll so a reply raises the badge
   // even when the chat is closed (only if the doctor has an active thread).
@@ -215,13 +219,9 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
       .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`).join('\n')
     setSending(true)
     try {
-      const res = await fetch('/api/support', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'escalate', uid: user.uid, name: profile?.displayName ?? '',
-          email: user.email ?? '', topic, transcript,
-        }),
+      const res = await supportPost({
+        action: 'escalate', name: profile?.displayName ?? '',
+        email: user.email ?? '', topic, transcript,
       })
       if (!res.ok) throw new Error('escalate failed')
       const data = await res.json() as { twoWay: boolean; ticket?: string }
@@ -250,7 +250,7 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
     } finally {
       setSending(false)
     }
-  }, [user, profile, topic, push, poll])
+  }, [user, profile, topic, push, poll, supportPost])
 
   // Step 2: doctor describes the issue → AI decides if it can answer or escalate.
   const submitDescription = useCallback(async (text: string) => {
@@ -260,10 +260,13 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
     setSending(true)
     try {
       // No x-groq-key: support triage runs on LushNote's own Groq key server-side,
-      // so it never spends the doctor's Groq/Gemini allowance.
+      // so it never spends the doctor's Groq/Gemini allowance. The token is still
+      // required: /api/chat answers 401 without it, and every question used to go
+      // straight to a human because of exactly that.
+      const token = await user!.getIdToken()
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ type: 'support-triage', topic, description: text, kb: LUSHNOTE_KB }),
       })
       const data = await res.json() as { canHelp?: boolean; answer?: string }
@@ -278,7 +281,7 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
     } finally {
       setSending(false)
     }
-  }, [push, bumpActivity, topic, escalate])
+  }, [user, push, bumpActivity, topic, escalate])
 
   // Post-escalation: doctor's typed message goes to the human thread.
   const sendToHuman = useCallback(async (text: string) => {
@@ -287,11 +290,7 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
     bumpActivity()
     setSending(true)
     try {
-      const res = await fetch('/api/support', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send', uid: user.uid, name: profile?.displayName ?? '', email: user.email ?? '', message: text }),
-      })
+      const res = await supportPost({ action: 'send', name: profile?.displayName ?? '', email: user.email ?? '', message: text })
       const data = await res.json() as { twoWay: boolean; error?: string }
       if (data.error) throw new Error(data.error)
       setTwoWay(data.twoWay)
@@ -302,7 +301,7 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
     } finally {
       setSending(false)
     }
-  }, [user, profile, push, bumpActivity, poll])
+  }, [user, profile, push, bumpActivity, poll, supportPost])
 
   // End chat: close the Slack thread (fresh ticket next time) and reset to the
   // topic menu so the old conversation no longer shows.
@@ -310,11 +309,7 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
     if (inactivityTimerRef.current) { clearTimeout(inactivityTimerRef.current); inactivityTimerRef.current = null }
     if (user) {
       try {
-        await fetch('/api/support', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'close', uid: user.uid }),
-        })
+        await supportPost({ action: 'close' })
       } catch { /* reset locally regardless */ }
     }
     setMessages([])
@@ -330,7 +325,7 @@ export function SupportThreadProvider({ children }: { children: ReactNode }) {
     seenTsRef.current = new Set()
     primedRef.current = true
     threadActiveRef.current = false
-  }, [user])
+  }, [user, supportPost])
   endChatRef.current = endChat
 
   // Step 1: doctor taps a topic (no AI) → we ask for a description.

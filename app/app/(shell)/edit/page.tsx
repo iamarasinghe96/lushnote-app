@@ -37,6 +37,7 @@ import ManualGenerateModal from '@/components/modals/ManualGenerateModal'
 import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderModal'
 import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate, ExtraSection, CustomLetterTemplate, LetterData, ReferralFields, RecordsFields, FreetextFields, PatientProfile } from '@/types'
 import { aiHeaders } from '@/lib/aiHeaders'
+import { reportToLog } from '@/lib/clientLog'
 import { checkRegStatus } from '@/lib/regNumber'
 
 function formatDuration(secs: number): string {
@@ -1121,7 +1122,7 @@ function EditContent() {
         const safe: NoteInput = { ...noteData }
         delete (safe as { templateId?: string }).templateId
         delete (safe as { templateName?: string }).templateName
-        fetch('/api/log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level: 'warn', tag: 'template', route: '/edit', uid: user?.uid, message: 'note saved without templateId - publish the templateId/templateName Firestore rule (hasOnly)' }) }).catch(() => {})
+        reportToLog({ level: 'warn', tag: 'template', route: '/edit', message: 'note saved without templateId - publish the templateId/templateName Firestore rule (hasOnly)' })
         if (currentId) { await updateNote(currentId, safe); return currentId }
         return await saveNote(safe)
       }
@@ -1757,7 +1758,10 @@ function EditContent() {
     setAddrLoading(true)
     setAddrSuggestions([])
     try {
-      const res = await fetch('/api/geocode?q=' + encodeURIComponent(query))
+      const token = await user?.getIdToken()
+      const res = await fetch('/api/geocode?q=' + encodeURIComponent(query), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
       const data = await res.json() as { results?: { label: string; value: string }[] }
       setAddrSuggestions(data.results ?? [])
     } catch {

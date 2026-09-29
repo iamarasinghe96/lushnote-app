@@ -8,6 +8,7 @@ import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useRecordingPiP } from '@/hooks/useRecordingPiP'
 import { useSmartSessionEnd } from '@/hooks/useSmartSessionEnd'
 import { useAuth } from '@/hooks/useAuth'
+import { reportToLog } from '@/lib/clientLog'
 import type { RecordingDefaults } from '@/types'
 
 interface RecordModalProps {
@@ -62,10 +63,7 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
     onStop: () => finishRef.current?.(),
     onEvent: message => {
       // Scalar only. Never the transcript, never the phrase that matched.
-      fetch('/api/log', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level: 'info', tag: 'recording', route: '/generate', uid: user?.uid, message }),
-      }).catch(() => {})
+      reportToLog({ level: 'info', tag: 'recording', route: '/generate', message })
     },
   })
 
