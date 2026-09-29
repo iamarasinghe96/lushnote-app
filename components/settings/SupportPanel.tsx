@@ -16,7 +16,7 @@ export default function SupportPanel() {
     messages, input, setInput, sending, stage, topic, ticket, yesNo, escalated,
     awaitingDescription, setPanelOpen, topics, pickTopic, answerYesNo, submitInput, endChat,
   } = useSupportThread()
-  const endRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   // Tell the provider the panel is visible: it clears the badge, polls faster
   // for live replies, and advances the server-side read marker instead of
@@ -26,25 +26,44 @@ export default function SupportPanel() {
     return () => setPanelOpen(false)
   }, [setPanelOpen])
 
+  // Follow the latest message inside the conversation box only. scrollIntoView
+  // also scrolled the Settings page itself, carrying the header and its End
+  // chat button out of view on every new line.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    const list = listRef.current
+    if (list) list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' })
+  }, [messages, sending, yesNo])
+
+  const canEnd = messages.length > 0 || escalated
 
   return (
     <div className="max-w-2xl">
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold text-[var(--text)]">Live Support</h2>
-        <p className="text-xs text-[var(--text3)] mt-0.5">
+      {/* Pinned to the top of the Settings scroll area, so End chat stays in
+          reach however long the conversation gets. On phones it sits below
+          the tab strip, which overlays the first 48px. Settings already titles
+          the page, so this carries only the ticket line. */}
+      <div className="sticky top-[48px] sm:top-0 z-10 -mx-4 sm:mx-0 px-4 sm:px-0 py-2 mb-2 bg-[var(--bg)]
+                      flex items-center justify-between gap-3 min-h-[52px]">
+        <p className="text-xs text-[var(--text3)] min-w-0">
           {ticket
             ? `Ticket ${ticket} · replies appear here`
             : escalated
               ? 'Replies appear here as they arrive'
               : 'We’re here to help'}
         </p>
+        {canEnd && (
+          <button
+            onClick={endChat}
+            className="shrink-0 text-sm font-medium text-white bg-[var(--danger)] px-4 py-2 rounded-[var(--r)] shadow-sm
+                       hover:opacity-90 motion-safe:transition-transform motion-safe:active:scale-[0.97]"
+          >
+            End chat
+          </button>
+        )}
       </div>
 
       <div className="rounded-[var(--r-lg)] border border-[var(--border)] bg-white overflow-hidden">
-        <div className="min-h-[18rem] max-h-[26rem] overflow-y-auto p-4 space-y-3">
+        <div ref={listRef} className="min-h-[18rem] max-h-[26rem] overflow-y-auto p-4 space-y-3">
           {stage === 'menu' && messages.length === 0 && (
             <p className="text-sm text-[var(--text3)] text-center mt-2">
               Hi{profile?.displayName ? `, ${profile.displayName.split(' ')[0]}` : ''}! What can we help you with?
@@ -117,8 +136,6 @@ export default function SupportPanel() {
               </div>
             </div>
           )}
-
-          <div ref={endRef} />
         </div>
 
         {/* Input — shown only when we're expecting free text (describe / live chat) */}
@@ -145,24 +162,8 @@ export default function SupportPanel() {
         )}
       </div>
 
-      {/* Under the conversation, not above it: each new message scrolls the
-          page down to the latest line, which carried a header button out of
-          view in exactly the long chats that need ending. */}
-      {((topic && stage === 'chat') || messages.length > 0 || escalated) && (
-        <div className="flex items-center justify-between gap-3 mt-3">
-          <p className="text-xs text-[var(--text3)] min-w-0 truncate">
-            {topic && stage === 'chat' ? `Topic: ${topic}` : ''}
-          </p>
-          {(messages.length > 0 || escalated) && (
-            <button
-              onClick={endChat}
-              className="shrink-0 text-sm font-medium text-white bg-[var(--danger)] px-4 py-2 rounded-[var(--r)]
-                         hover:opacity-90 motion-safe:transition-transform motion-safe:active:scale-[0.97]"
-            >
-              End chat
-            </button>
-          )}
-        </div>
+      {topic && stage === 'chat' && (
+        <p className="text-xs text-[var(--text3)] mt-3 truncate">Topic: {topic}</p>
       )}
     </div>
   )
