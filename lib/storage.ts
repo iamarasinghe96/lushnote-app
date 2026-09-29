@@ -1,25 +1,13 @@
 import { storage } from './firebase'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 
-// Uploads a full session recording to Storage so the server can transcribe the
-// whole file in one pass (Storage has no request-body size limit, unlike the
-// 4.5 MB Vercel API cap that previously forced client-side segmentation).
-// The server deletes the object immediately after transcription — audio is
-// never retained. Returns the storage path for the transcribe request.
 // Durably store one recording segment's audio as it is captured, so a session
 // is never lost even if transcription fails entirely — the audio can be
-// re-transcribed. Deleted by a Storage lifecycle rule; not retained long-term.
+// re-transcribed. Nothing in the app reads it back; it is deleted with the
+// account. The Terms describe exactly this, so change them if this changes.
 export async function uploadRecordingSegment(uid: string, sessionId: string, index: number, blob: Blob, mimeType: string): Promise<string> {
   const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('webm') ? 'webm' : 'bin'
   const path = `recordings/${uid}/${sessionId}/${String(index).padStart(4, '0')}.${ext}`
-  const storageRef = ref(storage, path)
-  await uploadBytes(storageRef, blob, { contentType: mimeType })
-  return path
-}
-
-export async function uploadRecording(uid: string, blob: Blob, mimeType: string): Promise<string> {
-  const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('webm') ? 'webm' : 'bin'
-  const path = `recordings/${uid}/${crypto.randomUUID()}.${ext}`
   const storageRef = ref(storage, path)
   await uploadBytes(storageRef, blob, { contentType: mimeType })
   return path

@@ -1,6 +1,6 @@
 'use client'
 
-const EFFECTIVE_DATE = '24 September 2026'
+const EFFECTIVE_DATE = '29 September 2026'
 const CONTACT_EMAIL = 'admin@lushnote.com.au'
 
 export default function TermsContent() {
@@ -92,12 +92,16 @@ export default function TermsContent() {
 
           <SubHeading>Audio recordings</SubHeading>
           <p>
-            If you record a session or dictate a note, the audio is streamed straight to the
-            transcription service, converted to text, and then immediately discarded. Only the
-            resulting text - the transcript - is kept, and it is saved as part of the note in your
-            account, where you can review, edit, or delete it like any other note content. The
-            audio file itself is never saved, never uploaded to storage, and never archived, so
-            there is no recording that could be replayed or retrieved after transcription.
+            If you record a session or dictate a note, the audio is captured in segments of a few
+            minutes. Each segment is saved as a backup in secure cloud storage under your account,
+            then sent to the transcription service and converted to text. The backup exists so that
+            a session is not lost if transcription fails or your connection drops. LushNote has no
+            feature for playing back or downloading this audio, and no other account can read it.
+            The backup is deleted when you delete your account.
+          </p>
+          <p>
+            The resulting text - the transcript - is saved as part of the note in your account,
+            where you can review, edit, or delete it like any other note content.
           </p>
 
           <SubHeading>Letters and generated documents</SubHeading>
@@ -107,8 +111,8 @@ export default function TermsContent() {
             notes, so you can find it later under the relevant patient and re-open, edit, or
             export it. Like your notes, saved letters can only be accessed by you, and no
             LushNote team member or administrator can view them. You can delete any saved
-            letter at any time. The underlying audio, if you dictated the letter, is still
-            never stored - it is transcribed and immediately discarded.
+            letter at any time. If you dictated the letter, its audio is handled the same way
+            as a recorded session, described above.
           </p>
 
           <SubHeading>API keys</SubHeading>
@@ -183,7 +187,7 @@ export default function TermsContent() {
             <tbody className="divide-y divide-[#e2e8f0]">
               <tr>
                 <td className="px-3 py-2">Firebase (Google Cloud)</td>
-                <td className="px-3 py-2">Stores your account and clinical notes securely</td>
+                <td className="px-3 py-2">Stores your account, clinical notes and session audio backups securely</td>
               </tr>
               <tr>
                 <td className="px-3 py-2">Google Gemini</td>
@@ -231,6 +235,7 @@ export default function TermsContent() {
             <li>You confirm your identity via Google sign-in</li>
             <li>All of your clinical notes are deleted</li>
             <li>All patient profiles in your account are deleted</li>
+            <li>Session audio backups and other files in your account are deleted</li>
             <li>Your account profile is deleted</li>
             <li>Your Google account is disconnected from LushNote</li>
           </ol>
@@ -266,7 +271,8 @@ export default function TermsContent() {
             <a href="/app/settings?tab=profile" className="text-[#2563eb] underline">deleting your account</a>.
           </p>
           <p>
-            Audio recordings are not stored at all. Letters you generate are saved to your
+            Backup copies of session audio are kept in secure cloud storage until you delete
+            your account. Letters you generate are saved to your
             account alongside your notes and kept for as long as your account is active; you
             can delete any letter at any time. There are no automatic deletion timelines for
             notes or letters you choose to keep.
@@ -382,9 +388,10 @@ export default function TermsContent() {
             </FAQ>
 
             <FAQ q="If I recorded a patient session, can someone hack LushNote and get to it?">
-              Audio is never stored. It exists only for the few seconds it takes to transcribe,
-              then it is gone. There is no recording archive that could be accessed. Your written
-              notes are stored securely and can only be accessed by your account.
+              Session audio is kept as a backup in secure cloud storage, under your account. The
+              storage is locked so that no other account can read it, and LushNote has no feature
+              for playing it back or downloading it. Your written notes are stored securely and can
+              only be accessed by your account.
             </FAQ>
 
             <FAQ q="Does LushNote train AI on my patient data?">
@@ -398,16 +405,16 @@ export default function TermsContent() {
             </FAQ>
 
             <FAQ q="Where is my data stored?">
-              Your notes are stored on Google Cloud (Firebase), which uses secure data centres
+              Your notes and session audio backups are stored on Google Cloud (Firebase), which uses secure data centres
               and encrypts all data at rest and in transit. LushNote does not run its own
               database servers.
             </FAQ>
 
             <FAQ q="What happens to the audio after a session recording?">
-              The audio is transcribed to text immediately and then discarded. Only that text -
-              the transcript - is kept, as part of your note in your account. The audio file is
-              never saved, never uploaded to storage, and cannot be retrieved or replayed after
-              transcription is complete.
+              Each few minutes of audio is saved as a backup in secure cloud storage and sent for
+              transcription. The text - the transcript - is kept as part of your note in your
+              account. The audio backup cannot be played back or downloaded in LushNote, and it is
+              deleted when you delete your account.
             </FAQ>
 
             <FAQ q="Is LushNote compliant with Australian privacy law?">

@@ -166,11 +166,12 @@ export default function CaptureReviewCard({
               })}
             </div>
 
-            {/* Shown every time. Accurate, not reassuring: the audio really is
-                gone, and the transcript really is still on disk until this
-                capture becomes a document or is discarded. */}
+            {/* Shown every time. Accurate, not reassuring: the transcript really
+                is still on disk until this capture becomes a document or is
+                discarded. Nothing is said about the audio, whose backup copy the
+                recorder keeps in Storage. */}
             <p className="text-center text-[11px] leading-relaxed text-[var(--text3)]">
-              Audio discarded. Transcript kept until you save or discard it.
+              Transcript kept until you save or discard it.
             </p>
           </>
         )}
