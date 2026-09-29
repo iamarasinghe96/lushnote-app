@@ -360,6 +360,15 @@ function EditContent() {
   const setSectionOrder = (next: string[]) => { latestOrderRef.current = next; setSectionOrderState(next); syncExtraSectionsIntoFields() }
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isSavingRef = useRef(false)
+  // Set when a note autosave is skipped because a save was already in flight.
+  // Without it that edit was simply dropped: the running save had read the
+  // fields before it, and nothing wrote them again unless another edit came
+  // along before the doctor left the note.
+  const noteSaveDirtyRef = useRef(false)
+  const doAutoSaveRef = useRef<() => void>(() => {})
+  // The last note autosave was rejected. Shown beside "Saving..." so a note
+  // that is not reaching Firestore does not look like one that is.
+  const [noteSaveFailed, setNoteSaveFailed] = useState(false)
   // Letter autosave: a saved letter lives in progress_notes as a docType 'letter'.
   // lastSavedLetterDataRef holds the last-persisted serialized payload so an
   // unchanged letter (e.g. one just re-opened) doesn't trigger a redundant write.
@@ -1132,7 +1141,7 @@ function EditContent() {
 
   async function doAutoSave(flashField?: string) {
     if (storeRef.current.letterType !== null) return
-    if (isSavingRef.current) return
+    if (isSavingRef.current) { noteSaveDirtyRef.current = true; return }
     const data = latestFieldsRef.current
     if (!data.patient) return
     isSavingRef.current = true
@@ -1168,7 +1177,14 @@ function EditContent() {
         transcriptMode: s.lastTranscriptMode,
       }
       const savedId = await persistNoteData(noteData, s.currentNoteId ?? null)
-      if (savedId && !s.currentNoteId) s.setCurrentNoteId(savedId)
+      if (savedId && !s.currentNoteId) {
+        s.setCurrentNoteId(savedId)
+        // The store is React state and will not carry the id until the next
+        // render. A save queued behind this one must update this note, not
+        // create a second copy of it, so the ref learns the id now.
+        if (!storeRef.current.currentNoteId) storeRef.current = { ...storeRef.current, currentNoteId: savedId }
+      }
+      if (mountedRef.current) setNoteSaveFailed(false)
       // The transcript is now durably in Firestore, so the recovery draft is
       // safe to remove. Do it once per transcript (not on every autosave).
       if (s.lastTranscript && s.lastTranscript.trim() && !draftClearedRef.current && user) {
@@ -1188,13 +1204,29 @@ function EditContent() {
           })
         }, 600)
       }
-    } catch {
-      // silent fail - auto-save errors are non-blocking
+    } catch (err) {
+      // Non-blocking, but no longer invisible: a rejected write (a field over
+      // the rules' size limit, a lost session) failed the same way on every
+      // later save too, while the note looked saved.
+      if (mountedRef.current) setNoteSaveFailed(true)
+      const code = (err as { code?: string })?.code ?? (err instanceof Error ? err.name : 'unknown')
+      reportToLog({ level: 'warn', tag: 'autosave', route: '/edit', message: `note autosave failed: ${String(code).slice(0, 80)}` })
     } finally {
       isSavingRef.current = false
       if (mountedRef.current) setIsSaving(false)
+      // An edit landed while this save was running: write the latest now. Runs
+      // even after the editor has closed - the fields are in refs, and this is
+      // exactly the edit that would otherwise be lost on the way out.
+      if (noteSaveDirtyRef.current) {
+        noteSaveDirtyRef.current = false
+        setTimeout(() => { doAutoSaveRef.current() }, 0)
+      } else if (letterSaveDirtyRef.current && mountedRef.current) {
+        letterSaveDirtyRef.current = false
+        setTimeout(() => { doAutoSaveLetterRef.current() }, 0)
+      }
     }
   }
+  doAutoSaveRef.current = () => { void doAutoSave() }
 
   // Persist the current letter to progress_notes (as a docType 'letter' doc) so it
   // shows up under its patient in Patients/History and is searchable by the AI
@@ -1290,6 +1322,9 @@ function EditContent() {
       if (letterSaveDirtyRef.current && mountedRef.current) {
         letterSaveDirtyRef.current = false
         setTimeout(() => { doAutoSaveLetterRef.current() }, 0)
+      } else if (noteSaveDirtyRef.current) {
+        noteSaveDirtyRef.current = false
+        setTimeout(() => { doAutoSaveRef.current() }, 0)
       }
     }
   }
@@ -2639,6 +2674,9 @@ function EditContent() {
                   )}
                   {isSaving && (
                     <span className="text-xs text-white/60 ml-2 shrink-0">Saving...</span>
+                  )}
+                  {!isSaving && noteSaveFailed && (
+                    <span role="status" className="text-xs font-semibold text-amber-200 ml-2 shrink-0">Not saved</span>
                   )}
                 </>
               )}

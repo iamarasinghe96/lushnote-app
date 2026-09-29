@@ -97,6 +97,16 @@ export default function RecordModal({ open, onClose, onTranscriptReady, recordin
     }
   }, [open])
 
+  // The effect above only runs when `open` turns false. Unmounting mid-recording
+  // (browser Back, a route change) skips it, which left the capture live: for a
+  // telehealth session that includes the shared tab's video track, which the
+  // recorder never sees because it is handed the audio tracks alone.
+  useEffect(() => () => {
+    if (autoStopRef.current) clearTimeout(autoStopRef.current)
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    streamRef.current = null
+  }, [])
+
   // Build the floating-window surface as soon as the pre-record screen shows.
   // It must be ready and playing BEFORE the tap: entering picture-in-picture is
   // only permitted inside a user gesture, and iOS ends that gesture at the first
