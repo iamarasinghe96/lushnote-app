@@ -32,26 +32,15 @@ export default function SupportPanel() {
 
   return (
     <div className="max-w-2xl">
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-[var(--text)]">Live Support</h2>
-          <p className="text-xs text-[var(--text3)] mt-0.5">
-            {ticket
-              ? `Ticket ${ticket} · replies appear here`
-              : escalated
-                ? 'Replies appear here as they arrive'
-                : 'We’re here to help'}
-          </p>
-        </div>
-        {(messages.length > 0 || escalated) && (
-          <button
-            onClick={endChat}
-            className="shrink-0 text-xs font-medium text-[var(--text2)] border border-[var(--border)] px-3 py-1 rounded-full
-                       hover:text-[var(--danger)] hover:border-[var(--danger)]/50 hover:bg-[var(--bg)] motion-safe:transition-colors"
-          >
-            End chat
-          </button>
-        )}
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold text-[var(--text)]">Live Support</h2>
+        <p className="text-xs text-[var(--text3)] mt-0.5">
+          {ticket
+            ? `Ticket ${ticket} · replies appear here`
+            : escalated
+              ? 'Replies appear here as they arrive'
+              : 'We’re here to help'}
+        </p>
       </div>
 
       <div className="rounded-[var(--r-lg)] border border-[var(--border)] bg-white overflow-hidden">
@@ -156,8 +145,24 @@ export default function SupportPanel() {
         )}
       </div>
 
-      {topic && stage === 'chat' && (
-        <p className="text-xs text-[var(--text3)] mt-2">Topic: {topic}</p>
+      {/* Under the conversation, not above it: each new message scrolls the
+          page down to the latest line, which carried a header button out of
+          view in exactly the long chats that need ending. */}
+      {((topic && stage === 'chat') || messages.length > 0 || escalated) && (
+        <div className="flex items-center justify-between gap-3 mt-3">
+          <p className="text-xs text-[var(--text3)] min-w-0 truncate">
+            {topic && stage === 'chat' ? `Topic: ${topic}` : ''}
+          </p>
+          {(messages.length > 0 || escalated) && (
+            <button
+              onClick={endChat}
+              className="shrink-0 text-sm font-medium text-white bg-[var(--danger)] px-4 py-2 rounded-[var(--r)]
+                         hover:opacity-90 motion-safe:transition-transform motion-safe:active:scale-[0.97]"
+            >
+              End chat
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
