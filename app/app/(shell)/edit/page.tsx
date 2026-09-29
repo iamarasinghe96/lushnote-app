@@ -38,6 +38,7 @@ import CustomLetterBuilderModal from '@/components/modals/CustomLetterBuilderMod
 import type { Note, NoteInput, AnyTemplate, Workplace, LetterType, CustomTemplateField, CustomTemplate, ExtraSection, CustomLetterTemplate, LetterData, ReferralFields, RecordsFields, FreetextFields, PatientProfile } from '@/types'
 import { aiHeaders } from '@/lib/aiHeaders'
 import { reportToLog } from '@/lib/clientLog'
+import { compareNoteDatesDesc, isLaterNoteDate } from '@/lib/noteDate'
 import { checkRegStatus } from '@/lib/regNumber'
 
 function formatDuration(secs: number): string {
@@ -1033,20 +1034,20 @@ function EditContent() {
     })
   }
 
-  // Patient autocomplete index - preserves original name casing
+  // Patient autocomplete index - preserves original name casing. Every note is a
+  // visit; the name and reg shown come from the most recent one by date.
   const patientIndex = useMemo<PatientEntry[]>(() => {
     const seen = new Map<string, PatientEntry>()
     allNotes.forEach(n => {
       if (!n.patient) return
       const key = n.patient.toLowerCase()
       const existing = seen.get(key)
-      if (!existing || (n.date || '') > existing.lastDate) {
-        seen.set(key, {
-          name: n.patient,
-          reg: n.reg_number || '',
-          visits: (existing?.visits || 0) + 1,
-          lastDate: n.date || '',
-        })
+      if (!existing) {
+        seen.set(key, { name: n.patient, reg: n.reg_number || '', visits: 1, lastDate: n.date || '' })
+      } else if (isLaterNoteDate(n.date, existing.lastDate)) {
+        seen.set(key, { name: n.patient, reg: n.reg_number || '', visits: existing.visits + 1, lastDate: n.date || '' })
+      } else {
+        existing.visits++
       }
     })
     foldPatientProfiles(seen, patientProfileList, (name, reg) => ({ name, reg, visits: 0, lastDate: '' }))
@@ -1096,9 +1097,12 @@ function EditContent() {
   function handleSelectPatient(p: PatientEntry) {
     const next: Partial<Note> = { ...fields, patient: p.name, reg_number: p.reg }
     setVisitCount(p.visits)
+    // The latest visit by date - the list itself is in last-edited order - and
+    // on the same day, the higher session number.
     const lastNote = allNotes
       .filter(n => n.patient.toLowerCase() === p.name.toLowerCase())
-      .sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]
+      .sort((a, b) => compareNoteDatesDesc(a.date, b.date)
+        || (parseInt(b.session_number || '0', 10) || 0) - (parseInt(a.session_number || '0', 10) || 0))[0]
     if (lastNote) {
       next.session_number = String((parseInt(lastNote.session_number || '0', 10) + 1))
       next.attendance = lastNote.attendance || next.attendance
@@ -1445,9 +1449,17 @@ function EditContent() {
   }
 
   function handleNewNote() {
-    if (saveStatus === 'saving') {
-      if (!window.confirm('Discard unsaved changes and start a new note?')) return
+    // Write the current fields to THIS note before the store forgets which note
+    // it is. Clicking the button blurs the field being edited, which schedules a
+    // save for 800ms later - after the reset below, when it had the old note's
+    // fields but no note id, and wrote them into a brand-new copy. And a tap on
+    // iOS may not blur the field at all, leaving the last edit unsaved. (The
+    // guard that used to stand here read a save status nothing ever set.)
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current)
+      autoSaveTimerRef.current = null
     }
+    if (autoSaveEnabledRef.current) void doAutoSave()
     store.resetNote()
     router.push('/app/generate')
   }

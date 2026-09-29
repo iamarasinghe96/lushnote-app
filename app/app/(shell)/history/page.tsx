@@ -6,6 +6,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { listNotes } from '@/lib/firestore/notes'
 import { getPatientProfiles } from '@/lib/firestore/patients'
 import { LETTER_TYPE_LABEL } from '@/lib/utils'
+import { isLaterNoteDate } from '@/lib/noteDate'
+import Button from '@/components/ui/Button'
 import { GenderAvatar } from '@/components/ui/GenderAvatar'
 import type { Note, PatientProfile } from '@/types'
 
@@ -64,7 +66,7 @@ function buildPatientList(
     const existing = map.get(norm)
     if (existing) {
       existing.count++
-      if (!existing.lastVisit || n.date > existing.lastVisit) existing.lastVisit = n.date
+      if (!existing.lastVisit || isLaterNoteDate(n.date, existing.lastVisit)) existing.lastVisit = n.date
     } else {
       map.set(norm, { count: 1, lastVisit: n.date, normKey: norm })
     }
@@ -107,6 +109,10 @@ export default function HistoryPage() {
   const [notes, setNotes] = useState<Note[]>([])
   const [profiles, setProfiles] = useState<Record<string, PatientProfile>>({})
   const [loading, setLoading] = useState(true)
+  // A failed read is not an empty history: "No notes yet" after a failed load
+  // reads as the records having been lost.
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [patientSearch, setPatientSearch] = useState('')
   const [selectedPatient, setSelectedPatient] = useState<string | null>(null) // null = All
   const [showNoteList, setShowNoteList] = useState(false) // mobile: toggle panel
@@ -120,10 +126,13 @@ export default function HistoryPage() {
 
   useEffect(() => {
     if (!user) return
+    setLoading(true)
+    setLoadFailed(false)
     Promise.all([listNotes(user.uid), getPatientProfiles(user.uid)])
       .then(([n, p]) => { setNotes(n); setProfiles(p) })
+      .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false))
-  }, [user])
+  }, [user, loadAttempt])
 
   const patients = useMemo(() => buildPatientList(notes, profiles), [notes, profiles])
 
@@ -196,6 +205,10 @@ export default function HistoryPage() {
 
         {loading
           ? [0, 1, 2, 3].map(i => <PatientRowSkeleton key={i} />)
+          : loadFailed
+          ? (
+            <p className="px-3 py-4 text-xs text-[var(--text3)]">Could not load your patients.</p>
+          )
           : filteredPatients.length === 0
           ? (
             <p className="px-3 py-4 text-xs text-[var(--text3)]">
@@ -252,6 +265,11 @@ export default function HistoryPage() {
         {loading ? (
           <div className="space-y-2">
             {[0, 1, 2, 3].map(i => <NoteCardSkeleton key={i} />)}
+          </div>
+        ) : loadFailed ? (
+          <div className="flex flex-col items-center justify-center h-40 gap-3 text-center">
+            <p className="text-sm text-[var(--text2)]">Your notes could not be loaded. Check your connection.</p>
+            <Button variant="secondary" size="sm" onClick={() => setLoadAttempt(n => n + 1)}>Try again</Button>
           </div>
         ) : visibleNotes.length === 0 ? (
           <div className="flex items-center justify-center h-40 text-center">

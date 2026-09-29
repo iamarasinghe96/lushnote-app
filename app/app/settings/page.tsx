@@ -17,6 +17,7 @@ import SupportPanel from '@/components/settings/SupportPanel'
 import WhatsNewPanel from '@/components/settings/WhatsNewPanel'
 import type { User, Workplace } from '@/types'
 import { useUrlTab } from '@/hooks/useUrlTab'
+import ProfileLoadError from '@/components/ProfileLoadError'
 
 type TabKey = 'profile' | 'workplaces' | 'templates' | 'transcripts' | 'api-keys' | 'personalisation' | 'subscription' | 'support' | 'whats-new'
 
@@ -142,7 +143,7 @@ export default function SettingsPage() {
 
 function SettingsContent() {
   const router = useRouter()
-  const { user, profile, loading, refreshProfile } = useAuth()
+  const { user, profile, loading, profileError, refreshProfile } = useAuth()
   const { toast, show: showToast } = useToast()
 
   // Reads ?tab= on arrival AND writes it on every switch, so the address bar
@@ -171,6 +172,7 @@ function SettingsContent() {
     )
   }
 
+  if (user && profileError) return <ProfileLoadError />
   if (!user || !profile) return null
 
   async function handleSave(data: Partial<User>) {

@@ -18,6 +18,7 @@ import { getHolidayAppearance, type HolidayAppearance } from '@/lib/holidayTiles
 import { resolveEntitlement, isProState } from '@/lib/entitlement'
 import { isEnterprise } from '@/lib/fairUse'
 import PaywallScreen from '@/components/PaywallScreen'
+import ProfileLoadError from '@/components/ProfileLoadError'
 import BillingBanner from '@/components/BillingBanner'
 
 // Where notes are made. Everything else — History, Patients, Export, Settings —
@@ -33,7 +34,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading, signOut } = useAuth()
+  const { user, profile, loading, profileError, signOut } = useAuth()
   const store = useNoteStore()
   const router = useRouter()
   const pathname = usePathname()
@@ -54,8 +55,10 @@ function AppContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return
     if (!user) { router.replace('/login'); return }
+    // Unknown is not "not onboarded": onboarding again would overwrite the profile.
+    if (profileError) return
     if (!profile?.onboardingComplete) router.replace('/app/onboarding')
-  }, [loading, user, profile, router])
+  }, [loading, user, profile, profileError, router])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -123,6 +126,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
   }
 
   if (loading) return <LoadingScreen />
+  if (user && profileError) return <ProfileLoadError />
   if (!user || !profile?.onboardingComplete) return null
 
   // Suspended by an admin: block the app entirely (the account's sign-in is also

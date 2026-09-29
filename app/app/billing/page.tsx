@@ -74,6 +74,10 @@ function BillingInner() {
   const router = useRouter()
   const params = useSearchParams()
   const [state, setState] = useState<State | null>(null)
+  // The first read failed, so there is nothing to show. Kept apart from `state`
+  // being null, which also means "still loading": sharing it left a doctor on
+  // "Loading…" for good, on the one page a paywalled account uses to get back in.
+  const [stateFailed, setStateFailed] = useState(false)
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -81,7 +85,13 @@ function BillingInner() {
   const paymentCardRef = useRef<HTMLDivElement>(null)
 
   const refresh = useCallback(async () => {
-    try { setState(await call<State>({ action: 'state' })) } catch { /* the card just stays as it was */ }
+    try {
+      setState(await call<State>({ action: 'state' }))
+      setStateFailed(false)
+    } catch {
+      // Once loaded, a failed re-read leaves the card as it was.
+      setStateFailed(true)
+    }
   }, [])
 
   useEffect(() => { if (!loading && !user) router.replace('/login') }, [loading, user, router])
@@ -174,6 +184,23 @@ function BillingInner() {
       else setToast(on ? 'You are on Enterprise. Your AI now runs on your organisation\'s key.' : 'You are back on the standard plan.')
     } catch { setToast('Could not change your plan right now. Please try again.') }
     finally { setBusy(false) }
+  }
+
+  if (!loading && !state && stateFailed) {
+    return (
+      <div className="h-dvh flex flex-col items-center justify-center gap-4 px-4 text-center bg-[var(--bg)]">
+        <p className="text-sm text-[var(--text2)]">Billing could not be loaded. Check your connection.</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => { setStateFailed(false); void refresh() }}
+            className="px-4 py-2 rounded-[var(--r)] bg-[var(--blue)] text-white text-sm font-medium motion-safe:transition-transform motion-safe:active:scale-[0.97]"
+          >
+            Try again
+          </button>
+          <BackButton href="/app/generate" label="Back to LushNote" />
+        </div>
+      </div>
+    )
   }
 
   if (loading || !state) {

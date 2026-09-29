@@ -17,6 +17,10 @@ export interface AuthContextValue {
   user: FirebaseUser | null
   profile: User | null
   loading: boolean
+  /** Signed in, but the profile could not be read (offline, Firestore
+   *  unreachable). NOT the same as having no profile: pages that would send a
+   *  profile-less doctor to onboarding must show a retry instead. */
+  profileError: boolean
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
@@ -28,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<FirebaseUser | null>(null)
   const [profile, setProfile] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [profileError, setProfileError] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -36,7 +41,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!cancelled) setUser(firebaseUser)
 
       if (firebaseUser) {
-        let p = await getProfile(firebaseUser.uid)
+        let p: User | null
+        try {
+          p = await getProfile(firebaseUser.uid)
+        } catch {
+          // The read failed, so whether a profile exists is unknown. Rejecting
+          // here used to skip setLoading(false) and leave an endless spinner;
+          // reporting "no profile" instead would send an onboarded doctor back
+          // through onboarding, where finishing it overwrites their profile.
+          if (!cancelled) { setProfile(null); setProfileError(true); setLoading(false) }
+          return
+        }
         // First authentication: leave a stub so a signup abandoned partway is
         // still a record we can see and reach, instead of vanishing.
         if (!p) {
@@ -45,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (!cancelled) {
           setProfile(p)
+          setProfileError(false)
           if (p?.groqApiKey && !sessionStorage.getItem('groq_api_key')) {
             sessionStorage.setItem('groq_api_key', sanitizeApiKey(p.groqApiKey))
           }
@@ -53,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       } else {
-        if (!cancelled) setProfile(null)
+        if (!cancelled) { setProfile(null); setProfileError(false) }
       }
 
       if (!cancelled) setLoading(false)
@@ -82,10 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return
     const p = await getProfile(user.uid)
     setProfile(p)
+    setProfileError(false)
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, profileError, signInWithGoogle, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )
