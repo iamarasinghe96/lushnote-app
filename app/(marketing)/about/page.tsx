@@ -1,4 +1,4 @@
-import { pageMeta } from '@/lib/site'
+import { BUSINESS_ABN, BUSINESS_NAME, pageMeta } from '@/lib/site'
 import { PageBody, PageIntro, Block } from '@/components/marketing/Page'
 
 export const metadata = pageMeta({
@@ -21,8 +21,9 @@ export default function AboutPage() {
           letter or the hospital form is drafted for you to review.
         </p>
         <p>
-          LushNote is built and run by an independent Australian developer. It is not affiliated with any hospital,
-          health network or AI company, and it is shaped by feedback from the doctors who use it.
+          LushNote is built and run independently by {BUSINESS_NAME}{BUSINESS_ABN ? ` (ABN ${BUSINESS_ABN})` : ''}. It is
+          not affiliated with any hospital, health network or AI company, and it is shaped by feedback from the doctors
+          who use it.
         </p>
       </Block>
       <div className="p-5 rounded-[var(--r-lg)] border border-[#d8f0e8] bg-[#f0fdf8]">
