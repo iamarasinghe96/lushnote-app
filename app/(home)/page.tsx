@@ -348,7 +348,7 @@ const FEATURES: { icon: ReactNode; title: string; description: string }[] = [
       </svg>
     ),
     title: 'Privacy-first',
-    description: 'Session audio is kept only as a private backup. Names and identifiers are redacted before a note is written.',
+    description: 'Session audio is kept only as a private backup. Dates of birth, phone numbers and other identifiers are redacted before a note is written.',
   },
   {
     icon: (

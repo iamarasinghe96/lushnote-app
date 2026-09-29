@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { pageMeta } from '@/lib/site'
 import { PLAN_PRICE_AUD } from '@/lib/fairUse'
-import { PageBody, PageIntro, Block, Todo, PRIMARY_CTA_LARGE } from '@/components/marketing/Page'
+import { PageBody, PageIntro, Block, PRIMARY_CTA_LARGE } from '@/components/marketing/Page'
 
 // The amount comes from the same constant billing charges and fair use is
 // measured against, so this page cannot quote a different price.
@@ -26,7 +26,11 @@ export default function PricingPage() {
           notes are always yours to export.
         </p>
         <Block title="Free trial">
-          <Todo>State the free-trial allowance: how long it lasts and what it includes.</Todo>
+          <p>
+            Three months free, with every feature included. No payment details to start: we email you a week before the
+            trial ends, and again on the day, and nothing is charged unless you subscribe. During the trial the AI runs on
+            your own free Gemini or Groq key, or LushNote&apos;s shared fallback if you have not added one.
+          </p>
         </Block>
         <Link href="/login" className={PRIMARY_CTA_LARGE}>Start your free trial</Link>
       </div>

@@ -1,5 +1,7 @@
 'use client'
 
+import { BUSINESS_ABN, BUSINESS_NAME } from '@/lib/site'
+
 const EFFECTIVE_DATE = '29 September 2026'
 const CONTACT_EMAIL = 'admin@lushnote.com.au'
 
@@ -66,7 +68,7 @@ export default function TermsContent() {
 
         <Section title="3. Who We Are">
           <p>
-            LushNote is an independent tool developed by an individual Australian developer.
+            LushNote is an independent tool operated by {BUSINESS_NAME}, a sole trader{BUSINESS_ABN ? ` (ABN ${BUSINESS_ABN})` : ''}.
             We are not affiliated with any hospital, health network, or AI company.
           </p>
           <p>

@@ -16,6 +16,10 @@ export const INDEXABLE = process.env.VERCEL_ENV === 'production'
 
 export const CONTACT_EMAIL = 'admin@lushnote.com.au'
 
+/** Who operates LushNote, as named on invoices and in the Terms. */
+export const BUSINESS_NAME = 'Gaia Symbiosis'
+export const BUSINESS_ABN = '96 525 118 650'
+
 /** Every public page, in nav order. The sitemap is built from this list, so a
  *  page added here is also submitted to search engines. */
 export const PUBLIC_PAGES = [

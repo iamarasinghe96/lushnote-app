@@ -31,13 +31,3 @@ export function Block({ title, children }: { title: string; children: ReactNode 
     </section>
   )
 }
-
-/** Copy the owner still has to write. Visible on purpose, so an unfinished page
- *  is obvious on the preview rather than quietly shipped empty. */
-export function Todo({ children }: { children: ReactNode }) {
-  return (
-    <p className="rounded-[var(--r)] border border-dashed border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-      <strong>TODO:</strong> {children}
-    </p>
-  )
-}
