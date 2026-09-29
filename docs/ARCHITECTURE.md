@@ -630,8 +630,8 @@ Gemini usage), suspend/reactivate, clear storage, remove, export.
   uid==uid` + `letterheadRequests where
   requestedBy==uid` + `users/{uid}` + Storage `signatures/{uid}/`,`recordings/{uid}/`,
   `letterhead-requests/{uid}/` + `adminAuth().deleteUser()`. Requires a typed-email
-  match; writes an audit entry. (This is the complete version of the incomplete
-  self-delete in `ProfilePanel.tsx`.)
+  match; writes an audit entry. A doctor deleting their own account runs the
+  same paths through `selfDeleteUser` (see **Delete Account Flow**).
 - **Export** = consented users only (`marketingConsent`), name/email/workplace CSV.
 
 **Emails** (`app/api/lifecycle` + `EmailsPanel`): see **Lifecycle Emails** above.
@@ -1192,18 +1192,25 @@ email/phone/address — applied before any AI call. Controlled by `profile.trans
 
 ---
 
-## Delete Account Flow (CRITICAL — currently broken in app)
+## Delete Account Flow
 
-Exact sequence — do not deviate:
+The browser re-authenticates and asks; the server deletes. It used to run in the
+browser as a string of steps that each swallowed their own failure, after which
+the doctor was shown "account deleted" whatever had happened, and it never
+touched transcript drafts, support records, letterhead requests or Storage.
+
 1. Modal: 11 reason chips (multiselect) + optional message textarea
 2. `reauthenticateWithPopup(auth.currentUser, new GoogleAuthProvider())` — **popup not redirect**
-3. `setDoc(doc(db,'deletion_feedback',uid), {userId,email,reasons,message,deletedAt:serverTimestamp()})`
-4. Batch delete `progress_notes` where `userId==uid` — in batches of 500
-5. `getDocs(collection(db,'users',uid,'patientProfiles'))` → batch delete all
-6. `deleteDoc(doc(db,'users',uid))`
-7. `deleteUser(auth.currentUser)`
-8. `sessionStorage.removeItem('groq_api_key')` + `sessionStorage.removeItem('gemini_api_key')`
-9. `router.push('/account-deleted')`
+3. `setDoc(doc(db,'deletion_feedback',uid), {userId,email,reasons,message,deletedAt:serverTimestamp()})` — best-effort, and kept
+4. `POST /api/account {action:'delete'}` with the doctor's token → `selfDeleteUser`
+   (`lib/firestore/adminUsers.ts`): Stripe offboarding, then every path the admin
+   cascade removes except `deletion_feedback`, then `users/{uid}`, then the Auth
+   account. Firestore and Auth steps throw, so a failure is reported to the
+   doctor ("could not be fully deleted", try again); every step is idempotent, so
+   a retry finishes. A Storage failure does not block the deletion: it is logged
+   (`account-delete`, level error, naming the folders) for an admin to clear.
+5. Only on success: sign out locally (the local session would otherwise stay
+   valid for up to an hour and recreate an empty profile), then load `/account-deleted`
 
 Error `auth/popup-blocked` → toast "Please allow popups for this site."
 
