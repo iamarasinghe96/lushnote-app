@@ -90,6 +90,7 @@ test('settings panels open', async ({ signedIn: page }) => {
     await page.goto(`/app/settings?tab=${tab}`)
     await expect(page.locator('main, body')).toBeVisible()
     await expect(page.getByText(/something went wrong/i)).toHaveCount(0)
+    await expect(page.getByText(/could not load your account/i)).toHaveCount(0)
   }
 })
 
@@ -98,6 +99,8 @@ test('billing page renders this account state', async ({ signedIn: page }) => {
   // The fixture account is billingExempt, so whatever copy it shows, it must
   // not be the paywall.
   await expect(page.getByText(/subscription|billing|trial|access/i).first()).toBeVisible({ timeout: 30_000 })
+  // "Billing could not be loaded" would satisfy the line above on its own.
+  await expect(page.getByText(/could not be loaded/i)).toHaveCount(0)
 })
 
 // The capture tray, from BOTH places it can be pressed.

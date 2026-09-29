@@ -6,6 +6,7 @@ import { useSegmentedRecorder } from '@/hooks/useSegmentedRecorder'
 import { useRecordingPiP } from '@/hooks/useRecordingPiP'
 import { ProgressOverlay, FINISHING_TRANSCRIPT } from '@/components/ui/ProgressOverlay'
 import { useSmartSessionEnd } from '@/hooks/useSmartSessionEnd'
+import { reportToLog } from '@/lib/clientLog'
 import type { RecordingDefaults } from '@/types'
 
 // The one-tap recording screen. Reached from the FAB's Record button, which
@@ -73,10 +74,7 @@ export default function QuickRecordOverlay({ micRequest, uid, recordingDefaults,
     onEvent: message => {
       // Scalar only: a duration and a reason, never the transcript or the
       // phrase that matched it.
-      fetch('/api/log', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level: 'info', tag: 'recording', route: '/record', uid, message }),
-      }).catch(() => {})
+      reportToLog({ level: 'info', tag: 'recording', route: '/record', message })
     },
   })
 

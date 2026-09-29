@@ -583,6 +583,11 @@ export default function PatientsPage() {
   const [notes, setNotes] = useState<Note[]>([])
   const [profiles, setProfiles] = useState<Record<string, PatientProfile>>({})
   const [loading, setLoading] = useState(true)
+  // A failed load is not an empty account. Showing "No patients yet" when the
+  // read failed tells a doctor their records are gone, and invites them to
+  // re-create patients who already exist.
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
   const [sortBy, setSortBy] = useState<'recent' | 'az' | 'visits' | 'custom' | 'flag'>('recent')
   // The sort to return to when "Flagged first" is switched off, so it's a
   // temporary lens over whatever the doctor actually prefers.
@@ -622,8 +627,11 @@ export default function PatientsPage() {
 
   useEffect(() => {
     if (!user) return
+    setLoading(true)
+    setLoadFailed(false)
     Promise.all([listNotes(user.uid), getPatientProfiles(user.uid)])
       .then(([n, p]) => { setNotes(n); setProfiles(p) })
+      .catch(() => setLoadFailed(true))
       .finally(() => setLoading(false))
     listTranscriptDrafts(user.uid).then(list => {
       // The draft carries the name when the doctor got as far as the confirm
@@ -636,7 +644,7 @@ export default function PatientsPage() {
         patient: parseDraftHandoff(d.handoff)?.patient ?? '',
       })))
     }).catch(() => {})
-  }, [user?.uid])
+  }, [user?.uid, loadAttempt])
 
   // A saved arrangement takes precedence over Recent, so adopt it (once) as soon
   // as the profile loads. Guarded by a ref so it never fights a sort the doctor
@@ -1191,12 +1199,32 @@ export default function PatientsPage() {
     if (!p || !user) return
     const nm = p.displayName.trim().toLowerCase()
     const noteIds = notes.filter(n => n.id && (n.patient ?? '').trim().toLowerCase() === nm).map(n => n.id!)
-    await Promise.all(noteIds.map(id => deleteNote(id))).catch(() => {})
-    if (noteIds.length) setNotes(prev => prev.filter(n => !(n.id && noteIds.includes(n.id!))))
-    if (p.id) {
-      await deletePatientProfile(user.uid, p.id).catch(() => {})
-      setProfiles(prev => { const next = { ...prev }; delete next[p.id!]; return next })
+    await deletePatientRecords(p.displayName, noteIds, p.id)
+  }
+
+  // Deletes a patient's notes and profile, and takes off the screen only what
+  // was actually deleted. It used to drop every row whatever happened - so a
+  // failure looked like success until a refresh brought the survivors back - or,
+  // in the detail view, stop at the first failure with nothing said at all.
+  async function deletePatientRecords(name: string, noteIds: string[], profileId?: string): Promise<boolean> {
+    if (!user) return false
+    const results = await Promise.allSettled(noteIds.map(id => deleteNote(id)))
+    const deleted = new Set(noteIds.filter((_, i) => results[i].status === 'fulfilled'))
+    if (deleted.size) setNotes(prev => prev.filter(n => !(n.id && deleted.has(n.id))))
+    let profileDeleted = true
+    if (profileId) {
+      try {
+        await deletePatientProfile(user.uid, profileId)
+        setProfiles(prev => { const next = { ...prev }; delete next[profileId]; return next })
+      } catch {
+        profileDeleted = false
+      }
     }
+    if (deleted.size < noteIds.length || !profileDeleted) {
+      setError(`Some of ${name}'s records could not be deleted. Check your connection and try again.`)
+      return false
+    }
+    return true
   }
 
   // Editing the expandable fields on a patient's card writes to their profile,
@@ -1297,18 +1325,14 @@ export default function PatientsPage() {
           })}
           onBuildFromHistory={() => setHistoryOpen(true)}
           onDeletePatient={async () => {
-            // Delete all session notes for this patient
-            await Promise.all(patientNotes.filter(n => n.id).map(n => deleteNote(n.id!)))
-            setNotes(prev => prev.filter(n => groupKeyFor(n) !== selectedPatient.key))
-            // Delete the patient profile if one exists
-            if (selectedProfile?.id && user) {
-              await deletePatientProfile(user.uid, selectedProfile.id)
-              setProfiles(prev => {
-                const next = { ...prev }
-                delete next[selectedProfile.id!]
-                return next
-              })
-            }
+            // Every session note for this patient, then the profile if one exists.
+            await deletePatientRecords(
+              selectedPatient.name,
+              patientNotes.filter(n => n.id).map(n => n.id!),
+              user ? selectedProfile?.id : undefined,
+            )
+            // Back to the list either way: what was deleted is gone from it, and
+            // a failure shows its banner there with the survivors still listed.
             setSelectedPatient(null)
           }}
         />
@@ -1591,6 +1615,11 @@ export default function PatientsPage() {
                 </div>
               </div>
             ))}
+          </div>
+        ) : loadFailed ? (
+          <div className="flex flex-col items-center justify-center h-40 gap-3 text-center px-4">
+            <p className="text-sm text-[var(--text2)]">Your patients could not be loaded. Check your connection.</p>
+            <Button variant="secondary" size="sm" onClick={() => setLoadAttempt(n => n + 1)}>Try again</Button>
           </div>
         ) : filteredPatients.length === 0 && !unfinishedDrafts.length ? (
           <div className="flex items-center justify-center h-40 text-center px-4">

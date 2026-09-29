@@ -13,6 +13,7 @@ import FormaliseButton from '@/components/ui/FormaliseButton'
 import HospitalFormEditor, { type HospitalFormEditorHandle } from './HospitalFormEditor'
 import type { HospitalFormData, NoteInput, PatientProfile } from '@/types'
 import { aiHeaders } from '@/lib/aiHeaders'
+import { reportToLog } from '@/lib/clientLog'
 
 export function emptyFormData(formKey: string): HospitalFormData {
   return { formKey, pid: { urNo: '', surname: '', givenNames: '', dob: '', sex: '' }, noteText: '', dateTime: { date: '', time: '' } }
@@ -82,13 +83,17 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
   const form = store.hospitalForm
   const value = store.hospitalFormData
 
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle')
   const [toast, setToast] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [genError, setGenError] = useState<string | null>(null)
 
   const lastSavedRef = useRef<string | null>(null)
   const isSavingRef = useRef(false)
+  // Set when an autosave is skipped because one was already in flight, so the
+  // edit that triggered it is written once the running save finishes. Without
+  // it the edit was dropped unless another one followed before leaving.
+  const saveDirtyRef = useRef(false)
   const draftClearedRef = useRef(false)
   // The note text as it arrived from somewhere other than this doctor's
   // keyboard — a generation, or a saved form being reopened. AI tidy uses it to
@@ -158,7 +163,8 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
     const s = storeRef.current
     const cfg = s.hospitalForm
     const v = s.hospitalFormData
-    if (!cfg || !v || !user || isSavingRef.current) return
+    if (!cfg || !v || !user) return
+    if (isSavingRef.current) { saveDirtyRef.current = true; return }
     const patient = [v.pid.givenNames, v.pid.surname].filter(Boolean).join(' ').trim()
     if (!patient) return
     const serialized = serializeHospitalFormData(v) ?? ''
@@ -177,12 +183,27 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
     setSaveState('saving')
     try {
       if (s.hospitalFormNoteId) await updateNote(s.hospitalFormNoteId, noteData)
-      else { const id = await saveNote(noteData); s.setHospitalFormNoteId(id) }
+      else {
+        const id = await saveNote(noteData)
+        s.setHospitalFormNoteId(id)
+        // The store will not carry the id until the next render; a save queued
+        // behind this one must update this form, not create a second copy.
+        if (!storeRef.current.hospitalFormNoteId) storeRef.current = { ...storeRef.current, hospitalFormNoteId: id }
+      }
       lastSavedRef.current = serialized
       if (s.lastTranscript?.trim() && !draftClearedRef.current && s.activeDraftId) { draftClearedRef.current = true; deleteTranscriptDraft(user.uid, s.activeDraftId).catch(() => {}) }
-      if (mountedRef.current) { setSaveState('saved'); setTimeout(() => { if (mountedRef.current) setSaveState('idle') }, 1500) }
-    } catch { if (mountedRef.current) setSaveState('idle') }
-    finally { isSavingRef.current = false }
+      if (mountedRef.current) { setSaveState('saved'); setTimeout(() => { if (mountedRef.current) setSaveState(st => (st === 'saved' ? 'idle' : st)) }, 1500) }
+    } catch (err) {
+      if (mountedRef.current) setSaveState('failed')
+      const code = (err as { code?: string })?.code ?? (err instanceof Error ? err.name : 'unknown')
+      reportToLog({ level: 'warn', tag: 'autosave', route: '/edit', message: `hospital form autosave failed: ${String(code).slice(0, 80)}` })
+    } finally {
+      isSavingRef.current = false
+      if (saveDirtyRef.current) {
+        saveDirtyRef.current = false
+        setTimeout(() => { doAutoSaveRef.current() }, 0)
+      }
+    }
   }, [user, profile])
 
   const doAutoSaveRef = useRef(doAutoSave)
@@ -316,7 +337,11 @@ export default function HospitalFormView({ readOnly = false }: { readOnly?: bool
     <div className="h-full overflow-hidden relative bg-[var(--bg)]">
       <div className={BAR_CLS} style={BAR_STYLE}>
         <span className="font-medium truncate">{form.name}</span>
-        {saveState !== 'idle' && <span className="text-[11px] text-white/80">{saveState === 'saving' ? 'Saving…' : 'Saved'}</span>}
+        {saveState !== 'idle' && (
+          <span role="status" className={`text-[11px] ${saveState === 'failed' ? 'font-semibold text-amber-200' : 'text-white/80'}`}>
+            {saveState === 'saving' ? 'Saving…' : saveState === 'failed' ? 'Not saved' : 'Saved'}
+          </span>
+        )}
         {isGenerating && <span className="text-[11px] text-white/90">Generating…</span>}
         {/* The one AI touch in this pathway: it rewrites what the doctor typed,
             it does not compose. Hidden while generating, when the text on

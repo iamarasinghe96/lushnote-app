@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateNote } from '@/lib/gemini'
+import { requireUser, unauthorized } from '@/lib/adminGuard'
 
 // Address lookup. Primary source is Geoapify (free Places/geocoding API, real
 // business + address listings). Set GEOAPIFY_API_KEY (free, no card, 3k/day at
@@ -105,6 +106,11 @@ async function geminiSearch(q: string): Promise<Result[]> {
 }
 
 export async function GET(req: NextRequest) {
+  // Signed-in doctors only. Each lookup spends the Geoapify quota and can fall
+  // through to the server's Gemini key, and the one caller (the letter editor's
+  // address search) always has a session.
+  try { await requireUser(req) } catch { return unauthorized() }
+
   const q = req.nextUrl.searchParams.get('q')?.trim()
   if (!q || q.length > 300) return NextResponse.json({ results: [] })
 

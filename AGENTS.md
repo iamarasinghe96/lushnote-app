@@ -120,6 +120,7 @@ policy that was not really changed.
 | The admin nav's pinned/overflow split | `tests/unit/admin-sections.test.ts` |
 | The AI mock can never fire in production | `tests/unit/e2e-mock.test.ts` |
 | Which checks gate the Promote button | `tests/unit/github-checks.test.ts` |
+| Who may read and write each Storage path (signatures and letterhead photos are owner-only) | `tests/rules/storage.rules.test.ts` |
 
 ### The em-dash rule, in detail
 
@@ -211,6 +212,7 @@ note pipeline, hospital forms, or anything that writes a patient record.**
 | `docs/ARCHITECTURE.md` | How the app works and why. Read the relevant section before changing that area. |
 | `WORKFLOWS.md` | The regression contract: every user-facing pathway, what it must produce, and what protects it. **Add a row before adding a feature.** |
 | `firestore.rules` | The real security rules. The only copy. |
+| `storage.rules` | The Storage rules. Nothing deploys them: after changing this file, publish it in Firebase Console → Storage → Rules, or the console keeps the old ones. |
 | `MONETIZATION_PLAN.md` | The Stripe build plan, all 8 layers landed. |
 | `PRO_TIER_PLAN.md` | The Pro tier plan: meter, authenticate, route. |
 | `RELEASE_PIPELINE_SETUP.md` | The one-time console setup behind the release flow. |

@@ -1,0 +1,65 @@
+rules_version = '2';
+
+// Firebase Storage rules. These are NOT deployed by any pipeline: publish them
+// from this file in Firebase Console → Storage → Rules (or `firebase deploy
+// --only storage`). Before this file existed the only copy lived in the console,
+// where nothing reviewed it.
+//
+// Download URLs (the ones saved on a profile or a letterhead request) carry a
+// token and do not pass through these rules at all. That is why owner-only reads
+// below do not break a doctor's own PDFs or the admin console, which both use
+// the saved URL.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // A doctor's signature, generated in the browser as an SVG. Owner only: it
+    // signs their letters, and any signed-in account used to be able to read any
+    // doctor's signature by uid.
+    match /signatures/{uid}/signature.svg {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+                            && request.resource.size < 5 * 1024 * 1024
+                            && request.resource.contentType == 'image/svg+xml';
+      allow delete: if isOwner(uid);
+    }
+
+    // The raw letterhead images a doctor attaches to a setup request. Owner only
+    // for the same reason; the admin reviews them through the saved URL. The
+    // file picker only offers images, and a phone photo is well under 20 MB.
+    match /letterhead-requests/{uid}/{allPaths=**} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+                            && request.resource.size < 20 * 1024 * 1024
+                            && request.resource.contentType.matches('image/.*');
+      allow delete: if isOwner(uid);
+    }
+
+    // Published letterheads are public on purpose: letter previews and PDF
+    // export load them without a session. Written only by the admin API.
+    match /letterheads/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Session recordings: the client uploads each ~4-min audio segment as it is
+    // captured (recordings/{uid}/{sessionId}/{index}), so a session is never
+    // lost even if transcription fails - it can be re-transcribed. Only the
+    // owner can upload; reads/deletes are server-side (Admin SDK) or via a
+    // Storage lifecycle rule.
+    match /recordings/{uid}/{allPaths=**} {
+      allow write: if isOwner(uid)
+                   && request.resource.size < 60 * 1024 * 1024
+                   && request.resource.contentType.matches('audio/.*');
+      allow read, delete: if false;
+    }
+
+    // Deny everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

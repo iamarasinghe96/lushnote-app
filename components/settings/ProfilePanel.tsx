@@ -1,14 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { reauthenticateWithPopup, GoogleAuthProvider, deleteUser } from 'firebase/auth'
-import {
-  collection, doc, getDocs, setDoc, serverTimestamp,
-  query, where, writeBatch,
-} from 'firebase/firestore'
+import { reauthenticateWithPopup, GoogleAuthProvider } from 'firebase/auth'
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { deleteProfile, updateProfile } from '@/lib/firestore/profiles'
+import { updateProfile } from '@/lib/firestore/profiles'
 import { uploadSignatureSVG } from '@/lib/storage'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
@@ -39,8 +35,7 @@ const DELETE_REASONS = [
 ]
 
 export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfilePanelProps) {
-  const router = useRouter()
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const [displayName, setDisplayName] = useState(profile.displayName ?? '')
   const [credentials, setCredentials] = useState(profile.credentials ?? '')
   const [position, setPosition] = useState(profile.position ?? '')
@@ -124,53 +119,28 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
       })
     } catch (_) { /* non-fatal */ }
 
-    // Close billing BEFORE the user document goes: it holds the Stripe ids the
-    // server needs to cancel the subscription and detach the payment method.
-    // The client cannot do this itself — the Stripe secret is server-side — and
-    // the admin cascade repeats it as a backstop if this fails.
+    // Step 3 - The server deletes everything: billing first, then every note,
+    // patient, draft, support record and file, then the sign-in itself. It only
+    // answers ok once that has happened. This used to run here in the browser,
+    // swallow every failure, and show "account deleted" regardless.
     try {
-      await fetch('/api/billing', {
+      const res = await fetch('/api/account', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken()}` },
-        body: JSON.stringify({ action: 'offboard-self' }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken(true)}` },
+        body: JSON.stringify({ action: 'delete' }),
       })
-    } catch (_) { /* the cascade covers it */ }
+      if (!res.ok) throw new Error(String(res.status))
+    } catch {
+      onToast('Your account could not be fully deleted. Please try again, or email admin@lushnote.com.au.')
+      setDeleting(false)
+      return
+    }
 
-    // Step 3 - Batch delete progress_notes
-    try {
-      const snap = await getDocs(query(collection(db, 'progress_notes'), where('userId', '==', uid)))
-      const chunks: (typeof snap.docs[number])[][] = []
-      snap.docs.forEach((d, i) => {
-        if (i % 500 === 0) chunks.push([])
-        chunks[chunks.length - 1].push(d)
-      })
-      for (const chunk of chunks) {
-        const batch = writeBatch(db)
-        chunk.forEach(d => batch.delete(d.ref))
-        await batch.commit()
-      }
-    } catch (_) {}
-
-    // Step 4 - Delete patientProfiles subcollection
-    try {
-      const snap = await getDocs(collection(db, 'users', uid, 'patientProfiles'))
-      const batch = writeBatch(db)
-      snap.docs.forEach(d => batch.delete(d.ref))
-      await batch.commit()
-    } catch (_) {}
-
-    // Step 5 - Delete user document
-    try { await deleteProfile(uid) } catch (_) {}
-
-    // Step 6 - Delete Firebase Auth account
-    try { await deleteUser(user) } catch (_) {}
-
-    // Step 7 - Clear session storage
-    sessionStorage.removeItem('groq_api_key')
-    sessionStorage.removeItem('gemini_api_key')
-
-    // Step 8 - Navigate to confirmation page
-    router.push('/account-deleted')
+    // Step 4 - The sign-in is gone server-side; clear it here before leaving.
+    // The local session would otherwise stay valid for up to an hour, and the
+    // first page to load it would recreate an empty profile for a deleted account.
+    await signOut().catch(() => {})
+    window.location.replace('/account-deleted')
   }
 
   return (

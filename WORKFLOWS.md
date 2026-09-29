@@ -459,6 +459,9 @@ note** button, so resuming is one deliberate tap.
 - A click on the backdrop or an Escape press while recording does **nothing** —
   in Record Session and in Dictate Note alike
 - Stop recording still stops; the X still abandons
+- Leaving the page while recording (browser Back, a route change) releases the
+  microphone - and for telehealth the shared tab - and the open segment still
+  reaches the recovery draft. Nothing may keep capturing with no Stop on screen
 - A template deleted between recording and recovery degrades to the picker; it
   never blocks recovery
 - The consent warning is present on every entry to the modal
@@ -893,6 +896,35 @@ Settings.
   resurfaces
 - An ongoing thread rehydrates on reload without clobbering an in-session chat
 - Ending the chat closes the Slack thread, so the next visit gets a new ticket
+- Every `/api/support` call proves who is asking with the doctor's token; a uid
+  in the body is ignored. Before, anyone who knew a uid could read that doctor's
+  support replies, post as them and close their thread
+- AI triage sends the token to `/api/chat` too (it had been answered 401, so every
+  question went straight to a human), answers from the server's own knowledge
+  base, and hands to a human after 30 questions an hour
+
+---
+
+## `account-delete` - a doctor deletes their own account
+
+**Entry:** Settings → Profile → **Delete account**
+**Ends at:** `/account-deleted`, signed out, with nothing of theirs left but the
+deletion feedback and the billing records the ATO requires
+**Code:** `components/settings/ProfilePanel.tsx` → `POST /api/account` →
+`selfDeleteUser` in `lib/firestore/adminUsers.ts`
+**Coverage:** ❌ — no automated coverage; it needs a real Google re-authentication
+
+### Expected outputs - what must remain true
+
+- "Account deleted" appears only after the server has deleted notes, patient
+  profiles, transcript drafts, support records, letterhead requests, the profile
+  and the sign-in. A failure says the account could not be fully deleted, and
+  trying again finishes the job
+- Billing is offboarded first, while the profile still holds the Stripe ids
+- Storage (audio, signature, letterhead photos) is cleared too; a failure there
+  is logged under `account-delete` for an admin to clear, and does not block
+- The browser signs out before leaving, so a still-valid local session cannot
+  recreate an empty profile for the deleted account
 ---
 
 ## `capture-hub` — starting a capture from anywhere

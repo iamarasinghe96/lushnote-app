@@ -235,3 +235,44 @@ async function clearUserStorageRaw(uid: string): Promise<void> {
     bucket.deleteFiles({ prefix: `letterhead-requests/${uid}/` }).catch(() => {}),
   ])
 }
+
+/**
+ * A doctor deleting their own account: the same paths as cascadeDeleteUser.
+ *
+ * It replaced a browser-side deletion that swallowed every failure and then
+ * announced the account was gone, and that never touched transcript drafts,
+ * support records, letterhead requests or Storage at all.
+ *
+ * Firestore and Auth steps THROW, so the doctor is only told their data is gone
+ * when it is; everything is idempotent, so a retry after a failure finishes the
+ * job. Two differences from the admin cascade: the deletion_feedback they wrote a
+ * moment ago is kept (it is why they left), and a Storage failure is reported
+ * rather than fatal. Nobody can read those objects once the account is gone,
+ * and an admin clears them with "Clear storage"; failing the whole deletion on
+ * a bucket permission would leave a doctor unable to leave at all.
+ *
+ * Returns the Storage prefixes that could not be cleared.
+ */
+export async function selfDeleteUser(uid: string): Promise<string[]> {
+  const db = adminDb()
+  // FIRST, while users/{uid} still holds the Stripe ids this needs to read.
+  await stripeOffboard(uid)
+  await deleteQueryChunked(db.collection('progress_notes').where('userId', '==', uid))
+  await deleteQueryChunked(db.collection('users').doc(uid).collection('patientProfiles'))
+  await deleteQueryChunked(db.collection('users').doc(uid).collection('transcriptDrafts'))
+  await db.collection('support_threads').doc(uid).delete()
+  await deleteQueryChunked(db.collection('support_tickets').where('uid', '==', uid))
+  await deleteQueryChunked(db.collection('letterheadRequests').where('requestedBy', '==', uid))
+
+  const bucket = adminStorage().bucket()
+  const prefixes = [`signatures/${uid}/`, `recordings/${uid}/`, `letterhead-requests/${uid}/`]
+  const failed: string[] = []
+  await Promise.all(prefixes.map(prefix =>
+    bucket.deleteFiles({ prefix }).catch(() => { failed.push(prefix.split('/')[0]) }),
+  ))
+
+  await db.collection('users').doc(uid).delete()
+  await adminAuth().deleteUser(uid)
+  await writeAudit({ actorUid: uid, action: 'user.selfDelete', targetUid: uid, meta: { storageLeft: failed.join(',') || null } })
+  return failed
+}

@@ -107,6 +107,17 @@ export function useSegmentedRecorder() {
       if (cycleRef.current) clearInterval(cycleRef.current)
       if (timerRef.current) clearInterval(timerRef.current)
       releaseWakeLock()
+      // Unmounted while still recording - browser Back, a route change - means
+      // nothing will ever call stop() or abort(). The microphone stayed live with
+      // no Stop button anywhere on screen, and the open segment was never saved.
+      // Close that segment exactly as the four-minute cycle does: it joins the
+      // queue, which carries on uploading it and writing the recovery draft, so
+      // the session can be picked up again. Then release the capture.
+      const rec = recorderRef.current
+      if (rec && rec.state !== 'inactive') { try { rec.stop() } catch { /* already stopping */ } }
+      streamRef.current?.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+      recorderRef.current = null
     }
   }, [releaseWakeLock])
 

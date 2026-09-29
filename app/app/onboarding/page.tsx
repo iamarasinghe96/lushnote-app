@@ -14,6 +14,7 @@ import SignatureUploader from '@/components/ui/SignatureUploader'
 import HospitalAutocomplete from '@/components/ui/HospitalAutocomplete'
 import Select from '@/components/ui/Select'
 import { inferWorkplaceType, WORKPLACE_TYPES } from '@/lib/workplaceType'
+import ProfileLoadError from '@/components/ProfileLoadError'
 import type { WorkplaceType, Workplace } from '@/types'
 
 const EMAIL_PRESETS: readonly string[] = [
@@ -31,7 +32,7 @@ interface PatternPreview {
 }
 
 export default function OnboardingPage() {
-  const { user, profile, loading, refreshProfile } = useAuth()
+  const { user, profile, loading, profileError, refreshProfile } = useAuth()
   const router = useRouter()
 
   const [step, setStep] = useState<Step>(1)
@@ -155,6 +156,10 @@ export default function OnboardingPage() {
       </div>
     )
   }
+
+  // The profile could not be read, so this may be an onboarded doctor. Showing
+  // the form would let them finish it over the top of their real profile.
+  if (profileError) return <ProfileLoadError />
 
   function handleRegFormatChange(value: string) {
     setRegFormat(value)
