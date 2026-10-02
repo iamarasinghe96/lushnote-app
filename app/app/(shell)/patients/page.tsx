@@ -287,6 +287,59 @@ function PatientDetail({ patient, profile, editableProfile, notes, historySource
   const lastDate = profile?.updatedAt ? formatDateDD(new Date(profile.updatedAt)) : (sortedNotes[0]?.date || '')
   const clinician = sortedNotes[0]?.clinician || clinicianName || ''
 
+  function toggleDetails() {
+    if (expanded) flushFields()
+    setExpanded(e => !e)
+  }
+
+  // Rendered twice: beside the age on phones, at the start of the action row
+  // from sm up. Only one is ever displayed, so they share the open state.
+  const flagControl = (menuSide: 'left-0' | 'right-0') => (
+    <div className="relative shrink-0">
+      <button
+        onClick={() => setFlagOpen(o => !o)}
+        aria-label="Set priority flag"
+        title={patientFlagStyle(flag)?.label ?? 'Set priority flag'}
+        className="w-7 h-7 rounded-full flex items-center justify-center
+                   hover:bg-[var(--bg)] active:scale-95 transition-all"
+      >
+        <FlagIcon flag={flag} />
+      </button>
+      {flagOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setFlagOpen(false)} aria-hidden />
+          <div
+            className={`absolute ${menuSide} top-8 z-20 w-44 rounded-[var(--r)] border border-[var(--border)] bg-white overflow-hidden py-1`}
+            style={{ boxShadow: '0 8px 24px rgba(15,23,42,.14), 0 0 0 1px rgba(15,23,42,.04)' }}
+          >
+            {PATIENT_FLAGS.map(f => (
+              <button
+                key={f.value}
+                onClick={() => { onSetFlag(f.value); setFlagOpen(false) }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
+                  ${flag === f.value ? 'bg-[var(--blue-lt)] font-semibold text-[var(--blue)]' : 'text-[var(--text)] hover:bg-[var(--bg)]'}`}
+              >
+                <FlagIcon flag={f.value} />
+                <span className="flex-1">{f.label}</span>
+                {flag === f.value && <CheckMark />}
+              </button>
+            ))}
+            <div className="h-px bg-[var(--border)] my-1" />
+            <button
+              onClick={() => { onSetFlag(0); setFlagOpen(false) }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
+                ${!flag ? 'bg-[var(--blue-lt)] font-semibold text-[var(--blue)]' : 'text-[var(--text2)] hover:bg-[var(--bg)]'}`}
+            >
+              <FlagIcon />
+              <span className="flex-1">No flag</span>
+              {!flag && <CheckMark />}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[var(--bg)]">
 
@@ -315,10 +368,10 @@ function PatientDetail({ patient, profile, editableProfile, notes, historySource
           className="bg-white border border-[var(--border)] rounded-[var(--r-lg)] p-4"
           style={{ boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' }}
         >
-          {/* The name line carries the name and age and nothing else — the flag
-              and the action buttons sit on their own row beneath, so a long
-              name has the full card width before it has to truncate. */}
-          <div className="mb-4">
+          {/* The name line carries the name and age (and, on phones, the flag);
+              the action buttons sit on their own row beneath, so a long name
+              has most of the card width before it has to truncate. */}
+          <div className="sm:mb-4">
             <div className="flex items-start gap-3 min-w-0">
               <GenderAvatar gender={patient.gender} size={56} />
               <div className="min-w-0 flex-1">
@@ -326,6 +379,7 @@ function PatientDetail({ patient, profile, editableProfile, notes, historySource
                   <div className="min-w-0 flex-1">
                     <MarqueeName name={patient.name} className="text-xl font-bold text-[var(--text)]" />
                   </div>
+                  <div className="sm:hidden self-center">{flagControl('right-0')}</div>
                   {headerAge && (
                     <span className="text-base font-semibold text-[var(--text3)] shrink-0">({headerAge})</span>
                   )}
@@ -337,52 +391,24 @@ function PatientDetail({ patient, profile, editableProfile, notes, historySource
             </div>
 
             <div className="mt-3 flex items-center gap-2 flex-wrap">
-              <div className="relative shrink-0">
-                <button
-                  onClick={() => setFlagOpen(o => !o)}
-                  aria-label="Set priority flag"
-                  title={patientFlagStyle(flag)?.label ?? 'Set priority flag'}
-                  className="w-7 h-7 rounded-full flex items-center justify-center
-                             hover:bg-[var(--bg)] active:scale-95 transition-all"
-                >
-                  <FlagIcon flag={flag} />
-                </button>
-                {flagOpen && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setFlagOpen(false)} aria-hidden />
-                    <div
-                      className="absolute left-0 top-8 z-20 w-44 rounded-[var(--r)] border border-[var(--border)] bg-white overflow-hidden py-1"
-                      style={{ boxShadow: '0 8px 24px rgba(15,23,42,.14), 0 0 0 1px rgba(15,23,42,.04)' }}
-                    >
-                      {PATIENT_FLAGS.map(f => (
-                        <button
-                          key={f.value}
-                          onClick={() => { onSetFlag(f.value); setFlagOpen(false) }}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
-                            ${flag === f.value ? 'bg-[var(--blue-lt)] font-semibold text-[var(--blue)]' : 'text-[var(--text)] hover:bg-[var(--bg)]'}`}
-                        >
-                          <FlagIcon flag={f.value} />
-                          <span className="flex-1">{f.label}</span>
-                          {flag === f.value && <CheckMark />}
-                        </button>
-                      ))}
-                      <div className="h-px bg-[var(--border)] my-1" />
-                      <button
-                        onClick={() => { onSetFlag(0); setFlagOpen(false) }}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors
-                          ${!flag ? 'bg-[var(--blue-lt)] font-semibold text-[var(--blue)]' : 'text-[var(--text2)] hover:bg-[var(--bg)]'}`}
-                      >
-                        <FlagIcon />
-                        <span className="flex-1">No flag</span>
-                        {!flag && <CheckMark />}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-              <div className="flex-1" />
-              {/* Phones get Generate plus a ⋯ menu, so the row never wraps;
-                  from sm up the four buttons sit side by side as before. */}
+              <div className="hidden sm:block">{flagControl('left-0')}</div>
+              <div className="hidden sm:block flex-1" />
+              {/* Phones get the details toggle, Generate and a ⋯ menu on one
+                  row; from sm up the four buttons sit side by side as before,
+                  with the full-width toggle under them. */}
+              <button
+                onClick={toggleDetails}
+                className="sm:hidden flex-1 min-w-0 flex items-center justify-center gap-1 border border-[var(--border)]
+                           text-[var(--text2)] h-8 px-2 rounded-[var(--r-sm)] text-xs font-medium
+                           hover:border-[var(--blue)] hover:text-[var(--blue)] active:scale-[0.98] transition-all"
+                aria-expanded={expanded}
+              >
+                <span className="truncate">{expanded ? 'Hide details' : 'Show & edit details'}</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                     className={`shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden>
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
               <button
                 onClick={onEditPatient}
                 className="hidden sm:inline-block text-xs border border-[var(--blue)] text-[var(--blue)]
@@ -469,8 +495,8 @@ function PatientDetail({ patient, profile, editableProfile, notes, historySource
           </div>
 
           <button
-            onClick={() => { if (expanded) flushFields(); setExpanded(e => !e) }}
-            className="mt-4 w-full flex items-center justify-center gap-1.5 border border-[var(--border)]
+            onClick={toggleDetails}
+            className="mt-4 w-full hidden sm:flex items-center justify-center gap-1.5 border border-[var(--border)]
                        text-[var(--text2)] py-2 rounded-[var(--r)] text-sm font-medium
                        hover:border-[var(--blue)] hover:text-[var(--blue)] active:scale-[0.99] transition-all"
             aria-expanded={expanded}
