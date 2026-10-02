@@ -835,7 +835,10 @@ export default function PatientsPage() {
         const existing = map.get(nm)
         if (existing) {
           if (!existing.gender) existing.gender = p.gender
-          if (!existing.dob) existing.dob = p.dob
+          // The DOB the doctor keeps in the patient's details wins over one read
+          // off an older note, so the list's age matches the card's.
+          if (p.dob?.trim()) existing.dob = p.dob.trim()
+          else if (!existing.dob) existing.dob = p.dob
           if (regFromUr) existing.reg = regFromUr   // Registration # is the UR number
           existing.recencyTs = Math.max(existing.recencyTs, profTs)
         } else {
