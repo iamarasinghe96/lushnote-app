@@ -10,6 +10,7 @@ import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import SignatureUploader from '@/components/ui/SignatureUploader'
+import ClinicianRenameModal from './ClinicianRenameModal'
 import { useAuth } from '@/hooks/useAuth'
 import type { User } from '@/types'
 
@@ -43,6 +44,10 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
   const [workPhone, setWorkPhone] = useState(profile.workPhone ?? '')
   const [emailPretext, setEmailPretext] = useState(profile.emailPretext ?? '')
   const [saving, setSaving] = useState(false)
+  // The name as last saved, so a rename can offer to carry over to old notes.
+  const [savedName, setSavedName] = useState((profile.displayName ?? '').trim())
+  const [renameOpen, setRenameOpen] = useState(false)
+  const [replacedName, setReplacedName] = useState<string | null>(null)
   const [sigSaving, setSigSaving] = useState(false)
   const [localSignatureUrl, setLocalSignatureUrl] = useState<string | null>(profile.signatureUrl ?? null)
 
@@ -63,6 +68,12 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
         emailPretext,
       })
       onToast('Profile saved')
+      const newName = displayName.trim()
+      if (newName && savedName && newName !== savedName) {
+        setReplacedName(savedName)
+        setRenameOpen(true)
+      }
+      setSavedName(newName)
     } catch {
       onToast('Failed to save profile')
     } finally {
@@ -162,6 +173,23 @@ export default function ProfilePanel({ profile, uid, onSave, onToast }: ProfileP
         value={displayName}
         onChange={e => setDisplayName(e.target.value)}
         placeholder="e.g. Dr Jane Smith"
+      />
+      {savedName && (
+        <button
+          type="button"
+          onClick={() => { setReplacedName(null); setRenameOpen(true) }}
+          className="-mt-2 text-xs font-medium text-[var(--blue)] hover:underline"
+        >
+          Update name on saved notes
+        </button>
+      )}
+      <ClinicianRenameModal
+        open={renameOpen}
+        onClose={() => setRenameOpen(false)}
+        uid={uid}
+        currentName={savedName}
+        previousName={replacedName}
+        onToast={onToast}
       />
       <Input
         label="Credentials"
