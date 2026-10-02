@@ -245,6 +245,7 @@ function PatientDetail({ patient, profile, editableProfile, notes, historySource
   const [confirmDeletePatient, setConfirmDeletePatient] = useState(false)
   const [expanded, setExpanded] = useState(!!initialExpanded)
   const [flagOpen, setFlagOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   // Local edit overlay for the expandable fields (mirrors the Table view): keeps
   // typing responsive and debounces the save.
@@ -380,16 +381,18 @@ function PatientDetail({ patient, profile, editableProfile, notes, historySource
                 )}
               </div>
               <div className="flex-1" />
+              {/* Phones get Generate plus a ⋯ menu, so the row never wraps;
+                  from sm up the four buttons sit side by side as before. */}
               <button
                 onClick={onEditPatient}
-                className="text-xs border border-[var(--blue)] text-[var(--blue)]
+                className="hidden sm:inline-block text-xs border border-[var(--blue)] text-[var(--blue)]
                            px-3 py-1.5 rounded-[var(--r-sm)] font-medium hover:bg-[var(--blue-lt)] active:scale-95 transition-all"
               >
                 Edit
               </button>
               <button
                 onClick={() => setConfirmDeletePatient(true)}
-                className="text-xs border border-[var(--danger)] text-[var(--danger)]
+                className="hidden sm:inline-block text-xs border border-[var(--danger)] text-[var(--danger)]
                            px-3 py-1.5 rounded-[var(--r-sm)] font-medium hover:bg-red-50 active:scale-95 transition-all"
               >
                 Delete
@@ -397,7 +400,7 @@ function PatientDetail({ patient, profile, editableProfile, notes, historySource
               <button
                 onClick={onBuildFromHistory}
                 disabled={historySourceCount < 2}
-                className="text-xs border border-[var(--blue)] text-[var(--blue)]
+                className="hidden sm:inline-block text-xs border border-[var(--blue)] text-[var(--blue)]
                            px-3 py-1.5 rounded-[var(--r-sm)] font-medium hover:bg-[var(--blue-lt)] active:scale-95 transition-all
                            disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                 title={historySourceCount < 2 ? 'At least two saved sources are needed' : undefined}
@@ -411,6 +414,57 @@ function PatientDetail({ patient, profile, editableProfile, notes, historySource
               >
                 Generate
               </button>
+              <div className="relative shrink-0 sm:hidden">
+                <button
+                  onClick={() => setMoreOpen(o => !o)}
+                  aria-label="More actions"
+                  aria-expanded={moreOpen}
+                  className="w-8 h-8 rounded-[var(--r-sm)] border border-[var(--border)] text-[var(--text2)]
+                             flex items-center justify-center hover:bg-[var(--bg)] active:scale-95 transition-all"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+                  </svg>
+                </button>
+                {moreOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setMoreOpen(false)} aria-hidden />
+                    <div
+                      role="menu"
+                      className="absolute right-0 top-10 z-20 w-52 rounded-[var(--r)] border border-[var(--border)] bg-white overflow-hidden py-1"
+                      style={{ boxShadow: '0 8px 24px rgba(15,23,42,.14), 0 0 0 1px rgba(15,23,42,.04)' }}
+                    >
+                      <button
+                        role="menuitem"
+                        onClick={() => { setMoreOpen(false); onEditPatient() }}
+                        className="w-full px-3 py-2.5 text-sm text-left text-[var(--text)] hover:bg-[var(--bg)] transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        role="menuitem"
+                        onClick={() => { setMoreOpen(false); onBuildFromHistory() }}
+                        disabled={historySourceCount < 2}
+                        className="w-full px-3 py-2.5 text-sm text-left text-[var(--text)] hover:bg-[var(--bg)] transition-colors
+                                   disabled:opacity-40 disabled:hover:bg-transparent"
+                      >
+                        Build from history
+                        {historySourceCount < 2 && (
+                          <span className="block text-xs text-[var(--text3)]">Needs two saved sources</span>
+                        )}
+                      </button>
+                      <div className="h-px bg-[var(--border)] my-1" />
+                      <button
+                        role="menuitem"
+                        onClick={() => { setMoreOpen(false); setConfirmDeletePatient(true) }}
+                        className="w-full px-3 py-2.5 text-sm text-left text-[var(--danger)] hover:bg-red-50 transition-colors"
+                      >
+                        Delete patient
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
