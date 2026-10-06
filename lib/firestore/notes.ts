@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import type { Note, NoteInput } from '@/types'
+import { NOTES_LIST_LIMIT } from '@/lib/notesListLimit'
 
 export async function saveNote(note: NoteInput): Promise<string> {
   const ref = await addDoc(collection(db, 'progress_notes'), {
@@ -45,7 +46,7 @@ export async function getNote(noteId: string): Promise<Note | null> {
   return { id: snap.id, ...snap.data() } as Note
 }
 
-export async function listNotes(userId: string, limit = 200): Promise<Note[]> {
+export async function listNotes(userId: string, limit = NOTES_LIST_LIMIT): Promise<Note[]> {
   const q = query(
     collection(db, 'progress_notes'),
     where('userId', '==', userId),
