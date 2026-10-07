@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { NOTES_LIST_LIMIT, NOTES_LIST_WARN_AT } from '@/lib/notesListLimit'
 
 const CARD = { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' } as const
 
-interface Stats { users: number; notes: number; pendingLetterheadRequests: number; openTickets: number }
+interface Stats {
+  users: number; notes: number; pendingLetterheadRequests: number; openTickets: number
+  mostNotesOneDoctor: number; doctorsNearNoteLimit: number
+}
 
 export default function DashboardPanel() {
   const { user } = useAuth()
@@ -30,7 +34,9 @@ export default function DashboardPanel() {
     { label: 'Notes & letters', value: stats?.notes },
     { label: 'Open support tickets', value: stats?.openTickets },
     { label: 'Pending letterhead requests', value: stats?.pendingLetterheadRequests },
+    { label: `Most notes, one doctor (lists show ${NOTES_LIST_LIMIT})`, value: stats?.mostNotesOneDoctor },
   ]
+  const nearLimit = (stats?.doctorsNearNoteLimit ?? 0) > 0
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
@@ -38,6 +44,13 @@ export default function DashboardPanel() {
         <h2 className="text-sm font-semibold text-[#0f172a]">Overview</h2>
         <button onClick={fetchStats} className="text-sm text-[#2563eb]">Refresh</button>
       </div>
+      {nearLimit && stats && (
+        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+          <strong>{stats.doctorsNearNoteLimit} {stats.doctorsNearNoteLimit === 1 ? 'doctor has' : 'doctors have'} {NOTES_LIST_WARN_AT}+ notes.</strong>{' '}
+          Patients, History and the editor only load each doctor&apos;s {NOTES_LIST_LIMIT} most recently edited notes, so older
+          ones will start dropping out of those lists. Time to schedule the notes index.
+        </div>
+      )}
       {error && <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">{error}<button onClick={fetchStats} className="ml-2 underline">Retry</button></div>}
       <div className="grid grid-cols-2 gap-3">
         {cells.map(c => (

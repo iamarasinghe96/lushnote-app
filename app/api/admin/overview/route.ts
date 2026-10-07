@@ -3,12 +3,25 @@ import { adminDb } from '@/lib/firebase-admin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { requireAdmin, unauthorized } from '@/lib/adminGuard'
 import { writeAudit, logToSink } from '@/lib/firestore/systemLogs'
+import { NOTES_LIST_WARN_AT } from '@/lib/notesListLimit'
 
 const TICKET_STATUSES = ['open', 'resolved', 'closed'] as const
 
 function millis(v: unknown): number | null {
   const t = v as { toMillis?: () => number } | null
   return t && typeof t.toMillis === 'function' ? t.toMillis() : null
+}
+
+/**
+ * The busiest doctor's note count, and how many doctors are at or past the
+ * warning line. Count aggregations only: no note is read. One count per doctor
+ * is cheap at this size; past 1,000 doctors this wants a stored counter.
+ */
+async function notesPerDoctor(db: FirebaseFirestore.Firestore): Promise<{ max: number; near: number }> {
+  const users = await db.collection('users').select().limit(1000).get()
+  const counts = await Promise.all(users.docs.map(u =>
+    db.collection('progress_notes').where('userId', '==', u.id).count().get().then(s => s.data().count)))
+  return { max: counts.length ? Math.max(...counts) : 0, near: counts.filter(c => c >= NOTES_LIST_WARN_AT).length }
 }
 
 export async function POST(req: NextRequest) {
@@ -25,7 +38,12 @@ export async function POST(req: NextRequest) {
         db.collection('letterheadRequests').where('status', '==', 'pending').count().get().then(s => s.data().count).catch(() => -1),
         db.collection('support_tickets').where('status', '==', 'open').count().get().then(s => s.data().count).catch(() => -1),
       ])
-      return NextResponse.json({ stats: { users, notes, pendingLetterheadRequests: pendingReq, openTickets: tickets } })
+      const perDoctor = await notesPerDoctor(db).catch(() => null)
+      return NextResponse.json({ stats: {
+        users, notes, pendingLetterheadRequests: pendingReq, openTickets: tickets,
+        mostNotesOneDoctor: perDoctor ? perDoctor.max : -1,
+        doctorsNearNoteLimit: perDoctor ? perDoctor.near : -1,
+      } })
     }
 
     if (body.action === 'setTicketStatus') {
