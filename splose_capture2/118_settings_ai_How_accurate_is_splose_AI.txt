@@ -1,0 +1,103 @@
+https://rakshitha.splose.com/settings/ai
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+splose AI
+Learn
+Subscribe to splose AI
+Meet splose AI – talented, clever, handy, and the first of its kind
+
+splose AI is your healthcare ally, and an industry first for AI. It's intuitive and easy to use, built into your practice management software, and tailored to the complex needs of allied health professionals to make work simpler, and smoother than ever.
+
+Learn
+Subscribe to splose AI
+Supercharge your workflow with splose AI
+We're used to search engines where we ask questions and get answers, but now it goes both ways. The ability to have a back-and-forth in real time lets you build context, get what you actually need, and is a game-changer for productivity.
+Enhanced clinical decision making
+Instant answers, saving you time
+Secure assistance
+Meet the calendar that truly gets it
+An organised calendar is the backbone to a successful practice, which is why we're so excited to announce what's coming soon: splose AI for calendar. This groundbreaking new capability is like having a copilot built right into your calendar. Imagine chatting with AI to schedule appointments, manage bookings, or streamline your day with just a few simple prompts.
+Say the word, and splose AI transcribes sessions into clinical notes
+Helping you convert recorded sessions into seamless progress notes and reports without ever needing to manually edit messy transcriptions.
+Written in a snap
+splose AI knows who's who
+Summarised in a click
+Creating referral letters based on session information instantly
+Letters AI turns your progress notes into professional letters in moments, allowing you to focus on patient care while it handles the grunt work.
+Lightning fast letters
+Contextually accurate
+Customise your prompts
+The email assistant at your fingertips
+splose AI is your ally for all things written. Helping summarise previous session notes, gather client information, write comprehensive reports and easily fetch client details
+Drafts written on cue
+Checking your tone
+Good with grammar
+Upload files, ask questions, get answers.
+Practitioners can now upload specialist reports, care plans and hospital discharge summaries. Then splose AI will work its magic to answer any specific questions and generate summaries.
+Instantly access key insights
+Get answers to specific questions
+Generate concise summaries
+splose AI settings: More control, your way
+We understand that every practice, and every practitioner within it works differently, so we've added customisable options to your AI experience. With our fresh splose AI settings, you can choose whether or not to save your recordings, allow practitioners to create prompts, save recordings to client files, or even record them yourself and upload them to transcribe later. Whatever your workflow looks like, splose has your back.
+Security & Privacy FAQ
+
+Discover how splose AI prioritises the security and privacy of your data.
+
+What is splose AI?
+Is my data secure?
+Where is my data processed?
+Does splose AI, or the AI models it uses, keep or learn from my data?
+How accurate is splose AI?
+
+splose AI continually improves its performance based on user interactions and feedback. While we aim for high accuracy, occasional limitations or errors may arise in AI models. Nonetheless, our team is committed to refining and optimising AI performance to provide the best user experience.
+
+Set up guide · 1 of 4

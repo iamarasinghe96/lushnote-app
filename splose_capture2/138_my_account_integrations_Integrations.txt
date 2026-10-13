@@ -1,0 +1,33 @@
+https://rakshitha.splose.com/my/account/integrations
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Details
+Availability
+Body chart templates
+Integrations
+Login history
+Account security
+API keys
+Google Calendar
+Sync your appointments to Google Calendar and see your Google events in splose.
+Connect
+Google Meet
+Add Google Meet meetings from your calendar and automatically send to clients.
+Connect Google Calendar to enable Google Meet
+Microsoft Teams
+Microsoft Teams is an online collaboration platform that allows users to chat, have meetings, and share notes and attachments. Connect to your Microsoft account to automatically create and attach Microsoft Teams meetings for appointments scheduled in splose and send to clients via email and SMS.
+Connect
+You will need to have a Microsoft Business account to use this integration.
+Calendar feed
+Sync your splose calendar to external calendars such as Google Calendar, Outlook Calendar and Apple Calendar.
+Enable
+Set up guide · 1 of 4

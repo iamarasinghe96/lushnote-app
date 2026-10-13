@@ -1,0 +1,122 @@
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Client
+Jane Doe
+New SMS
+New email
+Actions
+Details
+Appointments
+4
+Communications
+Files
+Progress notes
+3
+Cases
+1
+Support activities
+1
+Forms
+1
+Invoices
+1
+Payments
+Statements
+Letters
+Practitioner access
+Details
+Edit
+General details
+JD
+Miss Jane Rose Doe
+Date of birth:
+1 Feb 1978 (48 years old)
+Sex:
+Female
+Gender:
+Woman or female
+Client contact details
+Email:
+N/A
+Phone numbers:
+N/A
+Preference:
+SMS & Email
+Address:
+1 Parliament Dr
+Canberra ACT 2600
+Timezone:
+GMT+11 - Australia/Sydney
+Privacy policy consent
+Accepted
+Medications, allergies & intolerances
+Medications
+None
+Allergies
+None
+Intolerances
+None
+Medicare details
+Card number:
+2000000021
+Reference number:
+1
+Expiry:
+01/2049
+NDIS details
+NDIS number:
+000000000
+Plan start date:
+1 Jan 2027
+Plan end date:
+1 Jan 2028
+Diagnosis:
+Multiple Sclerosis
+Fund management:
+Self-managed
+Emergency contact
+Full name:
+Thomas Doe
+Relationship:
+Son
+Invoicing
+Invoice reminder preference:
+On
+View change log
+
+Account balance
+
+They owe 
+770.00
+Available credit balance
+0.00
+Client alerts
+Dog that needs to be restrained at the property before entering
+Client tags
+Self-managed
+splose payments
+Get Jane set up for instant collection
+Connect splose payments to save Jane's card and other payment types directly to their profile.
+Set up splose payments
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore

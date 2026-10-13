@@ -1,0 +1,111 @@
+https://rakshitha.splose.com/settings/services
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+Services
+Learn
+Show archived
+New service
+Search
+Name
+	
+Type
+	Item code	Duration	Price	Actions
+
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+
+
+Initial Appointment
+Demo
+	Mobile		60 minutes	220.00 / Hour	
+
+
+Initial Appointment
+Demo
+	Clinic		60 minutes	220.00 / Hour	
+
+
+Report Writing
+Demo
+	Support Activity NF2F		60 minutes	220.00 / Hour	
+
+
+Subsequent Appointment
+Demo
+	Clinic		45 minutes	220.00 / Hour	
+
+
+Subsequent Appointment
+Demo
+	Mobile		60 minutes	220.00 / Hour	
+
+
+Telehealth Appointment
+Demo
+	Telehealth		60 minutes	220.00 / Hour	
+1-6 of 6 items
+1
+10 / page
+Set up guide · 1 of 4
+Start with examples
+Demo
+These are example services to help you explore splose. You can edit, duplicate, or archive any of them when you're ready to set up your own.
+Got it

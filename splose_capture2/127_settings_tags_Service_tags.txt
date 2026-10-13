@@ -1,0 +1,73 @@
+https://rakshitha.splose.com/settings/tags
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+Tags
+New tag
+Client tags
+Service tags
+Waitlist tags
+AI tags
+New
+Name	Colour	Actions
+DVA	
+	
+
+Medicare	
+	
+
+NDIS	
+	
+
+Private health	
+	
+1
+Set up guide · 1 of 4

@@ -1,0 +1,61 @@
+https://rakshitha.splose.com/settings/integrations/tyrohealthSetup
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+Tyro Health setup
+1Tyro Health API key
+2Assign payment methods
+Display name
+Copy and paste your Tyro Health API key from your Tyro Health account.
+Assigned locations
+Choose a location
+Connect
+Set up guide · 1 of 4

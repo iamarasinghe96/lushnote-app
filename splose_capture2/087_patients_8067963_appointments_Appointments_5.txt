@@ -1,0 +1,82 @@
+https://rakshitha.splose.com/patients/8067963/appointments
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Client
+John Smith
+New SMS
+New email
+Actions
+Details
+Appointments
+5
+Communications
+Files
+Progress notes
+3
+Cases
+1
+Support activities
+2
+Forms
+Invoices
+1
+Payments
+Statements
+Letters
+Practitioner access
+Appointments
+Send upcoming appointments
+New appointment
+When
+	Where	Type	Practitioner	Invoice status	Actions
+
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+
+
+Fri 23 Oct 2026, 9:45 am
+Upcoming
+	Better Therapy (East)	Subsequent Appointment (Mobile)	Indika Amarasinghe	---	
+
+
+Wed 21 Oct 2026, 1:00 pm
+Cancelled
+	Better Therapy (East)	Subsequent Appointment (Mobile)	Indika Amarasinghe	---	
+
+
+Mon 19 Oct 2026, 9:00 am
+Upcoming
+	Better Therapy (East)	Subsequent Appointment (Mobile)	Indika Amarasinghe	---	
+
+
+Fri 16 Oct 2026, 10:00 am
+Cancelled
+	Better Therapy (East)	Subsequent Appointment (Mobile)	Indika Amarasinghe	Awaiting Payment	
+
+
+Wed 14 Oct 2026, 9:30 am
+Upcoming
+Arrived
+	Better Therapy (East)	Initial Appointment (Mobile)	Indika Amarasinghe	Awaiting Payment	
+1-5 of 5 items
+1
+10 / page
+Set up guide · 1 of 4

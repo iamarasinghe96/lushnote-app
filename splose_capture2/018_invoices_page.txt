@@ -1,0 +1,77 @@
+https://rakshitha.splose.com/invoices
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Invoices
+Batch invoice
+New invoice
+Stop chasing payments
+Collect instantly and reconcile without the admin.
+Set up splose payments
+Learn more
+Search
+	
+Invoice #
+	To	
+Location
+	
+Practitioner
+	
+Issue date
+	
+Due date
+	Amount	Outstanding	
+Status
+	
+Sent status
+
+
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+
+	INV-0001	Jane Doe	Better Therapy (East)	Indika Amarasinghe	12 Oct 2026	26 Oct 2026	770.00	770.00	Awaiting Payment	
+	INV-0002	John Smith	Better Therapy (East)	Indika Amarasinghe	12 Oct 2026	26 Oct 2026	1,050.00	1,050.00	Awaiting Payment	
+1-2 of 2 items
+1
+10 / page
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore

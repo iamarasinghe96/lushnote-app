@@ -1,0 +1,163 @@
+https://rakshitha.splose.com/settings/details
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+Details
+Save
+Business name
+Workspace URL  
+Website
+Business email
+Logo
+Upload
+Patient terminology 
+Client
+Country
+Australia
+Default appointment communication preferences 
+SMS & Email
+Apply to all existing clients and override the current contact preferences.
+Currency code
+Currency symbol
+Tax Label for invoices (E.g. ABN) 
+Enter your business number in Location settings
+Email signature
+Business
+User
+Bold
+Italic
+Underline
+More Text
+Insert Table
+Insert Link
+Insert Horizontal Line
+Insert Image
+Align Left
+Align Center
+More Paragraph
+Undo
+Redo
+Strikethrough
+Arial
+Arial
+Georgia
+Impact
+Tahoma
+Times New Roman
+Verdana
+Roboto
+Segoe UI
+Font Size
+8
+9
+10
+11
+12
+14
+18
+24
+30
+36
+48
+60
+72
+96
+Subscript
+Superscript
+Text Color
+Background Color
+Clear Formatting
+Ordered List
+Align Right
+Align Justify
+Ordered List
+Default
+Lower Alpha
+Lower Greek
+Lower Roman
+Upper Alpha
+Upper Roman
+Unordered List
+Default
+Circle
+Disc
+Square
+Line Height
+Default
+Unset
+Single
+1.15
+1.5
+Double
+Decrease Indent
+Increase Indent
+Secure PDF email attachments
+
+Send secure letters, invoices, progress notes or any other PDF attachment. The email recipient will be able to view PDF files after opening the file and entering the client's date of birth. Ensure that clients have a date of birth added in client details.
+
+Do not include document links in the body of the email or the email template. Review invoice templates.
+
+Secure PDF files
+Secure PDF transfer is turned off and documents will not be protected
+Calendar lock dates
+
+Prevent users with the practitioner role from making changes on the calendar on and before
+
+Google Tag Manager
+
+Google Tag Manager ID
+
+Cases
+On
+Off
+Block bookings exceeding case or funding periods (default setting)
+Business settings change log
+Set up guide · 1 of 4

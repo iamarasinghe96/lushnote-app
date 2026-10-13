@@ -1,0 +1,74 @@
+https://rakshitha.splose.com/invoices/19563037/view
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+INV-0002
+Awaiting Payment
+Pay
+Email invoice
+Actions
+Tax Invoice
+Client
+John Smith
+From
+Better Therapy (East)
+Provider
+Indika Amarasinghe
+Invoice #
+INV-0002
+Issue date
+12 Oct 2026
+Due date
+26 Oct 2026
+Description	Unit price	Quantity	Unit	Discount	GST	Amount AUD
+
+14 Oct 2026, 60 minutes, Initial Appointment (Mobile)
+	220.00	1.00	Hour	0.00	0%	220.00
+
+14 Oct 2026, Provider travel
+	220.00	0.50	Hour	0.00	0%	110.00
+
+14 Oct 2026, Provider Travel - Non-Labour Costs
+	1.00	15.00	km	0.00	0%	15.00
+
+14 Oct 2026, Activity Based Transport
+	15.00	1.00	each	0.00	0%	15.00
+
+15 Oct 2026, Report Writing (Support Activity)
+	220.00	1.50	Hour	0.00	0%	330.00
+
+16 Oct 2026, 60 minutes, Subsequent Appointment (Mobile) Cancelled
+NSDHNo show due to health reason
+Cancellation notice: 4 days 10 hours before
+	220.00	1.00	Hour	0.00	0%	220.00
+
+16 Oct 2026, Provider travel
+	220.00	0.50	Hour	0.00	0%	110.00
+
+16 Oct 2026, Provider Travel - Non-Labour Costs
+	1.00	15.00	km	0.00	0%	15.00
+
+16 Oct 2026, Activity Based Transport
+	15.00	1.00	each	0.00	0%	15.00
+Subtotal excl. tax	1050.00
+Tax	0.00
+Total AUD	1050.00
+Total Amount Due AUD	1050.00
+This invoice could already be paid
+Save client payment methods and collect future invoices instantly.
+Set up splose payments
+Payments
+
+0.00 / 1050.00
+
+Note
+View change log
+Set up guide · 1 of 4

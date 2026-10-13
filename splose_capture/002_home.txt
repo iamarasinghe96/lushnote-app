@@ -1,0 +1,126 @@
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Messages
+Communicate with your team or jot down notes
+Strikethrough
+Arial
+Arial
+Georgia
+Impact
+Tahoma
+Times New Roman
+Verdana
+Roboto
+Segoe UI
+Font Size
+8
+9
+10
+11
+12
+14
+18
+24
+30
+36
+48
+60
+72
+96
+Subscript
+Superscript
+Text Color
+Background Color
+Clear Formatting
+Ordered List
+Align Right
+Align Justify
+Ordered List
+Default
+Lower Alpha
+Lower Greek
+Lower Roman
+Upper Alpha
+Upper Roman
+Unordered List
+Default
+Circle
+Disc
+Square
+Line Height
+Default
+Unset
+Single
+1.15
+1.5
+Double
+Decrease Indent
+Increase Indent
+Bold
+Italic
+Underline
+More Text
+Insert Table
+Insert Link
+Insert Horizontal Line
+Insert Image
+Emoticons
+Align Left
+Align Center
+More Paragraph
+Undo
+Redo
+Send
+Income
+Values
+Invoices
+Payments
+Apr-2026
+May-2026
+Jun-2026
+Jul-2026
+Aug-2026
+Sep-2026
+Oct-2026
+0
+500
+1K
+1.5K
+2K
+Incomplete progress notes
+John Smith (Subsequent session)
+12:58 pm, Tue 13 Oct 2026
+John Smith (Subsequent session)
+12:58 pm, Tue 13 Oct 2026
+John Smith (Initial assessment)
+12:58 pm, Tue 13 Oct 2026
+Jane Doe (Subsequent session)
+12:58 pm, Tue 13 Oct 2026
+Jane Doe (Subsequent session)
+12:58 pm, Tue 13 Oct 2026
+Load more
+Recently submitted forms
+Jane Doe (NDIS service agreement)
+9:15 am, Tue 12 May 2026
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore

@@ -1,0 +1,74 @@
+https://rakshitha.splose.com/settings/referralTypes
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+Referral types
+Add referral type
+Name	Default type	Actions
+
+ 
+	
+ 
+	
+ 
+
+Client	
+Yes
+	-
+Contact	
+Yes
+	-
+Other	
+Yes
+	-
+1
+10 / page
+Set up guide · 1 of 4

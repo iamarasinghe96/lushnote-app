@@ -1,0 +1,90 @@
+https://rakshitha.splose.com/settings/templates/emails
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+Email templates
+New template
+Search
+Name	Type	Last modified	Actions
+Invoice email template	Invoice	12:58 pm, 13 Oct 2026	
+
+Receipt email template	Payment	12:58 pm, 13 Oct 2026	
+
+Progress note email template	Progress note	12:58 pm, 13 Oct 2026	
+
+Form email template	Form	12:58 pm, 13 Oct 2026	
+
+Letter email template	Letter	12:58 pm, 13 Oct 2026	
+
+Upcoming appointments email template	Upcoming appointments	12:58 pm, 13 Oct 2026	
+
+General email template	General	12:58 pm, 13 Oct 2026	
+
+Rejection screener template	Screener	12:58 pm, 13 Oct 2026	
+
+Acceptance screener template	Screener	12:58 pm, 13 Oct 2026	
+
+Contact statement template	Contact statement	12:58 pm, 13 Oct 2026	
+1
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore

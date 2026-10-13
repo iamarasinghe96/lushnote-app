@@ -1,0 +1,108 @@
+https://rakshitha.splose.com/settings/users
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+Users
+Invite users
+Search
+	
+Name
+	
+Email
+	
+Role name
+	
+Role type
+	
+Group
+	
+Status
+	
+2FA
+	Actions
+
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+
+
+	Indika Amarasinghe (you) Account owner	rakshitha.amarasinghe@gmail.com	Practitioner admin	Practitioner admin	---	Active	Not enabled	
+1-1 of 1 items
+1
+10 / page
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore

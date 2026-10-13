@@ -1,0 +1,136 @@
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Create client
+Cancel
+Create
+General details
+Title
+Title
+First name
+Middle name
+Last name
+Preferred name
+Day
+Day
+Month
+Month
+Year
+Year
+Sex
+Gender identity
+Pronouns
+Occupation
+Other details
+Alerts
+
+Information you add here will be displayed in important places like scheduling appointments.
+
+0 / 1000
+Tags
+Select Client tag
+Client contact details
+Email 
+Phone numbers 
+New phone number
+Appointment communication preferences
+SMS & Email
+Address
+Search the address
+Address
+City/Town
+State/Region
+Postal/Zip code
+Country
+🇦🇺 Australia
+Timezone
+(UTC+11:00) - Australia/Sydney
+Privacy policy consent
+No response
+Accepted
+Rejected
+Medications
+
+No medication recorded
+
+Medication
+Allergies
+
+No allergies recorded
+
+Allergy
+Intolerances
+
+No intolerances recorded
+
+Intolerance
+Medicare details
+Card number
+Reference number
+Expiry
+Month
+Year
+Add Medicare claimant
+Department of Veterans’ Affairs details
+Veterans file number
+Sex
+Male
+Female
+Private health insurance details
+Health fund
+Select health fund
+NDIS details
+NDIS number
+Plan start date
+Plan end date
+Diagnosis
+Fund management
+Plan nomineeWhat's this?
+Mobile number
+Code
+Email
+Emergency contact
+Full name
+Relationship
+Phone number
+Invoicing
+Extra client invoice detailsInformation here will be displayed on the invoice under the client name.Read help guide.
+Send invoices to
+Choose to automatically assign a contact as the invoice recipient.
+Start typing to search contact
+Default invoice reminder preference
+Off
+Related clients
+Relationship
+Associated contacts
+
+Select contacts that are associated with the client to be included in different communications.
+
+Start typing to search contact
+Add
+Referral Source
+Referral type
+Information
+Profile photo
+Upload
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore

@@ -1,0 +1,106 @@
+https://rakshitha.splose.com/settings/busy-times
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+Busy time types
+Show archived
+New type
+Use busy time to indicate non billable events in Practitioner calendars. You can change utilisation settings to control whether specific types of busy time are used in utilisation reports.
+Name	Utilisation	Duration (mins)	Actions
+
+Personal appointment
+	Excluded	30	
+
+
+Sick leave
+	Excluded	450	
+
+
+Annual leave
+	Excluded	450	
+
+
+Public holiday
+	Excluded	450	
+
+
+Travel
+	Excluded	30	
+
+
+CPD
+	Excluded	30	
+
+
+Admin
+	Excluded	30	
+
+
+Lunch
+	Excluded	30	
+
+
+Meeting
+	Excluded	30	
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore

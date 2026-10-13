@@ -1,0 +1,63 @@
+https://rakshitha.splose.com/patients/8067963/letters
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Client
+John Smith
+New SMS
+New email
+Actions
+Details
+Appointments
+5
+Communications
+Files
+Progress notes
+3
+Cases
+1
+Support activities
+2
+Forms
+Invoices
+1
+Payments
+Statements
+Letters
+Practitioner access
+Letters
+New letter
+	Title	Location	Written by	Created at	Last updated	Actions
+
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+
+
+
+No letters
+
+Add new letter
+0 selected
+Unselect all
+Download
+Send
+Set up guide · 1 of 4

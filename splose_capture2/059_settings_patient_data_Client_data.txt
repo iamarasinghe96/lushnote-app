@@ -1,0 +1,84 @@
+https://rakshitha.splose.com/settings/patient-data
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+Client data
+Save
+Data de-identification for deleted clients
+De-identify client data when permanently deleted
+When a client gets permanently deleted, their name will be de-identified on all existing appointments, invoices, and payments. This action can not be undone.
+Protect client names in the browser
+
+Choose how the browser tab displays client names. Client names should either be initials or de-identified if you use shared computers.
+
+Initials
+Calendar
+
+Select how client names in appointments are synced to external calendars.
+
+Initials
+Restrict emailing
+Restrict users from sending emails
+Restrict users from emailing invoices, receipts, progress notes, forms, letters and general emails to clients.
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore

@@ -1,0 +1,278 @@
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+NDIS service agreement
+Completed
+Jane Doe
+Email form
+Actions
+Jane Doe
+
+Completed at 9:15 am, 12 May 2026
+
+1. Key Details
+(a) Service Provider (us, we):
+
+[ Insert your Business Name here ]
+
+(b) Participant name (you, your):
+Evelyn Montgomery
+(c) NDIS Number:
+
+000000000
+
+(d) Parent or Legal Guardian of the Participant (where the participant is under the age of 18 or is unable to provide consent):
+No response
+(e) NDIS plan start date:
+1 Jan 2027
+(f) NDIS plan end date:
+1 Jan 2028
+(g) Agreement start date:
+1 Jan 2027
+(h) Agreement end date (unless cancelled earlier in accordance with this Agreement):
+1 Jan 2027
+
+(i) Review frequency: every [90] days or As required
+
+2. Supports and Support Fees
+
+(a) This service agreement (Agreement) outlines the support(s) we will provide to you and the terms that those supports will be provided.
+
+(b) In accordance with our recommendations, based on our assessments and your goals, we have recommended the following supports (Supports):
+
+Schedule of Supports
+
+Service	Support Description	Hours	Rate	Support Fee
+
+
+Assessments
+
+	
+
+Therapy/assessment appointments on a (frequency) basis at (location) or via telehealth (if required).
+
+	
+
+10
+
+	
+
+193.99
+
+	
+
+1,939.90
+
+
+
+
+NF2F
+
+	
+
+Reports, Non-face-to-face client-specific administration including Assessment analysis and interpretation
+Planning and evaluating therapeutic supports Resource development
+Report writing
+
+	
+
+5
+
+	
+
+193.99
+
+	
+
+969.95
+
+
+
+
+Travel
+
+	
+
+Travel to and from appointment
+
+	
+
+5
+
+	
+
+193.99
+
+	
+
+969.95
+
+
+			
+
+Total Support Fee
+
+	
+
+3,879.80
+
+(c) Based on the information you have provided us, we have determined that the Supports are reasonable and necessary for your specific needs.
+
+(d) If any of the information you have provided us is incorrect or incomplete, please let us know as soon as possible.  Failure to provide us with the most accurate and up to date information may result in us recommending Supports which are not suitable for your individual needs.
+
+(e) Where reasonable, we will give you 24 hours’ notice if we need to change a scheduled appointment
+
+(f) The Support Fees set out above are the amounts payable to us before your NDIS Budget is applied.  You will be required to pay all or part of the Support Fee if your NDIS Budget does not cover all or part of the Supports.
+
+(g) Any other additional expenses are your responsibility and are not included in the cost of the Supports.
+
+(h) We do not manage your NDIS Budget. We recommend that you confirm how much of the Support Fee your NDIS Budget will cover before receiving the Supports.
+
+(i) The Support Fee is:
+
+(i) inclusive of GST (if applicable);
+
+(ii) within the applicable price limits set under the National Disability Insurance Scheme Act 2013 (Cth) and the NDIS Pricing Arrangements and Price Limits; and
+
+(iii) reviewed and increased in accordance with any changes to the NDIS Pricing Arrangements and Price Limits and you will receive prior notice of any increases in the Support Fee.
+
+(j) Where you require a report (including a NDIS progress report), we require two weeks’ notice to prepare the report 
+
+3. How you will pay for Supports
+3.1 Fund management (Indicate how your funds are managed):
+
+Self-managed
+
+3.2 Self-Managed
+
+If you are self-managed:
+
+(a) we will provide you with an invoice for the Supports;
+
+(b) all invoices must be paid within 7 days of receiving that invoice;
+
+(c) you are solely responsible for making a Payment Request to receive the funds under your NDIS Plan/NDIS Budget; and
+
+(d) we reserve the right to reduce the Supports or stop providing the Supports to you if payment is not in accordance with this Agreement and we may refer you to a collection agency.
+
+3.3 Plan-Managed
+
+(a) If you are plan-managed, we will send invoices to your Plan Manager for payment.
+
+(b) If you are a registered NDIS provider, include:
+
+(i) If your funds are NDIA-managed, we create a Service Booking in the NDIS Portal in accordance with this agreement, then make subsequent payment requests after providing Supports.
+
+(ii) If you are plan-managed, amend or end the Service Booking upon receiving your request through the NDIS Portal.
+
+(c) If you are a non-registered NDIS provider, include:
+
+(i) If your funds are NDIA-managed, any Supports to you will be out of pocket as we are not a registered NDIS provider.
+
+4. Cancellation policy
+
+(a) Cancellations less than 48 hours before the time of your appointment incur a 50% cancellation fee.
+
+(b) Failure to attend an appointment without providing prior notice incurs a 100% cancellation fee.
+
+(c) If a medical certificate can be provided within 48 hours after the missed appointment, which demonstrates your inability to attend due to ill health, we may, in our sole discretion, agree to waive all or part of your cancellation fee.
+
+5. Our Responsibilities
+
+We will:
+
+(a) provide the Supports to you in a way that meets your needs (as determined by us) and are conducted in a safe environment;
+
+(b) work with you to provide the Supports at your preferred times;
+
+(c) review your needs regularly to ensure the Supports continue to be suitable;
+
+(d) communicate in an honest and timely manner with you;
+
+(e) consult you on all decisions about how Supports are provided to you; 
+
+(f) listen to your feedback and resolve any problems as soon as possible;
+
+(g) deal with your personal information in accordance with our Privacy Policy (which is available on our website);
+
+(h) provide the Supports in a manner consistent with all relevant laws, including the National Disability Insurance Scheme Act 2013 (Cth); and
+
+(i) maintain accurate records of the Supports we have provided to you.
+
+6. Termination
+
+(a) Either party may terminate this service agreement by providing the other party with two weeks’ notice. 
+
+(b) If a party breaches this service agreement, the other party may terminate this agreement without notice if that breach is not remedied within 7 days.
+
+7. Feedback & Complaints
+
+(a) If you have any concerns with the terms of this agreement, including the Supports being provided to you, please contact us to discuss these concerns and we will attempt to resolve them. You can contact us on:
+
+(i) By phone on [ Insert your Phone Number here ]; and
+
+(ii) or by email at [ Insert your email here ].
+
+(b) If you are unsatisfied with the actions taken by us, you can contact:
+
+(i) the complaints unit of the Department of Communities, Disability Services & Seniors on 1800080464; or 
+
+(ii) the National Disability Insurance Agency.
+
+All contact details for these agencies should be available on the NDIS Website.
+
+8. Your acceptance of these terms
+
+(a) By signing this agreement you (or your Parent/Guardian as applicable) agree to:
+
+(i) immediately notify us if the NDIS Plan is replaced by a new plan or you stop being a participant in the NDIS;
+
+(ii) communicate with us in an open, honest, and timely manner, including notifying us of any changes to your personal circumstances which may impact the way that we provide the Supports to you;
+
+(iii) respect the rights and safety of our employees and contractors, including ensuring the workspace is tidy, providing a smoke-free workspace and controlling or restraining pets;
+
+(iv) monitor spending against your NDIS Budget to ensure there are sufficient funds to pay for the agreed Supports provided; and
+
+(v) pay the Support Fee where your NDIS Budget does not cover all or part of the Support Fee. 
+
+(b) By signing this agreement you or your Parent/Guardian (as applicable) acknowledge and understand that: 
+
+(i) you are responsible for paying the Support Fee if the Support Fee is not covered by your NDIS Plan; 
+
+(ii) we may increase the Support Fee from time to time by providing you with reasonable prior notice; and 
+
+(iii) abusive or inappropriate behaviour towards staff is not tolerated and may result in the cancellation of your appointments. 
+
+Signed by the Participant (or their Parent/Guardian as applicable)
+Name:
+Elvie Montgomery
+Date:
+1 Jan 2027
+Signature:
+Signed by the Provider
+Name:
+Scott Sanderson
+Date:
+1 Jan 2027
+Signature:
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore

@@ -1,0 +1,67 @@
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+INV-0001
+Awaiting Payment
+Pay
+Email invoice
+Actions
+Tax Invoice
+Client
+Jane Doe
+1 Parliament Dr
+Canberra ACT 2600
+From
+Better Therapy (East)
+Provider
+Indika Amarasinghe
+Invoice #
+INV-0001
+Issue date
+12 Oct 2026
+Due date
+26 Oct 2026
+Description	Unit price	Quantity	Unit	Discount	GST	Amount AUD
+
+12 Oct 2026, 60 minutes, Initial Appointment (Clinic)
+	220.00	1.00	Hour	0.00	0%	220.00
+
+13 Oct 2026, Report Writing (Support Activity)
+	220.00	1.50	Hour	0.00	0%	330.00
+
+15 Oct 2026, 60 minutes, Telehealth Appointment (Telehealth)
+	220.00	1.00	Hour	0.00	0%	220.00
+Subtotal excl. tax	770.00
+Tax	0.00
+Total AUD	770.00
+Total Amount Due AUD	770.00
+This invoice could already be paid
+Save client payment methods and collect future invoices instantly.
+Set up splose payments
+Payments
+
+0.00 / 770.00
+
+Note
+View change log
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore

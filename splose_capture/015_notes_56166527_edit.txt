@@ -1,0 +1,373 @@
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Subsequent session
+Jane Doe
+Note has been autosaved
+Save as final
+Service
+Thu 15 Oct 2026, 01:00pm - Telehealth Appointment (Telehealth) UpcomingArrived
+Arial
+
+Practitioner name
+
+	
+
+Scott Sanderson 
+
+
+
+
+Practitioner email
+
+	
+
+scott@example.com 
+
+
+
+
+Client consent
+
+	
+
+Yes - verbal
+
+Subjective
+
+
+
+
+HEP Adherence: Jane successfully completed the prescribed program 3x over the past week. She reports feeling "empowered" by the structured routine.
+
+Fatigue Patterns: Review of Jane’s fatigue diary shows a "Day After" fatigue peak of 5/10 following the third session of the week (Friday), which she attributes to a busy workday combined with exercise. Other days averaged 3/10.
+
+Pickleball Performance: Played one match over the weekend. Noted she felt "more aware" of her foot placement during lateral lunges, though still feels slight hesitation when moving quickly to her right.
+
+Medical Status: BP and BSLs remain stable. No reported "overheating" or sensory flares during or after sessions.
+
+
+
+
+Objective
+
+
+
+
+Cardiovascular: Treadmill walking increased to 12 minutes at 4.2 km/h.
+
+Response: RPE 5/10. Jane noted she felt "warm but not exhausted." No ataxia noted post-bout.
+
+Strength (Goblet Box Squats): Increased weight from 5kg to 7.5kg.
+
+Observation: Performed 3 sets of 10. Form remained excellent; the "shakiness" noted last week in the right quad was absent until the final 2 reps of the 3rd set.
+
+Strength (Lateral Step-Ups): 2 sets of 10 reps per side (increase in reps).
+
+Observation: Slightly improved pelvic stability. Jane required zero tactile cues today.
+
+Balance (Tandem Stance + Head Turns): Progressed to no "touch-point" safety.
+
+Observation: Able to maintain balance for 20 seconds with active head turns before requiring a step-out. This is a 10-second improvement from last week.
+
+Balance (SLS with Ball Toss): Jane progressed to using a slightly heavier medicine ball (1kg) to increase the core challenge.
+
+
+
+
+Assessment
+
+
+
+
+Consolidation Phase: Jane to continue the progressed HEP (7.5kg squats, 12 min walk, 1kg ball toss) 3 times per week for the next 14 days.
+
+Fatigue Modification: Advised Jane to perform her "heaviest" session on Sunday or Monday to avoid the Friday fatigue "stacking" effect with her work week.
+
+
+
+
+Plan
+
+
+
+
+Follow-up: Next clinical review scheduled for April 21, 2026 (2-week interval) to assess for longer-term strength gains and potential progression to more sport-specific (pickleball) agility drills.
+
+
+
+
+Filter previous progress notes
+Initial assessmentDraft
+9:00 am, 12 Oct 2026 Initial Appointment (Clinic)
+Last edited by Indika Amarasinghe at 12:58 pm, 13 Oct 2026
+
+Practitioner name
+
+	
+
+Scott Sanderson (Physiotherapist)
+
+
+
+
+Practitioner email
+
+	
+
+scott@example.com
+
+
+
+
+Client consent
+
+	
+
+Yes verbal
+
+Reason for referral
+
+
+
+
+Jane is a 48-year-old female referred by her GP following a recent diagnosis of Multiple Sclerosis (MS) by a neurologist. As a newly accepted NDIS participant, she seeks physiotherapy to manage her symptoms, maintain her physical capacity for her high-demand career, and continue her participation in community sports (pickleball).
+
+
+
+
+Subjective history
+
+
+
+
+Jane reports a recent onset of intermittent sensory changes and mild fatigue. She describes herself as "determined" to not let the diagnosis sideline her career or active lifestyle.
+
+Current Symptoms: Occasional "heaviness" in the lower limbs after long days at work and mild balance instability during fast-paced lateral movements (specifically noted during pickleball).
+
+Fatigue: Reports 4/10 on average, peaking in the late afternoon.
+
+Vision/Cognition: No significant deficits reported at this time.
+
+
+
+
+Medical history
+
+
+
+
+Multiple Sclerosis: Recently diagnosed; currently under neurologist review for Disease Modifying Therapy (DMT) initiation.
+
+Hypertension: Well-managed via GP-prescribed medication.
+
+Type 2 Diabetes: Well-managed through diet and medication; regular BSL monitoring.
+
+Other: No recent hospitalisations or surgeries.
+
+
+
+
+Social history
+
+
+
+
+Occupation: Project Manager in Industrial Engineering (Full-time, hybrid office/site visits).
+
+Home Environment: Lives in a two-story home with her husband. Two children currently reside at home while attending university.
+
+Leisure: Active pickleball player (2-3 times per week).
+
+Support: Strong family support network.
+
+
+
+
+Client goals
+
+
+
+
+Work Longevity: To continue working full-time in her engineering role for the foreseeable future.
+
+Physical Activity: To remain playing competitive pickleball without increased falls risk or excessive post-exercise fatigue.
+
+Self-Management: To develop a "flare-up" plan and understand energy conservation techniques.
+
+
+
+
+Objective assessment
+
+
+
+
+5 Timed Sit to Stand (5TSTS): 9.5 seconds. * Normative Reference (Ages 40–49): ~7.4 seconds (± 1.6s).
+
+Interpretation: Jane is currently performing in the lower quartile for her age group, suggesting early-stage deficits in lower limb explosive power.
+
+Berg Balance Scale (BBS): 51/56. * Normative Reference (Ages 40–49): 54–56.
+
+Interpretation: Minimal falls risk, but notable deficits in tandem stance and single-leg standing (R < L). These deficits correlate with her reported "clumsiness" during lateral movements on the pickleball court.
+
+12-Item MS Walking Scale (MSWS-12): 18/60. * Interpretation: This baseline score indicates that MS is not yet significantly impacting her functional walking, though she perceives slight limitations when navigating uneven terrain or hills.
+
+Fatigue Severity Scale (FSS): 4.2/7. * Interpretation: Scores > 4.0 are generally considered to indicate clinically significant fatigue. Jane is just crossing this threshold, making proactive energy conservation education a priority.
+
+Gait Analysis: Jane demonstrates an independent and fluid gait. There is a subtle reduction in left arm swing when walking speed is increased (stress gait), but no evidence of foot drop or Trendelenburg sign at this stage.
+
+Strength (Manual Muscle Testing): Generally 5/5 throughout. However, a slight "fade" to 4+/5 was noted in right hip flexion and ankle dorsiflexion after repetitive testing, indicating some early neurogenic fatiguability.
+
+Sensation: Reports slight "fuzziness" to light touch in a stocking distribution (distal to ankles) bilaterally; proprioception at the great toe remains intact.
+
+
+
+
+Clinical impression
+
+
+
+
+Jane is in the early stages of navigating her MS diagnosis. She presents with high physical baseline function but exhibits "sub-clinical" deficits in balance and lower-limb power compared to her age-matched peers. Her primary risks are fatigue-related burnout and potential injury during high-intensity sports (pickleball) if balance is not optimized. Her well-managed comorbidities (HBP/Diabetes) require continued monitoring during aerobic conditioning.
+
+
+
+
+Management plan
+
+
+
+
+Exercise Program Design (16 hours): Development and implementation of a neuro-protective exercise program focusing on strength, balance and cardiovascular activity adapted for MS, and lateral stability drills for pickleball.
+
+Fatigue Management & Education (2 hours): Development and implementation "pacing" strategies for her project management role and heat-sensitivity education.
+
+Review and Reporting (2 hours): Non face to face time for MDT and report writing.
+
+Subsequent sessionDraft
+10:15 am, 20 Oct 2026 Subsequent Appointment (Clinic)
+Last edited by Indika Amarasinghe at 12:58 pm, 13 Oct 2026
+
+Practitioner name
+
+	
+
+Scott Sanderson
+
+
+
+
+Practitioner email
+
+	
+
+scott@example.com
+
+
+
+
+Client consent
+
+	
+
+Yes - verbal
+
+Subjective
+
+
+
+
+Status Post-Initial Assessment: Jane reports feeling "slightly more tired than usual" for 24 hours following the initial assessment but recovered well after a good night's sleep. No exacerbation of neurological symptoms or sensory changes noted.
+
+General Health: BSLs have been stable (ranging 5.5–7.2 mmol/L fasting). BP checked this morning at home was 128/82 mmHg.
+
+Motivation: High. Jane expresses eagerness to begin a structured program to "keep her on the court."
+
+
+
+
+Objective
+
+
+
+
+The session focused on establishing a baseline for the Home Exercise Program (HEP). All exercises were performed with a focus on quality of movement and "cool-down" periods to manage core temperature.
+
+1. Cardiovascular Component
+
+Modality: Moderate-paced treadmill walking (simulating commute/worksite transit).
+
+Parameters: 8 minutes at 4.0 km/h; 0% grade.
+
+Response: Peak RPE (Rate of Perceived Exertion) was 4/10. Heart rate peaked at 105 bpm.
+
+2. Strength Exercises
+
+Goblet Box Squats: 2 sets of 10 reps (using a 5kg dumbbell).
+
+Observation: Focus on eccentric control (sitting down slowly). Jane noted slight "shakiness" in her right quad during the second set.
+
+Lateral Step-Ups: 2 sets of 8 reps per side (15cm step).
+
+Observation: Specifically chosen to mimic pickleball lateral lunges. Jane required light tactile cues at the hips to maintain pelvic alignment.
+
+3. Balance Exercises
+
+Tandem Stance with Head Turns: 3 sets of 30 seconds.
+
+Observation: Jane found the vestibular challenge (head turns) difficult; required "touch-point" safety (fingertip on a rail).
+
+Single Leg Stand (SLS) with Ball Toss: 2 sets of 10 tosses.
+
+Observation: Integrated a foam ball to simulate pickleball hand-eye coordination. Better stability noted on the left side compared to the right.
+
+
+
+
+Assessment
+
+
+
+
+Jane responded well to the initial exercise load. She demonstrates excellent body awareness but shows early signs of neurogenic fatigue in her right lower limb during repetitive strength tasks. Her cardiovascular response is stable, suggesting her hypertension is well-managed under the current medical regime.
+
+The primary barrier identified today was vestibular-visual integration (dizziness/instability when moving her head while standing). This will be a key focus to ensure safety on the pickleball court. She is safe to commence her 3x weekly home program at the current intensities.
+
+
+
+
+Plan
+
+
+
+
+Home Exercise Program (HEP): Jane to perform the above 5 exercises 3 times per week.
+
+Monitoring: Jane to keep a "Fatigue Diary" alongside her BSL logs to track how she feels 2 hours post-exercise.
+
+NDIS Alignment: Focus remains on Goal 2 (Pickleball participation) and Goal 1 (Work capacity via fatigue management).
+
+Follow-up: Scheduled for April 7, 2026, to review tolerance, progression of weights, and any "day-after" fatigue patterns.
+
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore

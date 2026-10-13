@@ -1,0 +1,109 @@
+https://rakshitha.splose.com/settings/subscription
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+Subscription
+General
+Billing details
+Payment method
+Billing history
+Invoices
+Your price is changing on 27 November 2026.
+Your first payment on 27 October will be A$33.00. See what's changing
+Your trial
+14 days left
+0.00 AUD
+Nothing to pay while you are on trial. Your trial is free until 27 October 2026.
+First payment 27 October 2026
+	
+33.00
+
+
+1 practitioner × A$30.00 / month
+	
+30.00
+
+
+GST (10%)
+	
+3.00
+From 27 November 2026 (based on current users)
+A$36.00 per billable seat / month plus GST (10%)
+39.60
+Users
+Manage
+Billable seats
+Practitioner, Practitioner admin
+	
+1
+
+
+Free seats
+Receptionist, Accountant, Practice manager
+	
+0
+Manage subscription
+Change your billing cycle, apply a coupon, or cancel
+Manage
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore

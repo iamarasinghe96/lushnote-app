@@ -1,0 +1,64 @@
+https://rakshitha.splose.com/patients/8067962/cases
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Client
+Jane Doe
+New SMS
+New email
+Actions
+Details
+Appointments
+4
+Communications
+Files
+Progress notes
+3
+Cases
+1
+Support activities
+1
+Forms
+1
+Invoices
+1
+Payments
+Statements
+Letters
+Practitioner access
+Cases
+New case
+Case Number	
+Issue date
+	Expiry date	Assignee	Type	Allocated	Invoiced	Status
+
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+
+(Profession name)	12 Oct 2026	12 Oct 2027	Indika Amarasinghe	
+Budget	1,155.00 of 10,000.00	770.00 of 10,000.00	Open
+1-1 of 1 items
+1
+10 / page
+Set up guide · 1 of 4

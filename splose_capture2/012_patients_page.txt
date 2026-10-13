@@ -1,0 +1,59 @@
+https://rakshitha.splose.com/patients
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Clients
+New client
+Search
+Name
+	Date of birth	Phone	Email	
+Tags
+
+
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+
+
+Jane Rose Doe
+Demo
+	1 Feb 1978			Self-managed
+
+John Dean Smith
+Demo
+	28 Feb 1971			Plan-managed
+1-2 of 2 items
+1
+10 / page
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore
+Start with examples
+Demo
+These are example clients to help you explore splose. You can edit, duplicate, or archive any of them when you're ready to set up your own.
+Got it

@@ -1,0 +1,27 @@
+https://rakshitha.splose.com/my/account/security
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Details
+Availability
+Body chart templates
+Integrations
+Login history
+Account security
+API keys
+Change Password
+Change password
+Two-factor authentication (2FA)
+
+In addition to your email address and password, 2FA adds another layer of security to your account.
+
+Enable 2FA
+Set up guide · 1 of 4

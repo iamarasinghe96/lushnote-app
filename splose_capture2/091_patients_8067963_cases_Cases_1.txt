@@ -1,0 +1,63 @@
+https://rakshitha.splose.com/patients/8067963/cases
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Client
+John Smith
+New SMS
+New email
+Actions
+Details
+Appointments
+5
+Communications
+Files
+Progress notes
+3
+Cases
+1
+Support activities
+2
+Forms
+Invoices
+1
+Payments
+Statements
+Letters
+Practitioner access
+Cases
+New case
+Case Number	
+Issue date
+	Expiry date	Assignee	Type	Allocated	Invoiced	Status
+
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+
+Occupational Therapy 01	12 Oct 2026	12 Oct 2027	Indika Amarasinghe	
+Budget	2,350.00 of 10,000.00	1,050.00 of 10,000.00	Open
+1-1 of 1 items
+1
+10 / page
+Set up guide · 1 of 4

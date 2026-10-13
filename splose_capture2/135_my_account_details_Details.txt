@@ -1,0 +1,71 @@
+https://rakshitha.splose.com/my/account/details
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Details
+Availability
+Body chart templates
+Integrations
+Login history
+Account security
+API keys
+Title
+Title
+First name
+Last name
+Gender
+Gender
+Email
+Date of birth
+Day
+Month
+Year
+Phone numbers
++61
+Mobile
+Add new phone number
+Professional title (Occupational Therapist, Physiotherapist, etc.)
+Groups
+Select a user group
+Timezone
+
+The timezone is used for calendar and time information on PDF downloads. The location timezone is recommended.
+
+Automatic timezone
+(UTC+11:00) - Australia/Sydney
+Account role
+Practitioner admin
+Practitioner settings
+Locations you work at
+Better Therapy (East)
+Better Therapy (West)
+Services provided by you
+Initial Appointment (Mobile)
+Report Writing (Support Activity)
+Telehealth Appointment (Telehealth)
+Initial Appointment (Clinic)
+Subsequent Appointment (Clinic)
+Subsequent Appointment (Mobile)
+Signature
+Sign
+Provider numbers
+No provider numbers added
+Type
+Number
+Location
+Add a provider number
+Online bookings
+Profession statement (for online bookings)
+Save details
+View user change log
+Profile photo
+Upload
+Set up guide · 1 of 4

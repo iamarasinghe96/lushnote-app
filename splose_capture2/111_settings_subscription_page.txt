@@ -1,0 +1,76 @@
+https://rakshitha.splose.com/settings/subscription
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+Subscription
+General
+Billing details
+Payment method
+Billing history
+Invoices
+Your price is changing on 27 November 2026.
+Your first payment on 27 October will be A$33.00. See what's changing
+Users
+Manage
+Billable seats
+Practitioner, Practitioner admin
+	
+1
+
+
+Free seats
+Receptionist, Accountant, Practice manager
+	
+0
+Manage subscription
+Change your billing cycle, apply a coupon, or cancel
+Manage
+Set up guide · 1 of 4

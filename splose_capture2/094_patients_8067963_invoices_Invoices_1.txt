@@ -1,0 +1,89 @@
+https://rakshitha.splose.com/patients/8067963/invoices
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Client
+John Smith
+New SMS
+New email
+Actions
+Details
+Appointments
+5
+Communications
+Files
+Progress notes
+3
+Cases
+1
+Support activities
+2
+Forms
+Invoices
+1
+Payments
+Statements
+Letters
+Practitioner access
+Invoices
+New invoice
+Search
+	
+	
+Invoice #
+	To	
+Location
+	
+Practitioner
+	
+Issue date
+	
+Due date
+	Amount	Outstanding	
+Status
+	
+Sent status
+
+
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+
+	
+	INV-0002	John Smith	Better Therapy (East)	Indika Amarasinghe	12 Oct 2026	26 Oct 2026	1,050.00	1,050.00	Awaiting Payment	
+1-1 of 1 items
+1
+10 / page
+0 selected
+Unselect all
+Download
+Send
+Set up guide · 1 of 4

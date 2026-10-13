@@ -1,0 +1,59 @@
+https://rakshitha.splose.com/settings/integrations/mailchimp
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+Mailchimp settings
+Help guide
+1Mailchimp API key
+2Mailchimp audience
+Copy and paste your Mailchimp API key from your Mailchimp account.
+Continue
+Set up guide · 1 of 4

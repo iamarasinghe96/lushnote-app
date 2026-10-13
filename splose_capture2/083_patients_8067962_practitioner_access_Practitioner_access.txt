@@ -1,0 +1,71 @@
+https://rakshitha.splose.com/patients/8067962/practitioner-access
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Client
+Jane Doe
+New SMS
+New email
+Actions
+Details
+Appointments
+4
+Communications
+Files
+Progress notes
+3
+Cases
+1
+Support activities
+1
+Forms
+1
+Invoices
+1
+Payments
+Statements
+Letters
+Practitioner access
+Practitioner access
+You can link practitioners to clients via creating an appointment or support activity in the calendar tab.Learn more
+Name
+	
+Role name
+	
+Role type
+	
+Group
+	
+Status
+	Actions
+
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+
+
+Indika Amarasinghe
+Account owner
+	Practitioner admin	Practitioner admin	
+---
+	Linked	
+1-1 of 1 items
+1
+10 / page
+Set up guide · 1 of 4

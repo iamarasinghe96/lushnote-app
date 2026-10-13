@@ -1,0 +1,82 @@
+https://rakshitha.splose.com/settings/rooms-resources
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+Rooms/Resources
+Learn
+Show archived
+Room/resource
+Search
+Name
+	Group	Capacity/Available	
+Location
+	Actions
+
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+
+
+Green room
+Demo
+	Rooms	2	Better Therapy (East)	
+1
+Set up guide · 1 of 4
+Start with examples
+Demo
+This is an example room/resource to help you explore splose. You can edit, duplicate, or archive it when you're ready to set up your own.
+Got it

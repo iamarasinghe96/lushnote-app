@@ -1,0 +1,148 @@
+https://rakshitha.splose.com/reports
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Overview
+Performance overview
+Calendar
+Appointments
+Support activities
+Clients
+Cases
+Waitlist
+Clients
+Compliance
+Progress notes
+Forms
+Financial
+Uninvoiced
+Payments
+Aged debtors
+NDIS bulk upload
+Practitioners
+Billed items
+Performance
+Performance overview
+Daily
+All locations
+All practitioners
+Compare
+Utilisation
+Percentage of available time utilised
+0.00%
+05 Oct - 11 Oct
+05 Oct - 11 Oct
+05 Oct
+06 Oct
+07 Oct
+08 Oct
+09 Oct
+10 Oct
+11 Oct
+0%
+25%
+50%
+75%
+100%
+Revenue
+Total invoiced revenue from appointments and support activities (tax exclusive)
+$0.00
+05 Oct - 11 Oct
+05 Oct - 11 Oct
+05 Oct
+06 Oct
+07 Oct
+08 Oct
+09 Oct
+10 Oct
+11 Oct
+$0
+$2.5K
+$5K
+$7.5K
+$10K
+Practitioners
+Breakdown of performance by individual practitioner
+Name
+	
+Utilisation rate
+	
+Revenue
+
+
+IA
+Indika Amarasinghe
+	
+0.00%
+	
+$0.00
+1 of 1 items
+1
+Billed hours
+Total billed hours across services, including travel
+0.00
+05 Oct - 11 Oct
+0.00​0.00
+Appointments
+Support items
+Support activities
+05 Oct - 11 Oct
+0
+10
+20
+30
+40
+	05 Oct - 11 Oct
+Appointments	
+0.00
+
+Support items	
+0.00
+
+Support activities	
+0.00
+
+Total	
+0.00
+Cancellations
+Number of cancelled and did not arrive appointments
+0
+05 Oct - 11 Oct
+0​0
+Cancellations
+Did not arrive
+05 Oct - 11 Oct
+0
+5
+10
+	05 Oct - 11 Oct
+Cancellations	
+0
+
+Did not arrive	
+0
+
+Total	
+0
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore

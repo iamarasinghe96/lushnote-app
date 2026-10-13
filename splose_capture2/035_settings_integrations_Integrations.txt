@@ -1,0 +1,91 @@
+https://rakshitha.splose.com/settings/integrations
+
+Dashboard
+Calendar
+Clients
+Contacts
+Waitlist
+Invoices
+Payments
+Reports
+Products
+More
+Workspace
+Details
+Integrations
+Subscription
+SMS settings
+Low
+Automation
+Forms
+splose AI
+Business
+Locations
+Custom fields
+Rooms/Resources
+Services
+Busy times
+Cancel & Reschedule
+Online bookings
+New
+Communication types
+Tags
+Referral types
+Team
+Users
+User groups
+Permissions & Roles
+Security
+Templates
+Appointments
+Emails
+Progress notes
+Letters
+Body charts
+Finances
+Payments
+Invoices
+Tax rates
+Data
+Import
+Export
+Client data
+Integrations
+Xero
+Xero is world-leading online accounting software built for small business. splose syncs all invoices, payments, clients, contacts, chart of accounts and tax rates with Xero automatically. Xero recommends that all active users have two factor authentication enabled.
+Connect
+QuickBooks
+QuickBooks is a leading online accounting solution designed for small businesses. splose syncs all invoices, payments, clients, contacts, chart of accounts, and tax rates with QuickBooks automatically. QuickBooks encourages all users to enable two-factor authentication to enhance the security of their accounts.
+Connect
+Stripe
+Stripe is a payment processing platform that helps you get paid online. Accept credit card payments via online bookings, and add a 'Pay now' button to your invoices.
+Connect
+Mailchimp
+Mailchimp is a marketing automation platform and email marketing service used to design and send email campaigns and newsletters to your mailing lists and track results. splose sends clients to your selected audience in Mailchimp.
+Connect
+HICAPS
+HICAPS is an online claiming platform that allows you to easily claim invoices to the TAC, Worksafe Victoria, NDIS, Medibank, NIB and more. With HICAPS and splose, you can run a pre-determination for NDIS plan managed invoices and submit them for fast payment.
+Connect
+Tyro Health
+Tyro Health enables healthcare providers to process digital payments and claims online. This includes Medicare (Bulk Bill and Patient Claims), DVA, Health fund claims and contactless debit and credit cards (via SMS, link or entering a card directly within an invoice in splose).
+Connect
+Zoom
+Zoom is the leader in modern enterprise video communications with an easy, reliable cloud platform for video and audio conferencing and chat. Automatically create and attach Zoom Meetings for appointments scheduled in splose and send to clients via email and SMS.
+Connect
+Physitrack
+Physitrack is an online platform that encompasses clinical home exercise and education prescription. splose syncs client details with Physitrack and automatically stores exercise programs created in Physitrack in the files section of the client's splose profile.
+Connect
+Set up guide · 1 of 4
+Trial · 14 days remaining
+Get your practice ready.
+Set up your services
+Create the billable services and support activities that reflect how you work. Appointment templates are assigned here too.
+Review and edit the default services splose has created
+Create any additional billable services or non-client-facing support activities you offer
+Confirm appointment notifications are linked to each service
+New service
+ Show me how
+Add your location and link your services
+Set up your profile and availability
+Book an appointment to test your calendar
+You're ready to explore
