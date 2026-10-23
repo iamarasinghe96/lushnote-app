@@ -211,6 +211,7 @@ note pipeline, hospital forms, or anything that writes a patient record.**
 |---|---|
 | `docs/ARCHITECTURE.md` | How the app works and why. Read the relevant section before changing that area. |
 | `WORKFLOWS.md` | The regression contract: every user-facing pathway, what it must produce, and what protects it. **Add a row before adding a feature.** |
+| `docs/ROADMAP.md` | The product backlog: every improvement under consideration, by ID, with how each one is built and verified. Nothing in it is approved until the owner picks it; update an item's status when it ships. |
 | `firestore.rules` | The real security rules. The only copy. |
 | `storage.rules` | The Storage rules. Nothing deploys them: after changing this file, publish it in Firebase Console → Storage → Rules, or the console keeps the old ones. |
 | `MONETIZATION_PLAN.md` | The Stripe build plan, all 8 layers landed. |
