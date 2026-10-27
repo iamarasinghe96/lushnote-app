@@ -64,6 +64,9 @@ export interface AdminUserDetail extends AdminUserRow {
   patientCount: number
   authDisabled: boolean | null
   lastSignIn: number | null
+  /** Holds the `admin` claim the owner grants from Users. The owner themself
+   *  is an admin by ADMIN_UID and shows false here. */
+  adminClaim: boolean
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '')
@@ -171,7 +174,22 @@ export async function detailAdminUser(uid: string): Promise<AdminUserDetail | nu
     noteCount, patientCount,
     authDisabled: authRec ? authRec.disabled : null,
     lastSignIn: authRec?.metadata?.lastSignInTime ? Date.parse(authRec.metadata.lastSignInTime) : null,
+    adminClaim: authRec?.customClaims?.admin === true,
   }
+}
+
+// Grant or revoke the `admin` claim. Other claims on the account are kept.
+// Revoking also revokes the account's refresh tokens: requireAdmin verifies with
+// checkRevoked, so the console stops answering at once rather than when the
+// current ID token expires an hour from now.
+export async function setAdminClaim(uid: string, admin: boolean, actorUid: string): Promise<void> {
+  const rec = await adminAuth().getUser(uid)
+  const claims = { ...(rec.customClaims ?? {}) }
+  if (admin) claims.admin = true
+  else delete claims.admin
+  await adminAuth().setCustomUserClaims(uid, claims)
+  if (!admin) await adminAuth().revokeRefreshTokens(uid)
+  await writeAudit({ actorUid, action: admin ? 'user.grantAdmin' : 'user.revokeAdmin', targetUid: uid })
 }
 
 async function deleteQueryChunked(q: Query, chunk = 400): Promise<void> {

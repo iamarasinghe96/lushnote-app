@@ -1,7 +1,8 @@
 import { initializeApp, getApps } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
-import { initializeFirestore, getFirestore, type Firestore } from 'firebase/firestore'
-import { getStorage } from 'firebase/storage'
+import { getAuth, connectAuthEmulator } from 'firebase/auth'
+import { initializeFirestore, getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore'
+import { getStorage, connectStorageEmulator } from 'firebase/storage'
+import { clientUsesEmulators, EMULATOR_PORTS } from '@/lib/localEmulators'
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -28,5 +29,18 @@ try {
   db = getFirestore(app)
 }
 const storage = getStorage(app)
+
+// Local mode (npm run dev:local). Connected once per page: a hot reload
+// re-runs this module against the same already-started instances, and
+// connecting a started Firestore throws.
+const g = globalThis as { __lushnoteEmulators?: boolean }
+if (typeof window !== 'undefined' && !g.__lushnoteEmulators
+    && clientUsesEmulators(process.env.NEXT_PUBLIC_USE_EMULATORS, window.location.hostname)) {
+  const host = window.location.hostname
+  connectAuthEmulator(auth, `http://${host}:${EMULATOR_PORTS.auth}`, { disableWarnings: true })
+  connectFirestoreEmulator(db, host, EMULATOR_PORTS.firestore)
+  connectStorageEmulator(storage, host, EMULATOR_PORTS.storage)
+  g.__lushnoteEmulators = true
+}
 
 export { app, auth, db, storage }

@@ -520,6 +520,17 @@ environment, because the panel also runs on staging. The CSP's `frame-src`
 adds the configured auth domain for the same reason: staging's sign-in iframe
 is served from the staging project's domain.
 
+**Local mode is the third place the app runs.** `npm run dev:local`
+(`scripts/dev-local.mjs`, guide in `LOCAL_DEVELOPMENT.md`) runs the app on a
+developer's computer against Firebase's emulators, under the `demo-lushnote`
+project, which the emulators never connect to the cloud. It cannot stand in for
+staging: Vercel and GitHub Actions cannot reach a laptop. It is double-locked like
+the AI mock (`lib/localEmulators.ts`): the flag AND being off Vercel (server) or
+on localhost (browser), so a mis-ticked variable in Vercel does nothing. The
+launcher blanks the keys that act on the real world from a laptop: the GitHub
+token (Promote would really merge), live Stripe keys, Slack and SMTP. Made-up
+data is seeded once and kept in `.local-data/` (gitignored) between runs.
+
 **CI never builds the app.** `e2e.yml` triggers on `deployment_status`, waits
 for Vercel, and runs against `environment_url`. Building again in Actions would
 need Firebase and Stripe credentials in GitHub, would double the wait, and would
@@ -635,9 +646,23 @@ Logs & Errors**.
 **Security model (the wall is the API, not the rules):** the Admin SDK bypasses
 Firestore rules, so every admin route gates through `requireAdmin(req)`
 (`lib/adminGuard.ts`) — verifies a Google-signed ID token + an `admin:true` custom
-claim (`checkRevoked:true`), with `ADMIN_UID` env as a bootstrap fallback. Grant the
-claim with `node scripts/set-admin-claim.mjs <uid>` (`--revoke` to remove). Client
-`NEXT_PUBLIC_ADMIN_UID` only *shows* the nav link — it is not a security boundary.
+claim (`checkRevoked:true`), with `ADMIN_UID` env as a bootstrap fallback.
+
+**Owner and admins.** The account named by `ADMIN_UID` is the OWNER: an admin by
+Vercel configuration, so nothing inside the app can revoke or lock it out. Anyone
+else is an admin while their account holds the `admin:true` claim, which only the
+owner can grant or revoke (Users → an account → Give admin access; the
+`setAdmin` action, audited as `user.grantAdmin` / `user.revokeAdmin`). An admin
+who could mint admins could keep themselves one after being revoked, so the rule
+lives in `lib/adminAccess.ts` and is pinned by `tests/unit/admin-access.test.ts`.
+Revoking also revokes the account's refresh tokens, so an open console stops
+answering at once rather than when the ID token expires. A grant reaches the
+browser with the next ID token: the new admin signs out and back in once.
+`scripts/set-admin-claim.mjs` does the same from a terminal.
+
+The browser gate (`hooks/useIsAdmin.ts`, used by the admin page and the app
+menu's Admin Console link) asks the same question from the token's claims. It
+only decides what is SHOWN; the API is the boundary.
 
 **Privacy wall:** admin endpoints NEVER read clinical content — only `.count()`
 aggregates for notes/patients — and `redactUser()` (`lib/firestore/adminUsers.ts`)
@@ -645,7 +670,8 @@ allow-lists non-sensitive fields, so `groqApiKey`/`geminiApiKey`/`signatureUrl`
 never leave the server. No impersonation/"view as user".
 
 **Users** (`app/api/admin/users/route.ts` + `UsersPanel`): list, detail (counts +
-Gemini usage), suspend/reactivate, clear storage, remove, export.
+Gemini usage), suspend/reactivate, clear storage, remove, export, and (owner only)
+grant or revoke admin access.
 - **Suspend** = `status:'disabled'` + Auth `disabled:true`. Enforced by the app
   layout (Suspended screen) AND server 403 in generate/chat (`status==='disabled'`).
 - **Remove** = complete cascade (`cascadeDeleteUser`): `progress_notes where

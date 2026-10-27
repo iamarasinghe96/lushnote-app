@@ -49,5 +49,8 @@ next-env.d.ts
 firestore-debug.log
 firebase-debug.log
 ui-debug.log
+storage-debug.log
+# local mode's made-up data (npm run dev:local)
+/.local-data/
 
 tests/e2e/.auth/

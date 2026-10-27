@@ -20,6 +20,7 @@ import { isEnterprise } from '@/lib/fairUse'
 import PaywallScreen from '@/components/PaywallScreen'
 import ProfileLoadError from '@/components/ProfileLoadError'
 import BillingBanner from '@/components/BillingBanner'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 
 // Where notes are made. Everything else — History, Patients, Export, Settings —
 // stays reachable when a subscription lapses.
@@ -35,6 +36,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
 function AppContent({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, profileError, signOut } = useAuth()
+  const isAdmin = useIsAdmin()
+  // Above the early returns below, like every hook here. It sat after them, so
+  // the first render after loading called one more hook than the one before,
+  // which React reports as a change in hook order.
+  const { hasUnread: supportUnread } = useSupportThread()
   const store = useNoteStore()
   const router = useRouter()
   const pathname = usePathname()
@@ -164,7 +170,6 @@ function AppContent({ children }: { children: React.ReactNode }) {
   const activeWorkplace = profile?.workplaces?.find(w => w.id === profile.activeWorkplaceId)
   const avatarBg = resolveThemePrimary(activeWorkplace?.themeIndex ?? 1, activeWorkplace?.themeColor)
   const initials = getInitials(profile?.displayName || '')
-  const { hasUnread: supportUnread } = useSupportThread()
 
   return (
     <div className="relative flex flex-col bg-[var(--bg)]" style={{ height: '100dvh' }}>
@@ -303,7 +308,7 @@ function AppContent({ children }: { children: React.ReactNode }) {
 
                 <div className="h-px bg-[var(--border)] mx-2 my-1" />
 
-                {user?.uid === process.env.NEXT_PUBLIC_ADMIN_UID && (
+                {isAdmin && (
                   <>
                     <Link
                       href="/admin"

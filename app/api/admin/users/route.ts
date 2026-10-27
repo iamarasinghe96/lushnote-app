@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin, unauthorized } from '@/lib/adminGuard'
+import { requireAdmin, unauthorized, ownerUid } from '@/lib/adminGuard'
+import { adminChangeRefusal, isOwner } from '@/lib/adminAccess'
 import { logToSink } from '@/lib/firestore/systemLogs'
-import { listAdminUsers, detailAdminUser, setUserSuspended, clearUserStorage, cascadeDeleteUser } from '@/lib/firestore/adminUsers'
+import { listAdminUsers, detailAdminUser, setUserSuspended, clearUserStorage, cascadeDeleteUser, setAdminClaim } from '@/lib/firestore/adminUsers'
 
 const UID_RE = /^[A-Za-z0-9_-]{1,128}$/
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as { action: string; uid?: string; confirmEmail?: string }
+    const body = await req.json() as { action: string; uid?: string; confirmEmail?: string; admin?: boolean }
     let admin
     try { admin = await requireAdmin(req) } catch { return unauthorized() }
 
@@ -32,7 +33,17 @@ export async function POST(req: NextRequest) {
     if (action === 'detail') {
       const detail = await detailAdminUser(uid)
       if (!detail) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-      return NextResponse.json({ user: detail })
+      // viewerIsOwner decides whether the panel offers the admin toggle. The
+      // toggle is re-checked below, so this only spares other admins a button
+      // that would always refuse them.
+      return NextResponse.json({ user: detail, viewerIsOwner: isOwner(admin.uid, ownerUid()) })
+    }
+
+    if (action === 'setAdmin') {
+      const refusal = adminChangeRefusal(admin.uid, uid, ownerUid())
+      if (refusal) return NextResponse.json({ error: refusal }, { status: 403 })
+      await setAdminClaim(uid, body.admin === true, admin.uid)
+      return NextResponse.json({ success: true })
     }
 
     if (action === 'suspend' || action === 'reactivate') {
