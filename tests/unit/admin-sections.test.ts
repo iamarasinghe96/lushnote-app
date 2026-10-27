@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SECTIONS, PINNED, OVERFLOW, isSectionKey } from '@/lib/adminSections'
+import { SECTIONS, PINNED, OVERFLOW, isSectionKey, DEFAULT_SECTION } from '@/lib/adminSections'
 
 // The pinned/overflow split was made for a specific reason - eleven equal tabs
 // overflowed the header into a horizontal scroll and buried the five sections
@@ -18,8 +18,14 @@ describe('admin sections', () => {
 
   it('pins the five sections that are used day to day', () => {
     expect(PINNED.map(s => s.key)).toEqual([
-      'dashboard', 'letterheads', 'billing', 'releases', 'logs',
+      'roadmap', 'dashboard', 'billing', 'releases', 'logs',
     ])
+  })
+
+  // The console opens on the shared roadmap, not the summary numbers.
+  it('opens on the roadmap', () => {
+    expect(DEFAULT_SECTION).toBe('roadmap')
+    expect(SECTIONS[0].key).toBe(DEFAULT_SECTION)
   })
 
   // The header fits about six before it scrolls, which is what this split
@@ -42,7 +48,7 @@ describe('admin sections', () => {
   })
 
   // Guards the ?section= deep link. Settings and the Users panel both build
-  // these URLs by hand, and an unrecognised key silently lands on Dashboard.
+  // these URLs by hand, and an unrecognised key silently lands on the default.
   it('recognises real section keys and rejects anything else', () => {
     for (const s of SECTIONS) expect(isSectionKey(s.key)).toBe(true)
     expect(isSectionKey('nope')).toBe(false)

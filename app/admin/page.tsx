@@ -18,12 +18,14 @@ import ReleasesPanel from '@/components/admin/ReleasesPanel'
 import LogsPanel from '@/components/admin/LogsPanel'
 import BackButton from '@/components/ui/BackButton'
 import { useUrlTab, withParam } from '@/hooks/useUrlTab'
-import { SECTIONS, PINNED, OVERFLOW, isSectionKey, type SectionKey } from '@/lib/adminSections'
+import { SECTIONS, PINNED, OVERFLOW, isSectionKey, DEFAULT_SECTION, type SectionKey } from '@/lib/adminSections'
+import RoadmapPanel from '@/components/admin/RoadmapPanel'
 
 // Each entry takes the ?q= deep-link value so a section can open pre-filtered
 // (Users hands a uid to Logs). Still one map — add a section by adding an entry
 // here and in SECTIONS, nothing else.
 const PANELS: Record<SectionKey, (q: string) => ReactNode> = {
+  roadmap: () => <RoadmapPanel />,
   dashboard: () => <DashboardPanel />,
   users: () => <UsersPanel />,
   'whats-new': () => <AnnouncementsPanel />,
@@ -64,7 +66,7 @@ function AdminConsole() {
   // Reads ?section= on arrival AND writes it on every switch, so the address
   // bar always names the panel on screen. It used to only read, so the URL
   // froze at whatever was first opened and a copied link sent you elsewhere.
-  const [section, selectSection] = useUrlTab('section', isSectionKey, 'dashboard')
+  const [section, selectSection] = useUrlTab('section', isSectionKey, DEFAULT_SECTION)
   const [deepLinkQuery, setDeepLinkQuery] = useState('')
 
   /**
