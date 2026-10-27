@@ -639,9 +639,18 @@ not infrastructure.
 
 One client route (`app/admin/page.tsx`) with a `SECTIONS`-driven navbar; render,
 nav and `?section=` deep-link all derive from `SECTIONS` + the `PANELS` map — add a
-section by adding both entries, nothing else. Sections: **Dashboard, Users,
-Feedback, Letterheads, Hospital Forms, Emails, Billing, Appearance, Releases,
-Logs & Errors**.
+section by adding both entries, nothing else. Sections: **Roadmap (where the
+console opens), Dashboard, Users, Feedback, Letterheads, Hospital Forms, Emails,
+Billing, Appearance, Releases, Logs & Errors**.
+
+**Roadmap** (`app/api/admin/roadmap/route.ts` + `RoadmapPanel`, logic in
+`lib/roadmap.ts`): the to-do list the admins share. Items have steps; anyone can
+take an item or a step, and taking one someone else holds is refused until they
+release it. Steps live in their item as one array and every change is applied
+in a transaction to the steps as they are at that moment, so two people
+ticking at once cannot overwrite each other. "Use the starter roadmap" loads
+`lib/roadmapStarter.ts` into an empty list once. `docs/ROADMAP.md` stays the
+research backlog; this is what is actually being worked on.
 
 **Security model (the wall is the API, not the rules):** the Admin SDK bypasses
 Firestore rules, so every admin route gates through `requireAdmin(req)`
