@@ -78,6 +78,10 @@ function BillingInner() {
   // being null, which also means "still loading": sharing it left a doctor on
   // "Loading…" for good, on the one page a paywalled account uses to get back in.
   const [stateFailed, setStateFailed] = useState(false)
+  // The server answers { disabled: true } when Stripe is not configured: local
+  // mode, and any copy of the app without keys. Reading that as a State crashed
+  // the page on `entitlement.state`.
+  const [billingOff, setBillingOff] = useState(false)
   const [adding, setAdding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -86,7 +90,9 @@ function BillingInner() {
 
   const refresh = useCallback(async () => {
     try {
-      setState(await call<State>({ action: 'state' }))
+      const r = await call<State | { disabled: true }>({ action: 'state' })
+      if ('disabled' in r && r.disabled) { setBillingOff(true); setStateFailed(false); return }
+      setState(r as State)
       setStateFailed(false)
     } catch {
       // Once loaded, a failed re-read leaves the card as it was.
@@ -184,6 +190,15 @@ function BillingInner() {
       else setToast(on ? 'You are on Enterprise. Your AI now runs on your organisation\'s key.' : 'You are back on the standard plan.')
     } catch { setToast('Could not change your plan right now. Please try again.') }
     finally { setBusy(false) }
+  }
+
+  if (billingOff) {
+    return (
+      <div className="h-dvh flex flex-col items-center justify-center gap-4 px-4 text-center bg-[var(--bg)]">
+        <p className="text-sm text-[var(--text2)]">Billing is switched off on this copy of LushNote, so there is no subscription to show.</p>
+        <BackButton href="/app/generate" label="Back to LushNote" />
+      </div>
+    )
   }
 
   if (!loading && !state && stateFailed) {

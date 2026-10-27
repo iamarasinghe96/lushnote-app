@@ -1,43 +1,37 @@
 name: e2e
 
-# Runs the browser suite against the Vercel Preview deployment for this commit.
+# The browser suite, against the app running on the runner in local mode:
+# Firebase's emulators with made-up data, and the production build served by
+# `next start` (scripts/dev-local.mjs --prod).
 #
-# Deliberately triggered by deployment_status rather than by pull_request: CI
-# never builds the app. Vercel already builds every branch with the real
-# environment, and a second build here would need Firebase and Stripe
-# credentials in GitHub, would test a different artefact from the one being
-# promoted, and would double the wait. So this waits for Vercel to finish and
-# tests the exact deployment a human would click Open preview on.
+# It used to wait for Vercel's preview and test that, which meant every run
+# signed in to the LIVE Firebase project and created and deleted a test patient
+# in the same database doctors use. The owner chose local databases over a
+# second Firebase project for staging, so the suite now never touches live
+# data, needs no secrets, and does not wait for Vercel.
 #
-# The check attaches to the deployment's commit sha, which is what makes it
-# requirable in branch protection.
+# What this no longer covers: Vercel's own environment (its variables, its
+# headers as deployed). The preview is still built for every pull request and
+# is still there to look at.
 
 on:
-  deployment_status:
+  pull_request:
+    branches: [main]
+  # Same reason as in quality.yml: a dropped pull_request event otherwise
+  # leaves the check unrecoverable without a new commit.
+  workflow_dispatch:
 
 concurrency:
-  group: e2e-${{ github.event.deployment_status.environment_url || github.sha }}
+  group: e2e-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   # The job id is the name branch protection requires — keep it stable.
   e2e:
-    # Only a successful PREVIEW deployment. Vercel labels the environment
-    # "Preview" or "Preview – <project>" depending on the project, so match on
-    # the prefix rather than on an exact string.
-    if: >
-      github.event.deployment_status.state == 'success' && (
-        startsWith(github.event.deployment_status.environment, 'Preview') ||
-        startsWith(github.event.deployment_status.environment, 'preview')
-      )
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-        with:
-          # The suite that runs must be the one on the commit that was deployed,
-          # not whatever is on main right now.
-          ref: ${{ github.event.deployment.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -46,44 +40,34 @@ jobs:
 
       - run: npm ci
 
+      # The Firestore and Storage emulators are Java programs and need 21+.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Confirm the preview is serving the commit under test
-        env:
-          BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          EXPECTED_SHA: ${{ github.event.deployment.sha }}
+      - name: Start LushNote in local mode
         run: |
-          # A stale or mismatched URL produces a green run about the wrong code,
-          # which is worse than no run at all.
-          body=$(curl -sS -H "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" "${BASE_URL}/api/version")
-          # Distinguish "no secret" from "wrong secret". They look identical in
-          # the response and have completely different fixes, and creating the
-          # bypass in Vercel without also adding it here is the easy half to do
-          # alone.
-          if [ -z "${VERCEL_AUTOMATION_BYPASS_SECRET}" ] && printf '%s' "$body" | grep -qi 'redirecting\|authenticate'; then
-            echo "::error::Preview is protected but VERCEL_AUTOMATION_BYPASS_SECRET is EMPTY in this workflow. Creating the bypass in Vercel is only half of it — add the same value at GitHub → Settings → Secrets and variables → Actions → New repository secret, named exactly VERCEL_AUTOMATION_BYPASS_SECRET."
-            exit 1
-          fi
-          sha=$(printf '%s' "$body" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).sha)}catch{console.log("")}})')
-          if [ -z "$sha" ]; then
-            echo "::error::${BASE_URL}/api/version did not return JSON. If Vercel Deployment Protection is on for previews, add the VERCEL_AUTOMATION_BYPASS_SECRET repository secret or turn protection off for previews."
-            printf '%s\n' "$body" | head -c 400
-            exit 1
-          fi
-          echo "preview reports $sha, expected $EXPECTED_SHA"
-          if [ "$sha" != "$EXPECTED_SHA" ]; then
-            echo "::error::Preview at ${BASE_URL} is serving $sha, not the commit this run is for."
-            exit 1
-          fi
+          node scripts/dev-local.mjs --reset --prod > local-mode.log 2>&1 &
+          # The build takes a couple of minutes; then the server answers.
+          for i in $(seq 1 120); do
+            if curl -fsS http://127.0.0.1:3000/api/version > /dev/null 2>&1; then echo "local mode is up"; exit 0; fi
+            sleep 5
+          done
+          echo "::error::Local mode did not start. The log is attached to this run."
+          tail -n 80 local-mode.log
+          exit 1
 
+      # The fixture account is made up and lives only in the emulator, so its
+      # password is not a secret: scripts/seed-local.mjs creates it.
       - name: Playwright
         env:
-          BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
-          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          BASE_URL: http://127.0.0.1:3000
+          E2E_USER_EMAIL: e2e-tester@lushnote.com.au
+          E2E_USER_PASSWORD: local-e2e-password
         run: npx playwright test
 
       - name: Upload report
@@ -91,5 +75,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: playwright-report/
+          path: |
+            playwright-report/
+            local-mode.log
           retention-days: 7

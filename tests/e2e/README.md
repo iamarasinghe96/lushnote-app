@@ -1,19 +1,18 @@
 # End-to-end suite
 
-Runs against a URL, never against infrastructure it starts itself. In CI that
-URL is the Vercel Preview deployment for the pull request — the real app,
-built exactly the way production is, on the staging Firebase project rather than
-the live one (`STAGING_DATABASE_SETUP.md`). The fixture account therefore has to
-be provisioned from the STAGING admin console.
+Runs against a URL. In CI that URL is the app in local mode on the runner
+(`.github/workflows/e2e.yml`): Firebase's emulators with made-up data and the
+production build, so no run ever touches the live database. To do the same on
+your computer:
 
 ```
-npm run test:e2e                      # starts a local dev server with the preview flags
-BASE_URL=https://<preview>.vercel.app npm run test:e2e
+npm run dev:local -- --reset --prod     # in one terminal
+BASE_URL=http://127.0.0.1:3000 E2E_USER_EMAIL=e2e-tester@lushnote.com.au E2E_USER_PASSWORD=local-e2e-password npm run test:e2e
 ```
 
-`public.spec.ts` needs nothing. `authed-flow.spec.ts` needs `E2E_USER_EMAIL`
-and `E2E_USER_PASSWORD` for the fixture account (Admin console → Releases →
-Provision E2E user) and skips itself without them.
+The fixture account and its password are made up and exist only in the
+emulator (`scripts/seed-local.mjs`). `public.spec.ts` needs nothing;
+`authed-flow.spec.ts` skips itself without the two variables.
 
 The AI is mocked on preview deployments (`E2E_MOCK_AI=1`, refused outright in
 production). Everything either side of the model call is real.

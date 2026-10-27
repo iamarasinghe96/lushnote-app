@@ -1,5 +1,11 @@
 # Staging database - the setup you do once
 
+> **Not in use.** The owner chose local testing instead (October 2026): changes
+> are tried with `npm run review -- <PR number>` against a local database of
+> made-up data (`LOCAL_DEVELOPMENT.md`), and staging on Vercel shares the live
+> database for looking only. This guide is kept in case staging ever gets its
+> own Firebase project. The last section, live backups, applies either way.
+
 Until now staging (the `preview` alias, "Open staging" in Releases) and every
 pull request preview used the **live** Firebase project. Every review click and
 every browser suite run wrote into the same database that holds doctors'

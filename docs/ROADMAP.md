@@ -17,6 +17,7 @@ The master list of every improvement under consideration for LushNote.
    - then the owner promotes it from the admin Releases page
 3. **Add the `WORKFLOWS.md` row first** for any new user-facing pathway (see AGENTS.md).
 4. **Update this file** when an item ships or is dropped: set its status, never delete the row.
+5. **This file feeds the admin console's Roadmap.** Every open row appears there as an Idea in its section's bucket (Admin → Roadmap → "Add any new suggested items" picks up new rows). Keep the table shape `| ID | Item | Now | Fit | Notes | Status |` with no `|` inside a cell; `tests/unit/roadmap.test.ts` checks it.
 
 ## Keys
 - **Now:** **M** = missing in LushNote. **P** = partly there. **✓** = present (listed only where it helps).

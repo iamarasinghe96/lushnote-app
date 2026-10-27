@@ -6,10 +6,11 @@ import { requireAdmin, unauthorized, ownerUid } from '@/lib/adminGuard'
 import { isOwner } from '@/lib/adminAccess'
 import { logToSink } from '@/lib/firestore/systemLogs'
 import {
-  applyStepOp, clean, cleanNotes, isStatus, LIMITS,
+  applyStepOp, backlogIdeas, clean, cleanNotes, isStatus, parseBacklog, LIMITS,
   type Person, type RoadmapItem, type RoadmapStep, type StepOp,
 } from '@/lib/roadmap'
 import { STARTER } from '@/lib/roadmapStarter'
+import BACKLOG_MD from '@/docs/ROADMAP.md'
 
 // The shared roadmap on the admin console's landing page (lib/roadmap.ts).
 // Every admin can read and change all of it; that is the point of it.
@@ -43,6 +44,7 @@ function toItem(id: string, x: Record<string, unknown>): RoadmapItem {
     })),
     updatedAt: millis(x.updatedAt),
     updatedBy: typeof x.updatedBy === 'string' ? x.updatedBy : '',
+    ...(typeof x.backlogId === 'string' ? { backlogId: x.backlogId } : {}),
   }
 }
 
@@ -59,25 +61,42 @@ export async function POST(req: NextRequest) {
     const stamp = { updatedAt: FieldValue.serverTimestamp(), updatedBy: me.name }
 
     if (body.action === 'list') {
-      const snap = await col.limit(500).get()
+      const snap = await col.limit(1000).get()
       return NextResponse.json({ items: snap.docs.map(d => toItem(d.id, d.data())), me })
     }
 
-    // Only into an empty roadmap, so a second click cannot double it.
-    if (body.action === 'seed') {
-      if (!(await col.limit(1).get()).empty) return NextResponse.json({ error: 'The roadmap already has items.' }, { status: 409 })
+    // The starter items, then every open idea from the research backlog
+    // (docs/ROADMAP.md). Adds only what is not there yet, so pressing it again
+    // after the backlog grows brings in just the new rows, and nothing anyone
+    // edited, finished or deleted comes back changed. A deleted suggestion does
+    // come back; mark it Done instead to keep it out of the way.
+    if (body.action === 'addSuggested') {
+      const existing = await col.select('starterKey', 'backlogId', 'title').get()
+      const keys = new Set(existing.docs.map(d => d.get('starterKey')).filter(Boolean))
+      const ids = new Set(existing.docs.map(d => d.get('backlogId')).filter(Boolean))
+      // Starter items added before they carried a key are matched by title.
+      const titles = new Set(existing.docs.map(d => d.get('title')))
       const owner = isOwner(admin.uid, ownerUid())
-      const batch = adminDb().batch()
+      const writes: Record<string, unknown>[] = []
       STARTER.forEach((s, i) => {
-        batch.set(col.doc(), {
-          title: s.title, theme: s.theme, notes: s.notes, status: 'todo', order: (i + 1) * 10,
+        if (keys.has(s.key) || titles.has(s.title)) return
+        writes.push({
+          starterKey: s.key, title: s.title, theme: s.theme, notes: s.notes, status: 'todo', order: (i + 1) * 10,
           owner: s.ownerItem && owner ? me : null,
           steps: s.steps.map(text => ({ id: randomUUID(), text, done: false, owner: null })),
-          ...stamp,
         })
       })
-      await batch.commit()
-      return NextResponse.json({ success: true })
+      for (const idea of backlogIdeas(parseBacklog(BACKLOG_MD))) {
+        if (ids.has(idea.backlogId)) continue
+        writes.push({ ...idea, status: 'idea', owner: null, steps: [] })
+      }
+      // A batch takes at most 500 writes.
+      for (let i = 0; i < writes.length; i += 400) {
+        const batch = adminDb().batch()
+        for (const w of writes.slice(i, i + 400)) batch.set(col.doc(), { ...w, ...stamp })
+        await batch.commit()
+      }
+      return NextResponse.json({ added: writes.length })
     }
 
     if (body.action === 'create') {
@@ -121,7 +140,9 @@ export async function POST(req: NextRequest) {
         if (!snap.exists) return 'That item no longer exists.'
         const current = person(snap.get('owner'))
         if (body.action === 'take' && current && current.uid !== me.uid) return `${current.name || 'Someone'} has already taken this.`
-        tx.update(ref, { owner: body.action === 'take' ? me : null, ...stamp })
+        // Taking an idea is deciding to do it.
+        const promote = body.action === 'take' && snap.get('status') === 'idea' ? { status: 'todo' } : {}
+        tx.update(ref, { owner: body.action === 'take' ? me : null, ...promote, ...stamp })
         return null
       })
       if (refusal) return NextResponse.json({ error: refusal }, { status: 409 })

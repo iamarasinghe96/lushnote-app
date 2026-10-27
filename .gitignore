@@ -52,5 +52,7 @@ ui-debug.log
 storage-debug.log
 # local mode's made-up data (npm run dev:local)
 /.local-data/
+# what the emulators write when a save on exit goes wrong
+firebase-export-*/
 
 tests/e2e/.auth/

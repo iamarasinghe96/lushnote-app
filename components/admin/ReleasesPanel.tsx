@@ -211,6 +211,20 @@ export default function ReleasesPanel() {
                   </div>
                 </div>
 
+                {/* Testing happens on a computer, against local made-up data
+                    (scripts/review.mjs). The command is shown, not run: the
+                    console has no way to start anything on that machine. */}
+                <p className="text-xs text-slate-500">
+                  Test on your computer:{' '}
+                  <button
+                    onClick={() => { void navigator.clipboard?.writeText(`npm run review -- ${pull.number}`).then(() => setNote('Command copied')) }}
+                    title="Copy"
+                    className="font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  >
+                    npm run review -- {pull.number}
+                  </button>
+                </p>
+
                 <div className="flex flex-wrap gap-2">
                   {pull.checks.map(c => {
                     const tone = checkTone(c)
@@ -293,8 +307,10 @@ export default function ReleasesPanel() {
         )}
         {data?.stagingDatabase?.state === 'shared' && (
           <p className="text-xs rounded-lg px-3 py-2 text-amber-900 bg-amber-50 border border-amber-200">
-            Staging is using the live database (<span className="font-mono">{data.stagingDatabase.project}</span>).
-            Anything done on staging, including every browser suite run, writes to the same place doctors&apos; records live.
+            Staging shares the live database (<span className="font-mono">{data.stagingDatabase.project}</span>), so use
+            it to look, not to test anything that saves. Test a change on your own computer with{' '}
+            <span className="font-mono">npm run review -- &lt;number&gt;</span>, which runs it against a local database
+            of made-up data. The browser suite runs that way too.
           </p>
         )}
         {data?.stagingDatabase?.state === 'unknown' && data.stagingUrl && (

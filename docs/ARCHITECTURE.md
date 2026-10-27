@@ -117,12 +117,13 @@ Same for `geminiApiKey`.
 - **Transcript recovery drafts:** `users/{uid}/transcriptDrafts/current` (single doc; only durable copy of an interrupted recording's transcript until it is saved into a named note)
 - **Deletion feedback:** `deletion_feedback/{uid}`
 
-Staging uses a separate project (see "Preview runs on its own Firebase project"
-under Release Pipeline); the values above are production's.
+Staging (the Vercel preview) uses this same project; changes are tested locally
+against emulators instead (see "Testing happens locally" under Release Pipeline).
 
 Version-controlled security rules live in `firestore.rules` (repo root). Deploy with
-`firebase deploy --only firestore:rules`, or paste into the Firebase console. Publish
-to the staging project first, then to `lush-note` after promoting. Each
+`firebase deploy --only firestore:rules`, or paste into the Firebase console. The
+emulators load `firestore.rules` from the repo, so local mode and CI test the
+branch's rules; publish to `lush-note` after promoting. Each
 subcollection needs its OWN `match` block — Firestore rules do NOT cascade from
 `users/{uid}` to `users/{uid}/transcriptDrafts/...`, so a missing block means the
 catch-all `allow read, write: if false` silently denies every access.
@@ -507,36 +508,37 @@ gets one: the real app, built the way production is. A separate staging
 deployment would be a fourth thing to keep in sync, and a locally-started server
 would be testing a different artefact from the one being promoted.
 
-**Preview runs on its own Firebase project.** It used to share the live one, so
-every review click and every browser-suite run wrote into the database that
-holds doctors' patients. Vercel now gives the Preview environment the staging
-project's values for the six `NEXT_PUBLIC_FIREBASE_*` and three
-`FIREBASE_ADMIN_*` variables, and Production keeps the live ones
-(`STAGING_DATABASE_SETUP.md`). Nothing in code enforces the split, only which
-boxes are ticked in Vercel, so `/api/version` reports each deployment's
-`firebaseProject` and the Releases panel compares production's with staging's
-(`lib/stagingDatabase.ts`). It asks both deployments rather than reading its own
-environment, because the panel also runs on staging. The CSP's `frame-src`
-adds the configured auth domain for the same reason: staging's sign-in iframe
-is served from the staging project's domain.
+**Testing happens locally; the preview shares the live database.** The
+preview used to be where changes were tried, which meant every review click and
+every browser-suite run wrote into the database that holds doctors' patients.
+A second Firebase project for it was built for (`STAGING_DATABASE_SETUP.md`), but
+the owner chose local databases instead: each person tests a change on their own
+computer with `npm run review -- <PR number>` (`scripts/review.mjs`), and the
+browser suite runs the same way in CI. The preview stays, for looking. The
+Releases panel still asks production and staging which project they use
+(`/api/version`, `lib/stagingDatabase.ts`) and shows the review command on every
+pull request. The CSP's `frame-src` admits the configured auth domain, so a
+separate staging project would still work if it is ever set up.
 
 **Local mode is the third place the app runs.** `npm run dev:local`
 (`scripts/dev-local.mjs`, guide in `LOCAL_DEVELOPMENT.md`) runs the app on a
 developer's computer against Firebase's emulators, under the `demo-lushnote`
-project, which the emulators never connect to the cloud. It cannot stand in for
-staging: Vercel and GitHub Actions cannot reach a laptop. It is double-locked like
+project, which the emulators never connect to the cloud. Vercel cannot reach a
+laptop, so the preview cannot use it. It is double-locked like
 the AI mock (`lib/localEmulators.ts`): the flag AND being off Vercel (server) or
 on localhost (browser), so a mis-ticked variable in Vercel does nothing. The
 launcher blanks the keys that act on the real world from a laptop: the GitHub
 token (Promote would really merge), live Stripe keys, Slack and SMTP. Made-up
 data is seeded once and kept in `.local-data/` (gitignored) between runs.
 
-**CI never builds the app.** `e2e.yml` triggers on `deployment_status`, waits
-for Vercel, and runs against `environment_url`. Building again in Actions would
-need Firebase and Stripe credentials in GitHub, would double the wait, and would
-test something other than the artefact that goes live. Before opening a browser
-the job asks `/api/version` which commit the preview is serving and fails on a
-mismatch — a green run about the wrong code is worse than no run.
+**The browser suite runs in local mode on the runner.** `e2e.yml` triggers on
+`pull_request`, starts `scripts/dev-local.mjs --reset --prod` (emulators, made-up
+data, `next build` then `next start`) and runs Playwright against it as the
+seeded fixture account. It used to wait for Vercel and test the preview, which
+signed in to the live project on every run. The trade: it no longer exercises
+Vercel's own environment (variables, deployed headers), and it needs no secrets
+at all. Stripe is not configured there, so billing answers `{ disabled: true }`,
+which the billing page must handle (it crashed on it once).
 
 **The mock answers the FIXTURE, not the deployment.** `aiMockEnabled()` says a
 deployment may mock; `mockForCaller(profile)` decides whether a given request
@@ -648,9 +650,15 @@ Billing, Appearance, Releases, Logs & Errors**.
 take an item or a step, and taking one someone else holds is refused until they
 release it. Steps live in their item as one array and every change is applied
 in a transaction to the steps as they are at that moment, so two people
-ticking at once cannot overwrite each other. "Use the starter roadmap" loads
-`lib/roadmapStarter.ts` into an empty list once. `docs/ROADMAP.md` stays the
-research backlog; this is what is actually being worked on.
+ticking at once cannot overwrite each other. Items sit in buckets
+(`BUCKETS` in `lib/roadmap.ts`); a bucket shows its to-dos in full and folds its
+ideas and finished items away. "Add the suggested roadmap" adds the starter
+to-dos (`lib/roadmapStarter.ts`, matched by `starterKey`) and every open row of
+`docs/ROADMAP.md` as an Idea (matched by `backlogId`), only what is not there yet,
+so pressing it again after the backlog grows brings in just the new rows. The
+route imports `docs/ROADMAP.md` as text (`next.config.mjs`, asset/source), so the
+document stays the one copy; `tests/unit/roadmap.test.ts` reads the real file and
+fails if its table shape changes. Taking an idea turns it into a to-do.
 
 **Security model (the wall is the API, not the rules):** the Admin SDK bypasses
 Firestore rules, so every admin route gates through `requireAdmin(req)`

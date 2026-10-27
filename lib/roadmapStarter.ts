@@ -6,6 +6,8 @@
 // public. The research itself is summarised in docs/ROADMAP.md.
 
 export interface StarterItem {
+  /** Stable, so "add suggested items" can tell which are already there. */
+  key: string
   title: string
   theme: string
   notes: string
@@ -16,22 +18,23 @@ export interface StarterItem {
 
 export const STARTER: StarterItem[] = [
   {
-    title: 'Finish the separate staging database',
-    theme: 'Platform',
-    notes: 'Staging still shares the live database until the console setup is done. Steps are in STAGING_DATABASE_SETUP.md.',
+    key: 'local-testing',
+    title: 'Set up local testing on both computers',
+    theme: 'Platform and reliability',
+    notes: 'Changes are tested on our own computers against a local database of made-up data, never on live records. Staging on Vercel shares the live database, so it is for looking only. Guide: LOCAL_DEVELOPMENT.md.',
     steps: [
-      'Create the staging Firebase project (Blaze plan, budget alert)',
-      'Firestore: same location as live, publish rules, add the progress_notes index',
-      'Storage and Authentication (Google, Email/Password, staging domain)',
-      'Vercel: Preview-only values for the nine Firebase variables',
-      'Make the owner admin on staging, provision the test account, update GitHub secrets',
-      'Releases page shows "separate from live"',
+      'Install Node.js 22, Java 21 (Temurin) and Git',
+      'Clone the repository and run npm ci',
+      'Try it: npm run dev:local, sign in at localhost:3000/e2e-login',
+      'Test a pull request: npm run review -- <number>',
+      'Second computer set up the same way',
       'Turn on daily backups for the live database',
     ],
   },
   {
+    key: 'lifecycle-emails',
     title: 'Lifecycle emails: onboarding to offboarding',
-    theme: 'Growth',
+    theme: 'Onboarding, trial and emails',
     notes: 'One designed set of emails for the whole journey, built with React Email so they share one look and can be previewed. Today there are a few plain lifecycle emails (lib/emails, Admin → Emails).\n\nWhat a well-run 14-day trial in the research sent, in order: day 0 a personal welcome from the founder (why the product exists) with a short setup checklist; day 3 the checklist again as four concrete steps; day 7 the next things to connect; day 10 an AI feature spotlight; the day before the end, reassurance that their data carries over, what paid adds, and "need more time? your data is kept safe". On cancelling: access continues to the end of the billing period, data is kept for a stated number of days with a reminder to download it, and a one-click way back; a second email asks for feedback and names what they did not try. Every trial email says how many days are left, and has one clear button.\n\nLushNote\'s trial is three months, so the cadence stretches to fit it.',
     steps: [
       'Move email templates to React Email, with a preview in Admin → Emails',
@@ -48,8 +51,9 @@ export const STARTER: StarterItem[] = [
     ],
   },
   {
+    key: 'paid-ai',
     title: 'LushNote-paid AI for everyone; retire bring-your-own key',
-    theme: 'Product',
+    theme: 'Onboarding, trial and emails',
     notes: 'Asking a new doctor for an AI key is the hardest step in onboarding. Move everyone onto LushNote\'s paid Gemini key so signup is: sign in, set up, start. Fair use and Enterprise already exist for the heavy end.',
     steps: [
       'Cost model: AI cost per doctor per month against the subscription',
@@ -61,8 +65,9 @@ export const STARTER: StarterItem[] = [
     ],
   },
   {
+    key: 'segments',
     title: 'An interface for each kind of user',
-    theme: 'Product',
+    theme: 'Interface and experience',
     notes: 'Intern doctors, psychiatrists and clinics need different things. Pick the features from the research backlog (docs/ROADMAP.md) that matter to each, and design LushNote\'s own way of doing them rather than copying.',
     steps: [
       'Define the segments and what each needs most',
@@ -75,8 +80,9 @@ export const STARTER: StarterItem[] = [
     ],
   },
   {
+    key: 'smoothness',
     title: 'Smoothness: make every screen feel fast',
-    theme: 'Quality',
+    theme: 'Platform and reliability',
     notes: 'Doctors use LushNote between patients. Anything that stalls, flickers or loses their place costs trust.',
     steps: [
       'Measure: page load and interaction times on a mid-range phone',
@@ -88,8 +94,9 @@ export const STARTER: StarterItem[] = [
     ],
   },
   {
+    key: 'marketing',
     title: 'Marketing: clinics and social media',
-    theme: 'Growth',
+    theme: 'Marketing and growth',
     notes: 'Owned by the founder.',
     ownerItem: true,
     steps: [
@@ -100,8 +107,9 @@ export const STARTER: StarterItem[] = [
     ],
   },
   {
+    key: 'encryption',
     title: 'End-to-end encryption',
-    theme: 'Security',
+    theme: 'Security and sign-in',
     notes: 'Decide what "end-to-end" can honestly mean for LushNote: the AI has to read the words to write the note, so a strict scheme where only the doctor holds the key changes what is possible. Start with a written threat model and options, then build.',
     steps: [
       'Threat model: who we protect against, and where data is readable today',
@@ -112,8 +120,9 @@ export const STARTER: StarterItem[] = [
     ],
   },
   {
+    key: 'sign-in',
     title: 'Safer sign-in: more than one way in',
-    theme: 'Security',
+    theme: 'Security and sign-in',
     notes: 'Google only today. Add work email (Microsoft), email codes, and phone with SMS one-time codes, plus two-factor. SMS has a cost per message; check it before turning it on for everyone.',
     steps: [
       'Email sign-in with a one-time code or link',
@@ -122,6 +131,21 @@ export const STARTER: StarterItem[] = [
       'Two-factor authentication',
       'Link methods to existing Google accounts, so nobody gets a second account',
       'Test every method on staging first',
+    ],
+  },
+  {
+    key: 'data-import-export',
+    title: 'Import and export a doctor\'s data',
+    theme: 'Privacy and data',
+    notes: 'A doctor should be able to bring their records in from another system and take everything out again, whenever they like and for a set time after they leave. Today export is one note at a time (PDF or Word). Backlog: PRV-17, PRV-18, PRV-19, PRV-20, LEG-26, SEC-11, DOC-17.',
+    steps: [
+      'Export everything: notes, letters, forms and patients, by date range, as PDF and CSV (PRV-17)',
+      'Confirm identity again before a full export (SEC-11)',
+      'Every export recorded in an audit log the doctor can see (PRV-20)',
+      'Letters export to Word, like notes already do (DOC-17)',
+      'Export window after cancelling, then deletion, stated in the terms (PRV-19, LEG-26)',
+      'Import patients from a CSV file, with a preview before anything is saved (PRV-18)',
+      'Import notes from another system, assisted for the first clinics (PRV-18)',
     ],
   },
 ]

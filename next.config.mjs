@@ -40,6 +40,12 @@ const nextConfig = {
   images: {
     domains: ['lh3.googleusercontent.com'],
   },
+  // docs/ROADMAP.md is read by the admin roadmap as plain text, so the
+  // research backlog has one copy: the document people edit.
+  webpack(config) {
+    config.module.rules.push({ test: /\.md$/, type: 'asset/source' })
+    return config
+  },
   async redirects() {
     return [
       // /app itself has no page. The shell's guard then sends a signed-out
