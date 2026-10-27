@@ -335,14 +335,23 @@ export async function rerunCheck(workflowRunId: number): Promise<void> {
   await gh(`/repos/${owner}/${name}/actions/runs/${workflowRunId}/rerun`, { method: 'POST' })
 }
 
-/** What lushnote.com.au is actually serving right now, asked of the site
- *  itself rather than inferred from a deployment record. */
-export async function liveVersion(siteUrl: string): Promise<{ sha: string; builtAt: string | null } | null> {
+/** What a deployment is actually serving right now, asked of the site itself
+ *  rather than inferred from a deployment record. Used for production and for
+ *  the staging alias. */
+export async function siteVersion(siteUrl: string): Promise<{ sha: string; builtAt: string | null; firebaseProject: string | null } | null> {
   try {
-    const res = await fetch(`${siteUrl.replace(/\/$/, '')}/api/version`, { cache: 'no-store' })
+    // Staging sits behind Vercel's Deployment Protection when that is on, and
+    // this is a server-to-server call with no cookie to get past it. Vercel
+    // exposes the automation bypass to its own deployments; production ignores
+    // the header.
+    const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+    const res = await fetch(`${siteUrl.replace(/\/$/, '')}/api/version`, {
+      cache: 'no-store',
+      headers: bypass ? { 'x-vercel-protection-bypass': bypass } : undefined,
+    })
     if (!res.ok) return null
-    const body = await res.json() as { sha?: string; builtAt?: string | null }
-    return { sha: body.sha ?? 'unknown', builtAt: body.builtAt ?? null }
+    const body = await res.json() as { sha?: string; builtAt?: string | null; firebaseProject?: string | null }
+    return { sha: body.sha ?? 'unknown', builtAt: body.builtAt ?? null, firebaseProject: body.firebaseProject ?? null }
   } catch {
     return null
   }

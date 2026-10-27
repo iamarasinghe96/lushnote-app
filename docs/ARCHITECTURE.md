@@ -117,8 +117,12 @@ Same for `geminiApiKey`.
 - **Transcript recovery drafts:** `users/{uid}/transcriptDrafts/current` (single doc; only durable copy of an interrupted recording's transcript until it is saved into a named note)
 - **Deletion feedback:** `deletion_feedback/{uid}`
 
+Staging uses a separate project (see "Preview runs on its own Firebase project"
+under Release Pipeline); the values above are production's.
+
 Version-controlled security rules live in `firestore.rules` (repo root). Deploy with
-`firebase deploy --only firestore:rules`, or paste into the Firebase console. Each
+`firebase deploy --only firestore:rules`, or paste into the Firebase console. Publish
+to the staging project first, then to `lush-note` after promoting. Each
 subcollection needs its OWN `match` block â€” Firestore rules do NOT cascade from
 `users/{uid}` to `users/{uid}/transcriptDrafts/...`, so a missing block means the
 catch-all `allow read, write: if false` silently denies every access.
@@ -499,10 +503,22 @@ the live site, so a fix for one thing shipped untested next to everything else â
 which is exactly how working features kept breaking.
 
 **The staging environment is the Vercel Preview.** Every branch push already
-gets one: the real app, the real database, built the way production is. A
-separate staging deployment would be a fourth thing to keep in sync, and a
-locally-started server would be testing a different artefact from the one being
-promoted.
+gets one: the real app, built the way production is. A separate staging
+deployment would be a fourth thing to keep in sync, and a locally-started server
+would be testing a different artefact from the one being promoted.
+
+**Preview runs on its own Firebase project.** It used to share the live one, so
+every review click and every browser-suite run wrote into the database that
+holds doctors' patients. Vercel now gives the Preview environment the staging
+project's values for the six `NEXT_PUBLIC_FIREBASE_*` and three
+`FIREBASE_ADMIN_*` variables, and Production keeps the live ones
+(`STAGING_DATABASE_SETUP.md`). Nothing in code enforces the split, only which
+boxes are ticked in Vercel, so `/api/version` reports each deployment's
+`firebaseProject` and the Releases panel compares production's with staging's
+(`lib/stagingDatabase.ts`). It asks both deployments rather than reading its own
+environment, because the panel also runs on staging. The CSP's `frame-src`
+adds the configured auth domain for the same reason: staging's sign-in iframe
+is served from the staging project's domain.
 
 **CI never builds the app.** `e2e.yml` triggers on `deployment_status`, waits
 for Vercel, and runs against `environment_url`. Building again in Actions would

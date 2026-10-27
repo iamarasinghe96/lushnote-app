@@ -50,6 +50,10 @@ session persists. Force-pushing your branch to `preview` is what makes the thing
 under review reachable without a fresh sign-in. One branch at a time, which
 matches promoting one at a time.
 
+**Previews run on a separate Firebase project**, not the live one
+(`STAGING_DATABASE_SETUP.md`). A rules change has to be published to both:
+staging first, live after promoting. Never seed staging with real patient data.
+
 **Two checks must pass**: `quality` (typecheck, unit tests, Firestore rules tests)
 and `e2e` (Playwright against the Vercel preview). Both are required by branch
 protection, so a red one cannot be promoted.
@@ -217,6 +221,7 @@ note pipeline, hospital forms, or anything that writes a patient record.**
 | `MONETIZATION_PLAN.md` | The Stripe build plan, all 8 layers landed. |
 | `PRO_TIER_PLAN.md` | The Pro tier plan: meter, authenticate, route. |
 | `RELEASE_PIPELINE_SETUP.md` | The one-time console setup behind the release flow. |
+| `STAGING_DATABASE_SETUP.md` | The one-time console setup that gives staging its own Firebase project, and live backups. |
 
 **Historical, do not follow:**
 

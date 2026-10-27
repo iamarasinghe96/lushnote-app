@@ -7,8 +7,9 @@ import { requireAdmin, unauthorized } from '@/lib/adminGuard'
 import { logToSink, writeAudit } from '@/lib/firestore/systemLogs'
 import {
   githubConfigured, listOpenPulls, getPull, mainHeadSha, promotePull,
-  deleteBranch, rerunCheck, liveVersion, updatePullBranch, summariseSync,
+  deleteBranch, rerunCheck, siteVersion, updatePullBranch, summariseSync,
 } from '@/lib/github'
+import { stagingDatabase, provisionHere } from '@/lib/stagingDatabase'
 
 // The release surface. Everything a promotion needs to be a considered decision
 // — what is running, what is proposed, whether it was tested — without opening
@@ -112,15 +113,19 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.action === 'overview') {
-      const [head, live, pulls] = await Promise.all([
+      const [head, live, pulls, staging] = await Promise.all([
         mainHeadSha(),
-        liveVersion(SITE_URL),
+        siteVersion(SITE_URL),
         listOpenPulls(),
+        STAGING_URL ? siteVersion(STAGING_URL) : Promise.resolve(null),
       ])
+      const db = stagingDatabase(live?.firebaseProject, staging?.firebaseProject)
       return NextResponse.json({
         configured: true,
         site: SITE_URL,
         stagingUrl: STAGING_URL,
+        stagingDatabase: db,
+        provisionHere: provisionHere(db, process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID),
         mainSha: head,
         liveSha: live?.sha ?? null,
         liveBuiltAt: live?.builtAt ?? null,
