@@ -17,6 +17,10 @@ export function GET() {
       // would make two identical deployments look different.
       builtAt: process.env.BUILT_AT ?? null,
       env: process.env.VERCEL_ENV ?? 'development',
+      // Which Firebase project this deployment reads and writes. Already public
+      // (it is in every page's JavaScript); reported here so the Releases panel
+      // can tell whether staging is on its own database or on the live one.
+      firebaseProject: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? null,
     },
     { headers: { 'Cache-Control': 'no-store' } },
   )

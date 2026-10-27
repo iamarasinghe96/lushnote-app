@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
 import nextConfig from '../../next.config.mjs'
 
 // The Content-Security-Policy is the one piece of configuration that can break a
@@ -62,6 +62,37 @@ describe('Content-Security-Policy', () => {
     expect(d['connect-src']).toContain('https://*.googleapis.com')
     expect(d['script-src']).toContain('https://www.gstatic.com')
     expect(d['frame-src']).toContain('https://lush-note.firebaseapp.com')
+  })
+
+  // Staging runs on its own Firebase project, whose sign-in iframe lives on a
+  // different auth domain. Without it in frame-src the Google sign-in on
+  // staging fails in the browser while every check here stays green.
+  describe('the configured Firebase auth domain', () => {
+    const before = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    afterEach(() => {
+      if (before === undefined) delete process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+      else process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = before
+    })
+
+    it('is allowed to frame the sign-in', async () => {
+      process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = 'lush-note-staging.firebaseapp.com'
+      const frame = (await directives())['frame-src']
+      expect(frame).toContain('https://lush-note-staging.firebaseapp.com')
+      expect(frame).toContain('https://lush-note.firebaseapp.com')
+    })
+
+    it('is not listed twice when it is production\'s', async () => {
+      process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = 'lush-note.firebaseapp.com'
+      const frame = (await directives())['frame-src'].split(/\s+/)
+      expect(frame.filter(s => s === 'https://lush-note.firebaseapp.com')).toHaveLength(1)
+    })
+
+    it('cannot smuggle anything else into the policy', async () => {
+      process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN = 'x.firebaseapp.com; script-src *'
+      const d = await directives()
+      expect(d['frame-src']).not.toContain('x.firebaseapp.com')
+      expect(d['script-src']).not.toContain('*')
+    })
   })
 
   // The reason the policy exists at all. A regression that widened one of these

@@ -1,8 +1,10 @@
 # End-to-end suite
 
 Runs against a URL, never against infrastructure it starts itself. In CI that
-URL is the Vercel Preview deployment for the pull request — the real app on the
-real database, built exactly the way production is.
+URL is the Vercel Preview deployment for the pull request — the real app,
+built exactly the way production is, on the staging Firebase project rather than
+the live one (`STAGING_DATABASE_SETUP.md`). The fixture account therefore has to
+be provisioned from the STAGING admin console.
 
 ```
 npm run test:e2e                      # starts a local dev server with the preview flags

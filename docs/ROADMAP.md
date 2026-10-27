@@ -84,6 +84,8 @@ The master list of every improvement under consideration for LushNote.
 | PRV-24 | Written internal breach-response procedure | P | Core | NDB commitment is stated publicly. | |
 | PRV-25 | Patient-facing privacy notice, separate from the practitioner one | M | Core | | |
 | PRV-26 | Privacy-consent status per patient (accepted / no response / declined) | M | Core | | |
+| PRV-27 | Staging and the browser suite run on their own Firebase project, never on live records | M | Core | Setup in `STAGING_DATABASE_SETUP.md`. The Releases panel says which database staging is on. | built |
+| PRV-28 | Scheduled backups of the live database | ? | Core | Firestore scheduled backups (console only, no code). A staging database is not a backup. See `STAGING_DATABASE_SETUP.md`, last section. | |
 
 ## LEG: Privacy policy and Terms
 Clauses missing or inconsistent in LushNote's `/privacy` and `/terms` (Terms of Service and Privacy Policy).

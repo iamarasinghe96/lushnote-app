@@ -9,6 +9,17 @@ const MOVED_TO_APP = ['generate', 'edit', 'transcript', 'history', 'patients', '
 // 'preview' for every branch build, including the owner's `preview` alias.
 const INDEXABLE = process.env.VERCEL_ENV === 'production'
 
+// Firebase's sign-in iframe is served from the project's auth domain, so the
+// frame-src has to name it. Production's is listed outright; this adds the one
+// the build is configured with, because staging runs on its own Firebase
+// project and its sign-in would otherwise be refused by the browser with
+// nothing on the page to say why. Only a bare hostname is accepted: the value
+// is spliced into the policy, and anything else could widen it.
+function firebaseAuthOrigin() {
+  const host = (process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? '').trim().toLowerCase()
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host) ? `https://${host}` : null
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -66,7 +77,10 @@ const nextConfig = {
       // The card and BECS fields are iframes served from js.stripe.com - that
       // cross-origin boundary is the whole reason the numbers never touch this
       // page. hooks.stripe.com is where a bank's 3DS challenge opens.
-      "frame-src 'self' https://accounts.google.com https://lush-note.firebaseapp.com https://js.stripe.com https://hooks.stripe.com",
+      [
+        "frame-src 'self' https://accounts.google.com https://lush-note.firebaseapp.com https://js.stripe.com https://hooks.stripe.com",
+        firebaseAuthOrigin(),
+      ].filter(s => s && s !== 'https://lush-note.firebaseapp.com').join(' '),
       "frame-ancestors 'none'",
     ].join('; ')
 

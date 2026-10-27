@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import type { PullSummary, CheckSummary } from '@/lib/github'
+import type { StagingDatabase } from '@/lib/stagingDatabase'
 
 const CARD = { background: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', boxShadow: '0 2px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.04)' } as const
 
@@ -11,6 +12,10 @@ interface Overview {
   error?: string
   site: string
   stagingUrl: string
+  stagingDatabase?: StagingDatabase
+  /** False on the live console once staging has its own database: the test
+   *  account has to be made there, where the browser suite signs in. */
+  provisionHere?: boolean
   mainSha: string
   liveSha: string | null
   liveBuiltAt: string | null
@@ -280,6 +285,24 @@ export default function ReleasesPanel() {
           </p>
         </div>
 
+        {data?.stagingDatabase?.state === 'separate' && (
+          <p className="text-xs text-emerald-800">
+            Staging database: <span className="font-mono">{data.stagingDatabase.staging}</span>, separate from
+            live (<span className="font-mono">{data.stagingDatabase.live}</span>).
+          </p>
+        )}
+        {data?.stagingDatabase?.state === 'shared' && (
+          <p className="text-xs rounded-lg px-3 py-2 text-amber-900 bg-amber-50 border border-amber-200">
+            Staging is using the live database (<span className="font-mono">{data.stagingDatabase.project}</span>).
+            Anything done on staging, including every browser suite run, writes to the same place doctors&apos; records live.
+          </p>
+        )}
+        {data?.stagingDatabase?.state === 'unknown' && data.stagingUrl && (
+          <p className="text-xs text-slate-500">
+            Could not ask staging which database it uses. A build from before this check existed cannot say.
+          </p>
+        )}
+
         {credentials ? (
           <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
             <p className="text-xs font-semibold text-amber-900">Copy these into GitHub → Settings → Secrets → Actions</p>
@@ -287,6 +310,15 @@ export default function ReleasesPanel() {
             <p className="text-xs font-mono break-all text-amber-900">E2E_USER_PASSWORD = {credentials.password}</p>
             <button onClick={() => setCredentials(null)} className="text-xs underline text-amber-900">Done, hide this</button>
           </div>
+        ) : data?.provisionHere === false ? (
+          // An account provisioned here would land in the live project, where
+          // the suite never signs in, and the run would keep failing.
+          <p className="text-sm text-slate-700">
+            The test account lives in the staging database now, so provision it from the{' '}
+            <a href={`${data.stagingUrl.replace(/\/$/, '')}/admin?section=releases`} target="_blank" rel="noreferrer" className="underline text-[var(--blue)]">
+              staging admin console
+            </a>.
+          </p>
         ) : (
           <button onClick={() => void provision()} disabled={busy} className="text-sm px-4 py-2 rounded-lg border border-slate-300 text-slate-700 disabled:opacity-50">
             Provision test account
