@@ -26,7 +26,7 @@ interface UserRow {
   entitlementState: EntitlementState
   fairUse: FairUse
 }
-interface UserDetail extends UserRow { noteCount: number; patientCount: number; authDisabled: boolean | null; lastSignIn: number | null }
+interface UserDetail extends UserRow { noteCount: number; patientCount: number; authDisabled: boolean | null; lastSignIn: number | null; adminClaim: boolean }
 
 const day = (ms: number | null) => (ms ? new Date(ms).toLocaleDateString() : '-')
 const dt = (ms: number | null) => (ms ? new Date(ms).toLocaleString() : '-')
@@ -64,6 +64,9 @@ export default function UsersPanel() {
   const [selected, setSelected] = useState<UserDetail | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [busy, setBusy] = useState(false)
+  // Only the owner may grant or revoke admin access; the server says whether
+  // the person looking is the owner, and refuses anyone else regardless.
+  const [viewerIsOwner, setViewerIsOwner] = useState(false)
   // Accounts at or past the warning line, heaviest first. The question an
   // admin opens this panel with when a month's AI bill looks wrong.
   const [fairUseOnly, setFairUseOnly] = useState(false)
@@ -86,7 +89,11 @@ export default function UsersPanel() {
 
   async function openUser(uid: string) {
     setLoadingDetail(true); setSelected(null)
-    try { const r = await call({ action: 'detail', uid }); setSelected((r as { user: UserDetail }).user) }
+    try {
+      const r = await call({ action: 'detail', uid }) as { user: UserDetail; viewerIsOwner?: boolean }
+      setSelected(r.user)
+      setViewerIsOwner(r.viewerIsOwner === true)
+    }
     catch (e) { setToast(e instanceof Error ? e.message : 'Failed to load user') } finally { setLoadingDetail(false) }
   }
 
@@ -142,6 +149,14 @@ export default function UsersPanel() {
       await openUser(u.uid)
       await fetchList()
     } catch (e) { setToast(e instanceof Error ? e.message : 'Action failed') } finally { setBusy(false) }
+  }
+
+  function toggleAdmin(u: UserDetail) {
+    const who = u.displayName || u.email
+    const ok = window.confirm(u.adminClaim
+      ? `Remove admin access from ${who}?\n\nThey are signed out everywhere straight away and lose the admin console. Their own LushNote account is untouched.`
+      : `Give ${who} admin access?\n\nThey will see every doctor's account details and billing, and can suspend or remove accounts and promote releases to live. They will not see notes or patients. They need to sign out and back in once to see the console.`)
+    if (ok) doAction('setAdmin', u.uid, { admin: !u.adminClaim })
   }
 
   function removeUser(u: UserDetail) {
@@ -228,7 +243,7 @@ export default function UsersPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-base font-semibold text-[#0f172a]">{selected.displayName || '(no name)'}</h2>
             <StatusBadge status={selected.status} />
-            {selected.tier === 'admin' && <span className="text-[10px] font-semibold uppercase border rounded-full px-1.5 py-0.5 bg-blue-50 text-[#2563eb] border-blue-200">admin</span>}
+            {(selected.tier === 'admin' || selected.adminClaim) && <span className="text-[10px] font-semibold uppercase border rounded-full px-1.5 py-0.5 bg-blue-50 text-[#2563eb] border-blue-200">admin</span>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <Field label="Email" value={selected.email} />
@@ -363,6 +378,11 @@ export default function UsersPanel() {
               ? <button disabled={busy} onClick={() => doAction('reactivate', selected.uid)} className="px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm disabled:opacity-50">Reactivate</button>
               : <button disabled={busy} onClick={() => doAction('suspend', selected.uid)} className="px-3 py-2 rounded-lg bg-amber-500 text-white text-sm disabled:opacity-50">Suspend</button>}
             <button disabled={busy} onClick={() => { if (window.confirm('Delete this user’s stored files (signature, recordings)?')) doAction('clearStorage', selected.uid) }} className="px-3 py-2 rounded-lg border border-[var(--border)] text-sm text-[#475569] disabled:opacity-50">Clear storage</button>
+            {viewerIsOwner && selected.uid !== user?.uid && (
+              <button disabled={busy} onClick={() => toggleAdmin(selected)} className="px-3 py-2 rounded-lg border border-[var(--border)] text-sm text-[#475569] disabled:opacity-50">
+                {selected.adminClaim ? 'Remove admin access' : 'Give admin access'}
+              </button>
+            )}
             <button disabled={busy} onClick={() => removeUser(selected)} className="px-3 py-2 rounded-lg bg-red-600 text-white text-sm disabled:opacity-50 ml-auto">Remove user</button>
           </div>
         </div>

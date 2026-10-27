@@ -1,6 +1,7 @@
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
+import { serverUsesEmulators, EMULATOR_PROJECT_ID } from '@/lib/localEmulators'
 
 // NOTE: do NOT import 'firebase-admin/auth' here. It pulls in jwks-rsa → jose,
 // which is ESM-only and crashes with ERR_REQUIRE_ESM at runtime on Vercel's
@@ -9,6 +10,11 @@ import { getStorage } from 'firebase-admin/storage'
 // in firebase-admin-auth.ts and is imported only by the admin route.
 export function getAdminApp(): App {
   if (getApps().length > 0) return getApps()[0]
+  // Local mode. The SDK finds the emulators through the *_EMULATOR_HOST
+  // variables scripts/dev-local.mjs sets, and needs no credential for them.
+  if (serverUsesEmulators(process.env)) {
+    return initializeApp({ projectId: EMULATOR_PROJECT_ID, storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET })
+  }
   return initializeApp({
     credential: cert({
       projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,

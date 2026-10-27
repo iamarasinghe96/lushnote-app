@@ -221,6 +221,7 @@ note pipeline, hospital forms, or anything that writes a patient record.**
 | `MONETIZATION_PLAN.md` | The Stripe build plan, all 8 layers landed. |
 | `PRO_TIER_PLAN.md` | The Pro tier plan: meter, authenticate, route. |
 | `RELEASE_PIPELINE_SETUP.md` | The one-time console setup behind the release flow. |
+| `LOCAL_DEVELOPMENT.md` | Running the whole app on your own computer with made-up data (`npm run dev:local`). Start here if you are new. |
 | `STAGING_DATABASE_SETUP.md` | The one-time console setup that gives staging its own Firebase project, and live backups. |
 
 **Historical, do not follow:**

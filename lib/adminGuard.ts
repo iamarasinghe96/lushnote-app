@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminAuth } from '@/lib/firebase-admin-auth'
 import type { DecodedIdToken } from 'firebase-admin/auth'
+import { hasAdminAccess } from '@/lib/adminAccess'
 
 // Bootstrap seed: the very first admin, before any custom claim is set. Once the
 // `admin:true` claim exists (scripts/set-admin-claim.mjs), the claim is the source
@@ -27,9 +28,13 @@ export async function requireAdmin(req: NextRequest): Promise<DecodedIdToken> {
     throw new AdminAuthError('invalid token')
   }
 
-  const isAdmin = decoded.admin === true || (!!ADMIN_UID && decoded.uid === ADMIN_UID)
-  if (!isAdmin) throw new AdminAuthError('not an admin')
+  if (!hasAdminAccess(decoded.uid, decoded, ADMIN_UID)) throw new AdminAuthError('not an admin')
   return decoded
+}
+
+/** The owner's uid, for the checks in lib/adminAccess.ts. */
+export function ownerUid(): string {
+  return ADMIN_UID
 }
 
 // Any signed-in doctor, for routes that act only on the caller's OWN account.

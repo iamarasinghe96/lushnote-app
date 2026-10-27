@@ -1403,3 +1403,32 @@ These exist and are unprotected. Each becomes a section here as it is specified:
 `patient-search` ❌ · `history` ❌ ·
 `mode-transitions` (note ↔ letter ↔ form) ❌ · `settings-panels` ⚠️ ·
 `billing-states` ⚠️ · `note-scan` OCR key routing ⚠️
+
+---
+
+## `admin-access` - the owner gives someone the admin console
+
+**Entry:** `/admin?section=users`, an account's card. **Ends at:** that person
+using the admin console, or no longer able to.
+
+| # | Step | Who | What the code does | Required to continue |
+|---|---|---|---|---|
+| 1 | Give admin access | Owner | `setAdmin` sets the `admin:true` claim, keeping any other claims, and audits `user.grantAdmin`. Refused for anyone but the owner, and for the owner's own account | the owner (`ADMIN_UID`) |
+| 2 | Sign out and back in | New admin | The claim arrives with the next ID token; `useIsAdmin` then shows the Admin Console link and the console | a fresh sign-in |
+| 3 | Use the console | New admin | Every admin API verifies the token and the claim on the server. The Give/Remove admin button is not shown to them, and is refused if sent | admin claim |
+| 4 | Remove admin access | Owner | Claim removed, refresh tokens revoked, audited `user.revokeAdmin`. The next admin call from an open session gets 401 | the owner |
+
+### Expected outputs - what must remain true
+
+- The owner is always an admin, and nothing inside the app can change that.
+- Only the owner can grant or revoke. An admin cannot make admins, or keep themselves one.
+- A revoked admin is out at once, not an hour later.
+- An admin never sees notes or patients, only counts.
+
+### What protects it
+
+`tests/unit/admin-access.test.ts` (who may enter, who may grant).
+
+**Not protected**: the round trip through Firebase Auth (claim set, token
+refreshed, revoked session refused). Checked by hand in local mode when this was
+built.

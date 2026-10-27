@@ -20,6 +20,15 @@ function firebaseAuthOrigin() {
   return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host) ? `https://${host}` : null
 }
 
+// Local mode (npm run dev:local) talks to Firebase's emulators over plain http
+// on this machine. Same double lock as lib/localEmulators.ts, which this file
+// cannot import: the flag, and not being on Vercel. A build on Vercel never
+// gets these hosts in its policy, whatever is ticked there.
+function emulatorOrigins() {
+  if (process.env.NEXT_PUBLIC_USE_EMULATORS !== '1' || process.env.VERCEL) return []
+  return ['127.0.0.1', 'localhost'].flatMap(h => [9099, 8080, 9199].map(p => `http://${h}:${p}`))
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -40,6 +49,7 @@ const nextConfig = {
     ]
   },
   async headers() {
+    const local = emulatorOrigins()
     const csp = [
       "default-src 'self'",
       // js.stripe.com is where loadStripe() injects its script tag. Without it
@@ -53,7 +63,7 @@ const nextConfig = {
       // blob: is needed for locally-created previews (the scanned-page thumbnails
       // come from URL.createObjectURL and were being blocked outright). Same
       // origin-only guarantee as media-src/worker-src, which already allow it.
-      "img-src 'self' data: blob: https:",
+      ["img-src 'self' data: blob: https:", ...local].join(' '),
       [
         "connect-src 'self'",
         "https://*.googleapis.com",
@@ -71,6 +81,7 @@ const nextConfig = {
         // payment but does weaken the check on it.
         "https://api.stripe.com",
         "https://r.stripe.com",
+        ...local,
       ].join(' '),
       "media-src 'self' blob:",
       "worker-src 'self' blob:",
@@ -80,6 +91,7 @@ const nextConfig = {
       [
         "frame-src 'self' https://accounts.google.com https://lush-note.firebaseapp.com https://js.stripe.com https://hooks.stripe.com",
         firebaseAuthOrigin(),
+        ...local,
       ].filter(s => s && s !== 'https://lush-note.firebaseapp.com').join(' '),
       "frame-ancestors 'none'",
     ].join('; ')

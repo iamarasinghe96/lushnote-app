@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 import type { ReactNode } from 'react'
 import DashboardPanel from '@/components/admin/DashboardPanel'
 import UsersPanel from '@/components/admin/UsersPanel'
@@ -18,8 +19,6 @@ import LogsPanel from '@/components/admin/LogsPanel'
 import BackButton from '@/components/ui/BackButton'
 import { useUrlTab, withParam } from '@/hooks/useUrlTab'
 import { SECTIONS, PINNED, OVERFLOW, isSectionKey, type SectionKey } from '@/lib/adminSections'
-
-const ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID ?? ''
 
 // Each entry takes the ?q= deep-link value so a section can open pre-filtered
 // (Users hands a uid to Logs). Still one map — add a section by adding an entry
@@ -59,7 +58,8 @@ export default function AdminPage() {
 }
 
 function AdminConsole() {
-  const { user, loading } = useAuth()
+  const { loading } = useAuth()
+  const isAdmin = useIsAdmin()
   const router = useRouter()
   // Reads ?section= on arrival AND writes it on every switch, so the address
   // bar always names the panel on screen. It used to only read, so the URL
@@ -114,16 +114,16 @@ function AdminConsole() {
 
   // useUrlTab owns ?section= now; this only guards the route and picks up ?q=.
   useEffect(() => {
-    if (loading) return
-    if (!user || user.uid !== ADMIN_UID) router.replace('/')
+    if (loading || isAdmin === null) return
+    if (!isAdmin) router.replace('/')
     else if (typeof window !== 'undefined') {
       setDeepLinkQuery(new URLSearchParams(window.location.search).get('q') ?? '')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, user])
+  }, [loading, isAdmin])
 
-  if (loading) return <Spinner />
-  if (!user || user.uid !== ADMIN_UID) return null
+  if (loading || isAdmin === null) return <Spinner />
+  if (!isAdmin) return null
 
   return (
     <div className="h-dvh overflow-y-auto overflow-x-hidden bg-[#f8fafc]">

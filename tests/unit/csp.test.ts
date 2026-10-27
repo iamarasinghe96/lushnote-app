@@ -95,6 +95,42 @@ describe('Content-Security-Policy', () => {
     })
   })
 
+  // Local mode talks to Firebase's emulators over plain http on the developer's
+  // machine. Those hosts must reach a local build and never a Vercel one: on a
+  // deployment they would let any page talk to whatever answers on localhost.
+  describe('local emulator hosts', () => {
+    const flag = process.env.NEXT_PUBLIC_USE_EMULATORS
+    const vercel = process.env.VERCEL
+    afterEach(() => {
+      if (flag === undefined) delete process.env.NEXT_PUBLIC_USE_EMULATORS
+      else process.env.NEXT_PUBLIC_USE_EMULATORS = flag
+      if (vercel === undefined) delete process.env.VERCEL
+      else process.env.VERCEL = vercel
+    })
+
+    it('are allowed in local mode', async () => {
+      process.env.NEXT_PUBLIC_USE_EMULATORS = '1'
+      delete process.env.VERCEL
+      const d = await directives()
+      expect(d['connect-src']).toContain('http://127.0.0.1:8080')
+      expect(d['frame-src']).toContain('http://127.0.0.1:9099')
+      expect(d['img-src']).toContain('http://127.0.0.1:9199')
+    })
+
+    it('never reach a Vercel build, even with the flag ticked', async () => {
+      process.env.NEXT_PUBLIC_USE_EMULATORS = '1'
+      process.env.VERCEL = '1'
+      const d = await directives()
+      for (const name of ['connect-src', 'frame-src', 'img-src']) expect(d[name]).not.toContain('http://')
+    })
+
+    it('are absent without the flag', async () => {
+      delete process.env.NEXT_PUBLIC_USE_EMULATORS
+      delete process.env.VERCEL
+      expect((await directives())['connect-src']).not.toContain('http://')
+    })
+  })
+
   // The reason the policy exists at all. A regression that widened one of these
   // to * would leave every assertion above passing.
   it('does not fall back to allowing anything', async () => {
