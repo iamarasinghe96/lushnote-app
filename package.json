@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:local": "node scripts/dev-local.mjs",
+    "review": "node scripts/review.mjs",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",

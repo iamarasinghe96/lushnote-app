@@ -14,13 +14,12 @@ everyone who works on LushNote, not only AI agents.
 
 | | Local mode (this file) | Staging | Live |
 |---|---|---|---|
-| Where | your computer | Vercel preview, "Open staging" | lushnote.com.au |
-| Database | Firebase emulators, made-up data | the staging Firebase project, made-up data | real doctors and patients |
-| For | writing and trying code | reviewing a finished change | doctors |
-| Who | whoever is coding | the owner, and the browser suite | everyone |
+| Where | your computer, and GitHub's test runner | Vercel preview, "Open staging" | lushnote.com.au |
+| Database | Firebase emulators, made-up data | **the live database** | real doctors and patients |
+| For | writing code, and testing every change before it is promoted | a quick look only | doctors |
 
-Local mode cannot replace staging. Vercel and GitHub cannot reach a laptop, and
-staging has to be up when the owner reviews from their phone.
+Each of us tests on our own computer. Staging shares the live database, so
+nothing that saves data is tried there.
 
 ---
 
@@ -39,6 +38,18 @@ staging has to be up when the owner reviews from their phone.
    ```
 
 ---
+
+## Testing a pull request
+
+```
+npm run review -- 81
+```
+
+Fetches pull request #81, installs packages if they changed, and starts it in
+local mode at http://localhost:3000 (sign in as below). The Releases page shows
+the exact command on every pull request. When you are done: **Ctrl+C**, then
+`git checkout main`. It refuses to run over uncommitted changes, so nothing of
+yours gets mixed in.
 
 ## Every day
 

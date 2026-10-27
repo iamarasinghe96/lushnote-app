@@ -18,17 +18,16 @@ export interface StarterItem {
 
 export const STARTER: StarterItem[] = [
   {
-    key: 'staging',
-    title: 'Finish the separate staging database',
+    key: 'local-testing',
+    title: 'Set up local testing on both computers',
     theme: 'Platform and reliability',
-    notes: 'Staging still shares the live database until the console setup is done. Steps are in STAGING_DATABASE_SETUP.md.',
+    notes: 'Changes are tested on our own computers against a local database of made-up data, never on live records. Staging on Vercel shares the live database, so it is for looking only. Guide: LOCAL_DEVELOPMENT.md.',
     steps: [
-      'Create the staging Firebase project (Blaze plan, budget alert)',
-      'Firestore: same location as live, publish rules, add the progress_notes index',
-      'Storage and Authentication (Google, Email/Password, staging domain)',
-      'Vercel: Preview-only values for the nine Firebase variables',
-      'Make the owner admin on staging, provision the test account, update GitHub secrets',
-      'Releases page shows "separate from live"',
+      'Install Node.js 22, Java 21 (Temurin) and Git',
+      'Clone the repository and run npm ci',
+      'Try it: npm run dev:local, sign in at localhost:3000/e2e-login',
+      'Test a pull request: npm run review -- <number>',
+      'Second computer set up the same way',
       'Turn on daily backups for the live database',
     ],
   },

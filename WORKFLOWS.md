@@ -119,8 +119,8 @@ had touched signup. Fixed by making `noPrivilegeEscalation()` test absence
 against absence, and pinned by the rules tests so it cannot return.
 
 **Firestore rules do not deploy with Vercel.** A rules change needs
-`firebase deploy --only firestore:rules` after promoting, and to the staging
-project before it, or staging tests against the old rules.
+`firebase deploy --only firestore:rules` after promoting. Local mode and CI's
+emulators load the branch's `firestore.rules`, so those test the new rules first.
 
 ---
 

@@ -90,8 +90,9 @@ exists anywhere except the preview-only test page.
 
 **lushnote.com.au/admin?section=releases → Setup → Provision test account**
 
-Once staging has its own Firebase project (`STAGING_DATABASE_SETUP.md`), do this
-on the **staging** admin console instead: the browser suite signs in there.
+**No longer needed.** The browser suite now runs in local mode with a made-up
+account (`.github/workflows/e2e.yml`), so steps 4 and 5's `E2E_USER_*` secrets
+are unused and can be deleted from GitHub.
 
 You get an email and a password. **Copy both now** — the password is shown once
 and is not stored anywhere it can be read back. Pressing the button again is

@@ -4,6 +4,9 @@
 //   npm run dev:local -- --reset      start again from fresh made-up data
 //   npm run dev:local -- --real-ai    use the AI keys in .env.local instead of
 //                                     canned replies
+//   npm run dev:local -- --prod       build and serve the production build
+//                                     instead of the dev server (what CI's
+//                                     browser suite runs against)
 //
 // Then open http://localhost:3000/e2e-login and sign in as
 // admin@lushnote.local / local-admin. LOCAL_DEVELOPMENT.md has the rest.
@@ -29,6 +32,7 @@ const DATA_DIR = join(ROOT, '.local-data')
 const args = process.argv.slice(2)
 const RESET = args.includes('--reset')
 const REAL_AI = args.includes('--real-ai')
+const PROD = args.includes('--prod')
 
 // Mirrors lib/localEmulators.ts, which a plain .mjs script cannot import.
 const PROJECT_ID = 'demo-lushnote'
@@ -151,7 +155,16 @@ await (await import('./seed-local.mjs')).seed({ projectId: PROJECT_ID, admin: AD
 
 // ── The app ──────────────────────────────────────────────────────────────────
 const nextBin = join(dirname(require.resolve('next/package.json')), 'dist', 'bin', 'next')
-nextDev = spawn(process.execPath, [nextBin, 'dev'], { cwd: ROOT, env, stdio: 'inherit' })
+if (PROD) {
+  say('Building the app the way production does...')
+  const built = spawnSync(process.execPath, [nextBin, 'build'], { cwd: ROOT, env, stdio: 'inherit' })
+  if (built.status !== 0) {
+    stopping = true
+    emulators.kill('SIGINT')
+    fail('The build failed. The messages above say why.')
+  }
+}
+nextDev = spawn(process.execPath, [nextBin, PROD ? 'start' : 'dev'], { cwd: ROOT, env, stdio: 'inherit' })
 nextDev.on('exit', () => {
   if (emulators.exitCode === null) { stopping = true; emulators.kill('SIGINT') }
 })

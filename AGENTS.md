@@ -50,13 +50,17 @@ session persists. Force-pushing your branch to `preview` is what makes the thing
 under review reachable without a fresh sign-in. One branch at a time, which
 matches promoting one at a time.
 
-**Previews run on a separate Firebase project**, not the live one
-(`STAGING_DATABASE_SETUP.md`). A rules change has to be published to both:
-staging first, live after promoting. Never seed staging with real patient data.
+**Staging shares the live database. Changes are tested locally.** The owner
+chose local databases over a second Firebase project: a change is tried on a
+computer with `npm run review -- <PR number>`, which runs it against Firebase's
+emulators with made-up data (`LOCAL_DEVELOPMENT.md`). The Vercel preview is for
+looking only; anything done there that saves data saves it to live. Test it
+locally first, and say in the pull request when a change needs that.
 
 **Two checks must pass**: `quality` (typecheck, unit tests, Firestore rules tests)
-and `e2e` (Playwright against the Vercel preview). Both are required by branch
-protection, so a red one cannot be promoted.
+and `e2e` (Playwright against the app in local mode on the runner, production
+build, emulators). Both are required by branch protection, so a red one cannot
+be promoted.
 
 **A push does not always start `quality`.** It triggers on `pull_request`, not
 `push`. After pushing to an existing pull request, check the run exists rather
@@ -222,7 +226,7 @@ note pipeline, hospital forms, or anything that writes a patient record.**
 | `PRO_TIER_PLAN.md` | The Pro tier plan: meter, authenticate, route. |
 | `RELEASE_PIPELINE_SETUP.md` | The one-time console setup behind the release flow. |
 | `LOCAL_DEVELOPMENT.md` | Running the whole app on your own computer with made-up data (`npm run dev:local`). Start here if you are new. |
-| `STAGING_DATABASE_SETUP.md` | The one-time console setup that gives staging its own Firebase project, and live backups. |
+| `STAGING_DATABASE_SETUP.md` | Not in use: the owner chose local testing instead. Kept in case staging ever gets its own Firebase project. Its last section (live backups) still applies. |
 
 **Historical, do not follow:**
 
