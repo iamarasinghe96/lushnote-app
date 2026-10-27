@@ -648,9 +648,15 @@ Billing, Appearance, Releases, Logs & Errors**.
 take an item or a step, and taking one someone else holds is refused until they
 release it. Steps live in their item as one array and every change is applied
 in a transaction to the steps as they are at that moment, so two people
-ticking at once cannot overwrite each other. "Use the starter roadmap" loads
-`lib/roadmapStarter.ts` into an empty list once. `docs/ROADMAP.md` stays the
-research backlog; this is what is actually being worked on.
+ticking at once cannot overwrite each other. Items sit in buckets
+(`BUCKETS` in `lib/roadmap.ts`); a bucket shows its to-dos in full and folds its
+ideas and finished items away. "Add the suggested roadmap" adds the starter
+to-dos (`lib/roadmapStarter.ts`, matched by `starterKey`) and every open row of
+`docs/ROADMAP.md` as an Idea (matched by `backlogId`), only what is not there yet,
+so pressing it again after the backlog grows brings in just the new rows. The
+route imports `docs/ROADMAP.md` as text (`next.config.mjs`, asset/source), so the
+document stays the one copy; `tests/unit/roadmap.test.ts` reads the real file and
+fails if its table shape changes. Taking an idea turns it into a to-do.
 
 **Security model (the wall is the API, not the rules):** the Admin SDK bypasses
 Firestore rules, so every admin route gates through `requireAdmin(req)`
